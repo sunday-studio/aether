@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
+import { parseActivityFromText } from '@/schema/activity.schema';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useState } from 'react';
 import { Button, ScrollView, View } from 'react-native';
@@ -6,6 +7,7 @@ import { Button, ScrollView, View } from 'react-native';
 export default function App() {
   const [recognizing, setRecognizing] = useState(false);
   const [transcript, setTranscript] = useState('');
+
   useSpeechRecognitionEvent('start', () => setRecognizing(true));
   useSpeechRecognitionEvent('end', () => setRecognizing(false));
   useSpeechRecognitionEvent('result', (event) => {
@@ -30,6 +32,14 @@ export default function App() {
     });
   };
 
+  const handleStop = async () => {
+    console.log('stopping recognition');
+    ExpoSpeechRecognitionModule.stop();
+
+    const activity = await parseActivityFromText(transcript);
+    console.log(activity);
+  };
+
   return (
     <View
       style={{
@@ -45,10 +55,9 @@ export default function App() {
       {!recognizing ? (
         <Button title="Start" onPress={handleStart} />
       ) : (
-        <Button title="Stop" onPress={() => ExpoSpeechRecognitionModule.stop()} />
+        <Button title="Stop" onPress={handleStop} />
       )}
 
-      <ThemedText style={{ textAlign: 'center' }}>Hello wrold</ThemedText>
       <ScrollView
         contentContainerStyle={{
           alignItems: 'center',

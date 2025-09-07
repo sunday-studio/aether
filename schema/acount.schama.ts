@@ -1,8 +1,8 @@
 import { co } from 'jazz-tools';
-import { Activity } from './activity.schema';
+import { ActivityLog } from './activity.schema';
 
 const Root = co.map({
-  activities: co.list(Activity),
+  activities: co.list(ActivityLog),
 });
 
 export const AppAccount = co.account({
