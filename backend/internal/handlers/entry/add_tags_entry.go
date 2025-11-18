@@ -8,6 +8,18 @@ import (
 	"gorm.io/gorm"
 )
 
+// AddTagsToEntry godoc
+// @Summary Add tags to an entry
+// @Tags Entries
+// @Accept json
+// @Produce json
+// @Param id path string true "Entry ID"
+// @Param tags body []string true "List of tag names"
+// @Success 200 {object} db.Entry
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /entry/{id}/tags [post]
 func (h *EntryHandler) AddTagsToEntry(c *fiber.Ctx) error {
 	entryID := c.Params("id")
 	if entryID == "" || !utils.IsValidID(entryID, "entry") {

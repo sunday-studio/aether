@@ -7,6 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// DeleteEntry godoc
+// @Summary Delete an entry (soft delete)
+// @Tags Entries
+// @Produce json
+// @Param id path string true "Entry ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /entry/{id} [delete]
 func (e *EntryHandler) DeleteEntry(c *fiber.Ctx) error {
 	var entry db.Entry
 	if err := e.db.First(&entry, "id = ? AND is_deleted = ?", c.Params("id"), false).Error; err != nil {

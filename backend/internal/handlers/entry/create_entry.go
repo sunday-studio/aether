@@ -4,18 +4,31 @@ import (
 	"aether/internal/db"
 	"aether/internal/logging"
 	"aether/internal/utils"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type CreateEntryPayload struct {
 	Document   string    `json:"document"`
+	Date       time.Time `json:"date"`
 	IsPinned   *bool     `json:"isPinned"`
 	IsArchived *bool     `json:"isArchived"`
 	IsDeleted  *bool     `json:"isDeleted"`
 	Tags       *[]string `json:"tags"`
 }
 
+// CreateEntry godoc
+// @Summary Create a new entry
+// @Description Creates a new entry with optional tags
+// @Tags Entries
+// @Accept json
+// @Produce json
+// @Param entry body handlers.CreateEntryPayload true "Entry payload"
+// @Success 200 {object} db.Entry
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /entry [post]
 func (e *EntryHandler) CreateEntry(c *fiber.Ctx) error {
 	var payload CreateEntryPayload
 	logger := logging.NewLogger()
@@ -26,6 +39,7 @@ func (e *EntryHandler) CreateEntry(c *fiber.Ctx) error {
 	entry := db.Entry{
 		ID:         utils.GenerateID("entry"),
 		Document:   payload.Document,
+		CreatedAt:  payload.Date,
 		IsPinned:   payload.IsPinned != nil && *payload.IsPinned,
 		IsArchived: payload.IsArchived != nil && *payload.IsArchived,
 		IsDeleted:  payload.IsDeleted != nil && *payload.IsDeleted,

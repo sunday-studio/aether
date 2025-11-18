@@ -7,6 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// GetEntries godoc
+// @Summary Get all entries
+// @Description Returns all non-deleted entries
+// @Tags Entries
+// @Produce json
+// @Success 200 {array} db.Entry
+// @Failure 500 {object} map[string]string
+// @Router /entry [get]
 func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 	var entries []db.Entry
 	if err := e.db.Where("is_deleted = ?", false).Find(&entries).Error; err != nil {
@@ -15,6 +23,16 @@ func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 	return c.JSON(entries)
 }
 
+// GetEntryByID godoc
+// @Summary Get entry by ID
+// @Description Returns a single entry by its ID
+// @Tags Entries
+// @Produce json
+// @Param id path string true "Entry ID"
+// @Success 200 {object} db.Entry
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /entry/{id} [get]
 func (e *EntryHandler) GetEntryByID(c *fiber.Ctx) error {
 	var entry db.Entry
 	if err := e.db.First(&entry, "id = ? AND is_deleted = ?", c.Params("id"), false).Error; err != nil {

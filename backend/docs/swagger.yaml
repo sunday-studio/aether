@@ -1,0 +1,263 @@
+basePath: /v1
+definitions:
+  db.Entry:
+    properties:
+      createdAt:
+        type: string
+      document:
+        type: string
+      id:
+        type: string
+      isArchived:
+        type: boolean
+      isDeleted:
+        type: boolean
+      isPinned:
+        type: boolean
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  db.Tag:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  handlers.CreateEntryPayload:
+    properties:
+      date:
+        type: string
+      document:
+        type: string
+      isArchived:
+        type: boolean
+      isDeleted:
+        type: boolean
+      isPinned:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+info:
+  contact: {}
+  description: something, something to write in
+  title: Aether API
+  version: "1.0"
+paths:
+  /entry:
+    get:
+      description: Returns all non-deleted entries
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Entry'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all entries
+      tags:
+      - Entries
+    post:
+      consumes:
+      - application/json
+      description: Creates a new entry with optional tags
+      parameters:
+      - description: Entry payload
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEntryPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new entry
+      tags:
+      - Entries
+  /entry/{id}:
+    delete:
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an entry (soft delete)
+      tags:
+      - Entries
+    get:
+      description: Returns a single entry by its ID
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get entry by ID
+      tags:
+      - Entries
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated entry payload
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEntryPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an entry
+      tags:
+      - Entries
+  /entry/{id}/tags:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag names
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add tags to an entry
+      tags:
+      - Entries
+swagger: "2.0"

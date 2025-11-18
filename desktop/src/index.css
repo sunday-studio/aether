@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+.debug {
+  outline: 1px dotted red;
+}
+
+.debug * {
+  outline: 1px dotted blue;
+}

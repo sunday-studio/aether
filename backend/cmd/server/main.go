@@ -1,5 +1,10 @@
 package main
 
+// @title        Aether API
+// @version      1.0
+// @description  something, something to write in
+// @BasePath     /v1
+
 import (
 	"log"
 
@@ -7,6 +12,7 @@ import (
 	"aether/internal/db"
 
 	"github.com/gofiber/fiber/v2"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
 func main() {
@@ -20,6 +26,9 @@ func main() {
 	}
 
 	app := fiber.New()
+
+	// Swagger UI
+	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	api.RegisterRoutes(app, database)
 
