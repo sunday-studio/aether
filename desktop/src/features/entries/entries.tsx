@@ -1,13 +1,10 @@
-import {useGetEntry} from "~/aether-sdk";
+// import { useGetEntry } from "~/aether-sdk";
+import { Timeline } from "./components/timeline";
 
 export const Entries = () => {
-  const {data, isLoading, error} = useGetEntry();
-
-  console.log(data, isLoading, error);
-
-  return (
-    <main className="bg-neutral-100 w-screen h-screen debug">
-      <p className="text-2xl">Hello world, Inter from the year</p>
-    </main>
-  );
+	return (
+		<main className="w-screen h-screen">
+			<Timeline />
+		</main>
+	);
 };
