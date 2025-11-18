@@ -43,7 +43,7 @@ func Migrate(db *gorm.DB) error {
 
 	log.Info("Running database migrations")
 
-	if err := db.AutoMigrate(&Entry{}); err != nil {
+	if err := db.AutoMigrate(&Entry{}, &Tag{}); err != nil {
 		log.Error("Migration failed", "error", err)
 		return err
 	}

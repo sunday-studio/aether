@@ -7,7 +7,7 @@ import (
 )
 
 type Entry struct {
-	ID         uint           `json:"id" gorm:"primaryKey"`
+	ID         string         `json:"id" gorm:"primaryKey"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
 	DeletedAt  gorm.DeletedAt `json:"deletedAt" gorm:"index"`
@@ -15,4 +15,13 @@ type Entry struct {
 	IsPinned   bool           `json:"isPinned" gorm:"default:false"`
 	IsArchived bool           `json:"isArchived" gorm:"default:false"`
 	IsDeleted  bool           `json:"isDeleted" gorm:"default:false"`
+	Tags       *[]Tag         `json:"tags" gorm:"many2many:entry_tags;"`
+}
+
+type Tag struct {
+	ID        string         `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
+	Name      string         `json:"name" gorm:"not null"`
 }
