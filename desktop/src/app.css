@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--color-neutral-800);
+}
+
+.debug {
+  outline: 1px dotted red;
+}
+
+.debug * {
+  outline: 1px dotted blue;
+}
+
+.newreader-font {
+  font-family: "Newsreader", serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-weight: 200 800;
+}
+
+.inter-font {
+  font-family: "Inter", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 100 900;
+  font-style: normal;
+}

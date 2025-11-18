@@ -5,10 +5,18 @@ import (
 	tagHandlers "aether/internal/handlers/tag"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"gorm.io/gorm"
 )
 
 func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
+	// Add CORS middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+	}))
+
 	entryHandler := entryHandlers.NewEntryHandler(gormDB)
 	tagHandler := tagHandlers.NewTagsHandler(gormDB)
 
