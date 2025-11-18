@@ -15,7 +15,7 @@ type Entry struct {
 	IsPinned   bool           `json:"isPinned" gorm:"default:false"`
 	IsArchived bool           `json:"isArchived" gorm:"default:false"`
 	IsDeleted  bool           `json:"isDeleted" gorm:"default:false"`
-	Tags       *[]Tag         `json:"tags" gorm:"many2many:entry_tags;"`
+	Tags       []Tag          `json:"tags" gorm:"many2many:entry_tags;" default:"[]"`
 }
 
 type Tag struct {
