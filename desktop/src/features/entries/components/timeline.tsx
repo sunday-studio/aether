@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { RefObject, useEffect, useRef, useState } from "react";
 import { format, addDays, isToday } from "date-fns";
 import { triggerHapticFeedback } from "~/utils/haptic";
-
+import { AnimatePresence } from "motion/react";
 import { TimelineEntry } from "./timeline-entry";
+
+import { useGetEntry } from "~/aether-sdk";
+import { normalizeEntries } from "../entries.domain";
 
 export const Timeline = () => {
 	const today = new Date();
@@ -11,6 +14,12 @@ export const Timeline = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const todayRef = useRef<HTMLDivElement>(null);
 	const isLoadingRef = useRef(false);
+
+	const { data: entries } = useGetEntry();
+
+	const normalizedEntries = normalizeEntries(entries?.data ?? []);
+
+	console.log(normalizedEntries);
 
 	// Scroll to today on first mount
 	useEffect(() => {
@@ -84,33 +93,15 @@ export const Timeline = () => {
 		<div
 			ref={containerRef}
 			onScroll={onScroll}
-			className="h-full overflow-y-scroll bg-gray-50 px-4 py-8"
+			className="h-full overflow-y-scroll bg-gray-50 py-8 debug"
 		>
 			{days.map((date) => (
 				<TimelineEntry
 					key={date.toISOString()}
 					date={date}
-					todayRef={todayRef}
+					todayRef={todayRef as RefObject<HTMLDivElement>}
+					data={normalizedEntries[date.toISOString().split("T")[0]]}
 				/>
-				// <div
-				// 	key={date.toISOString()}
-				// 	ref={
-				// 		format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd")
-				// 			? todayRef
-				// 			: null
-				// 	}
-				// 	className="mb-8"
-				// >
-				// 	<div className="sticky top-0 bg-gray-50 py-2 z-10 font-semibold newreader-font">
-				// 		{format(date, "EEEE, MMMM d")}
-				// 	</div>
-
-				// 	<div className="space-y-2 mt-4">
-				// 		<div className="p-4 bg-white text-sm">
-				// 			Example entry for {format(date, "MMMM d")}
-				// 		</div>
-				// 	</div>
-				// </div>
 			))}
 		</div>
 	);

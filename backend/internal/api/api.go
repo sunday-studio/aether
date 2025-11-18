@@ -31,6 +31,7 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	entryGroup.Get("/", entryHandler.GetEntries)
 	entryGroup.Get("/:id", entryHandler.GetEntryByID)
 	entryGroup.Post("/", entryHandler.CreateEntry)
+	entryGroup.Post("/bulk-create", entryHandler.BulkCreateEntries)
 	entryGroup.Put("/:id", entryHandler.UpdateEntry)
 	entryGroup.Delete("/:id", entryHandler.DeleteEntry)
 	entryGroup.Post("/:id/tags", entryHandler.AddTagsToEntry)

@@ -53,3 +53,27 @@ func (e *EntryHandler) CreateEntry(c *fiber.Ctx) error {
 
 	return c.JSON(payload)
 }
+
+func (e *EntryHandler) BulkCreateEntries(c *fiber.Ctx) error {
+	var payload []CreateEntryPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	for _, entry := range payload {
+		entry := db.Entry{
+			ID:         utils.GenerateID("entry"),
+			Document:   entry.Document,
+			CreatedAt:  entry.Date,
+			IsPinned:   entry.IsPinned != nil && *entry.IsPinned,
+			IsArchived: entry.IsArchived != nil && *entry.IsArchived,
+			IsDeleted:  entry.IsDeleted != nil && *entry.IsDeleted,
+		}
+
+		if err := e.db.Create(&entry).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+	}
+
+	return c.JSON(payload)
+}

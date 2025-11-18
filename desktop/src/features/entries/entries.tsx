@@ -1,4 +1,3 @@
-// import { useGetEntry } from "~/aether-sdk";
 import { Timeline } from "./components/timeline";
 
 export const Entries = () => {
