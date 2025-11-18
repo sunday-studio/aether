@@ -1,4 +1,4 @@
-package entry
+package handler
 
 import (
 	"aether/internal/db"
