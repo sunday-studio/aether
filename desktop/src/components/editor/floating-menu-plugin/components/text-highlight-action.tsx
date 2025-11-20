@@ -6,8 +6,11 @@ import { Ampersand, ChevronDown } from "lucide-react";
 import { Button } from "react-aria-components";
 import { useSnapshot } from "valtio";
 
-import { DropdownMenu, useDropdownMenuToggle } from "@/components/DropdownMenu";
-import { Tooltip } from "@/components/Tooltip";
+import {
+	DropdownMenu,
+	useDropdownMenuToggle,
+} from "~/components/shared/dropdown-menu";
+import { Tooltip } from "~/components/shared/tooltip";
 
 import { floatingToolbarStore } from "../floating-toolbar.store";
 

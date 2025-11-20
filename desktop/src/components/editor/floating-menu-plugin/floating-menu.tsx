@@ -19,7 +19,7 @@ import {
 import { Button } from "react-aria-components";
 import { useSnapshot } from "valtio";
 
-import { Tooltip } from "@/components/Tooltip";
+import { Tooltip } from "~/components/shared/tooltip";
 
 import { FloatingLinkEditor } from "./components/floating-link-editor";
 import { TextHighlightAction } from "./components/text-highlight-action";

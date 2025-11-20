@@ -6,4 +6,4 @@
  * OpenAPI spec version: 1.0
  */
 
-export type PostEntry500 = {[key: string]: string};
+export type CreateEntry400 = {[key: string]: string};

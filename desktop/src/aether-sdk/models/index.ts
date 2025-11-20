@@ -6,6 +6,8 @@
  * OpenAPI spec version: 1.0
  */
 
+export * from './create-entry400';
+export * from './create-entry500';
 export * from './db-entry';
 export * from './db-tag';
 export * from './delete-entry-id200';
@@ -18,8 +20,6 @@ export * from './handlers-create-entry-payload';
 export * from './post-entry-id-tags400';
 export * from './post-entry-id-tags404';
 export * from './post-entry-id-tags500';
-export * from './post-entry400';
-export * from './post-entry500';
 export * from './put-entry-id400';
 export * from './put-entry-id404';
 export * from './put-entry-id500';

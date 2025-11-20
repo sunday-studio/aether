@@ -58,6 +58,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Create a new entry",
+                "operationId": "createEntry",
                 "parameters": [
                     {
                         "description": "Entry payload",

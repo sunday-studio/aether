@@ -80,6 +80,7 @@ paths:
       consumes:
       - application/json
       description: Creates a new entry with optional tags
+      operationId: createEntry
       parameters:
       - description: Entry payload
         in: body

@@ -19,6 +19,7 @@ type CreateEntryPayload struct {
 }
 
 // CreateEntry godoc
+// @Id createEntry
 // @Summary Create a new entry
 // @Description Creates a new entry with optional tags
 // @Tags Entries

@@ -12,9 +12,12 @@ import { LexicalEditor } from "lexical";
 import { $isRangeSelection } from "lexical";
 import { ChevronDown, Link, Text } from "lucide-react";
 
-import { DropdownMenu, useDropdownMenuToggle } from "@/components/DropdownMenu";
-import { Tooltip } from "@/components/Tooltip";
-import { sanitizeUrl } from "@/components/editor/plugins/AutolinkPlugin";
+import {
+	DropdownMenu,
+	useDropdownMenuToggle,
+} from "~/components/shared/dropdown-menu";
+import { Tooltip } from "~/components/shared/tooltip";
+import { sanitizeUrl } from "~/components/editor/plugins/auto-link-plugin";
 
 import { getSelectedNode } from "../utils/get-selected-node";
 

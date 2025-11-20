@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Aether",
-        "width": 1100,
-        "height": 800
+        "width": 700,
+        "height": 960
       }
     ],
     "security": {

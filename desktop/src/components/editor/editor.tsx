@@ -21,21 +21,21 @@ import clsx from "clsx";
 import { EditorState } from "lexical";
 import { useDebouncedCallback } from "use-debounce";
 
-import CodeActionPlugin from "./code-action-plugin";
+import "./_editor.css";
+
+// import CodeActionPlugin from "./code-action-plugin";
 import { FloatingMenuPlugin } from "./floating-menu-plugin/floating-menu-plugin";
 import { setNodePlaceholderFromSelection } from "./node-placement/utils";
 import "./_editor.css";
-import AutoLinkPlugin, { validateUrl } from "./plugins/AutolinkPlugin";
-import ClickableLinkPlugin from "./plugins/ClickableLinkPlugin";
-import CodeHighlightPlugin from "./plugins/CodeHighlightPlugin";
+import ClickableLinkPlugin from "./plugins/clickable-link-plugin";
+// import AutoLinkPlugin, { validateUrl } from "./plugins/auto-link-plugin";
+// import CodeHighlightPlugin from "./plugins/cod-highlight-plugin";
+// import { MarkdownShortcutPlugin } from "./plugins/markdown-shortcut";
+// import PageBreakPlugin from "./plugins/page-break-plugin/page-break-plugin";
+// import SlashCommandPickerPlugin from "./plugins/slash-command-plug";
+// import TabFocusPlugin from "./plugins/tab-focus-plugin";
 import DraggableBlockPlugin from "./plugins/draggable-block";
-import { FocusModePlugin } from "./plugins/FocusModePlugin";
-import { MarkdownShortcutPlugin } from "./plugins/MarkdownShortcut";
-import PageBreakPlugin from "./plugins/page-break-plugin/page-break-plugin";
 import { PageBreakNode } from "./plugins/page-break-plugin/nodes/page-break-node";
-import { ShortcutPlugin } from "./plugins/ShortcutPlugin";
-import SlashCommandPickerPlugin from "./plugins/SlashCommandPicker";
-import TabFocusPlugin from "./plugins/TabFocusPlugin";
 import { theme } from "./plugins/theme";
 import { getFontFamily } from "./utils";
 
@@ -151,13 +151,12 @@ export const Editor = ({
 					placeholder={<Placeholder className={placeholderClassName} />}
 					ErrorBoundary={LexicalErrorBoundary}
 				/>
-				{floatingAnchorElem && (
+				{/* {floatingAnchorElem && (
 					<>
 						<DraggableBlockPlugin anchorElem={floatingAnchorElem} />
 						<FloatingMenuPlugin anchorElem={floatingAnchorElem} />
-						<CodeActionPlugin anchorElem={floatingAnchorElem} />
 					</>
-				)}
+				)} */}
 				<ClickableLinkPlugin />
 				<OnChangePlugin
 					onChange={(state) => {
@@ -166,7 +165,7 @@ export const Editor = ({
 						debouncedOnHistoryChange(editorStateJSON);
 					}}
 				/>
-				<SlashCommandPickerPlugin />
+				{/* <SlashCommandPickerPlugin />
 				<TabFocusPlugin />
 				<LinkPlugin validateUrl={validateUrl} />
 				<ListPlugin />
@@ -177,9 +176,7 @@ export const Editor = ({
 				<MarkdownShortcutPlugin />
 				<CodeHighlightPlugin />
 				<PageBreakPlugin />
-				<HashtagPlugin />
-				<ShortcutPlugin />
-				<FocusModePlugin />
+				<HashtagPlugin /> */}
 			</div>
 		</LexicalComposer>
 	);

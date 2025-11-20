@@ -25,6 +25,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateEntry400,
+  CreateEntry500,
   DbEntry,
   DeleteEntryId200,
   DeleteEntryId404,
@@ -33,8 +35,6 @@ import type {
   GetEntryId404,
   GetEntryId500,
   HandlersCreateEntryPayload,
-  PostEntry400,
-  PostEntry500,
   PostEntryIdTags400,
   PostEntryIdTags404,
   PostEntryIdTags500,
@@ -178,31 +178,31 @@ export function useGetEntry<TData = Awaited<ReturnType<typeof getEntry>>, TError
  * Creates a new entry with optional tags
  * @summary Create a new entry
  */
-export type postEntryResponse200 = {
+export type createEntryResponse200 = {
   data: DbEntry
   status: 200
 }
 
-export type postEntryResponse400 = {
-  data: PostEntry400
+export type createEntryResponse400 = {
+  data: CreateEntry400
   status: 400
 }
 
-export type postEntryResponse500 = {
-  data: PostEntry500
+export type createEntryResponse500 = {
+  data: CreateEntry500
   status: 500
 }
     
-export type postEntryResponseSuccess = (postEntryResponse200) & {
+export type createEntryResponseSuccess = (createEntryResponse200) & {
   headers: Headers;
 };
-export type postEntryResponseError = (postEntryResponse400 | postEntryResponse500) & {
+export type createEntryResponseError = (createEntryResponse400 | createEntryResponse500) & {
   headers: Headers;
 };
 
-export type postEntryResponse = (postEntryResponseSuccess | postEntryResponseError)
+export type createEntryResponse = (createEntryResponseSuccess | createEntryResponseError)
 
-export const getPostEntryUrl = () => {
+export const getCreateEntryUrl = () => {
 
 
   
@@ -210,9 +210,9 @@ export const getPostEntryUrl = () => {
   return `http://127.0.0.1:9119/v1/entry`
 }
 
-export const postEntry = async (handlersCreateEntryPayload: HandlersCreateEntryPayload, options?: RequestInit): Promise<postEntryResponse> => {
+export const createEntry = async (handlersCreateEntryPayload: HandlersCreateEntryPayload, options?: RequestInit): Promise<createEntryResponse> => {
   
-  const res = await fetch(getPostEntryUrl(),
+  const res = await fetch(getCreateEntryUrl(),
   {      
     ...options,
     method: 'POST',
@@ -224,18 +224,18 @@ export const postEntry = async (handlersCreateEntryPayload: HandlersCreateEntryP
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: postEntryResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as postEntryResponse
+  const data: createEntryResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createEntryResponse
 }
 
 
 
 
-export const getPostEntryMutationOptions = <TError = PostEntry400 | PostEntry500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof postEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext> => {
+export const getCreateEntryMutationOptions = <TError = CreateEntry400 | CreateEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof createEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext> => {
 
-const mutationKey = ['postEntry'];
+const mutationKey = ['createEntry'];
 const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -245,10 +245,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postEntry>>, {data: HandlersCreateEntryPayload}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEntry>>, {data: HandlersCreateEntryPayload}> = (props) => {
           const {data} = props ?? {};
 
-          return  postEntry(data,fetchOptions)
+          return  createEntry(data,fetchOptions)
         }
 
         
@@ -256,23 +256,23 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PostEntryMutationResult = NonNullable<Awaited<ReturnType<typeof postEntry>>>
-    export type PostEntryMutationBody = HandlersCreateEntryPayload
-    export type PostEntryMutationError = PostEntry400 | PostEntry500
+    export type CreateEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createEntry>>>
+    export type CreateEntryMutationBody = HandlersCreateEntryPayload
+    export type CreateEntryMutationError = CreateEntry400 | CreateEntry500
 
     /**
  * @summary Create a new entry
  */
-export const usePostEntry = <TError = PostEntry400 | PostEntry500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
+export const useCreateEntry = <TError = CreateEntry400 | CreateEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEntry>>, TError,{data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postEntry>>,
+        Awaited<ReturnType<typeof createEntry>>,
         TError,
         {data: HandlersCreateEntryPayload},
         TContext
       > => {
 
-      const mutationOptions = getPostEntryMutationOptions(options);
+      const mutationOptions = getCreateEntryMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
