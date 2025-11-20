@@ -2,14 +2,22 @@ import { format, isToday as isTodayFn } from "date-fns";
 import clsx from "clsx";
 import { EntryEditor } from "./entry-editor";
 import type { DbEntry } from "~/aether-sdk/models";
-import { useCreateEntry } from "~/aether-sdk";
+import {
+	useCreateEntry,
+	useUpdateEntry,
+	getGetEntryQueryKey,
+} from "~/aether-sdk";
 import { Timeline } from "~/components/shared/timeline";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface EntryTimelineItemProps {
 	date: Date;
 	data?: DbEntry[] | [];
 }
+
+const placeholder =
+	'{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Hello world….","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
 const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	return (
@@ -60,31 +68,46 @@ export const EntryTimelineItem = ({
 	date,
 	data = [],
 }: EntryTimelineItemProps) => {
-	// console.log("entries ->", data);
-	// const normalizedEntries = normalizeEntriesToMap(data);
-	// const [entries, setEntries] = useState<Map<string, DbEntry[]>>();
+	const queryKey = getGetEntryQueryKey();
+	const queryClient = useQueryClient();
 
 	const [entries, setEntries] = useState<DbEntry[]>(data);
 	const isToday = isTodayFn(date);
 	const hasEntries = entries.length > 0;
-	const [isAddingNewEntry, setIsAddingNewEntry] = useState(false);
+
 	const { mutate: createEntry } = useCreateEntry();
+	const { mutate: updateEntry } = useUpdateEntry();
+
+	const onUpdateEntry = async (entryId: string, document: string) => {
+		updateEntry(
+			{
+				id: entryId,
+				data: {
+					document,
+				},
+			},
+			{
+				onSuccess: () => {
+					queryClient.invalidateQueries({ queryKey });
+				},
+			},
+		);
+	};
 
 	const onAddNewEntry = async () => {
-		setIsAddingNewEntry(true);
 		const now = new Date();
 
 		createEntry(
 			{
 				data: {
-					document: "",
+					document: placeholder,
 					date: now.toISOString(),
 				},
 			},
 			{
 				onSuccess: (data) => {
-					console.log("data ->", data);
 					setEntries([...entries, data.data]);
+					queryClient.invalidateQueries({ queryKey });
 				},
 				onError: (error) => {
 					console.log("error ->", error);
@@ -92,19 +115,6 @@ export const EntryTimelineItem = ({
 				},
 			},
 		);
-
-		// setEntries([
-		// 	...entries,
-		// 	{
-		// 		id: now.toISOString(),
-		// 		createdAt: now.toISOString(),
-		// 		updatedAt: now.toISOString(),
-		// 		document: "",
-		// 		isPinned: false,
-		// 		isArchived: false,
-		// 		isDeleted: false,
-		// 	},
-		// ]);
 	};
 
 	return (
@@ -127,7 +137,13 @@ export const EntryTimelineItem = ({
 							<Timeline.Item key={entry.id}>
 								<Timeline.Indicator />
 								<Timeline.Content>
-									<EntryEditor data={entry} />
+									<EntryEditor
+										document={entry.document ?? ""}
+										id={entry.id ?? ""}
+										onChange={(document) =>
+											onUpdateEntry(entry.id ?? "", document)
+										}
+									/>
 								</Timeline.Content>
 							</Timeline.Item>
 						))}

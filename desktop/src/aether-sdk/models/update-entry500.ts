@@ -6,4 +6,4 @@
  * OpenAPI spec version: 1.0
  */
 
-export type PutEntryId404 = {[key: string]: string};
+export type UpdateEntry500 = {[key: string]: string};

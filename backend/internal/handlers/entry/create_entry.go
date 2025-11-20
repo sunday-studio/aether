@@ -52,7 +52,7 @@ func (e *EntryHandler) CreateEntry(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(payload)
+	return c.JSON(entry)
 }
 
 func (e *EntryHandler) BulkCreateEntries(c *fiber.Ctx) error {

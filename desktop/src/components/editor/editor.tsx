@@ -165,18 +165,18 @@ export const Editor = ({
 						debouncedOnHistoryChange(editorStateJSON);
 					}}
 				/>
-				{/* <SlashCommandPickerPlugin />
-				<TabFocusPlugin />
-				<LinkPlugin validateUrl={validateUrl} />
+				{/* <SlashCommandPickerPlugin /> */}
+				{/* <TabFocusPlugin /> */}
+				{/* <LinkPlugin validateUrl={validateUrl} /> */}
+				{/* <AutoLinkPlugin /> */}
+				{/* <MarkdownShortcutPlugin />
+				<CodeHighlightPlugin />
+				<PageBreakPlugin /> */}
 				<ListPlugin />
 				<CheckListPlugin />
 				<HistoryPlugin />
-				<AutoLinkPlugin />
 				<TabIndentationPlugin />
-				<MarkdownShortcutPlugin />
-				<CodeHighlightPlugin />
-				<PageBreakPlugin />
-				<HashtagPlugin /> */}
+				<HashtagPlugin />
 			</div>
 		</LexicalComposer>
 	);

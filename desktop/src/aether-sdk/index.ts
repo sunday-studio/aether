@@ -38,9 +38,9 @@ import type {
   PostEntryIdTags400,
   PostEntryIdTags404,
   PostEntryIdTags500,
-  PutEntryId400,
-  PutEntryId404,
-  PutEntryId500
+  UpdateEntry400,
+  UpdateEntry404,
+  UpdateEntry500
 } from './models';
 
 
@@ -412,36 +412,36 @@ export function useGetEntryId<TData = Awaited<ReturnType<typeof getEntryId>>, TE
 /**
  * @summary Update an entry
  */
-export type putEntryIdResponse200 = {
+export type updateEntryResponse200 = {
   data: DbEntry
   status: 200
 }
 
-export type putEntryIdResponse400 = {
-  data: PutEntryId400
+export type updateEntryResponse400 = {
+  data: UpdateEntry400
   status: 400
 }
 
-export type putEntryIdResponse404 = {
-  data: PutEntryId404
+export type updateEntryResponse404 = {
+  data: UpdateEntry404
   status: 404
 }
 
-export type putEntryIdResponse500 = {
-  data: PutEntryId500
+export type updateEntryResponse500 = {
+  data: UpdateEntry500
   status: 500
 }
     
-export type putEntryIdResponseSuccess = (putEntryIdResponse200) & {
+export type updateEntryResponseSuccess = (updateEntryResponse200) & {
   headers: Headers;
 };
-export type putEntryIdResponseError = (putEntryIdResponse400 | putEntryIdResponse404 | putEntryIdResponse500) & {
+export type updateEntryResponseError = (updateEntryResponse400 | updateEntryResponse404 | updateEntryResponse500) & {
   headers: Headers;
 };
 
-export type putEntryIdResponse = (putEntryIdResponseSuccess | putEntryIdResponseError)
+export type updateEntryResponse = (updateEntryResponseSuccess | updateEntryResponseError)
 
-export const getPutEntryIdUrl = (id: string,) => {
+export const getUpdateEntryUrl = (id: string,) => {
 
 
   
@@ -449,10 +449,10 @@ export const getPutEntryIdUrl = (id: string,) => {
   return `http://127.0.0.1:9119/v1/entry/${id}`
 }
 
-export const putEntryId = async (id: string,
-    handlersCreateEntryPayload: HandlersCreateEntryPayload, options?: RequestInit): Promise<putEntryIdResponse> => {
+export const updateEntry = async (id: string,
+    handlersCreateEntryPayload: HandlersCreateEntryPayload, options?: RequestInit): Promise<updateEntryResponse> => {
   
-  const res = await fetch(getPutEntryIdUrl(id),
+  const res = await fetch(getUpdateEntryUrl(id),
   {      
     ...options,
     method: 'PUT',
@@ -464,18 +464,18 @@ export const putEntryId = async (id: string,
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: putEntryIdResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as putEntryIdResponse
+  const data: updateEntryResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as updateEntryResponse
 }
 
 
 
 
-export const getPutEntryIdMutationOptions = <TError = PutEntryId400 | PutEntryId404 | PutEntryId500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putEntryId>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof putEntryId>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext> => {
+export const getUpdateEntryMutationOptions = <TError = UpdateEntry400 | UpdateEntry404 | UpdateEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEntry>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEntry>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext> => {
 
-const mutationKey = ['putEntryId'];
+const mutationKey = ['updateEntry'];
 const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -485,10 +485,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putEntryId>>, {id: string;data: HandlersCreateEntryPayload}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEntry>>, {id: string;data: HandlersCreateEntryPayload}> = (props) => {
           const {id,data} = props ?? {};
 
-          return  putEntryId(id,data,fetchOptions)
+          return  updateEntry(id,data,fetchOptions)
         }
 
         
@@ -496,23 +496,23 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PutEntryIdMutationResult = NonNullable<Awaited<ReturnType<typeof putEntryId>>>
-    export type PutEntryIdMutationBody = HandlersCreateEntryPayload
-    export type PutEntryIdMutationError = PutEntryId400 | PutEntryId404 | PutEntryId500
+    export type UpdateEntryMutationResult = NonNullable<Awaited<ReturnType<typeof updateEntry>>>
+    export type UpdateEntryMutationBody = HandlersCreateEntryPayload
+    export type UpdateEntryMutationError = UpdateEntry400 | UpdateEntry404 | UpdateEntry500
 
     /**
  * @summary Update an entry
  */
-export const usePutEntryId = <TError = PutEntryId400 | PutEntryId404 | PutEntryId500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putEntryId>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
+export const useUpdateEntry = <TError = UpdateEntry400 | UpdateEntry404 | UpdateEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEntry>>, TError,{id: string;data: HandlersCreateEntryPayload}, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putEntryId>>,
+        Awaited<ReturnType<typeof updateEntry>>,
         TError,
         {id: string;data: HandlersCreateEntryPayload},
         TContext
       > => {
 
-      const mutationOptions = getPutEntryIdMutationOptions(options);
+      const mutationOptions = getUpdateEntryMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

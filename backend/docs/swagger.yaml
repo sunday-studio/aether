@@ -175,6 +175,7 @@ paths:
     put:
       consumes:
       - application/json
+      operationId: updateEntry
       parameters:
       - description: Entry ID
         in: path

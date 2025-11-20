@@ -15,9 +15,6 @@ export const EntryTimeline = () => {
 	const { data: entries } = useGetEntry();
 	const normalizedEntries = normalizeEntries(entries?.data ?? []);
 
-	// console.log("normalizedEntries ->", normalizedEntries);
-
-	// Scroll to today on first mount
 	useEffect(() => {
 		if (todayRef.current) {
 			todayRef.current.scrollIntoView({
@@ -30,7 +27,7 @@ export const EntryTimeline = () => {
 	return (
 		<div
 			ref={containerRef}
-			className="h-full overflow-y-scroll bg-neutral-50 relative"
+			className="h-full overflow-y-scroll bg-neutral-50 relative "
 		>
 			{days.map((date) => {
 				const dateKey = getDateKey(date);

@@ -155,6 +155,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Update an entry",
+                "operationId": "updateEntry",
                 "parameters": [
                     {
                         "type": "string",

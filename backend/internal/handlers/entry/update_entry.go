@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
 // UpdateEntry godoc
+// @Id updateEntry
 // @Summary Update an entry
 // @Tags Entries
 // @Accept json
@@ -32,6 +34,8 @@ func (e *EntryHandler) UpdateEntry(c *fiber.Ctx) error {
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
 	}
+
+	fmt.Println("payload ->", payload, entry.ID)
 
 	entry.Document = payload.Document
 	entry.IsPinned = payload.IsPinned
