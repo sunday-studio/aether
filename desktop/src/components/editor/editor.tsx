@@ -59,7 +59,7 @@ const OnChangePlugin = ({
 
 function Placeholder({ className }: { className: string }) {
 	return (
-		<div className={className}>Write or type '/' for slash commands....</div>
+		<div className={className}>I'm a placeholder, let's write something...</div>
 	);
 }
 
@@ -87,18 +87,9 @@ export const Editor = ({
 	placeholderClassName = "editor-placeholder",
 	onHistoryChange,
 }: EditorType) => {
-	const [floatingAnchorElem, setFloatingAnchorElem] =
-		useState<HTMLDivElement | null>(null);
-
-	const onRef = (_floatingAnchorElem: HTMLDivElement) => {
-		if (_floatingAnchorElem !== null) {
-			setFloatingAnchorElem(_floatingAnchorElem);
-		}
-	};
-
 	const CustomContent = useMemo(() => {
 		return (
-			<div className="editor-inner" ref={onRef}>
+			<div className="editor-inner">
 				<ContentEditable className="editor-root" />
 			</div>
 		);

@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 
 import { clsx } from "clsx";
-// import { format } from "date-fns";
 
 export function Root({
 	children,
@@ -11,11 +10,7 @@ export function Root({
 	className?: string;
 }) {
 	return (
-		<ol
-			role="list"
-			className={clsx("relative", className)}
-			aria-label="Timeline"
-		>
+		<ol className={clsx("relative", className)} aria-label="Timeline">
 			{children}
 		</ol>
 	);
