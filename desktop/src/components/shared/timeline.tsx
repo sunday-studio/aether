@@ -33,7 +33,6 @@ const Indicator = ({
 	className?: string;
 	onClick?: () => void;
 }) => {
-	// The key: Indicator must NOT rely on vertical alignment from parent
 	return (
 		<div className="relative flex flex-col items-center self-stretch justify-start min-h-14">
 			<div

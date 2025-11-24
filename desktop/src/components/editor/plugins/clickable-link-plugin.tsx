@@ -1,11 +1,8 @@
 import { useEffect } from "react";
-
 import { $isLinkNode } from "@lexical/link";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $findMatchingParent, isHTMLAnchorElement } from "@lexical/utils";
-
-// TODO: figure it out
-// import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
 	$getNearestNodeFromDOMNode,
 	$getSelection,
@@ -14,25 +11,27 @@ import {
 	getNearestEditorFromDOMNode,
 } from "lexical";
 
-function findMatchingDOM(startNode, predicate) {
+function findMatchingDOM(
+	startNode: Node | null,
+	predicate: (node: Node) => boolean,
+): HTMLElement | null {
 	if (!predicate) return null;
-
-	let node = startNode;
+	let node: Node | null = startNode;
 	while (node != null) {
 		if (predicate(node)) {
-			return node;
+			return node as HTMLElement;
 		}
-		node = node.parentNode;
+		node = (node as HTMLElement).parentNode;
 	}
 	return null;
 }
 
-export default function LexicalClickableLinkPlugin({ newTab = true }) {
+export default function ClickableLinkPlugin() {
 	const [editor] = useLexicalComposerContext();
 
 	useEffect(() => {
-		const onClick = (event) => {
-			const target = event.target;
+		function onClick(event: MouseEvent) {
+			const target = event.target as Node;
 			if (!(target instanceof Node)) {
 				return;
 			}
@@ -42,8 +41,7 @@ export default function LexicalClickableLinkPlugin({ newTab = true }) {
 				return;
 			}
 
-			let url = null;
-			let urlTarget = null;
+			let url: string | null = null;
 			nearestEditor.update(() => {
 				const clickedNode = $getNearestNodeFromDOMNode(target);
 				if (clickedNode !== null) {
@@ -53,48 +51,49 @@ export default function LexicalClickableLinkPlugin({ newTab = true }) {
 					);
 					if ($isLinkNode(maybeLinkNode)) {
 						url = maybeLinkNode.getURL();
-						urlTarget = maybeLinkNode.getTarget();
 					} else {
-						const a = findMatchingDOM(target, isHTMLAnchorElement);
+						const a = findMatchingDOM(
+							target,
+							isHTMLAnchorElement as (node: Node) => boolean,
+						) as HTMLAnchorElement | null;
 						if (a !== null) {
 							url = a.href;
-							urlTarget = a.target;
 						}
 					}
 				}
 			});
 
-			if (url === null || url === "") {
+			if (!url) {
 				return;
 			}
 
-			// Allow user to select link text without follwing url
+			// Allow user to select link text without following url
 			const selection = editor.getEditorState().read($getSelection);
 			if ($isRangeSelection(selection) && !selection.isCollapsed()) {
 				event.preventDefault();
 				return;
 			}
-			// open(url);
+			openUrl(url);
 			event.preventDefault();
-		};
+		}
 
-		const onMouseUp = (event) => {
+		function onMouseUp(event: MouseEvent) {
 			if (event.button === 1 && editor.isEditable()) {
 				onClick(event);
 			}
-		};
+		}
 
 		return editor.registerRootListener((rootElement, prevRootElement) => {
-			if (prevRootElement !== null) {
+			if (prevRootElement) {
 				prevRootElement.removeEventListener("click", onClick);
 				prevRootElement.removeEventListener("mouseup", onMouseUp);
 			}
-			if (rootElement !== null) {
+			if (rootElement) {
 				rootElement.addEventListener("click", onClick);
 				rootElement.addEventListener("mouseup", onMouseUp);
 			}
 		});
-	}, [editor, newTab]);
+	}, [editor]);
 
 	return null;
 }

@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-
 import { CodeHighlightNode, CodeNode } from "@lexical/code";
 import { HashtagNode } from "@lexical/hashtag";
 import { AutoLinkNode, LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
-import { CheckListPlugin } from "@lexical/react/LexicalCheckListPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -16,28 +14,21 @@ import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { TabIndentationPlugin } from "@lexical/react/LexicalTabIndentationPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import clsx from "clsx";
-import { EditorState } from "lexical";
+import type { EditorState } from "lexical";
 import { useDebouncedCallback } from "use-debounce";
 
-import "./_editor.css";
-
-// import CodeActionPlugin from "./code-action-plugin";
-import { FloatingMenuPlugin } from "./floating-menu-plugin/floating-menu-plugin";
 import { setNodePlaceholderFromSelection } from "./node-placement/utils";
-import "./_editor.css";
 import ClickableLinkPlugin from "./plugins/clickable-link-plugin";
-// import AutoLinkPlugin, { validateUrl } from "./plugins/auto-link-plugin";
-// import CodeHighlightPlugin from "./plugins/cod-highlight-plugin";
-// import { MarkdownShortcutPlugin } from "./plugins/markdown-shortcut";
-// import PageBreakPlugin from "./plugins/page-break-plugin/page-break-plugin";
+import AutoLinkPlugin, { validateUrl } from "./plugins/auto-link-plugin";
+import CodeHighlightPlugin from "./plugins/cod-highlight-plugin";
+import { MarkdownShortcutPlugin } from "./plugins/markdown-shortcut";
+// import { FloatingMenuPlugin } from "./floating-menu-plugin/floating-menu-plugin";
 // import SlashCommandPickerPlugin from "./plugins/slash-command-plug";
-// import TabFocusPlugin from "./plugins/tab-focus-plugin";
-import DraggableBlockPlugin from "./plugins/draggable-block";
-import { PageBreakNode } from "./plugins/page-break-plugin/nodes/page-break-node";
 import { theme } from "./plugins/theme";
 import { getFontFamily } from "./utils";
+
+import "./_editor.css";
 
 const ONCHANGE_DEBOUNCE_TIME = 750;
 const ONHISTORYCHANGE_DEBOUNCE_TIME = 600000; // 10 minutes in milliseconds
@@ -58,12 +49,10 @@ const OnChangePlugin = ({
 };
 
 function Placeholder({ className }: { className: string }) {
-	return (
-		<div className={className}>I'm a placeholder, let's write something...</div>
-	);
+	return <div className={className}>Let's write something...</div>;
 }
 
-function onError(error: any) {
+function onError(error: Error) {
 	console.error(error);
 }
 
@@ -75,7 +64,7 @@ export const EDITOR_PAGES = {
 interface EditorType {
 	id: string;
 	content: string | null;
-	onChange: (state: any) => void;
+	onChange: (state: string) => void;
 	placeholderClassName?: string;
 	onHistoryChange: (state: string) => void;
 }
@@ -87,13 +76,24 @@ export const Editor = ({
 	placeholderClassName = "editor-placeholder",
 	onHistoryChange,
 }: EditorType) => {
-	const CustomContent = useMemo(() => {
-		return (
-			<div className="editor-inner">
+	const [floatingAnchorElem, setFloatingAnchorElem] =
+		useState<HTMLDivElement | null>(null);
+
+	const onRef = (_floatingAnchorElem: HTMLDivElement) => {
+		if (_floatingAnchorElem !== null) {
+			setFloatingAnchorElem(_floatingAnchorElem);
+		}
+	};
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: on ref will cause re-render
+	const CustomContent = useMemo(
+		() => (
+			<div className="editor-inner" ref={onRef}>
 				<ContentEditable className="editor-root" />
 			</div>
-		);
-	}, []);
+		),
+		[],
+	);
 
 	const editorConfig = {
 		editorState: content ?? null,
@@ -108,18 +108,14 @@ export const Editor = ({
 			QuoteNode,
 			CodeNode,
 			CodeHighlightNode,
-			TableNode,
-			TableCellNode,
-			TableRowNode,
+
 			AutoLinkNode,
 			LinkNode,
-			PageBreakNode,
 		],
 	};
 
-	const parseEditorOnChange = (editorState: EditorState) => {
-		return JSON.stringify(editorState.toJSON());
-	};
+	const parseEditorOnChange = (editorState: EditorState) =>
+		JSON.stringify(editorState.toJSON());
 
 	const debouncedOnChange = useDebouncedCallback(async (state: string) => {
 		onChange(state);
@@ -142,11 +138,10 @@ export const Editor = ({
 					placeholder={<Placeholder className={placeholderClassName} />}
 					ErrorBoundary={LexicalErrorBoundary}
 				/>
+
+				{/* figure out why this is causing a performance issue */}
 				{/* {floatingAnchorElem && (
-					<>
-						<DraggableBlockPlugin anchorElem={floatingAnchorElem} />
-						<FloatingMenuPlugin anchorElem={floatingAnchorElem} />
-					</>
+					<FloatingMenuPlugin anchorElem={floatingAnchorElem} />
 				)} */}
 				<ClickableLinkPlugin />
 				<OnChangePlugin
@@ -157,14 +152,11 @@ export const Editor = ({
 					}}
 				/>
 				{/* <SlashCommandPickerPlugin /> */}
-				{/* <TabFocusPlugin /> */}
-				{/* <LinkPlugin validateUrl={validateUrl} /> */}
-				{/* <AutoLinkPlugin /> */}
-				{/* <MarkdownShortcutPlugin />
+				<LinkPlugin validateUrl={validateUrl} />
+				<AutoLinkPlugin />
+				<MarkdownShortcutPlugin />
 				<CodeHighlightPlugin />
-				<PageBreakPlugin /> */}
 				<ListPlugin />
-				<CheckListPlugin />
 				<HistoryPlugin />
 				<TabIndentationPlugin />
 				<HashtagPlugin />

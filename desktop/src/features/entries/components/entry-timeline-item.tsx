@@ -121,10 +121,9 @@ export const EntryTimelineItem = ({
 		<div
 			className={clsx("mb-8 border-b border-neutral-200", {
 				"": isToday || data.length > 0,
-				// "h-32 bg-green-50 ring ring-green-400": !isToday,
 			})}
 		>
-			<div className="sticky top-0 pt-4 pb-2 z-10 text-neutral-700 newsreader-font font-medium px-4 backdrop-blur-lg bg-white/20">
+			<div className="sticky top-0 pt-4 pb-2 z-10 text-neutral-700 newsreader-font font-medium px-4 backdrop-blur-lg ">
 				{format(date, "EEEE, MMMM d")}
 			</div>
 
@@ -135,8 +134,8 @@ export const EntryTimelineItem = ({
 					<Timeline>
 						{entries.map((entry) => (
 							<Timeline.Item key={entry.id}>
-								<Timeline.Indicator />
-								<Timeline.Content>
+								<Timeline.Indicator className="cursor-pointer" />
+								<Timeline.Content className="mb-4">
 									<EntryEditor
 										document={entry.document ?? ""}
 										id={entry.id ?? ""}

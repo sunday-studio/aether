@@ -4,7 +4,6 @@ import * as ReactDOM from "react-dom";
 
 import { $createCodeNode } from "@lexical/code";
 import {
-	INSERT_CHECK_LIST_COMMAND,
 	INSERT_ORDERED_LIST_COMMAND,
 	INSERT_UNORDERED_LIST_COMMAND,
 } from "@lexical/list";
@@ -27,7 +26,6 @@ import {
 	TextNode,
 } from "lexical";
 import {
-	CheckSquare,
 	CodeXml,
 	Heading1,
 	Heading2,
@@ -36,10 +34,7 @@ import {
 	ListOrdered,
 	Pilcrow,
 	Quote,
-	ScissorsIcon,
 } from "lucide-react";
-
-import { INSERT_PAGE_BREAK } from "./page-break-plugin/page-break-plugin";
 
 const headingIconMap = {
 	h1: <Heading1 size={18} />,
@@ -158,12 +153,6 @@ export default function SlashCommandPickerPlugin() {
 				onSelect: () =>
 					editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined),
 			}),
-			new ComponentPickerOption("Check list", {
-				icon: <CheckSquare size={18} />,
-				keywords: ["check list", "todo list"],
-				onSelect: () =>
-					editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined),
-			}),
 			new ComponentPickerOption("Code", {
 				icon: <CodeXml size={18} />,
 				keywords: ["javascript", "python", "js", "codeblock"],
@@ -192,13 +181,6 @@ export default function SlashCommandPickerPlugin() {
 							$setBlocksType(selection, () => $createQuoteNode());
 						}
 					}),
-			}),
-			new ComponentPickerOption("Page break", {
-				icon: <ScissorsIcon size={18} />,
-				keywords: ["page break", "divider"],
-				onSelect: () => {
-					editor.dispatchCommand(INSERT_PAGE_BREAK, undefined);
-				},
 			}),
 		];
 

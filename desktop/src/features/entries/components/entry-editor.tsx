@@ -25,7 +25,7 @@ export const EntryEditor = ({ document, id, onChange }: EntryEditorProps) => {
 	if (!document) return <div className="bg-red-100">No data</div>;
 
 	return (
-		<div className="text-neutral-800 bg-transparent relative">
+		<div className="text-neutral-800 bg-transparent relative w-full">
 			<Editor
 				id={id}
 				content={getEditorContent(document ?? "{}")}
