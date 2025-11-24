@@ -13,7 +13,7 @@ export default defineConfig({
 			schemas: "./src/aether-sdk/models",
 			client: "react-query",
 			mock: false,
-			baseUrl: "http://nowhere.local:9119/v1",
+			baseUrl: process.env.API_URL,
 		},
 	},
 });
