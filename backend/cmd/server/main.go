@@ -33,5 +33,5 @@ func main() {
 	api.RegisterRoutes(app, database)
 
 	log.Println("Aether backend running on :9119")
-	log.Fatal(app.Listen(":9119"))
+	log.Fatal(app.Listen("0.0.0.0:9119"))
 }

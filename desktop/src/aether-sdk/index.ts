@@ -75,7 +75,7 @@ export const getGetEntryUrl = () => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry`
+  return `http://nowhere.local:9119/v1/entry`
 }
 
 export const getEntry = async ( options?: RequestInit): Promise<getEntryResponse> => {
@@ -101,7 +101,7 @@ export const getEntry = async ( options?: RequestInit): Promise<getEntryResponse
 
 export const getGetEntryQueryKey = () => {
     return [
-    `http://127.0.0.1:9119/v1/entry`
+    `http://nowhere.local:9119/v1/entry`
     ] as const;
     }
 
@@ -207,7 +207,7 @@ export const getCreateEntryUrl = () => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry`
+  return `http://nowhere.local:9119/v1/entry`
 }
 
 export const createEntry = async (handlersCreateEntryPayload: HandlersCreateEntryPayload, options?: RequestInit): Promise<createEntryResponse> => {
@@ -310,7 +310,7 @@ export const getGetEntryIdUrl = (id: string,) => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry/${id}`
+  return `http://nowhere.local:9119/v1/entry/${id}`
 }
 
 export const getEntryId = async (id: string, options?: RequestInit): Promise<getEntryIdResponse> => {
@@ -336,7 +336,7 @@ export const getEntryId = async (id: string, options?: RequestInit): Promise<get
 
 export const getGetEntryIdQueryKey = (id?: string,) => {
     return [
-    `http://127.0.0.1:9119/v1/entry/${id}`
+    `http://nowhere.local:9119/v1/entry/${id}`
     ] as const;
     }
 
@@ -446,7 +446,7 @@ export const getUpdateEntryUrl = (id: string,) => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry/${id}`
+  return `http://nowhere.local:9119/v1/entry/${id}`
 }
 
 export const updateEntry = async (id: string,
@@ -549,7 +549,7 @@ export const getDeleteEntryIdUrl = (id: string,) => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry/${id}`
+  return `http://nowhere.local:9119/v1/entry/${id}`
 }
 
 export const deleteEntryId = async (id: string, options?: RequestInit): Promise<deleteEntryIdResponse> => {
@@ -655,7 +655,7 @@ export const getPostEntryIdTagsUrl = (id: string,) => {
 
   
 
-  return `http://127.0.0.1:9119/v1/entry/${id}/tags`
+  return `http://nowhere.local:9119/v1/entry/${id}/tags`
 }
 
 export const postEntryIdTags = async (id: string,
