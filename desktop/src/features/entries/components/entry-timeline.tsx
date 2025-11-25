@@ -3,6 +3,7 @@ import { EntryTimelineItem } from "./entry-timeline-item.tsx";
 
 import { useGetEntry } from "~/aether-sdk";
 import { normalizeEntries, generateDays, getDateKey } from "../entries.domain";
+import type { DbEntry } from "~/aether-sdk/models";
 
 export const EntryTimeline = () => {
 	const initialDays = generateDays(new Date(), 1);
@@ -13,7 +14,9 @@ export const EntryTimeline = () => {
 	const todayRef = useRef<HTMLDivElement>(null);
 
 	const { data: entries } = useGetEntry();
-	const normalizedEntries = normalizeEntries(entries?.data ?? []);
+	const normalizedEntries = normalizeEntries(
+		(entries?.data as unknown as DbEntry[]) ?? [],
+	);
 
 	useEffect(() => {
 		if (todayRef.current) {
@@ -27,7 +30,7 @@ export const EntryTimeline = () => {
 	return (
 		<div
 			ref={containerRef}
-			className="h-full overflow-y-scroll bg-neutral-50 relative "
+			className="h-full overflow-y-scroll bg-neutral-50 relative"
 		>
 			{days.map((date) => {
 				const dateKey = getDateKey(date);

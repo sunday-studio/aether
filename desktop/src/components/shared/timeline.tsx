@@ -61,11 +61,9 @@ const Indicator = ({
 
 const Content = ({
 	children,
-	timeline,
 	className,
 }: {
 	children: ReactNode;
-	timeline?: string;
 	className?: string;
 }) => {
 	return (

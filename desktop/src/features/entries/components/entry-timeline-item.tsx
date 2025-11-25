@@ -17,7 +17,7 @@ interface EntryTimelineItemProps {
 }
 
 const placeholder =
-	'{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"Hello world….","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
+	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
 const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	return (
@@ -135,8 +135,10 @@ export const EntryTimelineItem = ({
 						{entries.map((entry) => (
 							<Timeline.Item key={entry.id}>
 								<Timeline.Indicator className="cursor-pointer" />
-								<Timeline.Content className="mb-4">
+								<Timeline.Content className="mb-0">
 									<EntryEditor
+										createdAt={entry.createdAt ?? ""}
+										updatedAt={entry.updatedAt ?? ""}
 										document={entry.document ?? ""}
 										id={entry.id ?? ""}
 										onChange={(document) =>
