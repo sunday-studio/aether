@@ -1,6 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getGetEntriesQueryKey, useUpdateEntry } from "~/aether-sdk";
+import {
+	getGetEntriesQueryKey,
+	useDeleteEntry,
+	useUpdateEntry,
+} from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
@@ -14,8 +18,10 @@ interface EntryTimelineItemProps {
 
 export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	const { mutate: updateEntry } = useUpdateEntry();
+	const { mutate: deleteEntry } = useDeleteEntry();
+
 	const queryClient = useQueryClient();
-	const queryKey = getGetEntriesQueryKey();
+	const entriesQueryKey = getGetEntriesQueryKey();
 
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isTagsShown, setIsTagsShown] = useState(false);
@@ -33,16 +39,26 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 			},
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey });
+					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
 				},
 			},
 		);
 	};
 
 	const onDeleteEntry = async (entryId: string) => {
-		showToast({
-			title: "Entry deleted successfully",
-		});
+		deleteEntry(
+			{
+				id: entryId,
+			},
+			{
+				onSuccess: () => {
+					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					showToast({
+						title: "Entry deleted successfully",
+					});
+				},
+			},
+		);
 	};
 
 	return (
