@@ -1,11 +1,14 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
 	type AddTagsToEntryMutationBody,
+	getGetAllTagsQueryKey,
 	getGetEntriesQueryKey,
 	useAddTagsToEntry,
+	useCreateTag,
 	useGetAllTags,
 	// getGetEntryQueryKey,
 	// useGetTags,
@@ -44,7 +47,10 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const allTags: DbTag[] = (
 		tagsResponse?.status === 200 ? tagsResponse.data : []
 	) as DbTag[];
-	const entryTags: DbTag[] = entry.tags ?? [];
+
+	const [entryTags, setEntryTags] = useState<DbTag[]>(entry.tags ?? []);
+
+	const tagsQueryKey = getGetAllTagsQueryKey();
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchValue, setSearchValue] = useState("");
@@ -57,14 +63,10 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	}, [entryTags.length]);
 
 	const { mutate: addTagsToEntry } = useAddTagsToEntry();
+	const { mutate: createTag } = useCreateTag();
 
-	const handleAddTag = (tagId: string) => {
+	const handleAddTag = async (tagId: string) => {
 		if (!entry.id) return;
-
-		// const existingTagNames = entryTags
-		// 	.map((t) => t.name)
-		// 	.filter(Boolean) as string[];
-		// const newTagNames = [...existingTagNames, tagName];
 
 		addTagsToEntry(
 			{
@@ -72,10 +74,26 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 				data: [tagId],
 			},
 			{
-				onSuccess: () => {
-					// queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
+				onSuccess: ({ data }) => {
+					setEntryTags([...(data?.tags ?? [])]);
+					// setEntryTags([...entryTags, ...data.tags]);
+				},
+			},
+		);
+	};
+
+	const handleCreateTag = async (tagName: string) => {
+		createTag(
+			{
+				data: {
+					name: tagName,
+				},
+			},
+			{
+				onSuccess: ({ data }) => {
+					queryClient.invalidateQueries({ queryKey: tagsQueryKey });
+					handleAddTag(data.id!);
 					setSearchValue("");
-					// Don't close popover to allow multiple selections
 				},
 			},
 		);
@@ -207,7 +225,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 								{showCreateOption && (
 									<button
 										type="button"
-										onClick={() => handleAddTag(searchValue.trim())}
+										onClick={() => handleCreateTag(searchValue.trim())}
 										className={popoverItemStyles}
 									>
 										Create "{searchValue.trim()}"

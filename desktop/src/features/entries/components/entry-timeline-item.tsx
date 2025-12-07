@@ -49,54 +49,14 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isTagsShown, setIsTagsShown] = useState(false);
 
-	// const queryKey = getGetEntryQueryKey();
-	// const queryClient = useQueryClient();
+	const shouldShowTags =
+		isTagsShown || (entry?.tags && entry?.tags?.length > 0);
 
-	// const [entries, setEntries] = useState<DbEntry[]>(data);
-	// const isToday = isTodayFn(date);
-	// const hasEntries = entries.length > 0;
-
-	// const { mutate: createEntry } = useCreateEntry();
-	// const { mutate: updateEntry } = useUpdateEntry();
-
-	// const onUpdateEntry = async (entryId: string, document: string) => {
-	// 	updateEntry(
-	// 		{
-	// 			id: entryId,
-	// 			data: {
-	// 				document,
-	// 			},
-	// 		},
-	// 		{
-	// 			onSuccess: () => {
-	// 				queryClient.invalidateQueries({ queryKey });
-	// 			},
-	// 		},
-	// 	);
-	// };
-
-	// const onAddNewEntry = async () => {
-	// 	const now = new Date();
-
-	// 	createEntry(
-	// 		{
-	// 			data: {
-	// 				document: placeholder,
-	// 				date: now.toISOString(),
-	// 			},
-	// 		},
-	// 		{
-	// 			onSuccess: (data) => {
-	// 				setEntries([...entries, data.data]);
-	// 				queryClient.invalidateQueries({ queryKey });
-	// 			},
-	// 			onError: (error) => {
-	// 				console.log("error ->", error);
-	// 				console.error(error);
-	// 			},
-	// 		},
-	// 	);
-	// };
+	console.log("shouldShowTags", {
+		shouldShowTags,
+		isTagsShown,
+		entryTags: entry.tags,
+	});
 
 	return (
 		<Timeline.Item key={entry.id}>
@@ -115,7 +75,7 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 				/>
 			</EntryActionsDropdown>
 			<Timeline.Content className="mb-5 flex flex-col ">
-				{isTagsShown && <EntryTags entry={entry} />}
+				{shouldShowTags && <EntryTags entry={entry} />}
 				<EntryEditor
 					isSelected={isActionsDropdownOpen}
 					createdAt={entry.createdAt ?? ""}
@@ -134,3 +94,52 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 
 // TODOs:
 // - add infinite scrolling; fetch first 200 entries
+
+// const queryKey = getGetEntryQueryKey();
+// const queryClient = useQueryClient();
+
+// const [entries, setEntries] = useState<DbEntry[]>(data);
+// const isToday = isTodayFn(date);
+// const hasEntries = entries.length > 0;
+
+// const { mutate: createEntry } = useCreateEntry();
+// const { mutate: updateEntry } = useUpdateEntry();
+
+// const onUpdateEntry = async (entryId: string, document: string) => {
+// 	updateEntry(
+// 		{
+// 			id: entryId,
+// 			data: {
+// 				document,
+// 			},
+// 		},
+// 		{
+// 			onSuccess: () => {
+// 				queryClient.invalidateQueries({ queryKey });
+// 			},
+// 		},
+// 	);
+// };
+
+// const onAddNewEntry = async () => {
+// 	const now = new Date();
+
+// 	createEntry(
+// 		{
+// 			data: {
+// 				document: placeholder,
+// 				date: now.toISOString(),
+// 			},
+// 		},
+// 		{
+// 			onSuccess: (data) => {
+// 				setEntries([...entries, data.data]);
+// 				queryClient.invalidateQueries({ queryKey });
+// 			},
+// 			onError: (error) => {
+// 				console.log("error ->", error);
+// 				console.error(error);
+// 			},
+// 		},
+// 	);
+// };

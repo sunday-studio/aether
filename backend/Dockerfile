@@ -26,4 +26,4 @@ ARG VERSION=dev
 ENV CC=aarch64-linux-gnu-gcc
 
 # Build ARM64 binary with CGO enabled
-RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -o /src/aether-backend_${VERSION} ./cmd/server
+RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -o /src/aether-backend_${VERSION} ./main.go

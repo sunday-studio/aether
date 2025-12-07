@@ -10,7 +10,7 @@ import (
 // GetEntries godoc
 // @Id getEntries
 // @Summary Get all entries
-// @Description Returns all non-deleted entries
+// @Description Returns all non-deleted entries, including their tags
 // @Tags Entries
 // @Produce json
 // @Success 200 {array} db.Entry
@@ -19,6 +19,7 @@ import (
 func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 	var entries []db.Entry
 	if err := e.db.
+		Preload("Tags").
 		Where("is_deleted = ?", false).
 		Order("created_at ASC").
 		Find(&entries).Error; err != nil {
@@ -26,6 +27,7 @@ func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 	}
 	return c.JSON(entries)
 }
+
 
 // GetEntryByID godoc
 // @Id getEntryByID

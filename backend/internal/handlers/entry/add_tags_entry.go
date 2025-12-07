@@ -45,30 +45,50 @@ func (h *EntryHandler) AddTagsToEntry(c *fiber.Ctx) error {
 		})
 	}
 
-	var payload struct {
-		Tags []string `json:"tags"`
-	}
-
+	var payload []string
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "invalid request body",
+			"error": "invalid body",
 		})
 	}
 
-	var tags []db.Tag
-	if len(payload.Tags) > 0 {
-		if err := h.db.Where("id IN ?", payload.Tags).Find(&tags).Error; err != nil {
+	// Fetch all tags to be potentially added
+	var tagsToAdd []db.Tag
+	if err := h.db.Where("id IN ?", payload).Find(&tagsToAdd).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Load currently assigned tags
+	var existingTags []db.Tag
+	if err := h.db.Model(&entry).Association("Tags").Find(&existingTags); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Build a map of existing tag IDs for quick lookup
+	existingTagIDs := make(map[string]struct{})
+	for _, t := range existingTags {
+		existingTagIDs[t.ID] = struct{}{}
+	}
+
+	// Filter out tags that are already assigned
+	var newTags []db.Tag
+	for _, tag := range tagsToAdd {
+		if _, found := existingTagIDs[tag.ID]; !found {
+			newTags = append(newTags, tag)
+		}
+	}
+
+	// Only add new associations (skip if none are new)
+	if len(newTags) > 0 {
+		if err := h.db.Model(&entry).Association("Tags").Append(newTags); err != nil {
 			return c.Status(500).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		}
-	}
-
-
-	if err := h.db.Model(&entry).Association("Tags").Replace(tags); err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
 	}
 
 	// Return entry with updated tags

@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useGetEntries } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { generateDays, sortEntries } from "../entries.domain";
-import { EntryEditor } from "./entry-editor.tsx";
 import {
 	AddNewEntryButton,
 	EntryTimelineItem,
@@ -15,22 +14,11 @@ export const EntryTimeline = () => {
 	const [_days, _setDayss] = useState(initialDays);
 
 	const containerRef = useRef<HTMLDivElement>(null);
-	const todayRef = useRef<HTMLDivElement>(null);
 
 	const { data: entries } = useGetEntries();
 	const sortedEntries = sortEntries(
 		(entries?.data as unknown as DbEntry[]) ?? [],
 	);
-
-	// useEffect(() => {
-	// 	if (todayRef.current) {
-	// 		todayRef.current.scrollIntoView({
-	// 			block: "start",
-	// 			behavior: "auto",
-	// 		});
-	// 	}
-	// }, []);
-
 	return (
 		<div
 			ref={containerRef}
