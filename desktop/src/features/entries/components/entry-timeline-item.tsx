@@ -9,10 +9,12 @@ import {
 } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
+import { EntryActionsDropdown } from "./entry-actions-dropdown";
 import { EntryEditor } from "./entry-editor";
+import { EntryTags } from "./entry-tags";
 
 interface EntryTimelineItemProps {
-	entry: DbEntry["document"];
+	entry: DbEntry;
 }
 
 const placeholder =
@@ -43,29 +45,12 @@ export const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	);
 };
 
-const EmptyState = ({ onAddNewEntry }: { onAddNewEntry: () => void }) => {
-	return (
-		<Timeline>
-			<Timeline.Item>
-				<Timeline.Indicator />
-				<Timeline.Content>
-					<p className="text-neutral-500">No entries for this day</p>
-				</Timeline.Content>
-			</Timeline.Item>
-
-			<Timeline.Item>
-				<Timeline.Indicator />
-				<Timeline.Content className="-my-1">
-					<AddNewEntryButton onClick={onAddNewEntry} />
-				</Timeline.Content>
-			</Timeline.Item>
-		</Timeline>
-	);
-};
-
 export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
-	const queryKey = getGetEntryQueryKey();
-	const queryClient = useQueryClient();
+	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
+	const [isTagsShown, setIsTagsShown] = useState(false);
+
+	// const queryKey = getGetEntryQueryKey();
+	// const queryClient = useQueryClient();
 
 	// const [entries, setEntries] = useState<DbEntry[]>(data);
 	// const isToday = isTodayFn(date);
@@ -114,47 +99,34 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	// };
 
 	return (
-		<div
-		// className={clsx("mb-8 border-b border-neutral-200", {
-		// 	"": isToday || data.length > 0,
-		// })}
-		>
-			{/* <div className="sticky top-0 pt-4 pb-2 z-10 text-neutral-700 newsreader-font font-medium px-4 backdrop-blur-lg ">
-				{format(date, "EEEE, MMMM d")}
-			</div> */}
-
-			{/* todo: tags come here */}
-
-			<div className="space-y-2 mt-4 h-full flex flex-col gap-2 px-4 relative">
-				{/* {hasEntries ? (
-					<Timeline>
-						{entries.map((entry) => (
-							<Timeline.Item key={entry.id}>
-								<Timeline.Indicator className="cursor-pointer" />
-								<Timeline.Content className="mb-0">
-									<EntryEditor
-										createdAt={entry.createdAt ?? ""}
-										updatedAt={entry.updatedAt ?? ""}
-										document={entry.document ?? ""}
-										id={entry.id ?? ""}
-										onChange={(document) =>
-											onUpdateEntry(entry.id ?? "", document)
-										}
-									/>
-								</Timeline.Content>
-							</Timeline.Item>
-						))}
-						<Timeline.Item>
-							<Timeline.Indicator />
-							<Timeline.Content className="-my-1">
-								<AddNewEntryButton onClick={onAddNewEntry} />
-							</Timeline.Content>
-						</Timeline.Item>
-					</Timeline>
-				) : (
-					<EmptyState onAddNewEntry={onAddNewEntry} />
-				)} */}
-			</div>
-		</div>
+		<Timeline.Item key={entry.id}>
+			<EntryActionsDropdown
+				entry={entry}
+				isOpen={isActionsDropdownOpen}
+				onOpenChange={setIsActionsDropdownOpen}
+			>
+				<Timeline.Indicator
+					className="cursor-pointer"
+					onClick={() => setIsActionsDropdownOpen(true)}
+				/>
+			</EntryActionsDropdown>
+			<Timeline.Content className="mb-5">
+				{isTagsShown && <EntryTags />}
+				<EntryEditor
+					isSelected={isActionsDropdownOpen}
+					createdAt={entry.createdAt ?? ""}
+					updatedAt={entry.updatedAt ?? ""}
+					document={entry.document ?? ""}
+					id={entry.id ?? ""}
+					onChange={() => {}}
+					// onChange={(document) =>
+					// 	onUpdateEntry(entry.id ?? "", document)
+					// }
+				/>
+			</Timeline.Content>
+		</Timeline.Item>
 	);
 };
+
+// TODOs:
+// - add infinite scrolling; fetch first 200 entries

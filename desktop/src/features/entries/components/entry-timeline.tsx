@@ -49,23 +49,7 @@ export const EntryTimeline = () => {
 						</Timeline.Content>
 					</Timeline.Item>
 					{sortedEntries?.map((entry) => {
-						return (
-							<Timeline.Item key={entry.id}>
-								<Timeline.Indicator className="cursor-pointer" />
-								<Timeline.Content className="mb-5">
-									<EntryEditor
-										createdAt={entry.createdAt ?? ""}
-										updatedAt={entry.updatedAt ?? ""}
-										document={entry.document ?? ""}
-										id={entry.id ?? ""}
-										onChange={() => {}}
-										// onChange={(document) =>
-										// 	onUpdateEntry(entry.id ?? "", document)
-										// }
-									/>
-								</Timeline.Content>
-							</Timeline.Item>
-						);
+						return <EntryTimelineItem key={entry.id} entry={entry} />;
 					})}
 				</Timeline>
 			</div>

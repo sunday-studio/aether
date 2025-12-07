@@ -39,4 +39,5 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	tagGroup := api.Group("/tags")
 	tagGroup.Get("/", tagHandler.GetAllTags)
 	tagGroup.Post("/", tagHandler.CreateTag)
+	tagGroup.Post("/bulk-create", tagHandler.BulkCreateTags)
 }

@@ -1,6 +1,5 @@
-import { ReactNode } from "react";
-
 import { clsx } from "clsx";
+import { forwardRef, type ReactNode } from "react";
 
 export function Root({
 	children,
@@ -24,15 +23,14 @@ const Item = ({ children }: { children: ReactNode }) => {
 	);
 };
 
-const Indicator = ({
-	children,
-	className,
-	onClick = () => {},
-}: {
-	children?: ReactNode;
-	className?: string;
-	onClick?: () => void;
-}) => {
+const Indicator = forwardRef<
+	HTMLDivElement,
+	{
+		children?: ReactNode;
+		className?: string;
+		onClick?: () => void;
+	}
+>(({ children, className, onClick = () => {} }, ref) => {
 	return (
 		<div className="relative flex flex-col items-center self-stretch justify-start min-h-14">
 			<div
@@ -40,6 +38,7 @@ const Indicator = ({
 				className="flex h-full w-7 flex-col items-center justify-start"
 			>
 				<div
+					ref={ref}
 					role="button"
 					onClick={onClick}
 					style={{
@@ -57,7 +56,9 @@ const Indicator = ({
 			</div>
 		</div>
 	);
-};
+});
+
+Indicator.displayName = "Timeline.Indicator";
 
 const Content = ({
 	children,
