@@ -1,25 +1,24 @@
-import { format, isToday as isTodayFn } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { EntryEditor } from "./entry-editor";
-import type { DbEntry } from "~/aether-sdk/models";
+import { format, isToday as isTodayFn } from "date-fns";
+import { useState } from "react";
 import {
+	getGetEntryQueryKey,
 	useCreateEntry,
 	useUpdateEntry,
-	getGetEntryQueryKey,
 } from "~/aether-sdk";
+import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { EntryEditor } from "./entry-editor";
 
 interface EntryTimelineItemProps {
-	date: Date;
-	data?: DbEntry[] | [];
+	entry: DbEntry["document"];
 }
 
 const placeholder =
 	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
-const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
+export const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	return (
 		<button
 			className={clsx(
@@ -64,73 +63,70 @@ const EmptyState = ({ onAddNewEntry }: { onAddNewEntry: () => void }) => {
 	);
 };
 
-export const EntryTimelineItem = ({
-	date,
-	data = [],
-}: EntryTimelineItemProps) => {
+export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	const queryKey = getGetEntryQueryKey();
 	const queryClient = useQueryClient();
 
-	const [entries, setEntries] = useState<DbEntry[]>(data);
-	const isToday = isTodayFn(date);
-	const hasEntries = entries.length > 0;
+	// const [entries, setEntries] = useState<DbEntry[]>(data);
+	// const isToday = isTodayFn(date);
+	// const hasEntries = entries.length > 0;
 
-	const { mutate: createEntry } = useCreateEntry();
-	const { mutate: updateEntry } = useUpdateEntry();
+	// const { mutate: createEntry } = useCreateEntry();
+	// const { mutate: updateEntry } = useUpdateEntry();
 
-	const onUpdateEntry = async (entryId: string, document: string) => {
-		updateEntry(
-			{
-				id: entryId,
-				data: {
-					document,
-				},
-			},
-			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey });
-				},
-			},
-		);
-	};
+	// const onUpdateEntry = async (entryId: string, document: string) => {
+	// 	updateEntry(
+	// 		{
+	// 			id: entryId,
+	// 			data: {
+	// 				document,
+	// 			},
+	// 		},
+	// 		{
+	// 			onSuccess: () => {
+	// 				queryClient.invalidateQueries({ queryKey });
+	// 			},
+	// 		},
+	// 	);
+	// };
 
-	const onAddNewEntry = async () => {
-		const now = new Date();
+	// const onAddNewEntry = async () => {
+	// 	const now = new Date();
 
-		createEntry(
-			{
-				data: {
-					document: placeholder,
-					date: now.toISOString(),
-				},
-			},
-			{
-				onSuccess: (data) => {
-					setEntries([...entries, data.data]);
-					queryClient.invalidateQueries({ queryKey });
-				},
-				onError: (error) => {
-					console.log("error ->", error);
-					console.error(error);
-				},
-			},
-		);
-	};
+	// 	createEntry(
+	// 		{
+	// 			data: {
+	// 				document: placeholder,
+	// 				date: now.toISOString(),
+	// 			},
+	// 		},
+	// 		{
+	// 			onSuccess: (data) => {
+	// 				setEntries([...entries, data.data]);
+	// 				queryClient.invalidateQueries({ queryKey });
+	// 			},
+	// 			onError: (error) => {
+	// 				console.log("error ->", error);
+	// 				console.error(error);
+	// 			},
+	// 		},
+	// 	);
+	// };
 
 	return (
 		<div
-			className={clsx("mb-8 border-b border-neutral-200", {
-				"": isToday || data.length > 0,
-			})}
+		// className={clsx("mb-8 border-b border-neutral-200", {
+		// 	"": isToday || data.length > 0,
+		// })}
 		>
-			<div className="sticky top-0 pt-4 pb-2 z-10 text-neutral-700 newsreader-font font-medium px-4 backdrop-blur-lg ">
+			{/* <div className="sticky top-0 pt-4 pb-2 z-10 text-neutral-700 newsreader-font font-medium px-4 backdrop-blur-lg ">
 				{format(date, "EEEE, MMMM d")}
-			</div>
+			</div> */}
 
 			{/* todo: tags come here */}
 
 			<div className="space-y-2 mt-4 h-full flex flex-col gap-2 px-4 relative">
-				{hasEntries ? (
+				{/* {hasEntries ? (
 					<Timeline>
 						{entries.map((entry) => (
 							<Timeline.Item key={entry.id}>
@@ -157,7 +153,7 @@ export const EntryTimelineItem = ({
 					</Timeline>
 				) : (
 					<EmptyState onAddNewEntry={onAddNewEntry} />
-				)}
+				)} */}
 			</div>
 		</div>
 	);

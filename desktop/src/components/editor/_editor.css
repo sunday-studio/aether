@@ -115,28 +115,33 @@
 
 .editor-heading-h1 {
 	font-size: 30px;
-	font-weight: 600;
+	font-weight: 500;
 	margin-bottom: 0.5rem;
+	font-family: "Newsreader", serif;
 }
 .editor-heading-h2 {
 	font-size: 24px;
-	font-weight: 600;
+	font-weight: 500;
 	margin-bottom: 0.5rem;
+	font-family: "Newsreader", serif;
 }
 .editor-heading-h3 {
 	font-size: 20px;
-	font-weight: 600;
+	font-weight: 500;
 	margin-bottom: 0.5rem;
+	font-family: "Newsreader", serif;
 }
 .editor-heading-h4 {
 	font-size: 16px;
-	font-weight: 600;
+	font-weight: 500;
 	margin-bottom: 0.5rem;
+	font-family: "Newsreader", serif;
 }
 .editor-heading-h5 {
 	font-size: 14px;
-	font-weight: 600;
+	font-weight: 500;
 	margin-bottom: 0.5rem;
+	font-family: "Newsreader", serif;
 }
 
 .editor-quote {

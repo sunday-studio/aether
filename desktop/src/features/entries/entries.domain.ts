@@ -1,6 +1,15 @@
 import { eachDayOfInterval, format, subMonths } from "date-fns";
 import type { DbEntry } from "~/aether-sdk/models";
 
+export const sortEntries = (entries: DbEntry[]) => {
+	return entries.sort((a, b) => {
+		return (
+			new Date(b.createdAt ?? "").getTime() -
+			new Date(a.createdAt ?? "").getTime()
+		);
+	});
+};
+
 export const normalizeEntries = (entries: DbEntry[]) => {
 	const groupedEntries: Record<string, DbEntry[]> = {};
 
@@ -45,7 +54,7 @@ export const normalizeEntriesToMap = (entries: DbEntry[]) => {
 		if (!map.has(dateKey)) {
 			map.set(dateKey, []);
 		}
-		map.get(dateKey)!.push(entry);
+		map.get(dateKey)?.push(entry);
 	}
 	return map;
 };

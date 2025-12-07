@@ -17,7 +17,10 @@ import (
 // @Router /entry [get]
 func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 	var entries []db.Entry
-	if err := e.db.Where("is_deleted = ?", false).Find(&entries).Error; err != nil {
+	if err := e.db.
+		Where("is_deleted = ?", false).
+		Order("created_at ASC").
+		Find(&entries).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(entries)
