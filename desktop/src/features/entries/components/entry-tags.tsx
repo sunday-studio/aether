@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
 	type AddTagsToEntryMutationBody,
@@ -10,6 +10,7 @@ import {
 	useAddTagsToEntry,
 	useCreateTag,
 	useGetAllTags,
+	useRemoveTagsFromEntry,
 	// getGetEntryQueryKey,
 	// useGetTags,
 	// usePostEntryIdTags,
@@ -44,6 +45,7 @@ interface EntryTagsProps {
 export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const queryClient = useQueryClient();
 	const { data: tagsResponse } = useGetAllTags();
+
 	const allTags: DbTag[] = (
 		tagsResponse?.status === 200 ? tagsResponse.data : []
 	) as DbTag[];
@@ -51,6 +53,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const [entryTags, setEntryTags] = useState<DbTag[]>(entry.tags ?? []);
 
 	const tagsQueryKey = getGetAllTagsQueryKey();
+	const entriesQueryKey = getGetEntriesQueryKey();
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchValue, setSearchValue] = useState("");
@@ -64,6 +67,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 
 	const { mutate: addTagsToEntry } = useAddTagsToEntry();
 	const { mutate: createTag } = useCreateTag();
+	const { mutate: removeTagsFromEntry } = useRemoveTagsFromEntry();
 
 	const handleAddTag = async (tagId: string) => {
 		if (!entry.id) return;
@@ -75,8 +79,8 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					setEntryTags([...(data?.tags ?? [])]);
-					// setEntryTags([...entryTags, ...data.tags]);
+					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					setEntryTags([...((data?.tags as unknown as DbTag[]) ?? [])]);
 				},
 			},
 		);
@@ -99,22 +103,18 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 		);
 	};
 
-	const handleRemoveTag = (tagToRemove: DbTag) => {
+	const handleRemoveTag = (tagId: string) => {
 		if (!entry.id) return;
 
-		const newTagNames = entryTags
-			.filter((t) => t.id !== tagToRemove.id)
-			.map((t) => t.name)
-			.filter(Boolean) as string[];
-
-		addTagsToEntry(
+		removeTagsFromEntry(
 			{
 				id: entry.id,
-				data: newTagNames,
+				data: tagId,
 			},
 			{
 				onSuccess: () => {
-					// queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
+					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					setEntryTags(entryTags.filter((t: DbTag) => t.id !== tagId));
 				},
 			},
 		);
@@ -123,8 +123,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const filteredTags = allTags.filter((tag: DbTag) => {
 		const tagName = tag.name?.toLowerCase() ?? "";
 		const search = searchValue.toLowerCase();
-		const isAlreadyAdded = entryTags.some((t: DbTag) => t.id === tag.id);
-		return tagName.includes(search) && !isAlreadyAdded;
+		return tagName.includes(search);
 	});
 
 	const showCreateOption =
@@ -164,7 +163,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 						<span>{tag.name}</span>
 						<button
 							type="button"
-							onClick={() => handleRemoveTag(tag)}
+							onClick={() => handleRemoveTag(tag.id!)}
 							className={cn(
 								"rounded-sm hover:bg-neutral-200",
 								"transition-colors",
@@ -231,16 +230,32 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 										Create "{searchValue.trim()}"
 									</button>
 								)}
-								{filteredTags.map((tag: DbTag) => (
-									<button
-										key={tag.id}
-										type="button"
-										onClick={() => tag.id && handleAddTag(tag.id)}
-										className={popoverItemStyles}
-									>
-										{tag.name}
-									</button>
-								))}
+								{filteredTags.map((tag: DbTag) => {
+									const isAlreadyAdded = entryTags.some(
+										(t: DbTag) => t.id === tag.id,
+									);
+
+									return (
+										<button
+											key={tag.id}
+											type="button"
+											onClick={() => {
+												if (!tag.id) return;
+
+												if (isAlreadyAdded) {
+													handleRemoveTag(tag.id);
+												} else {
+													handleAddTag(tag.id);
+												}
+											}}
+											className={cn(popoverItemStyles, isAlreadyAdded && "")}
+										>
+											{tag.name}
+
+											{isAlreadyAdded && <Check className="size-3 ml-auto" />}
+										</button>
+									);
+								})}
 								{!showCreateOption && filteredTags.length === 0 && (
 									<div className="px-2 py-1.5 text-sm text-neutral-500">
 										No tags found

@@ -62,7 +62,7 @@ info:
 paths:
   /entry:
     get:
-      description: Returns all non-deleted entries
+      description: Returns all non-deleted entries, including their tags
       operationId: getEntries
       produces:
       - application/json
@@ -225,6 +225,50 @@ paths:
       tags:
       - Entries
   /entry/{id}/tags:
+    delete:
+      consumes:
+      - application/json
+      operationId: removeTagsFromEntry
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tag ID to remove
+        in: body
+        name: tagId
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove a tag from an entry
+      tags:
+      - Entries
     post:
       consumes:
       - application/json

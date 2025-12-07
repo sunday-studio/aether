@@ -52,12 +52,6 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	const shouldShowTags =
 		isTagsShown || (entry?.tags && entry?.tags?.length > 0);
 
-	console.log("shouldShowTags", {
-		shouldShowTags,
-		isTagsShown,
-		entryTags: entry.tags,
-	});
-
 	return (
 		<Timeline.Item key={entry.id}>
 			<EntryActionsDropdown
