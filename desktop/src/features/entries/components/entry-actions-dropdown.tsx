@@ -8,9 +8,10 @@ interface EntryActionsDropdownProps {
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 	children: React.ReactNode;
+	onAddTags: () => void;
 }
 
-const dropdownContentStyles = cn(
+export const dropdownContentStyles = cn(
 	"z-50 shadow-lg",
 	"max-h-(--radix-dropdown-menu-content-available-height) min-w-[12rem]",
 	"origin-(--radix-dropdown-menu-content-transform-origin)",
@@ -22,7 +23,7 @@ const dropdownContentStyles = cn(
 	"data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
 );
 
-const dropdownItemStyles = cn(
+export const dropdownItemStyles = cn(
 	"relative flex items-center gap-2 text-neutral-200",
 	"rounded-md px-2 py-1.5 text-sm",
 	"cursor-default outline-hidden select-none",
@@ -54,6 +55,7 @@ function DropdownMenuItem({
 }
 
 export const EntryActionsDropdown = ({
+	onAddTags,
 	isOpen,
 	onOpenChange,
 	children,
@@ -63,20 +65,20 @@ export const EntryActionsDropdown = ({
 			<DropdownMenu.Trigger asChild>{children}</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
 				<DropdownMenu.Content className={dropdownContentStyles} sideOffset={5}>
-					<DropdownMenu.Item className={dropdownItemStyles}>
+					<DropdownMenuItem className={dropdownItemStyles} onClick={onAddTags}>
 						<Tag className="mr-2 size-4" />
 						Add tags
-					</DropdownMenu.Item>
+					</DropdownMenuItem>
 
-					<DropdownMenu.Item className={dropdownItemStyles}>
+					<DropdownMenuItem className={dropdownItemStyles}>
 						<Pin className="mr-2 size-4" />
 						Pin
-					</DropdownMenu.Item>
+					</DropdownMenuItem>
 
-					<DropdownMenu.Item className={dropdownItemStyles}>
+					<DropdownMenuItem className={dropdownItemStyles}>
 						<Archive className="mr-2 size-4" />
 						Archive
-					</DropdownMenu.Item>
+					</DropdownMenuItem>
 
 					<DropdownMenuItem variant="destructive">
 						<Trash className="mr-2 size-4" />

@@ -8,6 +8,7 @@ import (
 )
 
 // GetEntries godoc
+// @Id getEntries
 // @Summary Get all entries
 // @Description Returns all non-deleted entries
 // @Tags Entries
@@ -27,6 +28,7 @@ func (e *EntryHandler) GetEntries(c *fiber.Ctx) error {
 }
 
 // GetEntryByID godoc
+// @Id getEntryByID
 // @Summary Get entry by ID
 // @Description Returns a single entry by its ID
 // @Tags Entries

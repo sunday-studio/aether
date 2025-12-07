@@ -55,6 +55,14 @@ func (e *EntryHandler) CreateEntry(c *fiber.Ctx) error {
 	return c.JSON(entry)
 }
 
+// @Id bulkCreateEntries
+// @Summary Bulk create entries
+// @Tags Entries
+// @Accept json
+// @Produce json
+// @Param entries body []CreateEntryPayload true "Entries payload"
+// @Success 200 {array} db.Entry
+// @Failure 400 {object} map[string]string
 func (e *EntryHandler) BulkCreateEntries(c *fiber.Ctx) error {
 	var payload []CreateEntryPayload
 	if err := c.BodyParser(&payload); err != nil {

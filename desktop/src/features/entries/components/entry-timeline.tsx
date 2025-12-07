@@ -36,7 +36,7 @@ export const EntryTimeline = () => {
 			ref={containerRef}
 			className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center "
 		>
-			<div className="my-10 w-[650px]">
+			<div className="my-10 w-[700px]">
 				<Timeline>
 					<Timeline.Item>
 						<Timeline.Indicator />

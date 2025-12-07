@@ -1,0 +1,8 @@
+basePath: /v1
+info:
+  contact: {}
+  description: something, something to write in
+  title: Aether API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

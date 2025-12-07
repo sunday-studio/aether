@@ -25,6 +25,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Get all entries",
+                "operationId": "getEntries",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -108,6 +109,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Get entry by ID",
+                "operationId": "getEntryByID",
                 "parameters": [
                     {
                         "type": "string",
@@ -218,6 +220,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Delete an entry (soft delete)",
+                "operationId": "deleteEntry",
                 "parameters": [
                     {
                         "type": "string",
@@ -270,6 +273,7 @@ const docTemplate = `{
                     "Entries"
                 ],
                 "summary": "Add tags to an entry",
+                "operationId": "addTagsToEntry",
                 "parameters": [
                     {
                         "type": "string",
@@ -313,6 +317,39 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": {
                                 "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tags": {
+            "get": {
+                "description": "Returns all tags",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tags"
+                ],
+                "summary": "Get all tags",
+                "operationId": "getAllTags",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.Tag"
                             }
                         }
                     },
@@ -402,6 +439,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "tag.CreateTagPayload": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
                 }
             }
         }

@@ -104,14 +104,18 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 				entry={entry}
 				isOpen={isActionsDropdownOpen}
 				onOpenChange={setIsActionsDropdownOpen}
+				onAddTags={() => {
+					console.log("add tags");
+					setIsTagsShown(true);
+				}}
 			>
 				<Timeline.Indicator
 					className="cursor-pointer"
 					onClick={() => setIsActionsDropdownOpen(true)}
 				/>
 			</EntryActionsDropdown>
-			<Timeline.Content className="mb-5">
-				{isTagsShown && <EntryTags />}
+			<Timeline.Content className="mb-5 flex flex-col ">
+				{isTagsShown && <EntryTags entry={entry} />}
 				<EntryEditor
 					isSelected={isActionsDropdownOpen}
 					createdAt={entry.createdAt ?? ""}

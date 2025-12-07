@@ -11,6 +11,13 @@ type CreateTagPayload struct {
 	Name string `json:"name"`
 }
 
+// CreateTag godoc
+// @Id createTag
+// @Summary Create a new tag
+// @Tags Tags
+// @Accept json
+// @Produce json
+// @Param tag body CreateTagPayload true "Tag payload"
 func (t *TagsHandler) CreateTag(c *fiber.Ctx) error {
 	var payload CreateTagPayload
 	if err := c.BodyParser(&payload); err != nil {

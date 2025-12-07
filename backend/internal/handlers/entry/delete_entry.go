@@ -8,6 +8,7 @@ import (
 )
 
 // DeleteEntry godoc
+// @Id deleteEntry
 // @Summary Delete an entry (soft delete)
 // @Tags Entries
 // @Produce json

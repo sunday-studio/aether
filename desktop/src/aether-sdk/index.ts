@@ -25,19 +25,21 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AddTagsToEntry400,
+  AddTagsToEntry404,
+  AddTagsToEntry500,
   CreateEntry400,
   CreateEntry500,
   DbEntry,
-  DeleteEntryId200,
-  DeleteEntryId404,
-  DeleteEntryId500,
-  GetEntry500,
-  GetEntryId404,
-  GetEntryId500,
+  DbTag,
+  DeleteEntry200,
+  DeleteEntry404,
+  DeleteEntry500,
+  GetAllTags500,
+  GetEntries500,
+  GetEntryByID404,
+  GetEntryByID500,
   HandlersCreateEntryPayload,
-  PostEntryIdTags400,
-  PostEntryIdTags404,
-  PostEntryIdTags500,
   UpdateEntry400,
   UpdateEntry404,
   UpdateEntry500
@@ -51,26 +53,26 @@ import type {
  * Returns all non-deleted entries
  * @summary Get all entries
  */
-export type getEntryResponse200 = {
+export type getEntriesResponse200 = {
   data: DbEntry[]
   status: 200
 }
 
-export type getEntryResponse500 = {
-  data: GetEntry500
+export type getEntriesResponse500 = {
+  data: GetEntries500
   status: 500
 }
     
-export type getEntryResponseSuccess = (getEntryResponse200) & {
+export type getEntriesResponseSuccess = (getEntriesResponse200) & {
   headers: Headers;
 };
-export type getEntryResponseError = (getEntryResponse500) & {
+export type getEntriesResponseError = (getEntriesResponse500) & {
   headers: Headers;
 };
 
-export type getEntryResponse = (getEntryResponseSuccess | getEntryResponseError)
+export type getEntriesResponse = (getEntriesResponseSuccess | getEntriesResponseError)
 
-export const getGetEntryUrl = () => {
+export const getGetEntriesUrl = () => {
 
 
   
@@ -78,9 +80,9 @@ export const getGetEntryUrl = () => {
   return `http://127.0.0.1:9119/v1/entry`
 }
 
-export const getEntry = async ( options?: RequestInit): Promise<getEntryResponse> => {
+export const getEntries = async ( options?: RequestInit): Promise<getEntriesResponse> => {
   
-  const res = await fetch(getGetEntryUrl(),
+  const res = await fetch(getGetEntriesUrl(),
   {      
     ...options,
     method: 'GET'
@@ -91,77 +93,77 @@ export const getEntry = async ( options?: RequestInit): Promise<getEntryResponse
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getEntryResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getEntryResponse
+  const data: getEntriesResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getEntriesResponse
 }
 
 
 
 
 
-export const getGetEntryQueryKey = () => {
+export const getGetEntriesQueryKey = () => {
     return [
     `http://127.0.0.1:9119/v1/entry`
     ] as const;
     }
 
     
-export const getGetEntryQueryOptions = <TData = Awaited<ReturnType<typeof getEntry>>, TError = GetEntry500>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData>>, fetch?: RequestInit}
+export const getGetEntriesQueryOptions = <TData = Awaited<ReturnType<typeof getEntries>>, TError = GetEntries500>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData>>, fetch?: RequestInit}
 ) => {
 
 const {query: queryOptions, fetch: fetchOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetEntryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetEntriesQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntry>>> = ({ signal }) => getEntry({ signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntries>>> = ({ signal }) => getEntries({ signal, ...fetchOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetEntryQueryResult = NonNullable<Awaited<ReturnType<typeof getEntry>>>
-export type GetEntryQueryError = GetEntry500
+export type GetEntriesQueryResult = NonNullable<Awaited<ReturnType<typeof getEntries>>>
+export type GetEntriesQueryError = GetEntries500
 
 
-export function useGetEntry<TData = Awaited<ReturnType<typeof getEntry>>, TError = GetEntry500>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData>> & Pick<
+export function useGetEntries<TData = Awaited<ReturnType<typeof getEntries>>, TError = GetEntries500>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getEntry>>,
+          Awaited<ReturnType<typeof getEntries>>,
           TError,
-          Awaited<ReturnType<typeof getEntry>>
+          Awaited<ReturnType<typeof getEntries>>
         > , 'initialData'
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetEntry<TData = Awaited<ReturnType<typeof getEntry>>, TError = GetEntry500>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData>> & Pick<
+export function useGetEntries<TData = Awaited<ReturnType<typeof getEntries>>, TError = GetEntries500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getEntry>>,
+          Awaited<ReturnType<typeof getEntries>>,
           TError,
-          Awaited<ReturnType<typeof getEntry>>
+          Awaited<ReturnType<typeof getEntries>>
         > , 'initialData'
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetEntry<TData = Awaited<ReturnType<typeof getEntry>>, TError = GetEntry500>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData>>, fetch?: RequestInit}
+export function useGetEntries<TData = Awaited<ReturnType<typeof getEntries>>, TError = GetEntries500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get all entries
  */
 
-export function useGetEntry<TData = Awaited<ReturnType<typeof getEntry>>, TError = GetEntry500>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntry>>, TError, TData>>, fetch?: RequestInit}
+export function useGetEntries<TData = Awaited<ReturnType<typeof getEntries>>, TError = GetEntries500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntries>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetEntryQueryOptions(options)
+  const queryOptions = getGetEntriesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -281,31 +283,31 @@ export const useCreateEntry = <TError = CreateEntry400 | CreateEntry500,
  * Returns a single entry by its ID
  * @summary Get entry by ID
  */
-export type getEntryIdResponse200 = {
+export type getEntryByIDResponse200 = {
   data: DbEntry
   status: 200
 }
 
-export type getEntryIdResponse404 = {
-  data: GetEntryId404
+export type getEntryByIDResponse404 = {
+  data: GetEntryByID404
   status: 404
 }
 
-export type getEntryIdResponse500 = {
-  data: GetEntryId500
+export type getEntryByIDResponse500 = {
+  data: GetEntryByID500
   status: 500
 }
     
-export type getEntryIdResponseSuccess = (getEntryIdResponse200) & {
+export type getEntryByIDResponseSuccess = (getEntryByIDResponse200) & {
   headers: Headers;
 };
-export type getEntryIdResponseError = (getEntryIdResponse404 | getEntryIdResponse500) & {
+export type getEntryByIDResponseError = (getEntryByIDResponse404 | getEntryByIDResponse500) & {
   headers: Headers;
 };
 
-export type getEntryIdResponse = (getEntryIdResponseSuccess | getEntryIdResponseError)
+export type getEntryByIDResponse = (getEntryByIDResponseSuccess | getEntryByIDResponseError)
 
-export const getGetEntryIdUrl = (id: string,) => {
+export const getGetEntryByIDUrl = (id: string,) => {
 
 
   
@@ -313,9 +315,9 @@ export const getGetEntryIdUrl = (id: string,) => {
   return `http://127.0.0.1:9119/v1/entry/${id}`
 }
 
-export const getEntryId = async (id: string, options?: RequestInit): Promise<getEntryIdResponse> => {
+export const getEntryByID = async (id: string, options?: RequestInit): Promise<getEntryByIDResponse> => {
   
-  const res = await fetch(getGetEntryIdUrl(id),
+  const res = await fetch(getGetEntryByIDUrl(id),
   {      
     ...options,
     method: 'GET'
@@ -326,77 +328,77 @@ export const getEntryId = async (id: string, options?: RequestInit): Promise<get
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: getEntryIdResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getEntryIdResponse
+  const data: getEntryByIDResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getEntryByIDResponse
 }
 
 
 
 
 
-export const getGetEntryIdQueryKey = (id?: string,) => {
+export const getGetEntryByIDQueryKey = (id?: string,) => {
     return [
     `http://127.0.0.1:9119/v1/entry/${id}`
     ] as const;
     }
 
     
-export const getGetEntryIdQueryOptions = <TData = Awaited<ReturnType<typeof getEntryId>>, TError = GetEntryId404 | GetEntryId500>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData>>, fetch?: RequestInit}
+export const getGetEntryByIDQueryOptions = <TData = Awaited<ReturnType<typeof getEntryByID>>, TError = GetEntryByID404 | GetEntryByID500>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData>>, fetch?: RequestInit}
 ) => {
 
 const {query: queryOptions, fetch: fetchOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetEntryIdQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetEntryByIDQueryKey(id);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntryId>>> = ({ signal }) => getEntryId(id, { signal, ...fetchOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEntryByID>>> = ({ signal }) => getEntryByID(id, { signal, ...fetchOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetEntryIdQueryResult = NonNullable<Awaited<ReturnType<typeof getEntryId>>>
-export type GetEntryIdQueryError = GetEntryId404 | GetEntryId500
+export type GetEntryByIDQueryResult = NonNullable<Awaited<ReturnType<typeof getEntryByID>>>
+export type GetEntryByIDQueryError = GetEntryByID404 | GetEntryByID500
 
 
-export function useGetEntryId<TData = Awaited<ReturnType<typeof getEntryId>>, TError = GetEntryId404 | GetEntryId500>(
- id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData>> & Pick<
+export function useGetEntryByID<TData = Awaited<ReturnType<typeof getEntryByID>>, TError = GetEntryByID404 | GetEntryByID500>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getEntryId>>,
+          Awaited<ReturnType<typeof getEntryByID>>,
           TError,
-          Awaited<ReturnType<typeof getEntryId>>
+          Awaited<ReturnType<typeof getEntryByID>>
         > , 'initialData'
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetEntryId<TData = Awaited<ReturnType<typeof getEntryId>>, TError = GetEntryId404 | GetEntryId500>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData>> & Pick<
+export function useGetEntryByID<TData = Awaited<ReturnType<typeof getEntryByID>>, TError = GetEntryByID404 | GetEntryByID500>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getEntryId>>,
+          Awaited<ReturnType<typeof getEntryByID>>,
           TError,
-          Awaited<ReturnType<typeof getEntryId>>
+          Awaited<ReturnType<typeof getEntryByID>>
         > , 'initialData'
       >, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetEntryId<TData = Awaited<ReturnType<typeof getEntryId>>, TError = GetEntryId404 | GetEntryId500>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData>>, fetch?: RequestInit}
+export function useGetEntryByID<TData = Awaited<ReturnType<typeof getEntryByID>>, TError = GetEntryByID404 | GetEntryByID500>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get entry by ID
  */
 
-export function useGetEntryId<TData = Awaited<ReturnType<typeof getEntryId>>, TError = GetEntryId404 | GetEntryId500>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryId>>, TError, TData>>, fetch?: RequestInit}
+export function useGetEntryByID<TData = Awaited<ReturnType<typeof getEntryByID>>, TError = GetEntryByID404 | GetEntryByID500>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEntryByID>>, TError, TData>>, fetch?: RequestInit}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetEntryIdQueryOptions(id,options)
+  const queryOptions = getGetEntryByIDQueryOptions(id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -520,31 +522,31 @@ export const useUpdateEntry = <TError = UpdateEntry400 | UpdateEntry404 | Update
 /**
  * @summary Delete an entry (soft delete)
  */
-export type deleteEntryIdResponse200 = {
-  data: DeleteEntryId200
+export type deleteEntryResponse200 = {
+  data: DeleteEntry200
   status: 200
 }
 
-export type deleteEntryIdResponse404 = {
-  data: DeleteEntryId404
+export type deleteEntryResponse404 = {
+  data: DeleteEntry404
   status: 404
 }
 
-export type deleteEntryIdResponse500 = {
-  data: DeleteEntryId500
+export type deleteEntryResponse500 = {
+  data: DeleteEntry500
   status: 500
 }
     
-export type deleteEntryIdResponseSuccess = (deleteEntryIdResponse200) & {
+export type deleteEntryResponseSuccess = (deleteEntryResponse200) & {
   headers: Headers;
 };
-export type deleteEntryIdResponseError = (deleteEntryIdResponse404 | deleteEntryIdResponse500) & {
+export type deleteEntryResponseError = (deleteEntryResponse404 | deleteEntryResponse500) & {
   headers: Headers;
 };
 
-export type deleteEntryIdResponse = (deleteEntryIdResponseSuccess | deleteEntryIdResponseError)
+export type deleteEntryResponse = (deleteEntryResponseSuccess | deleteEntryResponseError)
 
-export const getDeleteEntryIdUrl = (id: string,) => {
+export const getDeleteEntryUrl = (id: string,) => {
 
 
   
@@ -552,9 +554,9 @@ export const getDeleteEntryIdUrl = (id: string,) => {
   return `http://127.0.0.1:9119/v1/entry/${id}`
 }
 
-export const deleteEntryId = async (id: string, options?: RequestInit): Promise<deleteEntryIdResponse> => {
+export const deleteEntry = async (id: string, options?: RequestInit): Promise<deleteEntryResponse> => {
   
-  const res = await fetch(getDeleteEntryIdUrl(id),
+  const res = await fetch(getDeleteEntryUrl(id),
   {      
     ...options,
     method: 'DELETE'
@@ -565,18 +567,18 @@ export const deleteEntryId = async (id: string, options?: RequestInit): Promise<
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: deleteEntryIdResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteEntryIdResponse
+  const data: deleteEntryResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as deleteEntryResponse
 }
 
 
 
 
-export const getDeleteEntryIdMutationOptions = <TError = DeleteEntryId404 | DeleteEntryId500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEntryId>>, TError,{id: string}, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteEntryId>>, TError,{id: string}, TContext> => {
+export const getDeleteEntryMutationOptions = <TError = DeleteEntry404 | DeleteEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEntry>>, TError,{id: string}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEntry>>, TError,{id: string}, TContext> => {
 
-const mutationKey = ['deleteEntryId'];
+const mutationKey = ['deleteEntry'];
 const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -586,10 +588,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEntryId>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEntry>>, {id: string}> = (props) => {
           const {id} = props ?? {};
 
-          return  deleteEntryId(id,fetchOptions)
+          return  deleteEntry(id,fetchOptions)
         }
 
         
@@ -597,23 +599,23 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type DeleteEntryIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEntryId>>>
+    export type DeleteEntryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEntry>>>
     
-    export type DeleteEntryIdMutationError = DeleteEntryId404 | DeleteEntryId500
+    export type DeleteEntryMutationError = DeleteEntry404 | DeleteEntry500
 
     /**
  * @summary Delete an entry (soft delete)
  */
-export const useDeleteEntryId = <TError = DeleteEntryId404 | DeleteEntryId500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEntryId>>, TError,{id: string}, TContext>, fetch?: RequestInit}
+export const useDeleteEntry = <TError = DeleteEntry404 | DeleteEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEntry>>, TError,{id: string}, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteEntryId>>,
+        Awaited<ReturnType<typeof deleteEntry>>,
         TError,
         {id: string},
         TContext
       > => {
 
-      const mutationOptions = getDeleteEntryIdMutationOptions(options);
+      const mutationOptions = getDeleteEntryMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
@@ -621,36 +623,36 @@ export const useDeleteEntryId = <TError = DeleteEntryId404 | DeleteEntryId500,
 /**
  * @summary Add tags to an entry
  */
-export type postEntryIdTagsResponse200 = {
+export type addTagsToEntryResponse200 = {
   data: DbEntry
   status: 200
 }
 
-export type postEntryIdTagsResponse400 = {
-  data: PostEntryIdTags400
+export type addTagsToEntryResponse400 = {
+  data: AddTagsToEntry400
   status: 400
 }
 
-export type postEntryIdTagsResponse404 = {
-  data: PostEntryIdTags404
+export type addTagsToEntryResponse404 = {
+  data: AddTagsToEntry404
   status: 404
 }
 
-export type postEntryIdTagsResponse500 = {
-  data: PostEntryIdTags500
+export type addTagsToEntryResponse500 = {
+  data: AddTagsToEntry500
   status: 500
 }
     
-export type postEntryIdTagsResponseSuccess = (postEntryIdTagsResponse200) & {
+export type addTagsToEntryResponseSuccess = (addTagsToEntryResponse200) & {
   headers: Headers;
 };
-export type postEntryIdTagsResponseError = (postEntryIdTagsResponse400 | postEntryIdTagsResponse404 | postEntryIdTagsResponse500) & {
+export type addTagsToEntryResponseError = (addTagsToEntryResponse400 | addTagsToEntryResponse404 | addTagsToEntryResponse500) & {
   headers: Headers;
 };
 
-export type postEntryIdTagsResponse = (postEntryIdTagsResponseSuccess | postEntryIdTagsResponseError)
+export type addTagsToEntryResponse = (addTagsToEntryResponseSuccess | addTagsToEntryResponseError)
 
-export const getPostEntryIdTagsUrl = (id: string,) => {
+export const getAddTagsToEntryUrl = (id: string,) => {
 
 
   
@@ -658,33 +660,33 @@ export const getPostEntryIdTagsUrl = (id: string,) => {
   return `http://127.0.0.1:9119/v1/entry/${id}/tags`
 }
 
-export const postEntryIdTags = async (id: string,
-    postEntryIdTagsBody: string[], options?: RequestInit): Promise<postEntryIdTagsResponse> => {
+export const addTagsToEntry = async (id: string,
+    addTagsToEntryBody: string[], options?: RequestInit): Promise<addTagsToEntryResponse> => {
   
-  const res = await fetch(getPostEntryIdTagsUrl(id),
+  const res = await fetch(getAddTagsToEntryUrl(id),
   {      
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      postEntryIdTagsBody,)
+      addTagsToEntryBody,)
   }
 )
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
   
-  const data: postEntryIdTagsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as postEntryIdTagsResponse
+  const data: addTagsToEntryResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as addTagsToEntryResponse
 }
 
 
 
 
-export const getPostEntryIdTagsMutationOptions = <TError = PostEntryIdTags400 | PostEntryIdTags404 | PostEntryIdTags500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postEntryIdTags>>, TError,{id: string;data: string[]}, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof postEntryIdTags>>, TError,{id: string;data: string[]}, TContext> => {
+export const getAddTagsToEntryMutationOptions = <TError = AddTagsToEntry400 | AddTagsToEntry404 | AddTagsToEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTagsToEntry>>, TError,{id: string;data: string[]}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof addTagsToEntry>>, TError,{id: string;data: string[]}, TContext> => {
 
-const mutationKey = ['postEntryIdTags'];
+const mutationKey = ['addTagsToEntry'];
 const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -694,10 +696,10 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postEntryIdTags>>, {id: string;data: string[]}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addTagsToEntry>>, {id: string;data: string[]}> = (props) => {
           const {id,data} = props ?? {};
 
-          return  postEntryIdTags(id,data,fetchOptions)
+          return  addTagsToEntry(id,data,fetchOptions)
         }
 
         
@@ -705,24 +707,151 @@ const {mutation: mutationOptions, fetch: fetchOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PostEntryIdTagsMutationResult = NonNullable<Awaited<ReturnType<typeof postEntryIdTags>>>
-    export type PostEntryIdTagsMutationBody = string[]
-    export type PostEntryIdTagsMutationError = PostEntryIdTags400 | PostEntryIdTags404 | PostEntryIdTags500
+    export type AddTagsToEntryMutationResult = NonNullable<Awaited<ReturnType<typeof addTagsToEntry>>>
+    export type AddTagsToEntryMutationBody = string[]
+    export type AddTagsToEntryMutationError = AddTagsToEntry400 | AddTagsToEntry404 | AddTagsToEntry500
 
     /**
  * @summary Add tags to an entry
  */
-export const usePostEntryIdTags = <TError = PostEntryIdTags400 | PostEntryIdTags404 | PostEntryIdTags500,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postEntryIdTags>>, TError,{id: string;data: string[]}, TContext>, fetch?: RequestInit}
+export const useAddTagsToEntry = <TError = AddTagsToEntry400 | AddTagsToEntry404 | AddTagsToEntry500,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTagsToEntry>>, TError,{id: string;data: string[]}, TContext>, fetch?: RequestInit}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postEntryIdTags>>,
+        Awaited<ReturnType<typeof addTagsToEntry>>,
         TError,
         {id: string;data: string[]},
         TContext
       > => {
 
-      const mutationOptions = getPostEntryIdTagsMutationOptions(options);
+      const mutationOptions = getAddTagsToEntryMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
     
+/**
+ * Returns all tags
+ * @summary Get all tags
+ */
+export type getAllTagsResponse200 = {
+  data: DbTag[]
+  status: 200
+}
+
+export type getAllTagsResponse500 = {
+  data: GetAllTags500
+  status: 500
+}
+    
+export type getAllTagsResponseSuccess = (getAllTagsResponse200) & {
+  headers: Headers;
+};
+export type getAllTagsResponseError = (getAllTagsResponse500) & {
+  headers: Headers;
+};
+
+export type getAllTagsResponse = (getAllTagsResponseSuccess | getAllTagsResponseError)
+
+export const getGetAllTagsUrl = () => {
+
+
+  
+
+  return `http://127.0.0.1:9119/v1/tags`
+}
+
+export const getAllTags = async ( options?: RequestInit): Promise<getAllTagsResponse> => {
+  
+  const res = await fetch(getGetAllTagsUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: getAllTagsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getAllTagsResponse
+}
+
+
+
+
+
+export const getGetAllTagsQueryKey = () => {
+    return [
+    `http://127.0.0.1:9119/v1/tags`
+    ] as const;
+    }
+
+    
+export const getGetAllTagsQueryOptions = <TData = Awaited<ReturnType<typeof getAllTags>>, TError = GetAllTags500>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAllTagsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAllTags>>> = ({ signal }) => getAllTags({ signal, ...fetchOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAllTagsQueryResult = NonNullable<Awaited<ReturnType<typeof getAllTags>>>
+export type GetAllTagsQueryError = GetAllTags500
+
+
+export function useGetAllTags<TData = Awaited<ReturnType<typeof getAllTags>>, TError = GetAllTags500>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAllTags>>,
+          TError,
+          Awaited<ReturnType<typeof getAllTags>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAllTags<TData = Awaited<ReturnType<typeof getAllTags>>, TError = GetAllTags500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAllTags>>,
+          TError,
+          Awaited<ReturnType<typeof getAllTags>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAllTags<TData = Awaited<ReturnType<typeof getAllTags>>, TError = GetAllTags500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get all tags
+ */
+
+export function useGetAllTags<TData = Awaited<ReturnType<typeof getAllTags>>, TError = GetAllTags500>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllTags>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAllTagsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+

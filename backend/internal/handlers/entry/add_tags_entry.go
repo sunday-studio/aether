@@ -9,6 +9,7 @@ import (
 )
 
 // AddTagsToEntry godoc
+// @Id addTagsToEntry
 // @Summary Add tags to an entry
 // @Tags Entries
 // @Accept json
