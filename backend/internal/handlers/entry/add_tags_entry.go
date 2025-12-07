@@ -64,6 +64,7 @@ func (h *EntryHandler) AddTagsToEntry(c *fiber.Ctx) error {
 		}
 	}
 
+
 	if err := h.db.Model(&entry).Association("Tags").Replace(tags); err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),

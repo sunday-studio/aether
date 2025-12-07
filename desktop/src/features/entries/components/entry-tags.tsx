@@ -3,9 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
-	getGetEntryQueryKey,
-	useGetTags,
-	usePostEntryIdTags,
+	type AddTagsToEntryMutationBody,
+	getGetEntriesQueryKey,
+	useAddTagsToEntry,
+	useGetAllTags,
+	// getGetEntryQueryKey,
+	// useGetTags,
+	// usePostEntryIdTags,
 } from "~/aether-sdk";
 import type { DbEntry, DbTag } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
@@ -36,7 +40,7 @@ interface EntryTagsProps {
 
 export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const queryClient = useQueryClient();
-	const { data: tagsResponse } = useGetTags();
+	const { data: tagsResponse } = useGetAllTags();
 	const allTags: DbTag[] = (
 		tagsResponse?.status === 200 ? tagsResponse.data : []
 	) as DbTag[];
@@ -52,24 +56,24 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 		}
 	}, [entryTags.length]);
 
-	const { mutate: updateTags } = usePostEntryIdTags();
+	const { mutate: addTagsToEntry } = useAddTagsToEntry();
 
-	const handleAddTag = (tagName: string) => {
+	const handleAddTag = (tagId: string) => {
 		if (!entry.id) return;
 
-		const existingTagNames = entryTags
-			.map((t) => t.name)
-			.filter(Boolean) as string[];
-		const newTagNames = [...existingTagNames, tagName];
+		// const existingTagNames = entryTags
+		// 	.map((t) => t.name)
+		// 	.filter(Boolean) as string[];
+		// const newTagNames = [...existingTagNames, tagName];
 
-		updateTags(
+		addTagsToEntry(
 			{
 				id: entry.id,
-				data: newTagNames,
+				data: [tagId],
 			},
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
+					// queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
 					setSearchValue("");
 					// Don't close popover to allow multiple selections
 				},
@@ -85,14 +89,14 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 			.map((t) => t.name)
 			.filter(Boolean) as string[];
 
-		updateTags(
+		addTagsToEntry(
 			{
 				id: entry.id,
 				data: newTagNames,
 			},
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
+					// queryClient.invalidateQueries({ queryKey: getGetEntryQueryKey() });
 				},
 			},
 		);
@@ -213,7 +217,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 									<button
 										key={tag.id}
 										type="button"
-										onClick={() => tag.name && handleAddTag(tag.name)}
+										onClick={() => tag.id && handleAddTag(tag.id)}
 										className={popoverItemStyles}
 									>
 										{tag.name}

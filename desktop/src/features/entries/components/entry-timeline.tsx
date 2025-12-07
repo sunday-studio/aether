@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useGetEntry } from "~/aether-sdk";
+import { useGetEntries } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { generateDays, sortEntries } from "../entries.domain";
@@ -17,7 +17,7 @@ export const EntryTimeline = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const todayRef = useRef<HTMLDivElement>(null);
 
-	const { data: entries } = useGetEntry();
+	const { data: entries } = useGetEntries();
 	const sortedEntries = sortEntries(
 		(entries?.data as unknown as DbEntry[]) ?? [],
 	);
