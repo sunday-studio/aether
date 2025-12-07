@@ -9,6 +9,9 @@ interface EntryActionsDropdownProps {
 	onOpenChange: (open: boolean) => void;
 	children: React.ReactNode;
 	onAddTags: () => void;
+	onDeleteEntry: () => void;
+	onPinEntry: () => void;
+	onArchiveEntry: () => void;
 }
 
 export const dropdownContentStyles = cn(
@@ -56,6 +59,9 @@ function DropdownMenuItem({
 
 export const EntryActionsDropdown = ({
 	onAddTags,
+	onDeleteEntry,
+	onPinEntry,
+	onArchiveEntry,
 	isOpen,
 	onOpenChange,
 	children,
@@ -70,17 +76,20 @@ export const EntryActionsDropdown = ({
 						Add tags
 					</DropdownMenuItem>
 
-					<DropdownMenuItem className={dropdownItemStyles}>
+					<DropdownMenuItem className={dropdownItemStyles} onClick={onPinEntry}>
 						<Pin className="mr-2 size-4" />
 						Pin
 					</DropdownMenuItem>
 
-					<DropdownMenuItem className={dropdownItemStyles}>
+					<DropdownMenuItem
+						className={dropdownItemStyles}
+						onClick={onArchiveEntry}
+					>
 						<Archive className="mr-2 size-4" />
 						Archive
 					</DropdownMenuItem>
 
-					<DropdownMenuItem variant="destructive">
+					<DropdownMenuItem variant="destructive" onClick={onDeleteEntry}>
 						<Trash className="mr-2 size-4" />
 						Delete entry
 					</DropdownMenuItem>

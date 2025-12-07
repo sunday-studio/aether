@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { forwardRef, type ReactNode } from "react";
+import { cn } from "~/utils/cn";
 
 export function Root({
 	children,
@@ -67,9 +68,7 @@ const Content = ({
 	children: ReactNode;
 	className?: string;
 }) => {
-	return (
-		<div className={clsx("flex w-full gap-10 ", className)}>{children}</div>
-	);
+	return <div className={cn("flex w-full gap-10 ", className)}>{children}</div>;
 };
 
 export const Timeline = Object.assign(Root, {

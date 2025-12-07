@@ -132,60 +132,50 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 			(tag: DbTag) => tag.name?.toLowerCase() === searchValue.toLowerCase(),
 		);
 
-	// Empty state - just show trigger that auto-opens
-	if (entryTags.length === 0 && !isOpen) {
-		return (
-			<div className="mb-3">
-				<Popover.Root open={isOpen} onOpenChange={setIsOpen}>
-					<Popover.Trigger asChild>
-						<button
-							type="button"
-							className="text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
-						>
-							Add tags...
-						</button>
-					</Popover.Trigger>
-				</Popover.Root>
-			</div>
-		);
-	}
+	const hasTags = entryTags.length > 0;
 
 	return (
-		<div className="mb-3">
-			<div className="flex flex-wrap gap-2">
-				{entryTags.map((tag) => (
-					<div
-						key={tag.id}
-						className={cn(
-							"flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-sm",
-						)}
-					>
-						<span>{tag.name}</span>
-						<button
-							type="button"
-							onClick={() => handleRemoveTag(tag.id!)}
-							className={cn(
-								"rounded-sm hover:bg-neutral-200",
-								"transition-colors",
-							)}
-						>
-							<X className="size-3" />
-						</button>
-					</div>
-				))}
-
+		<div className="mb-3 ">
+			<div className="flex flex-wrap gap-1">
 				<Popover.Root open={isOpen} onOpenChange={setIsOpen}>
 					<Popover.Trigger asChild>
-						<button
-							type="button"
-							className={cn(
-								"rounded-md px-2 py-1 text-sm text-neutral-500",
-								"hover:bg-neutral-100 hover:text-neutral-700",
-								"transition-colors",
-							)}
-						>
-							+ Add tag
-						</button>
+						{hasTags ? (
+							<div className="flex flex-wrap gap-1">
+								{entryTags.map((tag) => (
+									<div
+										key={tag.id}
+										className="
+						flex items-center justify-between bg-emerald-100 
+						text-xs newsreader-font p-1 rounded-md ring-1 ring-emerald-300 
+						gap-1 text-emerald-600 cursor-pointer"
+									>
+										<span>{tag.name}</span>
+										<button
+											type="button"
+											onClick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												handleRemoveTag(tag.id!);
+											}}
+											className="hover:bg-emerald-200 rounded-sm"
+										>
+											<X className="size-3 " />
+										</button>
+									</div>
+								))}
+							</div>
+						) : (
+							<button
+								type="button"
+								className={cn(
+									"rounded-md h-[24px] p-1 text-sm newsreader-font text-neutral-500",
+									"hover:bg-neutral-100 hover:text-neutral-700",
+									"transition-colors",
+								)}
+							>
+								Add tag
+							</button>
+						)}
 					</Popover.Trigger>
 					<Popover.Portal>
 						<Popover.Content
@@ -252,7 +242,9 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 										>
 											{tag.name}
 
-											{isAlreadyAdded && <Check className="size-3 ml-auto" />}
+											{isAlreadyAdded && (
+												<Check className="size-3 ml-auto text-emerald-500" />
+											)}
 										</button>
 									);
 								})}
