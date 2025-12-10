@@ -1,11 +1,8 @@
-import { useRef, useState } from "react";
-import { FC } from "react";
-
 import {
-	FloatingArrow,
-	FloatingPortal,
 	arrow,
 	autoUpdate,
+	FloatingArrow,
+	FloatingPortal,
 	flip,
 	offset,
 	shift,
@@ -16,6 +13,8 @@ import {
 	useInteractions,
 	useRole,
 } from "@floating-ui/react";
+import { type FC, useRef, useState } from "react";
+import { cn } from "~/utils/cn";
 
 interface TooltipProps {
 	trigger: React.ReactNode;
@@ -26,6 +25,8 @@ interface TooltipProps {
 	leaveDuration?: number;
 	hoverDuration?: number;
 	showArrow?: boolean;
+	contentClassName?: string;
+	containerClassName?: string;
 }
 
 export const Tooltip: FC<TooltipProps> = ({
@@ -37,6 +38,8 @@ export const Tooltip: FC<TooltipProps> = ({
 	leaveDuration = 10,
 	hoverDuration = 200,
 	showArrow = true,
+	contentClassName,
+	containerClassName,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const arrowRef = useRef(null);
@@ -68,12 +71,17 @@ export const Tooltip: FC<TooltipProps> = ({
 
 	const contentElement =
 		typeof content === "string" ? (
-			<p className="text-sm font-medium text-gray-50 flex flex-col gap-1">
+			<p
+				className={cn(
+					"text-sm font-medium text-neutral-200 flex flex-col gap-1",
+					contentClassName,
+				)}
+			>
 				{content}
 				{shortcuts && shortcuts.length > 0 ? (
 					<span className="text-xs text-neutral-400">
-						{shortcuts.map((s, i) => (
-							<span key={i}>{s}</span>
+						{shortcuts.map((s) => (
+							<span key={s}>{s}</span>
 						))}
 					</span>
 				) : null}
@@ -91,7 +99,10 @@ export const Tooltip: FC<TooltipProps> = ({
 				<FloatingPortal>
 					<div
 						ref={refs.setFloating}
-						className="text-sm font-semibold py-2 px-2 rounded-lg box-border max-w-xs shadow-1 bg-neutral-800 z-100000"
+						className={cn(
+							"text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1 bg-neutral-800 z-100000 inset-ring-2 inset-ring-neutral-600",
+							containerClassName,
+						)}
 						style={{
 							position: strategy,
 							top: y ?? 0,

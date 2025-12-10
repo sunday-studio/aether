@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import {
 	getGetEntriesQueryKey,
@@ -8,6 +9,7 @@ import {
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
+import { Tooltip } from "~/components/shared/tooltip";
 import { EntryActionsDropdown } from "./entry-actions-dropdown";
 import { EntryEditor } from "./entry-editor";
 import { EntryTags } from "./entry-tags";
@@ -62,35 +64,62 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 	};
 
 	return (
-		<Timeline.Item key={entry.id}>
-			<EntryActionsDropdown
-				entry={entry}
-				onDeleteEntry={() => onDeleteEntry(entry.id ?? "")}
-				onPinEntry={() => {}}
-				onArchiveEntry={() => {}}
-				isOpen={isActionsDropdownOpen}
-				onOpenChange={setIsActionsDropdownOpen}
-				onAddTags={() => {
-					setIsTagsShown(true);
-				}}
-			>
-				<Timeline.Indicator
-					className="cursor-pointer"
-					onClick={() => setIsActionsDropdownOpen(true)}
-				/>
-			</EntryActionsDropdown>
-			<Timeline.Content className="mb-5 flex flex-col gap-1">
-				{shouldShowTags && <EntryTags entry={entry} />}
-				<EntryEditor
-					isSelected={isActionsDropdownOpen}
-					createdAt={entry.createdAt ?? ""}
-					updatedAt={entry.updatedAt ?? ""}
-					document={entry.document ?? ""}
-					id={entry.id ?? ""}
-					onChange={(document) => onUpdateEntry(entry.id ?? "", document)}
-				/>
-			</Timeline.Content>
-		</Timeline.Item>
+		<Timeline.Item
+			key={entry.id}
+			className="grid-cols-24 grid"
+			leftContainerClassName="col-start-5 col-end-9"
+			rightContainerClassName="col-start-10 col-end-20"
+			indicator={
+				<EntryActionsDropdown
+					entry={entry}
+					onDeleteEntry={() => onDeleteEntry(entry.id ?? "")}
+					onPinEntry={() => {}}
+					onArchiveEntry={() => {}}
+					isOpen={isActionsDropdownOpen}
+					onOpenChange={setIsActionsDropdownOpen}
+					onAddTags={() => {
+						setIsTagsShown(true);
+					}}
+				>
+					<Timeline.Indicator
+						className="cursor-pointer"
+						containerClassName="col-end-9 col-start-10"
+						onClick={() => setIsActionsDropdownOpen(true)}
+					/>
+				</EntryActionsDropdown>
+			}
+			leftContent={
+				<Timeline.LeftContent className="flex flex-col gap-1 items-end">
+					<div className="relative group w-fit ml-auto shrink-0">
+						<Tooltip
+							trigger={
+								<p className="text-xs text-neutral-500 text-right newsreader-font px-1 py-0.5 rounded-md cursor-default">
+									{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
+										addSuffix: true,
+									})}
+								</p>
+							}
+							content={`created at ${format(new Date(), "MMMM d, yyyy")}`}
+							contentClassName="text-xs"
+						/>
+					</div>
+
+					{shouldShowTags && <EntryTags entry={entry} />}
+				</Timeline.LeftContent>
+			}
+			rightContent={
+				<Timeline.RightContent className="mb-5 flex flex-col gap-1">
+					<EntryEditor
+						isSelected={isActionsDropdownOpen}
+						createdAt={entry.createdAt ?? ""}
+						updatedAt={entry.updatedAt ?? ""}
+						document={entry.document ?? ""}
+						id={entry.id ?? ""}
+						onChange={(document) => onUpdateEntry(entry.id ?? "", document)}
+					/>
+				</Timeline.RightContent>
+			}
+		></Timeline.Item>
 	);
 };
 

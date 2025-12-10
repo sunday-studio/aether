@@ -74,14 +74,18 @@ export const EntryTimeline = () => {
 
 	return (
 		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center ">
-			<div className="my-10 w-[700px]">
+			<div className="my-10 ">
 				<Timeline>
-					<Timeline.Item>
-						<Timeline.Indicator />
-						<Timeline.Content className="-my-1">
-							<AddNewEntryButton onClick={onAddNewEntry} />
-						</Timeline.Content>
-					</Timeline.Item>
+					<Timeline.Item
+						className="grid-cols-24 grid"
+						leftContainerClassName="col-start-5 col-end-9"
+						rightContainerClassName="col-start-10 col-end-20"
+						rightContent={
+							<Timeline.RightContent className="-my-1 pb-10">
+								<AddNewEntryButton onClick={onAddNewEntry} />
+							</Timeline.RightContent>
+						}
+					/>
 					{sortedEntries?.map((entry) => {
 						return <EntryTimelineItem key={entry.id} entry={entry} />;
 					})}

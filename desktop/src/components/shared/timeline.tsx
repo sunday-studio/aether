@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
-import { forwardRef, type ReactNode } from "react";
+import type React from "react";
+import { forwardRef, type ReactNode, type Ref } from "react";
 import { cn } from "~/utils/cn";
 
 export function Root({
@@ -10,41 +11,67 @@ export function Root({
 	className?: string;
 }) {
 	return (
-		<ol className={clsx("relative", className)} aria-label="Timeline">
+		<ol className={clsx("relative ", className)} aria-label="Timeline">
 			{children}
 		</ol>
 	);
 }
 
-const Item = ({ children }: { children: ReactNode }) => {
+function TimelineItem({
+	indicator = <Timeline.Indicator />,
+	leftContent,
+	rightContent,
+	leftContainerClassName,
+	rightContainerClassName,
+	className,
+}: {
+	indicator?: React.ReactNode;
+	leftContent?: React.ReactNode;
+	rightContent: React.ReactNode;
+	rightContainerClassName?: string;
+	leftContainerClassName?: string;
+	className?: string;
+}) {
 	return (
-		<div className="group relative flex min-h-14 gap-4 items-start">
-			{children}
+		<div className={cn("flex gap-4", className)}>
+			<div className={cn("left w-full", leftContainerClassName)}>
+				{leftContent}
+			</div>
+			{indicator}
+			<div className={cn("right w-full", rightContainerClassName)}>
+				{rightContent}
+			</div>
 		</div>
 	);
-};
+}
 
 const Indicator = forwardRef<
 	HTMLDivElement,
 	{
 		children?: ReactNode;
 		className?: string;
+		containerClassName?: string;
 		onClick?: () => void;
 	}
->(({ children, className, onClick = () => {} }, ref) => {
+>(({ children, className, containerClassName, onClick = () => {} }, ref) => {
 	return (
-		<div className="relative flex flex-col items-center self-stretch justify-start min-h-14">
+		<div
+			className={cn(
+				"relative flex flex-col items-center self-stretch justify-start",
+				containerClassName,
+			)}
+		>
 			<div
 				aria-hidden="true"
 				className="flex h-full w-7 flex-col items-center justify-start"
 			>
-				<div
-					ref={ref}
-					role="button"
+				<button
+					type="button"
+					ref={ref as Ref<HTMLButtonElement>}
 					onClick={onClick}
 					style={{
 						clipPath:
-							"polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%)", // custom shape
+							"polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%)",
 					}}
 					className={clsx(
 						"flex h-4.5 w-4.5 items-center justify-center bg-neutral-200",
@@ -52,7 +79,7 @@ const Indicator = forwardRef<
 					)}
 				>
 					{children}
-				</div>
+				</button>
 				<div className="my-1 w-[2px] flex-1 shrink-0 bg-neutral-200 group-last:hidden" />
 			</div>
 		</div>
@@ -61,18 +88,37 @@ const Indicator = forwardRef<
 
 Indicator.displayName = "Timeline.Indicator";
 
-const Content = ({
+const LeftContent = ({
 	children,
 	className,
 }: {
 	children: ReactNode;
 	className?: string;
 }) => {
-	return <div className={cn("flex w-full gap-10 ", className)}>{children}</div>;
+	return (
+		<div className={cn("flex flex-1 justify-end", className)}>{children}</div>
+	);
 };
 
+LeftContent.displayName = "Timeline.LeftContent";
+
+const RightContent = ({
+	children,
+	className,
+}: {
+	children: ReactNode;
+	className?: string;
+}) => {
+	return (
+		<div className={cn("flex flex-1 justify-start", className)}>{children}</div>
+	);
+};
+
+RightContent.displayName = "Timeline.RightContent";
+
 export const Timeline = Object.assign(Root, {
-	Item,
+	Item: TimelineItem,
+	LeftContent,
+	RightContent,
 	Indicator,
-	Content,
 });

@@ -1,10 +1,10 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
+/** biome-ignore-all lint/style/noNonNullAssertion: some complaints; will look into it later */
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
-	type AddTagsToEntryMutationBody,
+	// type AddTagsToEntryMutationBody,
 	getGetAllTagsQueryKey,
 	getGetEntriesQueryKey,
 	useAddTagsToEntry,
@@ -90,7 +90,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 		createTag(
 			{
 				data: {
-					name: tagName,
+					name: tagName.toLocaleLowerCase(),
 				},
 			},
 			{
@@ -135,19 +135,19 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const hasTags = entryTags.length > 0;
 
 	return (
-		<div className="mb-3 ">
-			<div className="flex flex-wrap gap-1">
+		<div className="mb-3">
+			<div className="flex flex-wrap gap-1 items-end justify-end">
 				<Popover.Root open={isOpen} onOpenChange={setIsOpen}>
 					<Popover.Trigger asChild>
 						{hasTags ? (
-							<div className="flex flex-wrap gap-1">
+							<div className="flex flex-wrap gap-1 items-end justify-end">
 								{entryTags.map((tag) => (
 									<div
 										key={tag.id}
 										className="
-						flex items-center justify-between bg-emerald-100 
-						text-xs newsreader-font p-1 rounded-md ring-1 ring-emerald-300 
-						gap-1 text-emerald-600 cursor-pointer"
+						flex items-center justify-between bg-green-900 text-sky-100 
+						text-xs p-1 px-2 rounded-full inset-ring-green-800 inset-ring-2
+						gap-1 cursor-pointer"
 									>
 										<span>{tag.name}</span>
 										<button
@@ -157,7 +157,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 												e.stopPropagation();
 												handleRemoveTag(tag.id!);
 											}}
-											className="hover:bg-emerald-200 rounded-sm"
+											className="hover:bg-green-800 rounded-full hover:text-green-100 text-green-100 transition-colors duration-200"
 										>
 											<X className="size-3 " />
 										</button>
