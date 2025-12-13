@@ -13,8 +13,8 @@
 		"windows": [
 			{
 				"title": "Aether",
-				"width": 1280,
-				"height": 960
+				"width": 1500,
+				"height": 1000
 			}
 		],
 		"security": {
@@ -23,8 +23,8 @@
 	},
 	"bundle": {
 		"macOS": {
-			"entitlements": "null", 
-      "signingIdentity": "null"
+			"entitlements": "null",
+			"signingIdentity": "null"
 		},
 		"active": true,
 		"targets": "all",

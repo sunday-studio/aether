@@ -29,6 +29,8 @@ const NavigationControlItem = ({
 							{
 								"bg-green-900 text-green-100 hover:bg-green-800":
 									isActive && !isSettings,
+								"bg-neutral-200 text-neutral-800 hover:bg-neutral-200":
+									isActive && isSettings,
 							},
 						)
 					}
