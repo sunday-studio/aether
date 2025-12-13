@@ -3,7 +3,7 @@ import { Archive, Pin, Tag, Trash } from "lucide-react";
 import type { DbEntry } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
 
-interface EntryActionsDropdownProps {
+interface JournalActionsDropdownProps {
 	entry: DbEntry;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -57,7 +57,7 @@ function DropdownMenuItem({
 	);
 }
 
-export const EntryActionsDropdown = ({
+export const JournalActionsDropdown = ({
 	onAddTags,
 	onDeleteEntry,
 	onPinEntry,
@@ -65,7 +65,7 @@ export const EntryActionsDropdown = ({
 	isOpen,
 	onOpenChange,
 	children,
-}: EntryActionsDropdownProps) => {
+}: JournalActionsDropdownProps) => {
 	return (
 		<DropdownMenu.Root open={isOpen} onOpenChange={onOpenChange}>
 			<DropdownMenu.Trigger asChild>{children}</DropdownMenu.Trigger>

@@ -7,8 +7,8 @@ import {
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { cn } from "~/utils/cn.ts";
-import { sortEntries } from "../entries.domain";
-import { EntryTimelineItem } from "./entry-timeline-item.tsx";
+import { sortEntries } from "../journal.domain.ts";
+import { JournalTimelineItem } from "./journal-timeline-item.tsx";
 
 const placeholder =
 	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
@@ -38,7 +38,7 @@ export const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	);
 };
 
-export const EntryTimeline = () => {
+export const JournalTimeline = () => {
 	const queryClient = useQueryClient();
 
 	const { data: entries } = useGetEntries();
@@ -87,7 +87,7 @@ export const EntryTimeline = () => {
 						}
 					/>
 					{sortedEntries?.map((entry) => {
-						return <EntryTimelineItem key={entry.id} entry={entry} />;
+						return <JournalTimelineItem key={entry.id} entry={entry} />;
 					})}
 				</Timeline>
 			</div>

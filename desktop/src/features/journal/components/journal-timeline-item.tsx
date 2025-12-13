@@ -10,15 +10,15 @@ import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
-import { EntryActionsDropdown } from "./entry-actions-dropdown";
-import { EntryEditor } from "./entry-editor";
-import { EntryTags } from "./entry-tags";
+import { JournalActionsDropdown } from "./journal-actions-dropdown";
+import { JournalEditor } from "./journal-editor";
+import { EntryTags } from "./journal-tags";
 
-interface EntryTimelineItemProps {
+interface JournalTimelineItemProps {
 	entry: DbEntry;
 }
 
-export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
+export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	const { mutate: updateEntry } = useUpdateEntry();
 	const { mutate: deleteEntry } = useDeleteEntry();
 
@@ -70,7 +70,7 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 			leftContainerClassName="col-start-5 col-end-9"
 			rightContainerClassName="col-start-10 col-end-20"
 			indicator={
-				<EntryActionsDropdown
+				<JournalActionsDropdown
 					entry={entry}
 					onDeleteEntry={() => onDeleteEntry(entry.id ?? "")}
 					onPinEntry={() => {}}
@@ -86,7 +86,7 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 						containerClassName="col-end-9 col-start-10"
 						onClick={() => setIsActionsDropdownOpen(true)}
 					/>
-				</EntryActionsDropdown>
+				</JournalActionsDropdown>
 			}
 			leftContent={
 				<Timeline.LeftContent className="flex flex-col gap-1 items-end">
@@ -109,13 +109,13 @@ export const EntryTimelineItem = ({ entry }: EntryTimelineItemProps) => {
 			}
 			rightContent={
 				<Timeline.RightContent className="mb-5 flex flex-col gap-1">
-					<EntryEditor
+					<JournalEditor
 						isSelected={isActionsDropdownOpen}
-						createdAt={entry.createdAt ?? ""}
-						updatedAt={entry.updatedAt ?? ""}
 						document={entry.document ?? ""}
 						id={entry.id ?? ""}
-						onChange={(document) => onUpdateEntry(entry.id ?? "", document)}
+						onChange={(document: string) =>
+							onUpdateEntry(entry.id ?? "", document)
+						}
 					/>
 				</Timeline.RightContent>
 			}

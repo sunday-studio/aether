@@ -1,8 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Suspense } from "react";
+import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
-import { Entries } from "./features/entries/entries";
+import { router } from "./features/router";
 import { initQueryClient } from "./utils/query-client";
 
 import "./app.css";
@@ -18,7 +19,7 @@ function App() {
 					buttonPosition="bottom-left"
 					initialIsOpen={false}
 				/>
-				<Entries />
+				<RouterProvider router={router} />
 			</QueryClientProvider>
 		</Suspense>
 	);

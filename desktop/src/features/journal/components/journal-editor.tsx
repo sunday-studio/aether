@@ -1,15 +1,12 @@
-import { format, formatDistanceToNow } from "date-fns";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Editor } from "~/components/editor/editor";
 import { cn } from "~/utils/cn";
 
-interface EntryEditorProps {
+interface JournalEditorProps {
 	document: DbEntry["document"];
 	id: string;
 	onChange: (document: string) => void;
-	createdAt: DbEntry["createdAt"];
-	updatedAt: DbEntry["updatedAt"];
-	isSelected: boolean;
+	isSelected?: boolean;
 }
 
 export function getEditorContent(content: string) {
@@ -26,14 +23,12 @@ export function getEditorContent(content: string) {
 	}
 }
 
-export const EntryEditor = ({
+export const JournalEditor = ({
 	document,
 	id,
 	onChange,
-	createdAt,
-	// updatedAt,
 	isSelected = false,
-}: EntryEditorProps) => {
+}: JournalEditorProps) => {
 	if (!document) return <div className="bg-red-100">No data</div>;
 
 	return (
