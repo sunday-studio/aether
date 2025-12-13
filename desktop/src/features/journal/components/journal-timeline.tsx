@@ -6,12 +6,10 @@ import {
 } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
+import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { cn } from "~/utils/cn.ts";
 import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
-
-const placeholder =
-	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
 export const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 	return (
@@ -39,38 +37,12 @@ export const AddNewEntryButton = ({ onClick }: { onClick: () => void }) => {
 };
 
 export const JournalTimeline = () => {
-	const queryClient = useQueryClient();
-
 	const { data: entries } = useGetEntries();
+	const { createEntry } = useCreateJournalEntry();
 
 	const sortedEntries = sortEntries(
 		(entries?.data as unknown as DbEntry[]) ?? [],
 	);
-
-	const { mutate: createEntry } = useCreateEntry();
-	const entriesQueryKey = getGetEntriesQueryKey();
-
-	const onAddNewEntry = async () => {
-		const now = new Date();
-
-		createEntry(
-			{
-				data: {
-					document: placeholder,
-					date: now.toISOString(),
-				},
-			},
-			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
-				},
-				onError: (error) => {
-					console.log("error ->", error);
-					console.error(error);
-				},
-			},
-		);
-	};
 
 	return (
 		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center ">
@@ -82,7 +54,7 @@ export const JournalTimeline = () => {
 						rightContainerClassName="col-start-10 col-end-20"
 						rightContent={
 							<Timeline.RightContent className="-my-1 pb-10">
-								<AddNewEntryButton onClick={onAddNewEntry} />
+								<AddNewEntryButton onClick={createEntry} />
 							</Timeline.RightContent>
 						}
 					/>

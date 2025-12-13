@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import { CodeHighlightNode, CodeNode } from "@lexical/code";
 import { HashtagNode } from "@lexical/hashtag";
 import { AutoLinkNode, LinkNode } from "@lexical/link";
@@ -16,16 +15,16 @@ import { TabIndentationPlugin } from "@lexical/react/LexicalTabIndentationPlugin
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import clsx from "clsx";
 import type { EditorState } from "lexical";
+import { useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 import { setNodePlaceholderFromSelection } from "./node-placement/utils";
-import ClickableLinkPlugin from "./plugins/clickable-link-plugin";
 import AutoLinkPlugin, { validateUrl } from "./plugins/auto-link-plugin";
+import ClickableLinkPlugin from "./plugins/clickable-link-plugin";
 import CodeHighlightPlugin from "./plugins/cod-highlight-plugin";
 import { MarkdownShortcutPlugin } from "./plugins/markdown-shortcut";
-// import { FloatingMenuPlugin } from "./floating-menu-plugin/floating-menu-plugin";
-// import SlashCommandPickerPlugin from "./plugins/slash-command-plug";
 import { theme } from "./plugins/theme";
+import { ReactiveFocusPlugin } from "./reactive-focus-plugin";
 import { getFontFamily } from "./utils";
 
 import "./_editor.css";
@@ -97,7 +96,7 @@ export const Editor = ({
 
 	const editorConfig = {
 		editorState: content ?? null,
-		namespace: "ContentEditor",
+		namespace: `aether-editor-${id}`,
 		theme,
 		onError,
 		nodes: [
@@ -160,6 +159,7 @@ export const Editor = ({
 				<HistoryPlugin />
 				<TabIndentationPlugin />
 				<HashtagPlugin />
+				<ReactiveFocusPlugin id={id} />
 			</div>
 		</LexicalComposer>
 	);

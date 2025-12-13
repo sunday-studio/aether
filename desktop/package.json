@@ -48,9 +48,9 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "tauri-plugin-macos-haptics-api": "^1.0.0",
-    "ts-key-enum": "^3.0.13",
     "use-debounce": "^10.0.6",
-    "valtio": "^2.2.0"
+    "valtio": "^2.2.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.6",
