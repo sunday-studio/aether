@@ -61,7 +61,8 @@
 
 body {
 	font-family: "Inter", sans-serif;
-	color: var(--color-neutral-800);
+	font-weight: 450;
+	color: var(--color-neutral-600);
 }
 
 .debug {

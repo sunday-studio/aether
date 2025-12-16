@@ -1,9 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
-import {
-	getGetEntriesQueryKey,
-	useCreateEntry,
-	useGetEntries,
-} from "~/aether-sdk";
+import { useGetEntries } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
 import { Timeline } from "~/components/shared/timeline";
 import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";

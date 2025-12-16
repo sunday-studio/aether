@@ -140,13 +140,13 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 				<Popover.Root open={isOpen} onOpenChange={setIsOpen}>
 					<Popover.Trigger asChild>
 						{hasTags ? (
-							<div className="flex flex-wrap gap-1 items-end justify-end">
+							<div className="flex flex-col gap-1 items-end justify-end">
 								{entryTags.map((tag) => (
 									<div
 										key={tag.id}
 										className="
-						flex items-center justify-between bg-green-900 text-sky-100 
-						text-xs p-1 px-2 rounded-full inset-ring-green-800 inset-ring-2
+						flex items-center justify-between bg-green-900 text-neutral-100 
+						text-xs p-1 px-2 rounded-full inset-ring-green-800 inset-ring-2 
 						gap-1 cursor-pointer"
 									>
 										<span>{tag.name}</span>
