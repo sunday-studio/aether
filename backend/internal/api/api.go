@@ -3,6 +3,8 @@ package api
 import (
 	entryHandlers "aether/internal/handlers/entry"
 	tagHandlers "aether/internal/handlers/tag"
+	taskHandlers "aether/internal/handlers/task"
+	trashHandlers "aether/internal/handlers/trash"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -19,6 +21,8 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 
 	entryHandler := entryHandlers.NewEntryHandler(gormDB)
 	tagHandler := tagHandlers.NewTagsHandler(gormDB)
+	taskHandler := taskHandlers.NewTaskHandler(gormDB)
+	trashHandler := trashHandlers.NewTrashHandler(gormDB)
 
 	api := app.Group("/v1")
 
@@ -26,8 +30,13 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 		return c.JSON(fiber.Map{"message": "pong pong"})
 	})
 
-	entryGroup := api.Group("/entry")
+	// trash
+	trashGroup := api.Group("/trash")
+	trashGroup.Get("/tasks", trashHandler.GetTrashedTasks)
+	trashGroup.Post("/tasks/:id/restore", trashHandler.RestoreTask)
 
+	// entries
+	entryGroup := api.Group("/entry")
 	entryGroup.Get("/", entryHandler.GetEntries)
 	entryGroup.Get("/:id", entryHandler.GetEntryByID)
 	entryGroup.Post("/", entryHandler.CreateEntry)
@@ -37,9 +46,18 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	entryGroup.Post("/:id/tags", entryHandler.AddTagsToEntry)
 	entryGroup.Delete("/:id/tags", entryHandler.RemoveTagsFromEntry)
 
-
+	// tags
 	tagGroup := api.Group("/tags")
 	tagGroup.Get("/", tagHandler.GetAllTags)
 	tagGroup.Post("/", tagHandler.CreateTag)
 	tagGroup.Post("/bulk-create", tagHandler.BulkCreateTags)
+
+	// tasks
+	taskGroup := api.Group("/tasks")
+	taskGroup.Get("/inbox", taskHandler.GetInboxTasks)
+	taskGroup.Get("/overdue", taskHandler.GetOverdueTasks)
+	taskGroup.Get("/:id", taskHandler.GetTaskByID)
+	taskGroup.Post("/", taskHandler.CreateTask)
+	taskGroup.Put("/:id", taskHandler.UpdateTask)
+	taskGroup.Delete("/:id", taskHandler.DeleteTask)
 }

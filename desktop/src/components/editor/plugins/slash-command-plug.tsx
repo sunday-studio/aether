@@ -1,7 +1,4 @@
-import { JSX, useCallback, useMemo, useState } from "react";
-
-import * as ReactDOM from "react-dom";
-
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
 import { $createCodeNode } from "@lexical/code";
 import {
 	INSERT_ORDERED_LIST_COMMAND,
@@ -16,14 +13,14 @@ import {
 import {
 	$createHeadingNode,
 	$createQuoteNode,
-	HeadingTagType,
+	type HeadingTagType,
 } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
 import {
 	$createParagraphNode,
 	$getSelection,
 	$isRangeSelection,
-	TextNode,
+	type TextNode,
 } from "lexical";
 import {
 	CodeXml,
@@ -35,6 +32,8 @@ import {
 	Pilcrow,
 	Quote,
 } from "lucide-react";
+import { type JSX, useCallback, useMemo, useState } from "react";
+import * as ReactDOM from "react-dom";
 
 const headingIconMap = {
 	h1: <Heading1 size={18} />,

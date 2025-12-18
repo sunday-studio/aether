@@ -23,7 +23,7 @@ import AutoLinkPlugin, { validateUrl } from "./plugins/auto-link-plugin";
 import ClickableLinkPlugin from "./plugins/clickable-link-plugin";
 import CodeHighlightPlugin from "./plugins/cod-highlight-plugin";
 import { MarkdownShortcutPlugin } from "./plugins/markdown-shortcut";
-// import SlashCommandPickerPlugin from "./plugins/slash-command-plug";
+import SlashCommandPickerPlugin from "./plugins/slash-command-plug";
 import { theme } from "./plugins/theme";
 import { ReactiveFocusPlugin } from "./reactive-focus-plugin";
 import { getFontFamily } from "./utils";
@@ -151,7 +151,7 @@ export const Editor = ({
 						debouncedOnHistoryChange(editorStateJSON);
 					}}
 				/>
-				{/* <SlashCommandPickerPlugin /> */}
+				<SlashCommandPickerPlugin />
 				<LinkPlugin validateUrl={validateUrl} />
 				<AutoLinkPlugin />
 				<MarkdownShortcutPlugin />
