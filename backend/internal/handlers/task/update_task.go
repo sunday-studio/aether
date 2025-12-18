@@ -13,7 +13,7 @@ import (
 // @Accept json
 // @Produce json
 // @Param id path string true "Task ID"
-// @Param task body taskHandlers.UpdateTaskPayload true "Task payload"
+// @Param task body handlers.UpdateTaskPayload true "Task payload"
 // @Success 200 {object} db.Task
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string

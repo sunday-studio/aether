@@ -21,6 +21,57 @@ definitions:
       updatedAt:
         type: string
     type: object
+  db.Goal:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      recurrenceAnchor:
+        type: string
+      recurrenceInterval:
+        description: 1, 2, 25, etc
+        type: integer
+      recurrenceType:
+        description: daily | weekly | monthly | custom
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  db.GoalInstance:
+    properties:
+      createdAt:
+        type: string
+      goal:
+        $ref: '#/definitions/db.Goal'
+      goalID:
+        type: string
+      id:
+        type: string
+      periodEnd:
+        type: string
+      periodStart:
+        type: string
+      status:
+        description: active | completed | skipped
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      tasks:
+        items:
+          $ref: '#/definitions/db.Task'
+        type: array
+    type: object
   db.Tag:
     properties:
       createdAt:
@@ -28,6 +79,31 @@ definitions:
       id:
         type: string
       name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  db.Task:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalInstance:
+        $ref: '#/definitions/db.GoalInstance'
+      goalInstanceId:
+        type: string
+      id:
+        type: string
+      isCompleted:
+        type: boolean
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      title:
         type: string
       updatedAt:
         type: string
@@ -48,6 +124,38 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  handlers.CreateTaskPayload:
+    properties:
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalInstanceId:
+        type: string
+      tagIds:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  handlers.UpdateTaskPayload:
+    properties:
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalInstanceId:
+        type: string
+      isCompleted:
+        type: boolean
+      tagIds:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
     type: object
   tag.CreateTagPayload:
     properties:
@@ -408,4 +516,169 @@ paths:
       summary: Bulk create tags
       tags:
       - Tags
+  /tasks:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task (standalone or goal-based)
+      operationId: createTask
+      parameters:
+      - description: Task payload
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    get:
+      operationId: getTaskByID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get task by ID
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      operationId: updateTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task payload
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a task
+      tags:
+      - Tasks
+  /tasks/inbox:
+    get:
+      description: Tasks not attached to any goal
+      operationId: getInboxTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List standalone tasks
+      tags:
+      - Tasks
+  /tasks/overdue:
+    get:
+      operationId: getOverdueTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List overdue tasks
+      tags:
+      - Tasks
+  /trash/{id}/restore:
+    post:
+      operationId: restoreTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Restore a deleted task
+      tags:
+      - Trash
+  /trash/tasks:
+    get:
+      operationId: getTrashedTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List deleted tasks
+      tags:
+      - Trash
 swagger: "2.0"

@@ -19,7 +19,7 @@ type Entry struct {
 	IsDeleted  bool `json:"isDeleted" gorm:"default:false"`
 
 	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index" swaggerignore:"true"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
 }
 
 type Tag struct {
@@ -28,7 +28,7 @@ type Tag struct {
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
 }
 
 type Task struct {
@@ -46,7 +46,7 @@ type Task struct {
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
 }
 
 type Goal struct {
@@ -57,13 +57,13 @@ type Goal struct {
 	RecurrenceType     string         `json:"recurrenceType" gorm:"not null"`     // daily | weekly | monthly | custom
 	RecurrenceInterval int            `json:"recurrenceInterval" gorm:"not null"` // 1, 2, 25, etc
 	RecurrenceAnchor   time.Time      `json:"recurrenceAnchor" gorm:"not null"`
-	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" gorm:"not null"`
+	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" gorm:"not null" swaggerignore:"true"`
 
 	Tags []Tag `json:"tags" gorm:"many2many:goal_tags;"`
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
 }
 
 type GoalInstance struct {
