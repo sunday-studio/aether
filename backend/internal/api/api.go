@@ -2,6 +2,7 @@ package api
 
 import (
 	entryHandlers "aether/internal/handlers/entry"
+	goalHandlers "aether/internal/handlers/goal"
 	tagHandlers "aether/internal/handlers/tag"
 	taskHandlers "aether/internal/handlers/task"
 	trashHandlers "aether/internal/handlers/trash"
@@ -23,6 +24,7 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	tagHandler := tagHandlers.NewTagsHandler(gormDB)
 	taskHandler := taskHandlers.NewTaskHandler(gormDB)
 	trashHandler := trashHandlers.NewTrashHandler(gormDB)
+	goalHandler := goalHandlers.NewGoalHandler(gormDB)
 
 	api := app.Group("/v1")
 
@@ -60,4 +62,14 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskGroup.Post("/", taskHandler.CreateTask)
 	taskGroup.Put("/:id", taskHandler.UpdateTask)
 	taskGroup.Delete("/:id", taskHandler.DeleteTask)
+
+	// goals
+	goalGroup := api.Group("/goals")
+	goalGroup.Get("/", goalHandler.GetGoals)
+	goalGroup.Get("/:id", goalHandler.GetGoalByID)
+	goalGroup.Post("/", goalHandler.CreateGoal)
+	goalGroup.Put("/:id", goalHandler.UpdateGoal)
+	goalGroup.Delete("/:id", goalHandler.DeleteGoal)
+	goalGroup.Get("/:id/instances", goalHandler.GetGoalInstances)
+	goalGroup.Get("/:id/instances/current", goalHandler.GetCurrentGoalInstance)
 }

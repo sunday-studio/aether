@@ -125,6 +125,8 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.CreateGoalPayload:
+    type: object
   handlers.CreateTaskPayload:
     properties:
       description:
@@ -139,6 +141,8 @@ definitions:
         type: array
       title:
         type: string
+    type: object
+  handlers.UpdateGoalPayload:
     type: object
   handlers.UpdateTaskPayload:
     properties:
@@ -423,6 +427,165 @@ paths:
       summary: Add tags to an entry
       tags:
       - Entries
+  /goals:
+    get:
+      operationId: getGoals
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Goal'
+            type: array
+      summary: List active goals
+      tags:
+      - Goals
+    post:
+      consumes:
+      - application/json
+      operationId: createGoal
+      parameters:
+      - description: Goal payload
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new goal
+      tags:
+      - Goals
+  /goals/{goalId}/instances:
+    get:
+      operationId: getGoalInstances
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.GoalInstance'
+            type: array
+      summary: List instances for a goal
+      tags:
+      - GoalInstances
+  /goals/{goalId}/instances/current:
+    get:
+      operationId: getCurrentGoalInstance
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GoalInstance'
+      summary: Get or create current goal instance
+      tags:
+      - GoalInstances
+  /goals/{id}:
+    delete:
+      operationId: deleteGoal
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a goal (soft delete)
+      tags:
+      - Goals
+    get:
+      operationId: getGoalByID
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get goal by ID
+      tags:
+      - Goals
+    put:
+      consumes:
+      - application/json
+      operationId: updateGoal
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Goal payload
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a goal
+      tags:
+      - Goals
   /tags:
     get:
       description: Returns all tags
