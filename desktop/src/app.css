@@ -98,3 +98,15 @@ html {
 		rgb(255, 255, 255) 0px 0px 0px 1px inset,
 		rgba(0, 0, 0, 0.04) 0px 0px 0px 1px;
 }
+
+.check-path {
+	stroke-dasharray: 24;
+	stroke-dashoffset: 24;
+	animation: draw-check 0.25s ease-out forwards;
+}
+
+@keyframes draw-check {
+	to {
+		stroke-dashoffset: 0;
+	}
+}

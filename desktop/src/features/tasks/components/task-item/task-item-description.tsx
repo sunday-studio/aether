@@ -13,7 +13,7 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
 			contentEditable
 			suppressContentEditableWarning
 			data-placeholder="Add a description"
-			className="w-full text-sm text-neutral-500 outline-none whitespace-pre-wrap
+			className="w-full text-sm text-neutral-500 font-normal outline-none whitespace-pre-wrap
              empty:before:content-[attr(data-placeholder)]
              empty:before:text-neutral-400"
 			onBlur={(e) => onChange(e.currentTarget.textContent ?? "")}

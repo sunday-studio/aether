@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { getGetInboxTasksQueryKey, useUpdateTask } from "~/aether-sdk";
 import type { DbTask } from "~/aether-sdk/models";
+import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskTitleInput } from "./task-item-title";
@@ -16,47 +17,36 @@ interface TaskInputProps {
 	onChange: (value: string) => void;
 }
 
-const TaskDueDateInput = ({ value, onChange }: TaskInputProps) => {
-	if (!value)
-		return (
-			<p className="p-0.5 rounded-sm bg-neutral-100 text-neutral-500 text-sm">
-				Add due date
-			</p>
-		);
-	return (
-		<input
-			type="date"
-			className="w-40 text-sm"
-			value={value ? format(value, "yyyy-MM-dd") : ""}
-			onChange={(e) => onChange(e.target.value)}
-		/>
-	);
-};
+// const TaskDueDateInput = ({ value, onChange }: TaskInputProps) => {
+// 	if (!value)
+// 		return (
+// 			<p className="p-0.5 rounded-sm bg-neutral-100 text-neutral-500 text-sm">
+// 				Add due date
+// 			</p>
+// 		);
+// 	return (
+// 		<input
+// 			type="date"
+// 			className="w-40 text-sm"
+// 			value={value ? format(value, "yyyy-MM-dd") : ""}
+// 			onChange={(e) => onChange(e.target.value)}
+// 		/>
+// 	);
+// };
 
 export const TaskItem = ({ task }: TaskItemProps) => {
-	const queryClient = useQueryClient();
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const { mutate: updateTask } = useUpdateTask();
+	const { mutate: updateTask } = useOptimisticUpdateTask();
 
 	const handleOnUpdateTask = (
 		inputName: string,
 		inputValue: string | boolean | undefined,
 	) => {
-		updateTask(
-			{
-				id: task.id as string,
-				data: {
-					[inputName]: inputValue,
-				},
+		updateTask({
+			id: task.id as string,
+			data: {
+				[inputName]: inputValue,
 			},
-			{
-				onSuccess: () => {
-					// queryClient.invalidateQueries({
-					// 	queryKey: inboxTasksQueryKey,
-					// });
-				},
-			},
-		);
+		});
 	};
 
 	return (
@@ -69,7 +59,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					}}
 				/>
 			</div>
-			<div className="flex-1">
+			<div className="flex-1 flex flex-col gap-1.5">
 				<TaskTitleInput
 					value={task.title}
 					onChange={(value) => {

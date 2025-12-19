@@ -13,6 +13,8 @@ export const InboxTasksView = () => {
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const { data: inboxTasks } = useGetInboxTasks();
 
+	console.log("inboxTasks", inboxTasks);
+
 	const { mutate: createTask } = useCreateTask();
 
 	const groupedTasks = groupTaskByCreatedAt(inboxTasks?.data ?? []);
