@@ -71,7 +71,7 @@ export const NavigationControl = () => {
 	];
 
 	return (
-		<div className="bg-white p-1.5 rounded-full absolute bottom-5 left-1/2 right-1/2 -translate-x-1/2 navigation-control w-fit">
+		<div className="bg-white p-1.5 rounded-full absolute bottom-5 left-1/2 right-1/2 -translate-x-1/2 navigation-control w-fit z-50">
 			<ul className="flex items-center justify-center gap-1">
 				{routes.map((route) => (
 					<NavigationControlItem key={route.label} route={route} />

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"aether/internal/utils"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,6 +23,9 @@ import (
 func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	id := c.Params("id")
 
+	fmt.Println("Updating task", id)
+	utils.PrettyPrint(c.Body())
+
 	var payload UpdateTaskPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
@@ -38,7 +43,7 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 		task.Description = payload.Description
 	}
 	if payload.DueDate != nil {
-		task.DueDate = *payload.DueDate
+		task.DueDate = payload.DueDate
 	}
 	if payload.IsCompleted != nil {
 		task.IsCompleted = *payload.IsCompleted

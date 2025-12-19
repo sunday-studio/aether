@@ -40,7 +40,6 @@ func (t *TagsHandler) CreateTag(c *fiber.Ctx) error {
 	return c.JSON(tag)
 }
 
-
 // BulkCreateTags godoc
 // @Id bulkCreateTags
 // @Summary Bulk create tags

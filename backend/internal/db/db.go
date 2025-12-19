@@ -2,6 +2,7 @@ package db
 
 import (
 	"aether/internal/logging"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -43,11 +44,22 @@ func Migrate(db *gorm.DB) error {
 
 	log.Info("Running database migrations")
 
-	if err := db.AutoMigrate(&Entry{}, &Tag{}); err != nil {
+	fmt.Println("APP_ENV", os.Getenv("APP_ENV"))
+
+	if err := db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &Goal{}, &GoalInstance{}); err != nil {
 		log.Error("Migration failed", "error", err)
 		return err
 	}
 
+	// if err := SeedDatabase(db); err != nil {
+	// 	log.Error("Seeding database failed", "error", err)
+	// 	return err
+	// }
+
 	log.Info("Database migrations completed successfully")
 	return nil
 }
+
+// 	if os.Getenv("APP_ENV") == "development" {
+// 	db.SeedDatabase(db)
+// }

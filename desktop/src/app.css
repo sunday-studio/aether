@@ -59,10 +59,14 @@
 	}
 }
 
-body {
-	font-family: "Inter", sans-serif;
-	font-weight: 450;
+body,
+html {
 	color: var(--color-neutral-600);
+	font-family: "Inter", sans-serif;
+	font-weight: 400;
+	font-feature-settings:
+		"zero" 1,
+		"tnum" 1;
 }
 
 .debug {

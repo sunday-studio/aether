@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"aether/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -35,6 +36,8 @@ func (h *TaskHandler) CreateTask(c *fiber.Ctx) error {
 		DueDate:        payload.DueDate,
 		GoalInstanceID: payload.GoalInstanceID,
 	}
+
+	utils.PrettyPrint(payload)
 
 	if err := h.db.Create(&task).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})

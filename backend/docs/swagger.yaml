@@ -91,8 +91,6 @@ definitions:
         type: string
       dueDate:
         type: string
-      goalInstance:
-        $ref: '#/definitions/db.GoalInstance'
       goalInstanceId:
         type: string
       id:
@@ -775,6 +773,99 @@ paths:
               type: string
             type: object
       summary: Update a task
+      tags:
+      - Tasks
+  /tasks/{id}/tags:
+    delete:
+      consumes:
+      - application/json
+      operationId: removeTagsFromTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag IDs to remove
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove tags from a task
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      operationId: addTagsToTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag IDs to add
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add tags to a task
       tags:
       - Tasks
   /tasks/inbox:

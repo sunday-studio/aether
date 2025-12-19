@@ -1,3 +1,22 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetInboxTasksQueryKey, useGetInboxTasks } from "~/aether-sdk";
+import { appWindow } from "../journal/journal";
+import { InboxTasksView } from "./inbox.view";
+
 export const TasksView = () => {
-	return <div>TasksView</div>;
+	// appWindow.onFocusChanged(({ payload }) => {
+	// 	if (payload) {
+	// 		queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
+	// 	}
+	// });
+
+	return (
+		<div className="grid-cols-24 grid py-10 w-screen h-screen overflow-y-scroll">
+			<div className="col-span-7" />
+			<div className="col-span-10">
+				<InboxTasksView />
+			</div>
+			<div className="col-span-7" />
+		</div>
+	);
 };

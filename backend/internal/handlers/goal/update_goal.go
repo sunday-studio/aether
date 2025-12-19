@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"aether/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -19,6 +20,8 @@ import (
 // @Router /goals/{id} [put]
 func (h *GoalHandler) UpdateGoal(c *fiber.Ctx) error {
 	id := c.Params("id")
+
+	utils.PrettyPrint(c.Body())
 
 	var payload UpdateGoalPayload
 	if err := c.BodyParser(&payload); err != nil {

@@ -6,9 +6,11 @@ export const Layout = () => {
 	useRegisterShortcuts();
 
 	return (
-		<div className="w-screen h-screen  relative">
-			<Outlet />
-			<NavigationControl />
+		<div className="w-screen h-screen relative overflow-hidden">
+			<div className="w-full h-full">
+				<NavigationControl />
+				<Outlet />
+			</div>
 		</div>
 	);
 };

@@ -97,8 +97,6 @@ func (h *EntryHandler) AddTagsToEntry(c *fiber.Ctx) error {
 	return c.JSON(entry)
 }
 
-
-
 // RemoveTagsFromEntry godoc
 // @Id removeTagsFromEntry
 // @Summary Remove a tag from an entry

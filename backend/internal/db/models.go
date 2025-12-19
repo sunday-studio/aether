@@ -32,17 +32,17 @@ type Tag struct {
 }
 
 type Task struct {
-	ID string `gorm:"primaryKey"`
+	ID string `json:"id" gorm:"primaryKey"`
 
 	Title       string  `json:"title" gorm:"not null"`
 	Description *string `json:"description"`
 	Tags        []Tag   `json:"tags" gorm:"many2many:task_tags;"`
 
-	IsCompleted bool      `json:"isCompleted" gorm:"default:false"`
-	DueDate     time.Time `json:"dueDate" gorm:"not null;index"`
+	IsCompleted bool       `json:"isCompleted" gorm:"default:false"`
+	DueDate     *time.Time `json:"dueDate" gorm:"index"`
 
-	GoalInstanceID *string `json:"goalInstanceId" gorm:"index"`
-	GoalInstance   *GoalInstance
+	GoalInstanceID *string       `json:"goalInstanceId" gorm:"index"`
+	GoalInstance   *GoalInstance `json:"goalInstance" swaggerignore:"true"`
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
@@ -57,7 +57,7 @@ type Goal struct {
 	RecurrenceType     string         `json:"recurrenceType" gorm:"not null"`     // daily | weekly | monthly | custom
 	RecurrenceInterval int            `json:"recurrenceInterval" gorm:"not null"` // 1, 2, 25, etc
 	RecurrenceAnchor   time.Time      `json:"recurrenceAnchor" gorm:"not null"`
-	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" gorm:"not null" swaggerignore:"true"`
+	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" swaggerignore:"true"`
 
 	Tags []Tag `json:"tags" gorm:"many2many:goal_tags;"`
 
@@ -69,10 +69,10 @@ type Goal struct {
 type GoalInstance struct {
 	ID string `gorm:"primaryKey"`
 
-	GoalID string `gorm:"uniqueIndex:idx_goal_period"`
+	GoalID string `gorm:"index;uniqueIndex:idx_goal_period"`
 	Goal   Goal   `gorm:"constraint:OnDelete:CASCADE"`
 
-	PeriodStart time.Time `json:"periodStart" gorm:"index"`
+	PeriodStart time.Time `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
 	PeriodEnd   time.Time `json:"periodEnd" gorm:"index"`
 
 	Status string `json:"status" gorm:"not null"` // active | completed | skipped

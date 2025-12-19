@@ -62,6 +62,8 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskGroup.Post("/", taskHandler.CreateTask)
 	taskGroup.Put("/:id", taskHandler.UpdateTask)
 	taskGroup.Delete("/:id", taskHandler.DeleteTask)
+	taskGroup.Post("/:id/tags", taskHandler.AddTagsToTask)
+	taskGroup.Delete("/:id/tags", taskHandler.RemoveTagsFromTask)
 
 	// goals
 	goalGroup := api.Group("/goals")
