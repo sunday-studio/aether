@@ -121,8 +121,9 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 									<div
 										key={tag.id}
 										className="
-                      flex items-center justify-between bg-green-900 text-neutral-100 
-                      text-xs p-1 px-2 rounded-full inset-ring-green-800 inset-ring-2 
+                      flex items-center justify-between text-neutral-100 
+                      text-xs p-1 px-2 rounded-full 
+                      bg-linear-to-b from-green-800 to-green-900
                       gap-1 cursor-pointer"
 									>
 										<span>{tag.name}</span>

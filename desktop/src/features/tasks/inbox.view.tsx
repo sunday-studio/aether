@@ -13,8 +13,6 @@ export const InboxTasksView = () => {
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const { data: inboxTasks } = useGetInboxTasks();
 
-	console.log("inboxTasks", inboxTasks);
-
 	const { mutate: createTask } = useCreateTask();
 
 	const groupedTasks = groupTaskByCreatedAt(inboxTasks?.data ?? []);
@@ -38,7 +36,7 @@ export const InboxTasksView = () => {
 	return (
 		<div className="h-full">
 			<div className="flex items-center justify-between py-4">
-				<p>Inbox</p>
+				<h3 className="newsreader-font text-2xl font-medium">Inbox</h3>
 				<button type="button" onClick={handleCreateTask}>
 					Add Task
 				</button>

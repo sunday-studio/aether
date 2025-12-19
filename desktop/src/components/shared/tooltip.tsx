@@ -6,8 +6,6 @@ import {
 	flip,
 	offset,
 	shift,
-	useClick,
-	useDismiss,
 	useFloating,
 	useHover,
 	useInteractions,
@@ -15,6 +13,10 @@ import {
 } from "@floating-ui/react";
 import { type FC, useRef, useState } from "react";
 import { cn } from "~/utils/cn";
+
+// Patch for current floating-ui: handleClose option expects a function for a DOM event.
+// See: https://floating-ui.com/docs/useHover#custom-close-behavior
+// We simply return void here as we're not using custom callback.
 
 interface TooltipProps {
 	trigger: React.ReactNode;
@@ -43,6 +45,7 @@ export const Tooltip: FC<TooltipProps> = ({
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const arrowRef = useRef(null);
+	const closeTimeout = useRef<number | null>(null);
 
 	const { x, y, refs, strategy, context } = useFloating({
 		placement,
@@ -57,17 +60,36 @@ export const Tooltip: FC<TooltipProps> = ({
 		whileElementsMounted: autoUpdate,
 	});
 
+	// Only useHover, useRole for tooltip
 	const { getReferenceProps, getFloatingProps } = useInteractions([
 		useHover(context, {
 			delay: {
 				open: hoverDuration,
 				close: leaveDuration,
 			},
+			move: false,
+			mouseOnly: true,
 		}),
-		useRole(context),
-		useDismiss(context),
-		useClick(context),
+		useRole(context, { role: "tooltip" }),
 	]);
+
+	// Prevent tooltip from staying open if mouse transitions between trigger and tooltip
+	const handleMouseEnter = () => {
+		if (closeTimeout.current) {
+			clearTimeout(closeTimeout.current);
+			closeTimeout.current = null;
+		}
+		setIsOpen(true);
+	};
+
+	const handleMouseLeave = () => {
+		if (closeTimeout.current) {
+			clearTimeout(closeTimeout.current);
+		}
+		closeTimeout.current = window.setTimeout(() => {
+			setIsOpen(false);
+		}, leaveDuration);
+	};
 
 	const contentElement =
 		typeof content === "string" ? (
@@ -92,7 +114,13 @@ export const Tooltip: FC<TooltipProps> = ({
 
 	return (
 		<>
-			<span ref={refs.setReference} {...getReferenceProps()}>
+			<span
+				ref={refs.setReference}
+				{...getReferenceProps({
+					onMouseEnter: handleMouseEnter,
+					onMouseLeave: handleMouseLeave,
+				})}
+			>
 				{trigger}
 			</span>
 			{isOpen && (
@@ -108,7 +136,10 @@ export const Tooltip: FC<TooltipProps> = ({
 							top: y ?? 0,
 							left: x ?? 0,
 						}}
-						{...getFloatingProps()}
+						{...getFloatingProps({
+							onMouseEnter: handleMouseEnter,
+							onMouseLeave: handleMouseLeave,
+						})}
 					>
 						{showArrow && (
 							<FloatingArrow

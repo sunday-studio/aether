@@ -7,7 +7,7 @@ export const TaskListDivider = ({ date }: { date: string }) => {
 				<p className="text-neutral-600 text-xs font-medium">
 					{isToday(new Date(date))
 						? "Today"
-						: format(new Date(date), "MMMM d, yyyy")}
+						: format(new Date(date), "d MMM, yyyy")}
 				</p>
 			</div>
 			<div className="w-full h-px bg-neutral-100" />
