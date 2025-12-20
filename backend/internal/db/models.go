@@ -50,7 +50,7 @@ type Task struct {
 }
 
 type Goal struct {
-	ID          string  `gorm:"primaryKey"`
+	ID          string  `json:"id" gorm:"primaryKey"`
 	Name        string  `json:"name" gorm:"not null"`
 	Description *string `json:"description"`
 

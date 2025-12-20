@@ -2,6 +2,7 @@ import { useGetOverdueTasks } from "~/aether-sdk";
 import { TaskItem } from "./task-item/task-item";
 import { TaskListDivider } from "./task-list-divider";
 
+// TODO: clean up this functionality later
 export const OverdueTasks = () => {
 	const { data: overdueTasks } = useGetOverdueTasks();
 

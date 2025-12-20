@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
 import { cn } from "~/utils/cn";
 
 interface AddNewButtonProps {
@@ -26,10 +25,10 @@ export const AddNewButton = ({
 			<p className="text-sm">{label}</p>
 			<div className="flex items-center justify-center gap-0.5">
 				{shortcuts?.map(
-					(shortcut, idx) =>
+					(shortcut) =>
 						shortcut && (
 							<kbd
-								key={`${shortcut}-${idx}`}
+								key={shortcut}
 								className="px-1 bg-linear-to-b from-neutral-200 to-neutral-300 h-5 w-fit min-w-5 rounded-md text-xs font-medium pointer-events-none  inline-flex items-center justify-center gap-1 text-neutral-700 text-center select-none"
 							>
 								{shortcut}
