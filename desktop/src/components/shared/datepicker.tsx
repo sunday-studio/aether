@@ -20,10 +20,14 @@ export function DateTimePicker({
 		<DatePicker
 			value={value}
 			onChange={onChange}
-			className="inline-flex flex-col gap-2"
+			className="flex flex-col gap-2"
 		>
-			<div className="flex items-center gap-2 relative">
-				<Button ref={triggerRef} className="relative z-10 h-full">
+			<div>
+				<Button
+					type="button"
+					ref={triggerRef}
+					className="relative z-10 h-full all leading-none p-0! m-0! flex"
+				>
 					{trigger}
 				</Button>
 

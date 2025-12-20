@@ -1,5 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetInboxTasksQueryKey, useUpdateTask } from "~/aether-sdk";
+import {
+	getGetInboxTasksQueryKey,
+	getGetOverdueTasksQueryKey,
+	useUpdateTask,
+} from "~/aether-sdk";
 import type { DbTask } from "~/aether-sdk/models/db-task";
 
 export const useOptimisticUpdateTask = () => {
@@ -14,7 +18,6 @@ export const useOptimisticUpdateTask = () => {
 
 		// Optimistically update
 		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
-			// console.log("old", old);
 			const oldData = old?.data || [];
 
 			const updatedData = oldData.map((task) =>

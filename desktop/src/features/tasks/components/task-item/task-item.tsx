@@ -5,6 +5,7 @@ import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
+import { TaskTagsInput } from "./task-tags-field";
 
 interface TaskItemProps {
 	task: DbTask;
@@ -17,7 +18,6 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 		inputName: string,
 		inputValue: string | boolean | null,
 	) => {
-		console.log("inputName ->", inputValue);
 		updateTask({
 			id: task.id as string,
 			data: {
@@ -49,7 +49,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				<div className="flex">
+				<div className="flex gap-1 items-center ">
 					<TaskDueDateInput
 						value={task.dueDate}
 						onChange={(value) => {
@@ -59,16 +59,14 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 							);
 						}}
 					/>
-
-					{/* TODO: come back to this later */}
-					{/* <TaskTagsInput
+					<TaskTagsInput
 						taskId={task.id as string}
 						value={task.tags ?? []}
 						// value={task.tags.map((tag) => tag.name).join(", ")}
 						onChange={(value) => {
 							handleOnUpdateTask("tagIds", value);
 						}}
-					/> */}
+					/>
 				</div>
 			</div>
 		</div>

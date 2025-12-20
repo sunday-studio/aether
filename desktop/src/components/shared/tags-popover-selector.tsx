@@ -23,6 +23,7 @@ interface TagsPopoverSelectorProps {
 	placeholder?: string;
 	className?: string;
 	triggerClassName?: string;
+	customTrigger?: React.ReactNode;
 }
 
 export const popoverContentStyles = cn(
@@ -54,6 +55,7 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 		placeholder = "Search or create tag...",
 		className,
 		triggerClassName,
+		customTrigger,
 	} = props;
 
 	const tagsQueryKey = getGetAllTagsQueryKey();
@@ -103,14 +105,16 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 	const hasTags = selectedTags.length > 0;
 
 	return (
-		<div className={cn("mb-3", className)}>
+		<div className={cn("", className)}>
 			<div className="flex flex-wrap gap-1 items-end justify-end">
 				<Popover
 					open={isOpen}
 					onOpenChange={setIsOpen}
 					contentClassName={popoverContentStyles}
 					trigger={
-						hasTags ? (
+						customTrigger ? (
+							customTrigger
+						) : hasTags ? (
 							<div
 								className={cn(
 									"flex flex-col gap-1 items-end justify-end",
