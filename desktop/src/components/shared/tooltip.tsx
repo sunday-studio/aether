@@ -38,7 +38,7 @@ export const Tooltip: FC<TooltipProps> = ({
 	placement = "top",
 	shouldFlip = true,
 	leaveDuration = 10,
-	hoverDuration = 200,
+	hoverDuration = 4000,
 	showArrow = true,
 	contentClassName,
 	containerClassName,
@@ -128,7 +128,7 @@ export const Tooltip: FC<TooltipProps> = ({
 					<div
 						ref={refs.setFloating}
 						className={cn(
-							"text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1 bg-neutral-800 z-100000 inset-ring-2 inset-ring-neutral-600",
+							"bg-linear-to-b from-neutral-600 to-neutral-900 text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1  z-1000",
 							containerClassName,
 						)}
 						style={{

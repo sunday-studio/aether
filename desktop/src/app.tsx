@@ -15,10 +15,7 @@ function App() {
 		<Suspense fallback={<div>Loading...</div>}>
 			<QueryClientProvider client={queryClient}>
 				<Toaster />
-				<ReactQueryDevtools
-					buttonPosition="bottom-left"
-					initialIsOpen={false}
-				/>
+				<ReactQueryDevtools buttonPosition="top-left" initialIsOpen={false} />
 				<RouterProvider router={router} />
 			</QueryClientProvider>
 		</Suspense>

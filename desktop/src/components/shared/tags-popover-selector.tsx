@@ -93,7 +93,7 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 			{
 				onSuccess: ({ data }) => {
 					queryClient.invalidateQueries({ queryKey: tagsQueryKey });
-					onCreateTag(data!.id);
+					onCreateTag(data?.id ?? "");
 					setSearchValue("");
 				},
 			},

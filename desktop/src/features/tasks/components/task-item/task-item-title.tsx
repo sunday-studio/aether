@@ -8,7 +8,7 @@ export const TaskTitleInput = ({ value, onChange }: TaskTitleInputProps) => {
 		<input
 			onBlur={(e) => onChange(e.target.value)}
 			placeholder="Add a task"
-			className="w-full text-md font-medium text-neutral-600"
+			className="w-full text-sm font-medium text-neutral-600 outline-none"
 			defaultValue={value}
 		/>
 	);

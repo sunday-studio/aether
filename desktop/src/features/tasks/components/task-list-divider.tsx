@@ -10,7 +10,7 @@ export const TaskListDivider = ({ date }: { date: string }) => {
 						: format(new Date(date), "d MMM, yyyy")}
 				</p>
 			</div>
-			<div className="w-full h-px bg-neutral-100" />
+			<div className="w-full h-0.5 bg-neutral-50 rounded-full" />
 		</div>
 	);
 };

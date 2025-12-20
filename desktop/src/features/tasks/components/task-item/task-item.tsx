@@ -59,7 +59,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					}}
 				/>
 			</div>
-			<div className="flex-1 flex flex-col gap-1.5">
+			<div className="flex-1 flex flex-col gap-1">
 				<TaskTitleInput
 					value={task.title}
 					onChange={(value) => {

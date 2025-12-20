@@ -8,6 +8,8 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
 	value,
 	onChange,
 }) => {
+	// if (!value) return null;
+
 	return (
 		<div
 			contentEditable
