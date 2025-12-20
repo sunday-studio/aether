@@ -1,13 +1,9 @@
-import * as Popover from "@radix-ui/react-popover";
-import { useQueryClient } from "@tanstack/react-query";
+/** biome-ignore-all lint/a11y/useFocusableInteractive: false positive */
+/** biome-ignore-all lint/a11y/useSemanticElements: false positive */
 import { Tag } from "lucide-react";
-import { useState } from "react";
-import {
-	getGetInboxTasksQueryKey,
-	useAddTagsToTask,
-	useGetAllTags,
-	useRemoveTagsFromTask,
-} from "~/aether-sdk";
+import { forwardRef, useState } from "react";
+import { cn } from "tailwind-variants";
+import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { DbTag } from "~/aether-sdk/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 
@@ -17,6 +13,23 @@ interface TaskTagsInputProps {
 	taskId: string;
 }
 
+const TagItem = ({ tag }: { tag: DbTag }) => {
+	return (
+		<div
+			className={cn(
+				"rounded-lg",
+				"bg-linear-to-b from-neutral-100 to-neutral-200",
+				"text-neutral-400 text-sm",
+				"flex items-center justify-center",
+				"px-1.5 h-6",
+				"inset-ring-1 inset-ring-neutral-200",
+			)}
+		>
+			<span className={cn("text-shadow-3xs", "text-xs")}>{tag.name}</span>
+		</div>
+	);
+};
+
 export const TaskTagsInput = ({
 	value,
 	onChange,
@@ -24,42 +37,74 @@ export const TaskTagsInput = ({
 }: TaskTagsInputProps) => {
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
-	// const hasTags = value?.length > 0;
 	const [tags, setTags] = useState<DbTag[]>(value ?? []);
 
 	const handleAddTag = (tag: string) => {
-		// setTags([...tags, tag]);
 		addTagsToTask(
 			{
 				id: taskId,
 				data: [tag],
 			},
 			{
-				onSuccess: ({ data }) => {
-					// setTags([...tags, ...data!.tags!]);
-				},
+				onSuccess: ({ data }) => {},
 			},
 		);
 	};
 
 	const handleRemoveTag = (tag: string) => {
-		// setTags(tags.filter((t) => t !== tag));
 		removeTagsFromTask({
 			id: taskId,
 			data: [tag],
 		});
 	};
 
-	const CustomTrigger = () => {
+	const CustomTrigger = forwardRef<
+		HTMLDivElement,
+		React.HTMLAttributes<HTMLDivElement>
+	>((props, ref) => {
+		const hasTags = tags.length > 0;
+
 		return (
-			<div className="w-6 h-6 rounded-lg bg-neutral-200 text-neutral-400 text-sm flex items-center justify-center focus:outline-2 focus:outline-offset-1 focus:outline-neutral-300 active:bg-neutral-300 active:outline-2 active:outline-offset-1 active:outline-neutral-300">
-				<Tag size={14} strokeWidth={3} />
+			<div
+				role="button"
+				ref={ref}
+				{...props}
+				className={cn(
+					hasTags
+						? ["w-full", "shrink-0", "flex-1", "flex-wrap", "flex", "gap-0.5"]
+						: [
+								"w-6",
+								"h-6",
+								"bg-neutral-200",
+								"text-neutral-400",
+								"text-sm",
+								"flex",
+								"items-center",
+								"justify-center",
+								"rounded-lg",
+							],
+				)}
+			>
+				{hasTags ? (
+					tags.map((tag) => <TagItem key={tag.id} tag={tag} />)
+				) : (
+					<Tag size={14} strokeWidth={3} />
+				)}
 			</div>
 		);
-	};
+	});
 
 	return (
-		<div className="flex items-center shrink-0 justify-center">
+		<div
+			className={cn(
+				"flex-1",
+				"flex",
+				"w-full",
+				"items-start",
+				"shrink-0",
+				"justify-start",
+			)}
+		>
 			<TagsPopoverSelector
 				selectedTags={tags.map((tag) => ({
 					id: tag.id ?? "",
@@ -68,7 +113,6 @@ export const TaskTagsInput = ({
 				onAddTag={handleAddTag}
 				onRemoveTag={handleRemoveTag}
 				onCreateTag={() => {}}
-				// triggerClassName="flex-row bg-greeb-500 overflow-x-scroll w-full"
 				customTrigger={<CustomTrigger />}
 			/>
 		</div>
