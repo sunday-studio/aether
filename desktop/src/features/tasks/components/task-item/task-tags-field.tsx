@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/a11y/useFocusableInteractive: false positive */
 /** biome-ignore-all lint/a11y/useSemanticElements: false positive */
 import { Tag } from "lucide-react";
-import { forwardRef, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { cn } from "tailwind-variants";
 import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { DbTag } from "~/aether-sdk/models";
@@ -9,7 +9,6 @@ import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 
 interface TaskTagsInputProps {
 	value: DbTag[] | undefined;
-	onChange: (value: string) => void;
 	taskId: string;
 }
 
@@ -18,20 +17,16 @@ const TagItem = ({ label }: { label: string }) => {
 		<div
 			className={cn(
 				"rounded-lg px-1.5 h-6",
-				"bg-neutral-200/70 text-neutral-500",
+				"bg-neutral-200/70 text-neutral-500 text-xs",
 				"flex items-center justify-center",
 			)}
 		>
-			<span className={cn("text-shadow-3xs", "text-xs")}>{label}</span>
+			<span>{label}</span>
 		</div>
 	);
 };
 
-export const TaskTagsInput = ({
-	value,
-	onChange,
-	taskId,
-}: TaskTagsInputProps) => {
+export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
 	const [tags, setTags] = useState<DbTag[]>(value ?? []);
@@ -43,16 +38,25 @@ export const TaskTagsInput = ({
 				data: [tag],
 			},
 			{
-				onSuccess: ({ data }) => {},
+				onSuccess: ({ data }) => {
+					setTags((data?.tags as DbTag[]) ?? []);
+				},
 			},
 		);
 	};
 
 	const handleRemoveTag = (tag: string) => {
-		removeTagsFromTask({
-			id: taskId,
-			data: [tag],
-		});
+		removeTagsFromTask(
+			{
+				id: taskId,
+				data: [tag],
+			},
+			{
+				onSuccess: ({ data }) => {
+					setTags((data?.tags as DbTag[]) ?? []);
+				},
+			},
+		);
 	};
 
 	const CustomTrigger = forwardRef<
@@ -100,13 +104,17 @@ export const TaskTagsInput = ({
 		);
 	});
 
+	const selectedTags = useMemo(() => {
+		return tags.map((tag) => ({
+			id: tag.id ?? "",
+			name: tag.name ?? "",
+		}));
+	}, [tags]);
+
 	return (
 		<div className={cn("flex", "items-start", "shrink-0", "justify-start")}>
 			<TagsPopoverSelector
-				selectedTags={tags.map((tag) => ({
-					id: tag.id ?? "",
-					name: tag.name ?? "",
-				}))}
+				selectedTags={selectedTags}
 				onAddTag={handleAddTag}
 				onRemoveTag={handleRemoveTag}
 				onCreateTag={() => {}}

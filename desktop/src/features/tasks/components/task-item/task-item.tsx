@@ -1,6 +1,4 @@
-/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
-
-import { Ellipsis, Flag, Flame } from "lucide-react";
+import { Flag } from "lucide-react";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
@@ -74,14 +72,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					/>
 
 					<p className="text-xs text-neutral-400">•</p>
-					<TaskTagsInput
-						taskId={task.id as string}
-						value={task.tags ?? []}
-						// value={task.tags.map((tag) => tag.name).join(", ")}
-						onChange={(value) => {
-							handleOnUpdateTask("tagIds", value);
-						}}
-					/>
+					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskActionButton>
 						<Flag size={14} strokeWidth={3} />

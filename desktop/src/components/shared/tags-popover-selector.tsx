@@ -39,7 +39,7 @@ export const popoverContentStyles = cn(
 );
 
 export const popoverItemStyles = cn(
-	"relative flex items-center gap-2 text-neutral-200 w-full cursor-pointer",
+	"relative flex items-center gap-2 text-neutral-300 w-full cursor-pointer justify-between",
 	"rounded-md px-2 py-1.5 text-sm",
 	"cursor-default outline-hidden select-none",
 	"focus:bg-neutral-800 hover:bg-neutral-800",
@@ -217,7 +217,6 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 												}}
 												key={tag.id}
 												onClick={() => {
-													console.log("clicked", tag.id);
 													if (!tag.id) return;
 
 													if (isAlreadyAdded) {
@@ -230,9 +229,7 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 												className={popoverItemStyles}
 											>
 												<span>{tag.name}</span>
-												{isAlreadyAdded && (
-													<Check className="size-3 text-green-500" />
-												)}
+												<CheckboxItem isChecked={isAlreadyAdded} />
 											</li>
 										);
 									})}
@@ -247,3 +244,21 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 		</div>
 	);
 }
+
+const CheckboxItem = ({ isChecked }: { isChecked: boolean }) => {
+	return (
+		<span
+			className={cn(
+				"size-4 rounded-md bg-neutral-600 text-neutral-400 flex items-center justify-center bg-linear-to-b inset-shadow-xs",
+				{
+					" text-green-100 from-green-700 to-green-950  inset-shadow-green-700":
+						isChecked,
+					" from-neutral-600 to-neutral-700 text-white inset-shadow-neutral-700":
+						!isChecked,
+				},
+			)}
+		>
+			{isChecked ? <Check className="size-3" /> : null}
+		</span>
+	);
+};

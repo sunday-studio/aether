@@ -52,7 +52,7 @@ const cellStyles = tv({
 	variants: {
 		isSelected: {
 			false:
-				"text-neutral-900  text-neutral-200 hover:bg-neutral-800 hover:shadow-xl pressed:bg-neutral-300",
+				"text-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:shadow-xl pressed:bg-neutral-300",
 			true: "bg-linear-to-b from-green-800 to-green-900 text-white inset-shadow-green-800 inset-shadow-xs inset-shadow-green-700 text-shadow-md",
 		},
 		isDisabled: {
