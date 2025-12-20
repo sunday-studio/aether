@@ -13,19 +13,16 @@ interface TaskTagsInputProps {
 	taskId: string;
 }
 
-const TagItem = ({ tag }: { tag: DbTag }) => {
+const TagItem = ({ label }: { label: string }) => {
 	return (
 		<div
 			className={cn(
-				"rounded-lg",
-				"bg-linear-to-b from-neutral-100 to-neutral-200",
-				"text-neutral-400 text-sm",
+				"rounded-lg px-1.5 h-6",
+				"bg-neutral-200/70 text-neutral-500",
 				"flex items-center justify-center",
-				"px-1.5 h-6",
-				"inset-ring-1 inset-ring-neutral-200",
 			)}
 		>
-			<span className={cn("text-shadow-3xs", "text-xs")}>{tag.name}</span>
+			<span className={cn("text-shadow-3xs", "text-xs")}>{label}</span>
 		</div>
 	);
 };
@@ -63,6 +60,11 @@ export const TaskTagsInput = ({
 		React.HTMLAttributes<HTMLDivElement>
 	>((props, ref) => {
 		const hasTags = tags.length > 0;
+		const hasMoreThan3Tags = tags.length > 3;
+
+		const tagsDisplayString = hasMoreThan3Tags
+			? `${tags[0]?.name} & ${tags.length - 1} more`
+			: undefined;
 
 		return (
 			<div
@@ -86,7 +88,11 @@ export const TaskTagsInput = ({
 				)}
 			>
 				{hasTags ? (
-					tags.map((tag) => <TagItem key={tag.id} tag={tag} />)
+					hasMoreThan3Tags ? (
+						<TagItem label={tagsDisplayString ?? ""} />
+					) : (
+						tags.map((tag) => <TagItem key={tag.id} label={tag.name ?? ""} />)
+					)
 				) : (
 					<Tag size={14} strokeWidth={3} />
 				)}
@@ -95,16 +101,7 @@ export const TaskTagsInput = ({
 	});
 
 	return (
-		<div
-			className={cn(
-				"flex-1",
-				"flex",
-				"w-full",
-				"items-start",
-				"shrink-0",
-				"justify-start",
-			)}
-		>
+		<div className={cn("flex", "items-start", "shrink-0", "justify-start")}>
 			<TagsPopoverSelector
 				selectedTags={tags.map((tag) => ({
 					id: tag.id ?? "",

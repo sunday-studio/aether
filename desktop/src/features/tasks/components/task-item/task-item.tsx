@@ -1,10 +1,13 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+
+import { Ellipsis, Flag, Flame } from "lucide-react";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
+import { TaskActionButton } from "./task-shared-components";
 import { TaskTagsInput } from "./task-tags-field";
 
 interface TaskItemProps {
@@ -53,10 +56,20 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<TaskDueDateInput
 						value={task.dueDate}
 						onChange={(value) => {
-							handleOnUpdateTask(
-								"dueDate",
-								value ? new Date(value).toISOString() : null,
-							);
+							let date = null;
+							if (value) {
+								const now = new Date();
+								const tempDate = value.toDate("UTC");
+								tempDate.setUTCHours(
+									now.getUTCHours(),
+									now.getUTCMinutes(),
+									now.getUTCSeconds(),
+									now.getUTCMilliseconds(),
+								);
+								date = tempDate.toISOString();
+							}
+
+							handleOnUpdateTask("dueDate", date);
 						}}
 					/>
 
@@ -69,6 +82,10 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 							handleOnUpdateTask("tagIds", value);
 						}}
 					/>
+					<p className="text-xs text-neutral-400">•</p>
+					<TaskActionButton>
+						<Flag size={14} strokeWidth={3} />
+					</TaskActionButton>
 				</div>
 			</div>
 		</div>
