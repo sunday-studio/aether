@@ -6,33 +6,12 @@ import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
+import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 
 interface TaskItemProps {
 	task: DbTask;
 }
-
-interface TaskInputProps {
-	value: string | undefined;
-	onChange: (value: string) => void;
-}
-
-// const TaskDueDateInput = ({ value, onChange }: TaskInputProps) => {
-// 	if (!value)
-// 		return (
-// 			<p className="p-0.5 rounded-sm bg-neutral-100 text-neutral-500 text-sm">
-// 				Add due date
-// 			</p>
-// 		);
-// 	return (
-// 		<input
-// 			type="date"
-// 			className="w-40 text-sm"
-// 			value={value ? format(value, "yyyy-MM-dd") : ""}
-// 			onChange={(e) => onChange(e.target.value)}
-// 		/>
-// 	);
-// };
 
 export const TaskItem = ({ task }: TaskItemProps) => {
 	const { mutate: updateTask } = useOptimisticUpdateTask();
@@ -59,7 +38,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					}}
 				/>
 			</div>
-			<div className="flex-1 flex flex-col gap-1">
+			<div className="flex-1 flex flex-col gap-1.5">
 				<TaskTitleInput
 					value={task.title}
 					onChange={(value) => {

@@ -67,6 +67,8 @@ html {
 	font-feature-settings:
 		"zero" 1,
 		"tnum" 1;
+
+	background-color: var(--color-neutral-50);
 }
 
 .debug {

@@ -1,16 +1,30 @@
 import { format, isToday } from "date-fns";
+import { cn } from "~/utils/cn";
 
-export const TaskListDivider = ({ date }: { date: string }) => {
+interface TaskListDividerProps {
+	date: string | undefined;
+	isOverdue?: boolean;
+}
+export const TaskListDivider = ({ date, isOverdue }: TaskListDividerProps) => {
+	const label = isOverdue
+		? "Overdue"
+		: date && isToday(new Date(date))
+			? "Today"
+			: date && format(new Date(date), "d MMM, yyyy");
+
 	return (
-		<div className="flex items-center justify-between gap-4 my-6">
-			<div className="shrink-0 bg-linear-to-b from-neutral-100 to-neutral-200 py-1.5 rounded-full px-3">
-				<p className="text-neutral-600 text-xs font-medium">
-					{isToday(new Date(date))
-						? "Today"
-						: format(new Date(date), "d MMM, yyyy")}
-				</p>
+		<div className={cn("flex items-center justify-between gap-4 my-6")}>
+			<div
+				className={cn(
+					"shrink-0 bg-linear-to-b from-neutral-100 text-neutral-600 to-neutral-200 py-1.5 rounded-full px-3 ring ring-neutral-200",
+					{
+						"ring-rose-200 from-rose-100 to-rose-200 text-rose-700": isOverdue,
+					},
+				)}
+			>
+				<p className=" text-xs font-medium">{label}</p>
 			</div>
-			<div className="w-full h-0.5 bg-neutral-50 rounded-full" />
+			<div className="w-full h-0.5 bg-neutral-100 rounded-full" />
 		</div>
 	);
 };

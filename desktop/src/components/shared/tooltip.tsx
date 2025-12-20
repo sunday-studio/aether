@@ -38,7 +38,7 @@ export const Tooltip: FC<TooltipProps> = ({
 	placement = "top",
 	shouldFlip = true,
 	leaveDuration = 10,
-	hoverDuration = 4000,
+	hoverDuration = 400, // This represents the hover *show* delay, so default to 400ms
 	showArrow = true,
 	contentClassName,
 	containerClassName,
@@ -56,7 +56,7 @@ export const Tooltip: FC<TooltipProps> = ({
 			shouldFlip && flip(),
 			shift(),
 			arrow({ element: arrowRef }),
-		],
+		].filter(Boolean),
 		whileElementsMounted: autoUpdate,
 	});
 
@@ -64,7 +64,7 @@ export const Tooltip: FC<TooltipProps> = ({
 	const { getReferenceProps, getFloatingProps } = useInteractions([
 		useHover(context, {
 			delay: {
-				open: hoverDuration,
+				open: hoverDuration, // Now, open tooltip after specified ms
 				close: leaveDuration,
 			},
 			move: false,

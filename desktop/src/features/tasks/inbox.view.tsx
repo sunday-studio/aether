@@ -4,6 +4,8 @@ import {
 	useCreateTask,
 	useGetInboxTasks,
 } from "~/aether-sdk";
+import { AddNewButton } from "~/components/shared/button";
+import { OverdueTasks } from "./components/overdue-tasks";
 import { TaskItem } from "./components/task-item/task-item";
 import { TaskListDivider } from "./components/task-list-divider";
 import { groupTaskByCreatedAt } from "./tasks.domain";
@@ -26,7 +28,6 @@ export const InboxTasksView = () => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					console.log(data);
 					queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
 				},
 			},
@@ -37,14 +38,17 @@ export const InboxTasksView = () => {
 		<div className="h-full">
 			<div className="flex items-center justify-between py-4">
 				<h3 className="newsreader-font text-2xl font-medium">Inbox</h3>
-				<button type="button" onClick={handleCreateTask}>
-					Add Task
-				</button>
+				<AddNewButton
+					onClick={handleCreateTask}
+					label="Add task"
+					shortcuts={["⌘", "N"]}
+				/>
 			</div>
 			<ul className="w-full h-full overflow-y-scroll">
+				<OverdueTasks />
 				{Object.entries(groupedTasks).map(([date, tasks]) => {
 					return (
-						<li key={date} className="space-y-4">
+						<li key={date} className="space-y-4 px-0.5">
 							<TaskListDivider date={date} />
 							{tasks.map((task) => (
 								<TaskItem key={task.id} task={task} />
