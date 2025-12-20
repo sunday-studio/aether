@@ -1,7 +1,4 @@
 @import "tailwindcss";
-@import "@radix-ui/colors/black-alpha.css";
-@import "@radix-ui/colors/mauve.css";
-@import "@radix-ui/colors/violet.css";
 
 :root {
 	/* Animations */
@@ -66,8 +63,8 @@
 body,
 html {
 	color: var(--color-neutral-600);
-	font-family: "Inter", sans-serif;
-	font-weight: 420;
+	font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+	font-weight: 400;
 	font-feature-settings:
 		"zero" 1,
 		"tnum" 1;

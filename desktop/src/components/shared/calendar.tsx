@@ -1,6 +1,4 @@
-import { parseDate } from "@internationalized/date";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import React from "react";
 import {
 	Button as AriaButton,
 	Calendar as AriaCalendar,
@@ -37,7 +35,6 @@ export function composeTailwindRenderProps<T>(
 	return composeRenderProps(className, (className) => twMerge(tw, className));
 }
 
-// Forward the aria-label from props properly, and add aria-labels to unlabeled controls
 const Button = ({ children, ...props }: ButtonProps) => {
 	return (
 		<AriaButton
@@ -51,12 +48,12 @@ const Button = ({ children, ...props }: ButtonProps) => {
 
 const cellStyles = tv({
 	extend: focusRing,
-	base: " w-[calc(100cqw/7)] aspect-square text-sm cursor-default rounded-full flex items-center justify-center forced-color-adjust-none [-webkit-tap-highlight-color:transparent]",
+	base: " w-[calc(100cqw/8)] aspect-square text-sm cursor-default rounded-full flex items-center justify-center forced-color-adjust-none [-webkit-tap-highlight-color:transparent]",
 	variants: {
 		isSelected: {
 			false:
-				"text-neutral-900  text-neutral-200 hover:bg-neutral-800 hover:shadow-xl pressed:bg-neutral-300 dark:pressed:bg-neutral-600",
-			true: "bg-brand-bold-default invalid:bg-red-600 text-white forced-colors:bg-[Highlight] forced-colors:invalid:bg-[Mark] forced-colors:text-[HighlightText]",
+				"text-neutral-900  text-neutral-200 hover:bg-neutral-800 hover:shadow-xl pressed:bg-neutral-300",
+			true: "bg-linear-to-b from-green-800 to-green-900 text-white inset-shadow-green-800 inset-shadow-xs inset-shadow-green-700 text-shadow-md",
 		},
 		isDisabled: {
 			true: "text-neutral-300 dark:text-neutral-600 forced-colors:text-[GrayText]",
@@ -75,13 +72,11 @@ export function Calendar<T extends DateValue>({
 }: CalendarProps<T>) {
 	return (
 		<AriaCalendar
-			// defaultValue={parseDate("2025-12-20" as unknown as string)}
 			{...props}
 			className={composeTailwindRenderProps(
 				props.className,
 				"flex flex-col w-[calc(10*var(--spacing)*7)] max-w-full @container ",
 			)}
-			// Provide accessibility label if none is provided from above
 			aria-label={props["aria-label"] || props["aria-labelledby"] || "Calendar"}
 		>
 			<CalendarHeader />
@@ -126,9 +121,9 @@ export function CalendarHeader() {
 
 export function CalendarGridHeader() {
 	return (
-		<AriaCalendarGridHeader>
+		<AriaCalendarGridHeader className="py-2">
 			{(day) => (
-				<CalendarHeaderCell className="text-xs text-neutral-500 font-medium">
+				<CalendarHeaderCell className="text-xs text-neutral-500 font-medium py-3">
 					{day}
 				</CalendarHeaderCell>
 			)}

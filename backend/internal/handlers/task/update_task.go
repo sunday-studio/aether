@@ -31,6 +31,8 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
 	}
 
+	utils.PrettyPrint(payload)
+
 	var task db.Task
 	if err := h.db.First(&task, "id = ?", id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "task not found"})
@@ -42,8 +44,8 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	if payload.Description != nil {
 		task.Description = payload.Description
 	}
-	if payload.DueDate != nil {
-		task.DueDate = payload.DueDate
+	if payload.DueDate == nil {
+		task.DueDate = nil
 	}
 	if payload.IsCompleted != nil {
 		task.IsCompleted = *payload.IsCompleted

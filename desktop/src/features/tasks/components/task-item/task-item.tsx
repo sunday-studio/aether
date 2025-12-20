@@ -1,7 +1,4 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
-import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { getGetInboxTasksQueryKey, useUpdateTask } from "~/aether-sdk";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
@@ -18,8 +15,9 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 
 	const handleOnUpdateTask = (
 		inputName: string,
-		inputValue: string | boolean | undefined,
+		inputValue: string | boolean | null,
 	) => {
+		console.log("inputName ->", inputValue);
 		updateTask({
 			id: task.id as string,
 			data: {
@@ -29,7 +27,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 	};
 
 	return (
-		<div className="flex gap-4 w-full overflow-hidden py-1 px-1">
+		<div className="flex gap-4 w-full overflow-hidden py-1 px-1 ">
 			<div className="flex items-start mt-0.5">
 				<TaskItemCheckbox
 					isChecked={task.isCompleted ?? false}
@@ -51,11 +49,14 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				<div className="flex items-center gap-1 w-full mt-1">
+				<div className="flex">
 					<TaskDueDateInput
 						value={task.dueDate}
 						onChange={(value) => {
-							handleOnUpdateTask("dueDate", new Date(value).toISOString());
+							handleOnUpdateTask(
+								"dueDate",
+								value ? new Date(value).toISOString() : null,
+							);
 						}}
 					/>
 

@@ -1,13 +1,6 @@
 import type React from "react";
 import { useRef } from "react";
-import {
-	Button,
-	CalendarCell,
-	CalendarGrid,
-	DatePicker,
-	Dialog,
-	Popover,
-} from "react-aria-components";
+import { Button, DatePicker, Dialog, Popover } from "react-aria-components";
 import { Calendar } from "./calendar";
 
 interface DateTimePickerProps {
@@ -30,7 +23,7 @@ export function DateTimePicker({
 			className="inline-flex flex-col gap-2"
 		>
 			<div className="flex items-center gap-2 relative">
-				<Button ref={triggerRef} className="relative z-10">
+				<Button ref={triggerRef} className="relative z-10 h-full">
 					{trigger}
 				</Button>
 

@@ -128,7 +128,7 @@ export const Tooltip: FC<TooltipProps> = ({
 					<div
 						ref={refs.setFloating}
 						className={cn(
-							"bg-linear-to-b from-neutral-600 to-neutral-900 text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1  z-1000",
+							"bg-linear-to-b from-neutral-600 to-neutral-900 text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1  z-1000 text-shadow-md",
 							containerClassName,
 						)}
 						style={{
