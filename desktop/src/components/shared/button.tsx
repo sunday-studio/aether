@@ -15,10 +15,10 @@ export const AddNewButton = ({
 	return (
 		<button
 			className={cn(
-				"ring ring-neutral-200 text-neutral-700 flex items-center gap-1",
+				"  text-neutral-700 flex items-center gap-1",
 				"px-3 py-1.5 text-sm rounded-full bg-neutral-100",
-				"hover:ring-neutral-300",
-				"ring-3 transition-all duration-200 cursor-pointer",
+				"hover:ring-neutral-300 ring-3 ring-neutral-200",
+				"transition-all duration-200 cursor-pointer",
 			)}
 			type="button"
 			onClick={onClick}

@@ -6,6 +6,7 @@ import { cn } from "tailwind-variants";
 import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { DbTag } from "~/aether-sdk/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
+import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-update-task";
 
 interface TaskTagsInputProps {
 	value: DbTag[] | undefined;
@@ -29,7 +30,10 @@ const TagItem = ({ label }: { label: string }) => {
 export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
-	const [tags, setTags] = useState<DbTag[]>(value ?? []);
+	// const [tags, setTags] = useState<DbTag[]>(value ?? []);
+
+	const tags = value ?? [];
+	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
 
 	const handleAddTag = (tag: string) => {
 		addTagsToTask(
@@ -39,7 +43,14 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					setTags((data?.tags as DbTag[]) ?? []);
+					updateLocalInstance({
+						id: taskId,
+						data: {
+							tags: (data?.tags as DbTag[]) ?? [],
+						},
+					});
+
+					// setTags((data?.tags as DbTag[]) ?? []);
 				},
 			},
 		);
@@ -53,7 +64,14 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					setTags((data?.tags as DbTag[]) ?? []);
+					updateLocalInstance({
+						id: taskId,
+						data: {
+							tags: (data?.tags as DbTag[]) ?? [],
+						},
+					});
+
+					// setTags((data?.tags as DbTag[]) ?? []);
 				},
 			},
 		);

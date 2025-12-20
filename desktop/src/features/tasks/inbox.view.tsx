@@ -26,7 +26,7 @@ export const InboxTasksView = () => {
 				},
 			},
 			{
-				onSuccess: ({ data }) => {
+				onSuccess: () => {
 					queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
 				},
 			},

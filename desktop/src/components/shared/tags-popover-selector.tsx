@@ -31,8 +31,8 @@ export const popoverContentStyles = cn(
 	"min-w-[16rem]",
 	"origin-(--radix-popover-content-transform-origin)",
 	"overflow-hidden",
-	"rounded-lg",
-	"bg-neutral-900 p-1 text-neutral-950",
+	"rounded-xl",
+	"bg-neutral-950 p-1 text-neutral-950",
 	"data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
 	"data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
 	"data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
@@ -40,10 +40,15 @@ export const popoverContentStyles = cn(
 
 export const popoverItemStyles = cn(
 	"relative flex items-center gap-2 text-neutral-300 w-full cursor-pointer justify-between",
-	"rounded-md px-2 py-1.5 text-sm",
+	"rounded-lg px-2 py-1.5 text-sm",
 	"cursor-default outline-hidden select-none",
-	"focus:bg-neutral-800 hover:bg-neutral-800",
+	"focus:bg-neutral-00 hover:bg-neutral-800/90",
 	"data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+);
+
+const searchInputStyles = cn(
+	"w-full rounded-lg bg-neutral-800  border-neutral-700 px-3 py-2 text-sm outline-none text-neutral-200",
+	"focus:border-neutral-600 placeholder:text-neutral-500",
 );
 
 export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
@@ -173,16 +178,13 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 								}, 0);
 							}}
 						>
-							<div className="sticky top-0 bg-neutral-900 pb-1">
+							<div className="sticky top-0 pb-1">
 								<input
 									type="text"
 									placeholder={placeholder}
 									value={searchValue}
 									onChange={(e) => setSearchValue(e.target.value)}
-									className={cn(
-										"w-full rounded-md bg-neutral-800 border-neutral-700 px-3 py-2 text-sm outline-none text-neutral-200",
-										"focus:border-neutral-600 placeholder:text-neutral-500",
-									)}
+									className={cn(searchInputStyles)}
 								/>
 							</div>
 							<div className="max-h-48 overflow-y-auto">

@@ -22,7 +22,10 @@ export const TasksContainer = ({ date, tasks }: TasksContainerProps) => {
 	return (
 		<li
 			key={date}
-			className={cn("space-y-4 px-0.5", isPastDate && "opacity-60")}
+			className={cn(
+				"space-y-4 px-0.5",
+				isPastDate && "opacity-60 hover:opacity-100",
+			)}
 		>
 			<TaskListDivider
 				date={date}

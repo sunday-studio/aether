@@ -1,9 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-	getGetInboxTasksQueryKey,
-	getGetOverdueTasksQueryKey,
-	useUpdateTask,
-} from "~/aether-sdk";
+import { getGetInboxTasksQueryKey, useUpdateTask } from "~/aether-sdk";
 import type { DbTask } from "~/aether-sdk/models/db-task";
 
 export const useOptimisticUpdateTask = () => {
@@ -11,30 +7,10 @@ export const useOptimisticUpdateTask = () => {
 	const mutation = useUpdateTask();
 
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
+	const { updateLocalInstance, previousTasks } = useOptimisticUpdateTaskQuery();
 
 	const mutate = (variables: { id: string; data: Record<string, unknown> }) => {
-		const previousTasks =
-			queryClient.getQueryData<DbTask[]>(inboxTasksQueryKey);
-
-		// Optimistically update
-		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
-			const oldData = old?.data || [];
-
-			const updatedData = oldData.map((task) =>
-				task.id === variables.id ? { ...task, ...variables.data } : task,
-			);
-
-			return {
-				...old,
-				data: updatedData,
-			};
-
-			// if (!oldData) return old;
-
-			// return oldData.map((task) =>
-			// 	task.id === variables.id ? { ...task, ...variables.data } : task,
-			// );
-		});
+		updateLocalInstance(variables);
 
 		mutation.mutate(variables, {
 			onError: () => {
@@ -46,5 +22,34 @@ export const useOptimisticUpdateTask = () => {
 	return {
 		...mutation,
 		mutate,
+	};
+};
+
+export const useOptimisticUpdateTaskQuery = () => {
+	const queryClient = useQueryClient();
+	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
+	const previousTasks = queryClient.getQueryData<DbTask[]>(inboxTasksQueryKey);
+
+	const updateLocalInstance = (variables: {
+		id: string;
+		data: Record<string, unknown>;
+	}) => {
+		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
+			const oldData = old?.data || [];
+
+			const updatedData = oldData.map((task) =>
+				task.id === variables.id ? { ...task, ...variables.data } : task,
+			);
+
+			return {
+				...old,
+				data: updatedData,
+			};
+		});
+	};
+
+	return {
+		updateLocalInstance,
+		previousTasks,
 	};
 };

@@ -15,28 +15,26 @@ export const JournalTimeline = () => {
 	);
 
 	return (
-		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center ">
-			<div className="my-10">
-				<Timeline>
-					<Timeline.Item
-						className="grid-cols-24 grid"
-						leftContainerClassName="col-start-5 col-end-9"
-						rightContainerClassName="col-start-10 col-end-20"
-						rightContent={
-							<Timeline.RightContent className="-my-1 pb-10">
-								<AddNewButton
-									onClick={createEntry}
-									label="Write"
-									shortcuts={["⌘", "N"]}
-								/>
-							</Timeline.RightContent>
-						}
-					/>
-					{sortedEntries?.map((entry) => {
-						return <JournalTimelineItem key={entry.id} entry={entry} />;
-					})}
-				</Timeline>
-			</div>
+		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2">
+			<Timeline>
+				<Timeline.Item
+					className="grid-cols-24 grid pt-1"
+					leftContainerClassName="col-start-5 col-end-9"
+					rightContainerClassName="col-start-10 col-end-20"
+					rightContent={
+						<Timeline.RightContent className="pb-10">
+							<AddNewButton
+								onClick={createEntry}
+								label="Write"
+								shortcuts={["⌘", "N"]}
+							/>
+						</Timeline.RightContent>
+					}
+				/>
+				{sortedEntries?.map((entry) => {
+					return <JournalTimelineItem key={entry.id} entry={entry} />;
+				})}
+			</Timeline>
 		</div>
 	);
 };
