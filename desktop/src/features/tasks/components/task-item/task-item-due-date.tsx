@@ -1,5 +1,6 @@
 import { format } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { Bell } from "lucide-react";
+import { DateTimePicker } from "~/components/shared/datepicker";
 
 interface TaskDueDateInputProps {
 	value: string | undefined;
@@ -10,18 +11,19 @@ export const TaskDueDateInput = ({
 	value,
 	onChange,
 }: TaskDueDateInputProps) => {
-	if (!value)
-		return (
-			<p className="w-6 h-6 rounded-lg bg-neutral-100 text-neutral-500 text-sm">
-				{/* <CalendarDays className="w-3 h-3" strokeWidth={2} /> */}
-			</p>
-		);
+	const trigger = value ? (
+		<span className=" text-neutral-500 text-[13px] flex items-center justify-center">
+			Due on {format(value, "do MMM, yyyy • p")}
+		</span>
+	) : (
+		<span className="w-6 h-6 rounded-lg bg-neutral-200 text-neutral-400 text-sm flex items-center justify-center focus:outline-2 focus:outline-offset-1 focus:outline-neutral-300 active:bg-neutral-300 active:outline-2 active:outline-offset-1 active:outline-neutral-300">
+			<Bell size={14} strokeWidth={3} className="" />
+		</span>
+	);
+
 	return (
-		<input
-			type="date"
-			className="w-40 text-sm"
-			value={value ? format(value, "yyyy-MM-dd") : ""}
-			onChange={(e) => onChange(e.target.value)}
-		/>
+		<div className="shrink-0 w-fit">
+			<DateTimePicker onChange={onChange} trigger={trigger} />
+		</div>
 	);
 };

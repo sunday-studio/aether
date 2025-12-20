@@ -6,8 +6,7 @@ import {
 } from "~/aether-sdk";
 import { AddNewButton } from "~/components/shared/button";
 import { OverdueTasks } from "./components/overdue-tasks";
-import { TaskItem } from "./components/task-item/task-item";
-import { TaskListDivider } from "./components/task-list-divider";
+import { TasksContainer } from "./components/task-item/tasks-container";
 import { groupTaskByCreatedAt } from "./tasks.domain";
 
 export const InboxTasksView = () => {
@@ -47,14 +46,7 @@ export const InboxTasksView = () => {
 			<ul className="w-full h-full overflow-y-scroll">
 				<OverdueTasks />
 				{Object.entries(groupedTasks).map(([date, tasks]) => {
-					return (
-						<li key={date} className="space-y-4 px-0.5">
-							<TaskListDivider date={date} />
-							{tasks.map((task) => (
-								<TaskItem key={task.id} task={task} />
-							))}
-						</li>
-					);
+					return <TasksContainer key={date} date={date} tasks={tasks} />;
 				})}
 			</ul>
 		</div>

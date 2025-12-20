@@ -4,8 +4,13 @@ import { cn } from "~/utils/cn";
 interface TaskListDividerProps {
 	date: string | undefined;
 	isOverdue?: boolean;
+	completedCountLabel?: string;
 }
-export const TaskListDivider = ({ date, isOverdue }: TaskListDividerProps) => {
+export const TaskListDivider = ({
+	date,
+	isOverdue,
+	completedCountLabel,
+}: TaskListDividerProps) => {
 	const label = isOverdue
 		? "Overdue"
 		: date && isToday(new Date(date))
@@ -25,6 +30,11 @@ export const TaskListDivider = ({ date, isOverdue }: TaskListDividerProps) => {
 				<p className=" text-xs font-medium">{label}</p>
 			</div>
 			<div className="w-full h-0.5 bg-neutral-100 rounded-full" />
+			{completedCountLabel && (
+				<p className="text-xs shrink-0 font-medium text-neutral-500">
+					{completedCountLabel}
+				</p>
+			)}
 		</div>
 	);
 };

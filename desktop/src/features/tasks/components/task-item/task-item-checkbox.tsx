@@ -1,4 +1,4 @@
-import { cn } from "~/utils/cn";
+import { Badge, BadgeCheck } from "lucide-react";
 
 interface TaskCheckboxProps {
 	isChecked: boolean;
@@ -10,18 +10,12 @@ export const TaskItemCheckbox = ({
 	onChange,
 }: TaskCheckboxProps) => {
 	return (
-		<button
-			onClick={() => onChange(!isChecked)}
-			type="button"
-			className={cn(
-				`
-        w-4 h-4 flex items-center justify-center rounded-full
-        cursor-pointer transition-all duration-200 ease-out
-        ring-2 ring-neutral-300 hover:ring-green-600
-        focus:outline-2 focus:outline-offset-2 focus:outline-green-600
-        `,
-				isChecked && "bg-green-100 ring-green-600",
+		<button onClick={() => onChange(!isChecked)} type="button">
+			{isChecked ? (
+				<BadgeCheck size={20} strokeWidth={3} className="text-green-600" />
+			) : (
+				<Badge size={20} strokeWidth={3} className="text-neutral-400" />
 			)}
-		/>
+		</button>
 	);
 };

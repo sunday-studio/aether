@@ -30,7 +30,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 
 	return (
 		<div className="flex gap-4 w-full overflow-hidden py-1 px-1">
-			<div className="flex items-start mt-1">
+			<div className="flex items-start mt-0.5">
 				<TaskItemCheckbox
 					isChecked={task.isCompleted ?? false}
 					onChange={(isChecked) => {
@@ -51,13 +51,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				<div className="flex items-center gap-1">
-					{/* <TaskDueDateInput
+				<div className="flex items-center gap-1 w-full mt-1">
+					<TaskDueDateInput
 						value={task.dueDate}
 						onChange={(value) => {
 							handleOnUpdateTask("dueDate", new Date(value).toISOString());
 						}}
-					/> */}
+					/>
 
 					{/* TODO: come back to this later */}
 					{/* <TaskTagsInput

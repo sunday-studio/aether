@@ -14,6 +14,10 @@
 		cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+#root {
+	isolation: isolate;
+}
+
 /* Keyframes */
 @keyframes slideDownAndFade {
 	from {
@@ -63,11 +67,10 @@ body,
 html {
 	color: var(--color-neutral-600);
 	font-family: "Inter", sans-serif;
-	font-weight: 400;
+	font-weight: 420;
 	font-feature-settings:
 		"zero" 1,
 		"tnum" 1;
-
 	background-color: var(--color-neutral-50);
 }
 
