@@ -1,4 +1,4 @@
-import { Flag } from "lucide-react";
+import { Disc, Flag, Ghost, Globe, Torus } from "lucide-react";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskItemCheckbox } from "./task-item-checkbox";
@@ -76,6 +76,10 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskActionButton>
 						<Flag size={14} strokeWidth={3} />
+					</TaskActionButton>
+					<p className="text-xs text-neutral-400">•</p>
+					<TaskActionButton>
+						<Disc size={15} strokeWidth={3} className="-mt-0.5" />
 					</TaskActionButton>
 				</div>
 			</div>

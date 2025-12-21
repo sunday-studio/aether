@@ -47,7 +47,7 @@ export const TaskDueDateInput = ({
 				<span
 					role="button"
 					className={cn(
-						"opacity-0 group-hover:opacity-100 transition-opacity",
+						"opacity-0 group-hover:opacity-100 transition-opacity transform-gpu",
 						"ring-2 ring-neutral-50",
 						"text-xs text-transparent group-hover:text-neutral-400",
 						"cursor-pointer",

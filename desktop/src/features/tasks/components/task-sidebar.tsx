@@ -1,14 +1,26 @@
-import { Link } from "react-router";
+import { NavLink } from "react-router";
+import { cn } from "tailwind-variants";
 import { useGetGoals } from "~/aether-sdk";
 import { CreateGoalDialog } from "./goals/create-goal-dialog";
 
 const NavigationItem = ({ goal, route }: { goal: string; route: string }) => {
 	return (
-		<Link to={route} className="w-full">
-			<li className="text-xs text-neutral-600 p-1 px-1.5 cursor-pointer rounded-md hover:bg-neutral-200 inline-flex w-full">
-				{goal}
-			</li>
-		</Link>
+		<NavLink
+			to={route}
+			end
+			className={({ isActive }) => {
+				return cn(
+					"group text-xs leading-none py-1.5 px-1.5 hover:bg-neutral-200  rounded-md",
+					{
+						"bg-neutral-200 hover:bg-neutral-300 text-neutral-950": isActive,
+					},
+				);
+			}}
+		>
+			{/* <li className="text-xs p-1 px-1.5 text-neutral-600 cursor-pointer rounded-md hover:bg-neutral-200 inline-flex w-full"> */}
+			{goal}
+			{/* </li> */}
+		</NavLink>
 	);
 };
 
@@ -39,7 +51,7 @@ export const TaskSidebar = () => {
 		<div className="flex flex-col gap-4 justify-start items-start pr-5  mt-5">
 			<div className="flex flex-col gap-1 items-start">
 				<NavigationItem route="/tasks" goal="Inbox" />
-				<NavigationItem route="/tasks/overdue" goal="Overdue" />
+				{/* <NavigationItem route="/tasks/overdue" goal="Overdue" /> */}
 			</div>
 			<GoalsList />
 		</div>

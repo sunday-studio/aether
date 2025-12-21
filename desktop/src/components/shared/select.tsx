@@ -8,7 +8,6 @@ import {
 	type ListBoxItemProps,
 	Popover,
 	SelectValue,
-	type ValidationResult,
 } from "react-aria-components";
 import { tv } from "tailwind-variants";
 import { cn, composeTailwindRenderProps, focusRing } from "~/utils/cn";
@@ -45,7 +44,7 @@ export interface SelectProps<T extends object>
 	extends Omit<AriaSelectProps<T>, "children"> {
 	label?: string;
 	description?: string;
-	errorMessage?: string | ((validation: ValidationResult) => string);
+	errorMessage?: string;
 	items?: Iterable<T>;
 	children: React.ReactNode | ((item: T) => React.ReactNode);
 }
@@ -82,7 +81,7 @@ export function Select<T extends object>({
 				/>
 			</Button>
 			{description && <Description>{description}</Description>}
-			<FieldError>{errorMessage}</FieldError>
+			<FieldError value={errorMessage} />
 			<Popover className="min-w-(--trigger-width) max-h-[200px] overflow-auto bg-white rounded-xl ring ring-neutral-200 shadow-md">
 				<ListBox
 					items={items}

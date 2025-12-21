@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/noChildrenProp: <explanation> */
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -113,14 +114,10 @@ export const CreateGoalDialog = () => {
 		(state) => state.values.recurrenceType === RecurrenceType.CUSTOM,
 	);
 
-	const errors = useStore(form.store, (state) => state.errors);
-
-	// console.log("errors ->", errors);
-
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
 			<Button>
-				<TaskActionButton>
+				<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
 					<Plus size={14} strokeWidth={3} />
 				</TaskActionButton>
 			</Button>
@@ -198,16 +195,10 @@ export const CreateGoalDialog = () => {
 												? field.state.value.toISOString().slice(0, 10)
 												: field.state.value
 										}
-										onChange={(e) => {
-											const val =
-												typeof e === "string"
-													? e
-													: e?.target?.value
-														? e.target.value
-														: e;
-											field.handleChange(new Date(val));
+										onChange={(value) => {
+											field.handleChange(new Date(value));
 										}}
-										// errorMessage={field.state.meta.errors[0]}
+										errorMessage={field.state.meta.errors[0]?.message}
 									/>
 								)}
 							</form.Field>
@@ -221,16 +212,8 @@ export const CreateGoalDialog = () => {
 										placeholder="e.g. 1"
 										isDisabled={!isCustomRecurrenceType}
 										value={field.state.value.toString()}
-										onChange={(e) =>
-											field.handleChange(
-												typeof e === "string"
-													? Number(e)
-													: typeof e?.target?.value !== "undefined"
-														? Number(e.target.value)
-														: e,
-											)
-										}
-										// errorMessage={field.state.meta.errors[0]}
+										onChange={(value) => field.handleChange(Number(value))}
+										errorMessage={field.state.meta.errors[0]?.message}
 									/>
 								)}
 							</form.Field>
