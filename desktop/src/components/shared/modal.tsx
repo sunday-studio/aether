@@ -31,7 +31,6 @@ const modalStyles = tv({
 
 export const modalContentStyles = cn(`
   p-4 w-full rounded-lg bg-white text-left align-middle text-neutral-700 shadow-2xl bg-clip-padding bg-white
-	debug
 `);
 
 export function Modal(props: ModalOverlayProps) {

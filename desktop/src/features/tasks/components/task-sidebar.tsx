@@ -4,8 +4,8 @@ import { CreateGoalDialog } from "./goals/create-goal-dialog";
 
 const NavigationItem = ({ goal, route }: { goal: string; route: string }) => {
 	return (
-		<Link to={route}>
-			<li className="text-xs text-neutral-600 p-1 px-1.5 cursor-pointer rounded-md hover:bg-neutral-200 inline-flex">
+		<Link to={route} className="w-full">
+			<li className="text-xs text-neutral-600 p-1 px-1.5 cursor-pointer rounded-md hover:bg-neutral-200 inline-flex w-full">
 				{goal}
 			</li>
 		</Link>

@@ -23,7 +23,7 @@ export const TasksContainer = ({ date, tasks }: TasksContainerProps) => {
 		<li
 			key={date}
 			className={cn(
-				"space-y-4 px-0.5",
+				"space-y-4 px-0.5 transform-gpu transition-opacity duration-200",
 				isPastDate && "opacity-60 hover:opacity-100",
 			)}
 		>

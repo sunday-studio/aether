@@ -1,9 +1,10 @@
 import {
 	TextField as AriaTextField,
 	type TextFieldProps as AriaTextFieldProps,
+	TextArea,
 	type ValidationResult,
 } from "react-aria-components";
-import { tv } from "tailwind-variants";
+import { cn, tv } from "tailwind-variants";
 import { composeTailwindRenderProps, focusRing } from "~/utils/cn";
 import {
 	Description,
@@ -15,7 +16,7 @@ import {
 
 const inputStyles = tv({
 	extend: focusRing,
-	base: "border-1 rounded-lg min-h-9 font-sans text-sm py-0 px-3 box-border transition",
+	base: "rounded-xl min-h-9 text-sm box-border transition bg-neutral-100",
 	variants: {
 		isFocused: fieldBorderStyles.variants.isFocusWithin,
 		isInvalid: fieldBorderStyles.variants.isInvalid,
@@ -41,7 +42,7 @@ export function TextField({
 			{...props}
 			className={composeTailwindRenderProps(
 				props.className,
-				"flex flex-col gap-1 font-sans",
+				"flex flex-col gap-1",
 			)}
 		>
 			{label && <Label>{label}</Label>}
@@ -52,22 +53,23 @@ export function TextField({
 	);
 }
 
-export function TextAreaField({
-	label,
-	description,
-	errorMessage,
-	...props
-}: TextFieldProps) {
+export function TextAreaField({ label, ...props }: TextFieldProps) {
 	return (
 		<AriaTextField
 			{...props}
 			className={composeTailwindRenderProps(
 				props.className,
-				"flex flex-col gap-1 font-sans",
+				"flex flex-col gap-1",
 			)}
 		>
 			{label && <Label>{label}</Label>}
-			<Input className={inputStyles} />
+			<TextArea
+				rows={4}
+				className={composeTailwindRenderProps(
+					inputStyles,
+					"py-2! placeholder:text-neutral-400 font-medium px-3 focus:outline-0",
+				)}
+			/>
 		</AriaTextField>
 	);
 }

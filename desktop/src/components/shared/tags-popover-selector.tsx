@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Button, DialogTrigger } from "react-aria-components";
 import {
 	getGetAllTagsQueryKey,
 	useCreateTag,
@@ -112,12 +113,9 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 	return (
 		<div className={cn("", className)}>
 			<div className="flex flex-wrap gap-1 items-end justify-end">
-				<Popover
-					open={isOpen}
-					onOpenChange={setIsOpen}
-					contentClassName={popoverContentStyles}
-					trigger={
-						customTrigger ? (
+				<DialogTrigger>
+					<Button>
+						{customTrigger ? (
 							customTrigger
 						) : hasTags ? (
 							<div
@@ -161,9 +159,9 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 							>
 								Add tag
 							</button>
-						)
-					}
-					content={
+						)}
+					</Button>
+					<Popover className={popoverContentStyles}>
 						<div
 							// To focus input on open (manual since our Popover doesn't do this directly)
 							tabIndex={-1}
@@ -238,10 +236,8 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 								</ul>
 							</div>
 						</div>
-					}
-					side="bottom"
-					sideOffset={5}
-				/>
+					</Popover>
+				</DialogTrigger>
 			</div>
 		</div>
 	);

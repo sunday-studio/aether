@@ -16,11 +16,11 @@ export function composeTailwindRenderProps<T>(
 
 export function focusRing() {
 	return tv({
-		base: "outline-hidden focus-visible:outline-hidden focus-visible:ring-4",
+		base: "outline-hidden focus-visible:outline-hidden focus-visible:ring-2",
 		variants: {
 			isFocusVisible: {
 				false: "focus-visible:ring-transparent",
-				true: "focus-visible:ring-brand-bold-default/20",
+				true: "focus-visible:ring-neutral-600/20",
 			},
 		},
 	});

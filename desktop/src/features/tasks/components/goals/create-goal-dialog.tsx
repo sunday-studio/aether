@@ -1,10 +1,18 @@
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Button, Dialog, DialogTrigger, Form } from "react-aria-components";
+import {
+	Button,
+	Dialog,
+	DialogTrigger,
+	Form,
+	type Key,
+} from "react-aria-components";
 import { z } from "zod";
 import { getGetGoalsQueryKey, useCreateGoal } from "~/aether-sdk";
+import { Label } from "~/components/shared/field";
 import { Modal, modalContentStyles } from "~/components/shared/modal";
+import { Select, SelectItem } from "~/components/shared/select";
 import { TextAreaField, TextField } from "~/components/shared/text-field";
 import { cn } from "~/utils/cn";
 import { TaskActionButton } from "../task-item/task-shared-components";
@@ -36,7 +44,7 @@ export const CreateGoalDialog = () => {
 			recurrenceMeta: {},
 		},
 		validators: {
-			onChange: (value) => createGoalSchema.safeParse(value),
+			// onChange: (value) => createGoalSchema.safeParse(value),
 		},
 		onSubmit: async ({ value }) => {
 			console.log("value ->", value);
@@ -52,9 +60,13 @@ export const CreateGoalDialog = () => {
 						recurrenceMeta: value.recurrenceMeta,
 					},
 				},
+
 				{
+					onError: (error) => {
+						console.log("error ->", error);
+					},
 					onSuccess: () => {
-						queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
+						// queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
 					},
 				},
 			);
@@ -75,7 +87,7 @@ export const CreateGoalDialog = () => {
 			</Button>
 			<Modal isDismissable>
 				<Dialog className={modalContentStyles}>
-					<p>Let's create a new goal</p>
+					{/* <p>Let's create a new goal</p> */}
 					<Form
 						className="space-y-4"
 						onSubmit={(e) => {
@@ -89,7 +101,7 @@ export const CreateGoalDialog = () => {
 									autoFocus
 									name={field.name}
 									label="Name"
-									placeholder="Enter goal name"
+									placeholder="What do you wanna track?"
 									value={field.state.value}
 									onChange={field.handleChange}
 									errorMessage={field.state.meta.errors[0]}
@@ -112,26 +124,20 @@ export const CreateGoalDialog = () => {
 						</form.Field>
 						<form.Field name="recurrenceType">
 							{(field) => (
-								<div className="mb-3">
-									<label
-										className="block text-sm font-medium mb-1"
-										htmlFor={field.name}
-									>
-										Recurrence Type
-									</label>
-									<select
-										name={field.name}
-										id={field.name}
+								<div className="">
+									<Select
+										label="Recurrence type"
+										placeholder="Select recurrence type"
 										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										className={inputStyles}
-										// disabled={form.state.isSubmitting || isPending}
+										onChange={(value: Key | null) => {
+											field.handleChange(value?.toString() ?? "");
+										}}
 									>
-										<option value="daily">Daily</option>
-										<option value="weekly">Weekly</option>
-										<option value="monthly">Monthly</option>
-										<option value="custom">Custom</option>
-									</select>
+										<SelectItem id="daily">Daily</SelectItem>
+										<SelectItem>Weekly</SelectItem>
+										<SelectItem>Monthly</SelectItem>
+										<SelectItem>Custom</SelectItem>
+									</Select>
 									{field.state.meta.errors[0] && (
 										<p className="text-xs text-red-600 mt-1">
 											{field.state.meta.errors[0]}
@@ -140,7 +146,7 @@ export const CreateGoalDialog = () => {
 								</div>
 							)}
 						</form.Field>
-						<form.Field name="recurrenceInterval">
+						{/* <form.Field name="recurrenceInterval">
 							{(field) => (
 								<TextField
 									type="number"
@@ -162,8 +168,8 @@ export const CreateGoalDialog = () => {
 									// isDisabled={form.state.isSubmitting || isPending}
 								/>
 							)}
-						</form.Field>
-						<form.Field name="recurrenceAnchor">
+						</form.Field> */}
+						{/* <form.Field name="recurrenceAnchor">
 							{(field) => (
 								<TextField
 									type="date"
@@ -188,8 +194,8 @@ export const CreateGoalDialog = () => {
 									// isDisabled={form.state.isSubmitting || isPending}
 								/>
 							)}
-						</form.Field>
-						<form.Field name="recurrenceMeta">
+						</form.Field> */}
+						{/* <form.Field name="recurrenceMeta">
 							{(field) => (
 								<TextAreaField
 									name={field.name}
@@ -213,9 +219,8 @@ export const CreateGoalDialog = () => {
 									minRows={3}
 								/>
 							)}
-						</form.Field>
-						Tag IDs field (example, this will be a comma separated text for now)
-						<form.Field name="tagIds">
+						</form.Field> */}
+						{/* <form.Field name="tagIds">
 							{(field) => (
 								<TextField
 									name={field.name}
@@ -236,12 +241,12 @@ export const CreateGoalDialog = () => {
 									// isDisabled={form.state.isSubmitting || isPending}
 								/>
 							)}
-						</form.Field>
-						<div className="flex gap-2 self-end mt-4">
+						</form.Field> */}
+						<div className="flex gap-2 self-end mt-4 w-full justify-end">
 							<Button
 								slot="close"
 								type="button"
-								className="bg-neutral-200"
+								className="bg-neutral-200 p-1 rounded-lg px-2 text-sm"
 								onPress={handleDialogClose}
 								isDisabled={form.state.isSubmitting || isPending}
 							>
@@ -249,8 +254,8 @@ export const CreateGoalDialog = () => {
 							</Button>
 							<Button
 								type="submit"
-								className="bg-neutral-700 text-neutral-200"
-								isDisabled={form.state.isSubmitting || isPending}
+								className="bg-linear-to-b from-green-800 to-green-900 text-neutral-200 p-1 rounded-lg px-2 text-[13px]"
+								// isDisabled={form.state.isSubmitting || isPending}
 							>
 								{isPending || form.state.isSubmitting
 									? "Creating..."
