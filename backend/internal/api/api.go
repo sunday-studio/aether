@@ -72,6 +72,6 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	goalGroup.Post("/", goalHandler.CreateGoal)
 	goalGroup.Put("/:id", goalHandler.UpdateGoal)
 	goalGroup.Delete("/:id", goalHandler.DeleteGoal)
-	goalGroup.Get("/:id/instances", goalHandler.GetGoalInstances)
-	goalGroup.Get("/:id/instances/current", goalHandler.GetCurrentGoalInstance)
+	goalGroup.Get("/:goalId/instances", goalHandler.GetGoalInstances)
+	goalGroup.Get("/:goalId/instances/current", goalHandler.GetCurrentGoalInstance)
 }

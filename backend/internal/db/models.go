@@ -67,10 +67,10 @@ type Goal struct {
 }
 
 type GoalInstance struct {
-	ID string `gorm:"primaryKey"`
+	ID string `json:"id" gorm:"primaryKey"`
 
-	GoalID string `gorm:"index;uniqueIndex:idx_goal_period"`
-	Goal   Goal   `gorm:"constraint:OnDelete:CASCADE"`
+	GoalID string `json:"goalId" gorm:"index;uniqueIndex:idx_goal_period"`
+	Goal   Goal   `json:"goal" gorm:"constraint:OnDelete:CASCADE"`
 
 	PeriodStart time.Time `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
 	PeriodEnd   time.Time `json:"periodEnd" gorm:"index"`
@@ -79,8 +79,8 @@ type GoalInstance struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	Tags  []Tag `json:"tags" gorm:"many2many:goal_instance_tags"`
-	Tasks []Task
+	Tags  []Tag  `json:"tags" gorm:"many2many:goal_instance_tags"`
+	Tasks []Task `json:"tasks"`
 }
 
 func (g *Goal) BeforeCreate(tx *gorm.DB) error {

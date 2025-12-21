@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,8 +18,11 @@ import (
 func (h *GoalHandler) GetGoalInstances(c *fiber.Ctx) error {
 	goalID := c.Params("goalId")
 
+	fmt.Println("goalID", goalID)
+
 	var instances []db.GoalInstance
 	if err := h.db.
+		Preload("Tasks").
 		Where("goal_id = ?", goalID).
 		Order("period_start DESC").
 		Find(&instances).

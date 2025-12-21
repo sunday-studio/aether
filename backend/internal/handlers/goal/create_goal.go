@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"aether/internal/db"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,7 +23,6 @@ func (h *GoalHandler) CreateGoal(c *fiber.Ctx) error {
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
 	}
-
 	if payload.Name == "" || payload.RecurrenceType == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "missing required fields"})
 	}
@@ -48,6 +48,26 @@ func (h *GoalHandler) CreateGoal(c *fiber.Ctx) error {
 		if err := h.db.Model(&goal).Association("Tags").Replace(tags); err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
+	}
+
+	// Create the first instance of the goal after creating the goal itself.
+	var periodStart, periodEnd time.Time
+
+	// If a recurrence anchor is provided, use the *value* as a time.Time.
+	// Otherwise use now.
+	periodStart = goal.RecurrenceAnchor
+	// For now, PeriodEnd is just set to the same as PeriodStart.
+	// Optionally: compute PeriodEnd based on RecurrenceType/Interval.
+	periodEnd = goal.RecurrenceAnchor.AddDate(0, goal.RecurrenceInterval, 0)
+
+	firstInstance := db.GoalInstance{
+		GoalID:      goal.ID,
+		PeriodStart: periodStart,
+		PeriodEnd:   periodEnd,
+	}
+
+	if err := h.db.Create(&firstInstance).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to create goal instance: " + err.Error()})
 	}
 
 	return c.JSON(goal)
