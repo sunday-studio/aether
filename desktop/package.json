@@ -39,7 +39,6 @@
     "lexical": "^0.24.0",
     "lucide-react": "^0.554.0",
     "motion": "^12.23.24",
-    "radix-ui": "^1.4.3",
     "react": "^19.1.0",
     "react-aria-components": "^1.14.0",
     "react-dom": "^19.1.0",
