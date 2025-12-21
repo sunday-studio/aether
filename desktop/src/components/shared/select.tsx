@@ -22,7 +22,7 @@ import { Description, FieldError, Label } from "./field";
 const styles = tv({
 	extend: focusRing,
 	base: cn(
-		"flex items-center gap-4 w-full min-w-[180px] h-9 pl-3 pr-2 rounded-xl transition ",
+		"flex items-center gap-4 w-full min-w-[180px] h-9 pl-3 pr-2 rounded-xl transition",
 		"text-start  bg-neutral-100 cursor-default",
 		"[-webkit-tap-highlight-color:transparent]",
 	),
@@ -68,7 +68,7 @@ export function Select<T extends object>({
 		>
 			{label && <Label>{label}</Label>}
 			<Button className={styles({ isDisabled: props.isDisabled })}>
-				<SelectValue className="flex-1 text-sm">
+				<SelectValue className="flex-1 text-sm font-medium text-neutral-600">
 					{({ selectedText, defaultChildren }) =>
 						selectedText || defaultChildren
 					}

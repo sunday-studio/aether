@@ -1,4 +1,3 @@
-// import { CreateGoalDialog } from "./components/goals/create-goal-dialog";
 import { Outlet } from "react-router";
 import { TaskSidebar } from "./task-sidebar";
 

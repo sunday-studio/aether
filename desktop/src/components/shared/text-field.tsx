@@ -16,7 +16,7 @@ import {
 
 const inputStyles = tv({
 	extend: focusRing,
-	base: "rounded-xl min-h-9 text-sm box-border transition bg-neutral-100",
+	base: "rounded-xl min-h-9 text-sm box-border transition bg-neutral-100 text-neutral-600",
 	variants: {
 		isFocused: fieldBorderStyles.variants.isFocusWithin,
 		isInvalid: fieldBorderStyles.variants.isInvalid,
@@ -28,7 +28,7 @@ export interface TextFieldProps extends AriaTextFieldProps {
 	label?: string;
 	description?: string;
 	placeholder?: string;
-	errorMessage?: string | ((validation: ValidationResult) => string);
+	errorMessage?: string;
 }
 
 export function TextField({
@@ -48,7 +48,7 @@ export function TextField({
 			{label && <Label>{label}</Label>}
 			<Input className={inputStyles} />
 			{description && <Description>{description}</Description>}
-			<FieldError>{errorMessage}</FieldError>
+			<FieldError value={errorMessage} />
 		</AriaTextField>
 	);
 }

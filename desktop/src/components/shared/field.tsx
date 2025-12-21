@@ -1,18 +1,16 @@
 import {
 	composeRenderProps,
-	type FieldErrorProps,
 	Group,
 	type GroupProps,
 	type InputProps,
 	type LabelProps,
-	FieldError as RACFieldError,
 	Input as RACInput,
 	Label as RACLabel,
 	Text,
 	type TextProps,
 } from "react-aria-components";
 import { twMerge } from "tailwind-merge";
-import { tv } from "tailwind-variants";
+import { cn, tv } from "tailwind-variants";
 import { composeTailwindRenderProps, focusRing } from "~/utils/cn";
 
 export function Label(props: LabelProps) {
@@ -40,30 +38,23 @@ export function Description(props: TextProps) {
 	);
 }
 
-export function FieldError(props: FieldErrorProps) {
-	return (
-		<RACFieldError
-			{...props}
-			className={composeTailwindRenderProps(
-				props.className,
-				"text-sm text-rose-600 font-medium ",
-			)}
-		/>
-	);
+export function FieldError({ value }: { value?: string }) {
+	if (!value) return null;
+	return <span className={cn("text-sm text-rose-600 pl-2")}>{value}</span>;
 }
 
 export const fieldBorderStyles = tv({
 	base: "transition",
 	variants: {
 		isFocusWithin: {
-			false: "border-neutral-300 hover:border-neutral-400 ",
-			true: "border-neutral-600 ring-2 ring-neutral-200 ring-offset-1",
+			false: "ring-neutral-300 hover:ring-neutral-400 ",
+			true: "ring-neutral-600 ring-2 ring-neutral-200 ring-offset-1",
 		},
 		isInvalid: {
-			true: "border-rose-600 ring-2 ring-rose-600/20 ring-offset-1",
+			true: "ring-rose-600 ring-2 ring-rose-600/20 ring-offset-1",
 		},
 		isDisabled: {
-			true: "border-neutral-100 ring-2 ring-neutral-100/20 ring-offset-1",
+			true: "ring-neutral-100 ring-2 opacity-80 text-neutral-400 ring-neutral-100/20 ring-offset-1 hover:ring-transparent",
 		},
 	},
 });
@@ -91,7 +82,12 @@ export function Input(props: InputProps) {
 			{...props}
 			className={composeTailwindRenderProps(
 				props.className,
-				"px-3 py-0 min-h-9 flex-1 min-w-0 border-0 outline-0 bg-neutral-100 text-sm font-medium text-neutral-800 placeholder:text-neutral-400 disabled:text-neutral-100 disabled:placeholder:text-neutral-100 ",
+				[
+					"px-3 py-0 min-h-9 flex-1 min-w-0",
+					"border-0 outline-0",
+					"bg-neutral-100 text-sm font-medium",
+					"placeholder:text-neutral-400",
+				].join(" "),
 			)}
 		/>
 	);

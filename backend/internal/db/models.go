@@ -54,7 +54,7 @@ type Goal struct {
 	Name        string  `json:"name" gorm:"not null"`
 	Description *string `json:"description"`
 
-	RecurrenceType     string         `json:"recurrenceType" gorm:"not null"`     // daily | weekly | monthly | custom
+	RecurrenceType     string         `json:"recurrenceType" gorm:"not null"`     // bi-weekly | weekly | monthly | custom
 	RecurrenceInterval int            `json:"recurrenceInterval" gorm:"not null"` // 1, 2, 25, etc
 	RecurrenceAnchor   time.Time      `json:"recurrenceAnchor" gorm:"not null"`
 	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" swaggerignore:"true"`
