@@ -1,4 +1,11 @@
-import type { DbTask } from "~/aether-sdk/models";
+import type { DbGoal, DbGoalInstance, DbTask } from "~/aether-sdk/models";
+
+export enum RecurrenceType {
+	WEEKLY = "weekly",
+	BI_WEEKLY = "bi-weekly",
+	MONTHLY = "monthly",
+	CUSTOM = "custom",
+}
 
 export const groupTaskByCreatedAt = (tasks: DbTask[]) => {
 	const groupedTasks: Record<string, DbTask[]> = {};
@@ -27,4 +34,21 @@ export const groupTaskByCreatedAt = (tasks: DbTask[]) => {
 		});
 
 	return sortedGroupedTasks;
+};
+
+// TODO: relook into this
+export const generateGoalInstanceTitle = (
+	goalInstance: DbGoalInstance | null,
+	goal: DbGoal | null,
+) => {
+	if (!goalInstance || !goal) return "";
+
+	switch (goal.recurrenceType) {
+		case RecurrenceType.WEEKLY:
+			return `Week ${goalInstance.periodStart}`;
+		case RecurrenceType.BI_WEEKLY:
+			return `Bi-Week ${goalInstance.periodStart}`;
+		case RecurrenceType.MONTHLY:
+			return `Month ${goalInstance.periodStart}`;
+	}
 };

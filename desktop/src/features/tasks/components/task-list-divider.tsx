@@ -5,11 +5,13 @@ interface TaskListDividerProps {
 	date: string | undefined;
 	isOverdue?: boolean;
 	completedCountLabel?: string;
+	title?: string;
 }
 export const TaskListDivider = ({
 	date,
 	isOverdue,
 	completedCountLabel,
+	title,
 }: TaskListDividerProps) => {
 	const label = isOverdue
 		? "Overdue"
@@ -27,7 +29,7 @@ export const TaskListDivider = ({
 					},
 				)}
 			>
-				<p className=" text-xs font-medium">{label}</p>
+				<p className=" text-xs font-medium">{title ?? label}</p>
 			</div>
 			<div className="w-full h-0.5 bg-neutral-100 rounded-full" />
 			{completedCountLabel && (

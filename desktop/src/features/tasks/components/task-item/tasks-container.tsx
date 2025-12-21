@@ -7,13 +7,20 @@ import { TaskItem } from "./task-item";
 interface TasksContainerProps {
 	date: string;
 	tasks: DbTask[];
+	isPast?: boolean;
+	dividerTitle?: string;
 }
 
-export const TasksContainer = ({ date, tasks }: TasksContainerProps) => {
-	const isPastDate = isBefore(
-		startOfDay(new Date(date)),
-		startOfDay(new Date()),
-	);
+export const TasksContainer = ({
+	date,
+	tasks,
+	isPast,
+	dividerTitle,
+}: TasksContainerProps) => {
+	// const isPastDate = isBefore(
+	// 	startOfDay(new Date(date)),
+	// 	startOfDay(new Date()),
+	// );
 
 	const completedCount = tasks.reduce((count, task) => {
 		return task.isCompleted ? count + 1 : count;
@@ -24,11 +31,12 @@ export const TasksContainer = ({ date, tasks }: TasksContainerProps) => {
 			key={date}
 			className={cn(
 				"space-y-4 px-0.5 transform-gpu transition-opacity duration-200",
-				isPastDate && "opacity-60 hover:opacity-100",
+				isPast && "opacity-60 hover:opacity-100",
 			)}
 		>
 			<TaskListDivider
 				date={date}
+				title={dividerTitle}
 				completedCountLabel={`${completedCount} / ${tasks.length}`}
 			/>
 			{tasks.map((task) => (

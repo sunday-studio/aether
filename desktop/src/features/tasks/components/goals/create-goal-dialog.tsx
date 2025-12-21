@@ -16,14 +16,8 @@ import { Modal, modalContentStyles } from "~/components/shared/modal";
 import { Select, SelectItem } from "~/components/shared/select";
 import { Spinner } from "~/components/shared/spinner";
 import { TextAreaField, TextField } from "~/components/shared/text-field";
+import { RecurrenceType } from "../../tasks.domain";
 import { TaskActionButton } from "../task-item/task-shared-components";
-
-enum RecurrenceType {
-	WEEKLY = "weekly",
-	BI_WEEKLY = "bi-weekly",
-	MONTHLY = "monthly",
-	CUSTOM = "custom",
-}
 
 const createGoalSchema = z.object({
 	name: z.string().min(1, { message: "Name is required" }),

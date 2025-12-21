@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { isBefore, startOfDay } from "date-fns";
 import {
 	getGetInboxTasksQueryKey,
 	useCreateTask,
@@ -46,7 +47,18 @@ export const InboxTasksView = () => {
 			<ul className="w-full h-full overflow-y-scroll">
 				<OverdueTasks />
 				{Object.entries(groupedTasks).map(([date, tasks]) => {
-					return <TasksContainer key={date} date={date} tasks={tasks} />;
+					const isPast = isBefore(
+						startOfDay(new Date(date)),
+						startOfDay(new Date()),
+					);
+					return (
+						<TasksContainer
+							key={date}
+							date={date}
+							tasks={tasks}
+							isPast={isPast}
+						/>
+					);
 				})}
 			</ul>
 		</div>
