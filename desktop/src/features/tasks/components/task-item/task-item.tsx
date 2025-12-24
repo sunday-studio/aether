@@ -1,12 +1,13 @@
-import { Disc, Flag, Ghost, Globe, Torus } from "lucide-react";
+import { Flag } from "lucide-react";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
+import { TaskGoalSelector } from "./task-goal-selector";
 import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskActionButton } from "./task-shared-components";
-import { TaskTagsInput } from "./task-tags-field";
+import { TaskTagsInput } from "./task-tags-selector";
 
 interface TaskItemProps {
 	task: DbTask;
@@ -27,8 +28,10 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 		});
 	};
 
+	console.log({ task, instance: task.goalInstanceId });
+
 	return (
-		<div className="flex gap-4 w-full overflow-hidden py-1 px-1">
+		<div className="flex gap-4 w-full py-1 overflow-hidden">
 			<div className="flex items-start mt-0.5">
 				<TaskItemCheckbox
 					isChecked={task.isCompleted ?? false}
@@ -75,11 +78,14 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskActionButton>
-						<Flag size={14} strokeWidth={3} />
+						<TaskGoalSelector
+							value={task.goalInstanceId}
+							taskId={task.id as string}
+						/>
 					</TaskActionButton>
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskActionButton>
-						<Disc size={15} strokeWidth={3} className="-mt-0.5" />
+						<Flag size={14} strokeWidth={3} />
 					</TaskActionButton>
 				</div>
 			</div>

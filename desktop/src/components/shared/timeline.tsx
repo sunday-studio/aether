@@ -33,7 +33,7 @@ function TimelineItem({
 	className?: string;
 }) {
 	return (
-		<div className={cn("flex gap-4", className)}>
+		<div className={cn("flex gap-4 group", className)}>
 			<div className={cn("left w-full", leftContainerClassName)}>
 				{leftContent}
 			</div>
@@ -80,7 +80,7 @@ const Indicator = forwardRef<
 				>
 					{children}
 				</button>
-				<div className="my-1 w-[2px] flex-1 shrink-0 bg-neutral-200 group-last:hidden" />
+				<div className="my-1 w-[2px] flex-1 shrink-0 bg-neutral-200 group-last:hidden &:last-child:hidden" />
 			</div>
 		</div>
 	);

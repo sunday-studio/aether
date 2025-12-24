@@ -10,6 +10,8 @@ import { OverdueTasks } from "./components/overdue-tasks";
 import { TasksContainer } from "./components/task-item/tasks-container";
 import { groupTaskByCreatedAt } from "./tasks.domain";
 
+// Add infinite scroll to the inbox tasks
+
 export const InboxTasksView = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();

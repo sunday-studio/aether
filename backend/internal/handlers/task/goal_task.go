@@ -9,6 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type AddGoalToTaskPayload struct {
+	GoalID string `json:"goalId"`
+}
+
 // AddGoalToTask godoc
 // @Id addGoalToTask
 // @Summary Add a task to the current instance of a goal
@@ -16,7 +20,7 @@ import (
 // @Accept json
 // @Produce json
 // @Param id path string true "Task ID"
-// @Param goalId body string true "Goal ID to add the task to"
+// @Param goalId body handlers.AddGoalToTaskPayload true "Goal ID to add the task to"
 // @Success 200 {object} db.Task
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -44,9 +48,7 @@ func (h *TaskHandler) AddGoalToTask(c *fiber.Ctx) error {
 	}
 
 	// Parse goal ID from body
-	var body struct {
-		GoalID string `json:"goalId"`
-	}
+	var body AddGoalToTaskPayload
 
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(400).JSON(fiber.Map{

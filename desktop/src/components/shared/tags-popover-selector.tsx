@@ -47,7 +47,7 @@ export const popoverItemStyles = cn(
 	"data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
 );
 
-const searchInputStyles = cn(
+export const searchInputStyles = cn(
 	"w-full rounded-lg bg-neutral-800  border-neutral-700 px-3 py-2 text-sm outline-none text-neutral-200",
 	"focus:border-neutral-600 placeholder:text-neutral-500",
 );
@@ -70,7 +70,6 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 	const { data: tagsResponse } = useGetAllTags();
 	const { mutate: createTag } = useCreateTag();
 
-	const [isOpen, setIsOpen] = useState(false);
 	const [searchValue, setSearchValue] = useState("");
 
 	const allTags: Tag[] = (

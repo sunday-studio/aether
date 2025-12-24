@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/a11y/useFocusableInteractive: false positive */
 /** biome-ignore-all lint/a11y/useSemanticElements: false positive */
 import { Tag } from "lucide-react";
-import { forwardRef, useMemo, useState } from "react";
+import { forwardRef, useMemo } from "react";
 import { cn } from "tailwind-variants";
 import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { DbTag } from "~/aether-sdk/models";

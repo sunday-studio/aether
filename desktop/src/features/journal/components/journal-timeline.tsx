@@ -18,7 +18,7 @@ export const JournalTimeline = () => {
 		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2">
 			<Timeline>
 				<Timeline.Item
-					className="grid-cols-24 grid pt-1"
+					className="grid-cols-24 grid pt-4"
 					leftContainerClassName="col-start-5 col-end-9"
 					rightContainerClassName="col-start-10 col-end-20"
 					rightContent={

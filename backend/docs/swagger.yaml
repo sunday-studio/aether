@@ -37,7 +37,7 @@ definitions:
         description: 1, 2, 25, etc
         type: integer
       recurrenceType:
-        description: daily | weekly | monthly | custom
+        description: bi-weekly | weekly | monthly | custom
         type: string
       tags:
         items:
@@ -52,7 +52,7 @@ definitions:
         type: string
       goal:
         $ref: '#/definitions/db.Goal'
-      goalID:
+      goalId:
         type: string
       id:
         type: string
@@ -104,6 +104,11 @@ definitions:
       title:
         type: string
       updatedAt:
+        type: string
+    type: object
+  handlers.AddGoalToTaskPayload:
+    properties:
+      goalId:
         type: string
     type: object
   handlers.CreateEntryPayload:
@@ -773,6 +778,87 @@ paths:
               type: string
             type: object
       summary: Update a task
+      tags:
+      - Tasks
+  /tasks/{id}/goal:
+    delete:
+      operationId: removeGoalFromTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove a task from its goal instance
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      operationId: addGoalToTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Goal ID to add the task to
+        in: body
+        name: goalId
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddGoalToTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add a task to the current instance of a goal
       tags:
       - Tasks
   /tasks/{id}/tags:
