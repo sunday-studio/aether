@@ -1,16 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { isBefore, startOfDay } from "date-fns";
 import {
 	getGetInboxTasksQueryKey,
 	useCreateTask,
 	useGetInboxTasks,
 } from "~/aether-sdk";
 import { AddNewButton } from "~/components/shared/button";
-import { OverdueTasks } from "./components/overdue-tasks";
-import { TasksContainer } from "./components/task-item/tasks-container";
+import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { groupTaskByCreatedAt } from "./tasks.domain";
-
-// Add infinite scroll to the inbox tasks
 
 export const InboxTasksView = () => {
 	const queryClient = useQueryClient();
@@ -37,7 +33,7 @@ export const InboxTasksView = () => {
 	};
 
 	return (
-		<div className="h-full">
+		<div className="h-full flex flex-col">
 			<div className="flex items-center justify-between py-4">
 				<h3 className="newsreader-font text-2xl font-medium">Inbox</h3>
 				<AddNewButton
@@ -46,23 +42,7 @@ export const InboxTasksView = () => {
 					shortcuts={["⌘", "N"]}
 				/>
 			</div>
-			<ul className="w-full h-full overflow-y-scroll">
-				<OverdueTasks />
-				{Object.entries(groupedTasks).map(([date, tasks]) => {
-					const isPast = isBefore(
-						startOfDay(new Date(date)),
-						startOfDay(new Date()),
-					);
-					return (
-						<TasksContainer
-							key={date}
-							date={date}
-							tasks={tasks}
-							isPast={isPast}
-						/>
-					);
-				})}
-			</ul>
+			<VirtualizedTaskList groupedTasks={groupedTasks} />
 		</div>
 	);
 };

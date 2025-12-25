@@ -1,12 +1,29 @@
+import { Loader } from "lucide-react";
 import { useParams } from "react-router";
 import { useGetGoalByID, useGetGoalInstances } from "~/aether-sdk";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
-import { TasksContainer } from "./components/task-item/tasks-container";
+import { VirtualizedTaskList } from "./components/virtualized-task-list";
+import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
 
 export const GoalView = () => {
 	const { goalId } = useParams();
-	const { data: goal } = useGetGoalByID(goalId ?? "");
-	const { data: goalInstances } = useGetGoalInstances(goalId ?? "");
+	const { data: goal, isLoading: isLoadingGoal } = useGetGoalByID(goalId ?? "");
+	const { data: goalInstances, isLoading: isLoadingGoalInstances } =
+		useGetGoalInstances(goalId ?? "");
+
+	const isLoading = isLoadingGoal || isLoadingGoalInstances;
+
+	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(
+		goalInstances?.data ?? [],
+	);
+
+	if (isLoading) {
+		return (
+			<div className="h-full flex items-center justify-center">
+				<Loader className="w-4 h-4 animate-spin" />
+			</div>
+		);
+	}
 
 	return (
 		<div className="h-full">
@@ -19,24 +36,7 @@ export const GoalView = () => {
 				)}
 				<RecurrencyTag recurrenceType={goal?.data?.recurrenceType ?? ""} />
 			</div>
-			<ul className="w-full h-full overflow-y-scroll">
-				{goalInstances?.data?.map((instance) => {
-					const date = instance.periodStart
-						? new Date(instance.periodStart).toISOString()
-						: "";
-
-					const isFirstInstance = instance.id === goalInstances?.data?.[0]?.id;
-					return (
-						<TasksContainer
-							key={instance.id}
-							// dividerTitle={title}
-							date={date}
-							tasks={instance.tasks ?? []}
-							isPast={!isFirstInstance}
-						/>
-					);
-				})}
-			</ul>
+			<VirtualizedTaskList groupedTasks={groupedGoalInstances} />
 		</div>
 	);
 };

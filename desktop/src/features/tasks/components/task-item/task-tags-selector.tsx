@@ -77,7 +77,7 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const CustomTrigger = forwardRef<
 		HTMLDivElement,
 		React.HTMLAttributes<HTMLDivElement>
-	>((props, ref) => {
+	>(() => {
 		const hasTags = tags.length > 0;
 		const hasMoreThan3Tags = tags.length > 3;
 
@@ -85,21 +85,27 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			? `${tags[0]?.name} & ${tags.length - 1} more`
 			: undefined;
 
-		return (
-			<TaskActionButton>
-				<div role="button" ref={ref} {...props}>
-					{hasTags ? (
-						hasMoreThan3Tags ? (
-							<TagItem label={tagsDisplayString ?? ""} />
-						) : (
-							tags.map((tag) => <TagItem key={tag.id} label={tag.name ?? ""} />)
-						)
-					) : (
-						<Tag size={14} strokeWidth={3} />
-					)}
+		if (!hasTags) {
+			return (
+				<TaskActionButton>
+					<Tag size={14} strokeWidth={3} />
+				</TaskActionButton>
+			);
+		}
+
+		if (hasMoreThan3Tags) {
+			return <TagItem label={tagsDisplayString ?? ""} />;
+		}
+
+		if (!hasMoreThan3Tags) {
+			return (
+				<div className="flex gap-1">
+					{tags.map((tag) => (
+						<TagItem key={tag.id} label={tag.name ?? ""} />
+					))}
 				</div>
-			</TaskActionButton>
-		);
+			);
+		}
 	});
 
 	const selectedTags = useMemo(() => {

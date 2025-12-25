@@ -1,4 +1,3 @@
-import { Flag } from "lucide-react";
 import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskGoalSelector } from "./task-goal-selector";
@@ -6,7 +5,6 @@ import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
-import { TaskActionButton } from "./task-shared-components";
 import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
 
