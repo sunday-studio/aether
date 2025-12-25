@@ -51,6 +51,7 @@ export const TaskSidebar = () => {
 		<div className="flex flex-col gap-4 justify-start items-start pr-5  mt-5">
 			<div className="flex flex-col gap-1 items-start">
 				<NavigationItem route="/tasks" goal="Inbox" />
+				<NavigationItem route="/tasks/overdue" goal="Overdue" />
 			</div>
 			<GoalsList />
 		</div>
