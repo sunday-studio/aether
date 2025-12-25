@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { cn } from "~/utils/cn";
 
 interface TaskActionButtonProps {
@@ -5,12 +6,13 @@ interface TaskActionButtonProps {
 	className?: string;
 }
 
-export const TaskActionButton = ({
-	children,
-	className,
-}: TaskActionButtonProps) => {
+export const TaskActionButton = forwardRef<
+	HTMLSpanElement,
+	TaskActionButtonProps
+>(({ children, className }, ref) => {
 	return (
 		<span
+			ref={ref}
 			className={cn(
 				"w-6 h-6 rounded-lg",
 				"bg-neutral-200 text-neutral-400 text-sm",
@@ -25,4 +27,4 @@ export const TaskActionButton = ({
 			{children}
 		</span>
 	);
-};
+});

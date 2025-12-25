@@ -8,6 +8,8 @@ import {
 	popoverContentStyles,
 	searchInputStyles,
 } from "~/components/shared/tags-popover-selector";
+import { Tooltip } from "~/components/shared/tooltip";
+import { TaskActionButton } from "./task-shared-components";
 
 interface TaskGoalSelectorProps {
 	taskId: string;
@@ -18,12 +20,11 @@ const CustomTrigger = forwardRef<
 	HTMLDivElement,
 	{ goalName: string } & React.HTMLAttributes<HTMLDivElement>
 >(({ goalName, ...rest }, ref) => {
-	console.log({ goalName });
 	return (
-		<div ref={ref} {...rest}>
+		<TaskActionButton ref={ref} {...rest}>
 			<Disc size={15} strokeWidth={3} className="-mt-0.5" />
 			{goalName}
-		</div>
+		</TaskActionButton>
 	);
 });
 
@@ -51,9 +52,7 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 				},
 			},
 			{
-				onSuccess: () => {
-					// queryClient.invalidateQueries({ queryKey: tasksQueryKey });
-				},
+				onSuccess: () => {},
 			},
 		);
 	};
@@ -61,7 +60,11 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 	return (
 		<DialogTrigger>
 			<Button>
-				<CustomTrigger goalName={selectedGoal?.name ?? ""} />
+				<Tooltip
+					trigger={<CustomTrigger goalName={selectedGoal?.name ?? ""} />}
+					content="Select goal"
+					disabled={Boolean(selectedGoal)}
+				/>
 			</Button>
 			<Popover className={popoverContentStyles}>
 				<div className="sticky top-0 pb-1">

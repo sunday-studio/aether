@@ -7,6 +7,7 @@ import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskActionButton } from "./task-shared-components";
+import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
 
 interface TaskItemProps {
@@ -27,8 +28,6 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 			},
 		});
 	};
-
-	console.log({ task, instance: task.goalInstanceId });
 
 	return (
 		<div className="flex gap-4 w-full py-1 overflow-hidden">
@@ -77,16 +76,12 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
 					<p className="text-xs text-neutral-400">•</p>
-					<TaskActionButton>
-						<TaskGoalSelector
-							value={task.goalInstanceId}
-							taskId={task.id as string}
-						/>
-					</TaskActionButton>
+					<TaskGoalSelector
+						value={task.goalInstanceId}
+						taskId={task.id as string}
+					/>
 					<p className="text-xs text-neutral-400">•</p>
-					<TaskActionButton>
-						<Flag size={14} strokeWidth={3} />
-					</TaskActionButton>
+					<TaskSubtasksTrigger />
 				</div>
 			</div>
 		</div>

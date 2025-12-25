@@ -10,7 +10,7 @@ export enum RecurrenceType {
 export const groupTaskByCreatedAt = (tasks: DbTask[]) => {
 	const groupedTasks: Record<string, DbTask[]> = {};
 
-	console.log("tasks", tasks);
+	// console.log("tasks", tasks);
 
 	tasks?.forEach((task) => {
 		const dateKey = task?.createdAt

@@ -16,6 +16,7 @@ import { Modal, modalContentStyles } from "~/components/shared/modal";
 import { Select, SelectItem } from "~/components/shared/select";
 import { Spinner } from "~/components/shared/spinner";
 import { TextAreaField, TextField } from "~/components/shared/text-field";
+import { Tooltip } from "~/components/shared/tooltip";
 import { RecurrenceType } from "../../tasks.domain";
 import { TaskActionButton } from "../task-item/task-shared-components";
 
@@ -111,9 +112,15 @@ export const CreateGoalDialog = () => {
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
 			<Button>
-				<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
-					<Plus size={14} strokeWidth={3} />
-				</TaskActionButton>
+				<Tooltip
+					trigger={
+						<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
+							<Plus size={14} strokeWidth={3} />
+						</TaskActionButton>
+					}
+					content="Create a new goal"
+					shortcuts={["⌘", "G"]}
+				/>
 			</Button>
 			<Modal isDismissable isOpen={isOpen} onOpenChange={setIsOpen}>
 				<Dialog className={modalContentStyles}>

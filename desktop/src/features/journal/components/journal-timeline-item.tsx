@@ -100,7 +100,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 								</p>
 							}
 							content={`created at ${format(new Date(), "MMMM d, yyyy")}`}
-							contentClassName="text-xs"
 						/>
 					</div>
 

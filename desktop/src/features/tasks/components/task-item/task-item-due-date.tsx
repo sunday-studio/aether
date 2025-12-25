@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Bell, X } from "lucide-react";
 import { useMemo } from "react";
 import { DateTimePicker } from "~/components/shared/datepicker";
+import { Tooltip } from "~/components/shared/tooltip";
 import { cn } from "~/utils/cn";
 import { TaskActionButton } from "./task-shared-components";
 
@@ -79,7 +80,14 @@ export const TaskDueDateInput = ({
 			<DateTimePicker
 				value={getDateValue(value)}
 				onChange={onChange}
-				trigger={trigger}
+				trigger={
+					<Tooltip
+						content="Set due date"
+						trigger={trigger}
+						disabled={Boolean(value)}
+						// disabled={value !== undefined}
+					/>
+				}
 			/>
 		</div>
 	);

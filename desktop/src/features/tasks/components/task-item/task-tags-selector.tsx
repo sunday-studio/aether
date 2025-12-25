@@ -6,7 +6,9 @@ import { cn } from "tailwind-variants";
 import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { DbTag } from "~/aether-sdk/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
+import { Tooltip } from "~/components/shared/tooltip";
 import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-update-task";
+import { TaskActionButton } from "./task-shared-components";
 
 interface TaskTagsInputProps {
 	value: DbTag[] | undefined;
@@ -30,7 +32,6 @@ const TagItem = ({ label }: { label: string }) => {
 export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
-	// const [tags, setTags] = useState<DbTag[]>(value ?? []);
 
 	const tags = value ?? [];
 	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
@@ -49,8 +50,6 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 							tags: (data?.tags as DbTag[]) ?? [],
 						},
 					});
-
-					// setTags((data?.tags as DbTag[]) ?? []);
 				},
 			},
 		);
@@ -70,8 +69,6 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 							tags: (data?.tags as DbTag[]) ?? [],
 						},
 					});
-
-					// setTags((data?.tags as DbTag[]) ?? []);
 				},
 			},
 		);
@@ -89,36 +86,19 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			: undefined;
 
 		return (
-			<div
-				role="button"
-				ref={ref}
-				{...props}
-				className={cn(
-					hasTags
-						? ["w-full", "shrink-0", "flex-1", "flex-wrap", "flex", "gap-0.5"]
-						: [
-								"w-6",
-								"h-6",
-								"bg-neutral-200",
-								"text-neutral-400",
-								"text-sm",
-								"flex",
-								"items-center",
-								"justify-center",
-								"rounded-lg",
-							],
-				)}
-			>
-				{hasTags ? (
-					hasMoreThan3Tags ? (
-						<TagItem label={tagsDisplayString ?? ""} />
+			<TaskActionButton>
+				<div role="button" ref={ref} {...props}>
+					{hasTags ? (
+						hasMoreThan3Tags ? (
+							<TagItem label={tagsDisplayString ?? ""} />
+						) : (
+							tags.map((tag) => <TagItem key={tag.id} label={tag.name ?? ""} />)
+						)
 					) : (
-						tags.map((tag) => <TagItem key={tag.id} label={tag.name ?? ""} />)
-					)
-				) : (
-					<Tag size={14} strokeWidth={3} />
-				)}
-			</div>
+						<Tag size={14} strokeWidth={3} />
+					)}
+				</div>
+			</TaskActionButton>
 		);
 	});
 
@@ -136,7 +116,13 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 				onAddTag={handleAddTag}
 				onRemoveTag={handleRemoveTag}
 				onCreateTag={() => {}}
-				customTrigger={<CustomTrigger />}
+				customTrigger={
+					<Tooltip
+						content="Add tags"
+						trigger={<CustomTrigger />}
+						disabled={Boolean(tags.length)}
+					/>
+				}
 			/>
 		</div>
 	);

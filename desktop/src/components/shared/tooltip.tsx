@@ -1,3 +1,5 @@
+// TODO: add support for group tooltips
+
 import {
 	arrow,
 	autoUpdate,
@@ -9,14 +11,9 @@ import {
 	useFloating,
 	useHover,
 	useInteractions,
-	useRole,
 } from "@floating-ui/react";
 import { type FC, useRef, useState } from "react";
 import { cn } from "~/utils/cn";
-
-// Patch for current floating-ui: handleClose option expects a function for a DOM event.
-// See: https://floating-ui.com/docs/useHover#custom-close-behavior
-// We simply return void here as we're not using custom callback.
 
 interface TooltipProps {
 	trigger: React.ReactNode;
@@ -29,6 +26,7 @@ interface TooltipProps {
 	showArrow?: boolean;
 	contentClassName?: string;
 	containerClassName?: string;
+	disabled?: boolean;
 }
 
 export const Tooltip: FC<TooltipProps> = ({
@@ -37,15 +35,15 @@ export const Tooltip: FC<TooltipProps> = ({
 	shortcuts,
 	placement = "top",
 	shouldFlip = true,
-	leaveDuration = 10,
-	hoverDuration = 400, // This represents the hover *show* delay, so default to 400ms
+	leaveDuration = 100,
+	hoverDuration = 600,
 	showArrow = true,
 	contentClassName,
 	containerClassName,
+	disabled = false,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const arrowRef = useRef(null);
-	const closeTimeout = useRef<number | null>(null);
 
 	const { x, y, refs, strategy, context } = useFloating({
 		placement,
@@ -60,50 +58,41 @@ export const Tooltip: FC<TooltipProps> = ({
 		whileElementsMounted: autoUpdate,
 	});
 
-	// Only useHover, useRole for tooltip
-	const { getReferenceProps, getFloatingProps } = useInteractions([
-		useHover(context, {
-			delay: {
-				open: hoverDuration, // Now, open tooltip after specified ms
-				close: leaveDuration,
-			},
-			move: false,
-			mouseOnly: true,
-		}),
-		useRole(context, { role: "tooltip" }),
-	]);
+	const hover = useHover(context, {
+		enabled: !disabled,
+		delay: {
+			open: hoverDuration,
+			close: leaveDuration,
+		},
+		move: false,
+	});
 
-	// Prevent tooltip from staying open if mouse transitions between trigger and tooltip
-	const handleMouseEnter = () => {
-		if (closeTimeout.current) {
-			clearTimeout(closeTimeout.current);
-			closeTimeout.current = null;
-		}
-		setIsOpen(true);
-	};
+	const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
 
-	const handleMouseLeave = () => {
-		if (closeTimeout.current) {
-			clearTimeout(closeTimeout.current);
-		}
-		closeTimeout.current = window.setTimeout(() => {
-			setIsOpen(false);
-		}, leaveDuration);
-	};
+	const hasShortcuts = shortcuts && shortcuts.length > 0;
 
 	const contentElement =
 		typeof content === "string" ? (
 			<p
 				className={cn(
-					"text-sm font-medium text-neutral-200 flex flex-col gap-1",
+					"text-xs text-neutral-300 flex flex-row gap-2",
+					"text-shadow-sm  text-shadow-neutral-800",
+					{
+						"py-0.5": hasShortcuts,
+					},
 					contentClassName,
 				)}
 			>
 				{content}
 				{shortcuts && shortcuts.length > 0 ? (
-					<span className="text-xs text-neutral-400">
+					<span className="text-xs text-neutral-300 flex items-center justify-start gap-1">
 						{shortcuts.map((s) => (
-							<span key={s}>{s}</span>
+							<span
+								key={s}
+								className="ring ring-neutral-600 font-medium rounded-sm text-xs text-neutral-400 w-4 inline-block text-center font-mono"
+							>
+								{s}
+							</span>
 						))}
 					</span>
 				) : null}
@@ -114,13 +103,7 @@ export const Tooltip: FC<TooltipProps> = ({
 
 	return (
 		<>
-			<span
-				ref={refs.setReference}
-				{...getReferenceProps({
-					onMouseEnter: handleMouseEnter,
-					onMouseLeave: handleMouseLeave,
-				})}
-			>
+			<span ref={refs.setReference} {...getReferenceProps()}>
 				{trigger}
 			</span>
 			{isOpen && (
@@ -128,7 +111,10 @@ export const Tooltip: FC<TooltipProps> = ({
 					<div
 						ref={refs.setFloating}
 						className={cn(
-							"bg-linear-to-b from-neutral-600 to-neutral-900 text-sm font-medium py-1.5 px-2.5 rounded-full box-border max-w-xs shadow-1  z-1000 text-shadow-md",
+							"bg-linear-to-b from-neutral-600 to-neutral-950",
+							"text-md font-medium rounded-lg",
+							"py-1 px-2 box-border leading-none",
+							"max-w-xs shadow-1 z-1000",
 							containerClassName,
 						)}
 						style={{
@@ -136,17 +122,14 @@ export const Tooltip: FC<TooltipProps> = ({
 							top: y ?? 0,
 							left: x ?? 0,
 						}}
-						{...getFloatingProps({
-							onMouseEnter: handleMouseEnter,
-							onMouseLeave: handleMouseLeave,
-						})}
+						{...getFloatingProps()}
 					>
 						{showArrow && (
 							<FloatingArrow
 								ref={arrowRef}
 								context={context}
 								tipRadius={3}
-								className="fill-neutral-800"
+								className="fill-neutral-950"
 							/>
 						)}
 						{contentElement}
