@@ -67,7 +67,7 @@ export function TextAreaField({ label, ...props }: TextFieldProps) {
 				rows={4}
 				className={composeTailwindRenderProps(
 					inputStyles,
-					"py-2! placeholder:text-neutral-400 font-medium px-3 focus:outline-0",
+					"py-2! placeholder:text-neutral-500  px-3 focus:outline-0",
 				)}
 			/>
 		</AriaTextField>

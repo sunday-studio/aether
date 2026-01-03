@@ -10,7 +10,7 @@ export const OverdueTasksView = () => {
 	return (
 		<div className="px-0.5">
 			<div className="flex items-center justify-between py-4">
-				<h3 className="newsreader-font text-2xl font-medium">Overdue Tasks</h3>
+				<h3 className="font-gt-ultra text-2xl font-medium">Overdue tasks</h3>
 			</div>
 			<VirtualizedTaskList groupedTasks={groupedTasks} />
 		</div>

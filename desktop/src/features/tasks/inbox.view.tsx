@@ -35,7 +35,7 @@ export const InboxTasksView = () => {
 	return (
 		<div className="h-full flex flex-col">
 			<div className="flex items-center justify-between py-4">
-				<h3 className="newsreader-font text-2xl font-medium">Inbox</h3>
+				<h3 className="font-gt-ultra text-2xl font-medium">Inbox</h3>
 				<AddNewButton
 					onClick={handleCreateTask}
 					label="Add task"

@@ -40,13 +40,19 @@
 	font-size: 16px;
 }
 
+.editor-text-bold {
+	font-weight: 550;
+	color: var(--color-neutral-700);
+	font-family: "GT Ultra", sans-serif;
+}
+
 .editor-text-code {
 	padding-left: 0.25rem;
 	padding-right: 0.25rem;
 	padding-top: 0.125rem;
+	background-color: var(--color-neutral-200);
 	padding-bottom: 0.125rem;
-	border-radius: 0.125rem;
-	background-color: #f3f4f6;
+	border-radius: 0.225rem;
 }
 
 .editor-paragraph {
@@ -254,4 +260,10 @@
 	line-height: 1.6;
 	margin: 0.5rem 0;
 	tab-size: 2;
+	font-family: "Berkely Mono", sans-serif;
+}
+
+.editor-page-break-hr {
+	color: var(--color-neutral-200);
+	margin: 15px 0;
 }

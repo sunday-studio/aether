@@ -24,20 +24,23 @@ function TimelineItem({
 	leftContainerClassName,
 	rightContainerClassName,
 	className,
+	indicatorContainerClassName,
 }: {
 	indicator?: React.ReactNode;
 	leftContent?: React.ReactNode;
 	rightContent: React.ReactNode;
 	rightContainerClassName?: string;
 	leftContainerClassName?: string;
+	indicatorContainerClassName?: string;
 	className?: string;
 }) {
 	return (
-		<div className={cn("flex gap-4 group", className)}>
-			<div className={cn("left w-full", leftContainerClassName)}>
-				{leftContent}
-			</div>
+		<div className={cn("flex group", className)}>
+			<div className={cn("left", leftContainerClassName)}>{leftContent}</div>
 			{indicator}
+			<div
+				className={cn("indicator h-full", indicatorContainerClassName)}
+			></div>
 			<div className={cn("right w-full", rightContainerClassName)}>
 				{rightContent}
 			</div>

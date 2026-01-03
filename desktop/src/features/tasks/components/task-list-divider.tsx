@@ -29,7 +29,7 @@ export const TaskListDivider = ({
 					},
 				)}
 			>
-				<p className=" text-xs font-medium select-none">{title ?? label}</p>
+				<p className=" text-xs select-none">{title ?? label}</p>
 			</div>
 			<div className="w-full h-0.5 bg-neutral-100 rounded-full" />
 			{completedCountLabel && (

@@ -44,6 +44,23 @@ type Task struct {
 	GoalInstanceID *string       `json:"goalInstanceId" gorm:"index"`
 	GoalInstance   *GoalInstance `json:"goalInstance" swaggerignore:"true"`
 
+	SubTasks []SubTask `json:"subTasks" gorm:"foreignKey:TaskID;constraint:OnDelete:CASCADE"`
+
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
+}
+
+type SubTask struct {
+	ID string `json:"id" gorm:"primaryKey"`
+
+	TaskID string `json:"taskId" gorm:"index;not null"`
+	Task   Task   `json:"task" swaggerignore:"true" gorm:"constraint:OnDelete:CASCADE"`
+
+	Title       string `json:"title" gorm:"not null"`
+	IsCompleted bool   `json:"isCompleted" gorm:"default:false"`
+	OrderSort   int    `json:"orderSort" gorm:"not null;default:0"`
+
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
@@ -107,6 +124,13 @@ func (t *Task) BeforeCreate(tx *gorm.DB) error {
 func (t *Tag) BeforeCreate(tx *gorm.DB) error {
 	if t.ID == "" {
 		t.ID = utils.GenerateID("tag")
+	}
+	return nil
+}
+
+func (st *SubTask) BeforeCreate(tx *gorm.DB) error {
+	if st.ID == "" {
+		st.ID = utils.GenerateID("subtask")
 	}
 	return nil
 }

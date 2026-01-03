@@ -46,7 +46,7 @@ func Migrate(db *gorm.DB) error {
 
 	fmt.Println("APP_ENV", os.Getenv("APP_ENV"))
 
-	if err := db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &Goal{}, &GoalInstance{}); err != nil {
+	if err := db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &SubTask{}, &Goal{}, &GoalInstance{}); err != nil {
 		log.Error("Migration failed", "error", err)
 		return err
 	}

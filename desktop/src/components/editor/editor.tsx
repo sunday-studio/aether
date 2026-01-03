@@ -29,6 +29,12 @@ import { ReactiveFocusPlugin } from "./reactive-focus-plugin";
 import { getFontFamily } from "./utils";
 
 import "./_editor.css";
+import { CHECK_LIST, TRANSFORMERS } from "@lexical/markdown";
+import {
+	PAGE_BREAK_NODE_TRANSFORMER,
+	PageBreakNode,
+} from "./page-break-plugin/page-break-node";
+import PageBreakPlugin from "./page-break-plugin/page-break-plugin";
 
 const ONCHANGE_DEBOUNCE_TIME = 750;
 const ONHISTORYCHANGE_DEBOUNCE_TIME = 600000; // 10 minutes in milliseconds
@@ -108,9 +114,9 @@ export const Editor = ({
 			QuoteNode,
 			CodeNode,
 			CodeHighlightNode,
-
 			AutoLinkNode,
 			LinkNode,
+			PageBreakNode,
 		],
 	};
 
@@ -161,6 +167,7 @@ export const Editor = ({
 				<TabIndentationPlugin />
 				<HashtagPlugin />
 				<ReactiveFocusPlugin id={id} />
+				<PageBreakPlugin />
 			</div>
 		</LexicalComposer>
 	);

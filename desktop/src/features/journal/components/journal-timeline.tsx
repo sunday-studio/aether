@@ -15,12 +15,12 @@ export const JournalTimeline = () => {
 	);
 
 	return (
-		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2">
+		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2 mb-100! bg=">
 			<Timeline>
 				<Timeline.Item
-					className="grid-cols-24 grid pt-4"
-					leftContainerClassName="col-start-5 col-end-9"
-					rightContainerClassName="col-start-10 col-end-20"
+					className="max-w-5xl bg-red-0 pt-6"
+					indicatorContainerClassName="w-10"
+					leftContainerClassName="w-40"
 					rightContent={
 						<Timeline.RightContent className="pb-10">
 							<AddNewButton

@@ -23,6 +23,21 @@ type UpdateTaskPayload struct {
 	TagIDs         *[]string  `json:"tagIds"`
 }
 
+type CreateSubTaskPayload struct {
+	Title     string `json:"title"`
+	OrderSort *int   `json:"orderSort"`
+}
+
+type UpdateSubTaskPayload struct {
+	Title       *string `json:"title"`
+	IsCompleted *bool   `json:"isCompleted"`
+	OrderSort   *int    `json:"orderSort"`
+}
+
+type ReorderSubTasksPayload struct {
+	SubTaskIDs []string `json:"subTaskIds"` // Ordered list of subtask IDs
+}
+
 type TaskHandler struct {
 	db *gorm.DB
 }

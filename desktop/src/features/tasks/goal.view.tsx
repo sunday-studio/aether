@@ -28,7 +28,7 @@ export const GoalView = () => {
 	return (
 		<div className="h-full">
 			<div className="flex items-start flex-col justify-between py-4 gap-1">
-				<h3 className="newsreader-font text-2xl font-medium">
+				<h3 className="font-gt-ultra text-2xl font-medium">
 					{goal?.data?.name}
 				</h3>
 				{goal?.data?.description && (

@@ -62,8 +62,6 @@
 
 /* Fonts  */
 
-@import "tailwindcss";
-
 @font-face {
 	font-family: "GT America Standard";
 	src: url("/fonts/GT-America/GT-America-Standard-Thin-Trial.woff2")
@@ -231,9 +229,16 @@
 }
 
 @font-face {
-	font-family: "GT Ultra";
-	src: url("/fonts/GT-Utra/GT-Ultra-Standard-Black-Trial.woff2") format("woff2");
-	font-weight: 900;
+	font-family: "Berkely Mono";
+	src: url("/fonts/Berkely/BerkeleyMono-SemiLight.ttf") format("truetype");
+	font-weight: 350;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Berkely Mono";
+	src: url("/fonts/Berkely/BerkeleyMono-Regular.ttf") format("truetype");
+	font-weight: 400;
 	font-style: normal;
 }
 
