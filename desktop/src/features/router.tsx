@@ -19,6 +19,7 @@ export const router = createBrowserRouter(
 			<Route index element={<Journal />} />
 			<Route path="/tasks" element={<TaskLayout />}>
 				<Route index element={<InboxTasksView />} />
+				<Route path="/tasks/all" element={<InboxTasksView />} />
 				<Route path="/tasks/overdue" element={<OverdueTasksView />} />
 				<Route path="/tasks/goal/:goalId" element={<GoalView />} />
 			</Route>

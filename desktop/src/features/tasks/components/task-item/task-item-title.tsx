@@ -13,7 +13,7 @@ export const TaskTitleInput = ({ value, onChange }: TaskTitleInputProps) => {
 
 	useEffect(() => {
 		if (debouncedValue !== value) {
-			onChange(debouncedValue);
+			// onChange(debouncedValue);
 		}
 	}, [debouncedValue, onChange, value]);
 

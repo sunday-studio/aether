@@ -17,7 +17,8 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
 	// Update debounced value
 	useEffect(() => {
 		if (debouncedValue !== value) {
-			onChange(debouncedValue);
+			// onChange(debouncedValue);
+			// TODO: FIX THIS BROKEN shit
 		}
 	}, [debouncedValue, onChange, value]);
 

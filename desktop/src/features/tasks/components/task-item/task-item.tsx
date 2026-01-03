@@ -2,6 +2,7 @@ import type { DbTask } from "~/aether-sdk/models";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskGoalSelector } from "./task-goal-selector";
 import { TaskItemCheckbox } from "./task-item-checkbox";
+import { TaskItemDelete } from "./task-item-delete";
 import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
@@ -80,6 +81,8 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					/>
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskSubtasksTrigger />
+					<p className="text-xs text-neutral-400">•</p>
+					<TaskItemDelete taskId={task.id as string} />
 				</div>
 			</div>
 		</div>
