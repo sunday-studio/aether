@@ -22,7 +22,7 @@ const CustomTrigger = forwardRef<
 >(({ goalName, ...rest }, ref) => {
 	return (
 		<TaskActionButton ref={ref} {...rest}>
-			<Disc size={15} strokeWidth={3} className="-mt-0.5" />
+			<Disc size={15} strokeWidth={3} className="" />
 			{goalName}
 		</TaskActionButton>
 	);

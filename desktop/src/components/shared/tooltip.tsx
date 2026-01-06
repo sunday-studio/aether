@@ -75,8 +75,7 @@ export const Tooltip: FC<TooltipProps> = ({
 		typeof content === "string" ? (
 			<p
 				className={cn(
-					"text-xs text-neutral-300 flex flex-row gap-2",
-					"text-shadow-sm  text-shadow-neutral-800",
+					"text-xs text-neutral-100 flex flex-row gap-2",
 					{
 						"py-0.5": hasShortcuts,
 					},
@@ -89,7 +88,7 @@ export const Tooltip: FC<TooltipProps> = ({
 						{shortcuts.map((s) => (
 							<span
 								key={s}
-								className="ring ring-neutral-600 font-medium rounded-sm text-xs text-neutral-400 w-4 inline-block text-center font-mono"
+								className="bg-neutral-700/70  text-white rounded-sm text-xs w-4 inline-block text-center font-mono"
 							>
 								{s}
 							</span>
@@ -111,8 +110,8 @@ export const Tooltip: FC<TooltipProps> = ({
 					<div
 						ref={refs.setFloating}
 						className={cn(
-							"bg-linear-to-b from-neutral-600 to-neutral-950",
-							"text-md font-medium rounded-lg",
+							"bg-neutral-950",
+							"text-md  rounded-lg",
 							"py-1 px-2 box-border leading-none",
 							"max-w-xs shadow-1 z-1000",
 							containerClassName,

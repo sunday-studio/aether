@@ -7,14 +7,16 @@ import (
 )
 
 // DeleteTask godoc
-// @Id deleteTask
 // @Summary Delete a task (soft delete)
+// @Id deleteTaskById
+// @Description Marks the specified task as deleted (soft-delete).
 // @Tags Tasks
+// @Accept json
+// @Produce json
 // @Param id path string true "Task ID"
-// @Success 204
+// @Success 204 {object} nil
 // @Failure 404 {object} map[string]string
 // @Router /tasks/{id} [delete]
-
 func (h *TaskHandler) DeleteTask(c *fiber.Ctx) error {
 	id := c.Params("id")
 

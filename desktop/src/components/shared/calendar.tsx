@@ -107,7 +107,7 @@ export function CalendarHeader() {
 					<ChevronLeft aria-hidden size={18} />
 				)}
 			</Button>
-			<Heading className="flex-1 font-medium [font-variation-settings:normal] text-base text-center mx-2 my-0 text-neutral-200 " />
+			<Heading className="flex-1 [font-variation-settings:normal] text-base text-center mx-2 my-0 text-neutral-200 " />
 			<Button slot="next" aria-label="Next month">
 				{direction === "rtl" ? (
 					<ChevronLeft aria-hidden size={18} />

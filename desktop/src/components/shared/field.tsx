@@ -18,7 +18,7 @@ export function Label(props: LabelProps) {
 		<RACLabel
 			{...props}
 			className={twMerge(
-				"text-sm text-neutral-500 font-medium cursor-default w-fit pl-2",
+				"text-sm text-neutral-500  cursor-default w-fit pl-2",
 				props.className,
 			)}
 		/>
@@ -85,8 +85,8 @@ export function Input(props: InputProps) {
 				[
 					"px-3 py-0 min-h-9 flex-1 min-w-0",
 					"border-0 outline-0",
-					"bg-neutral-100 text-sm font-medium",
-					"placeholder:text-neutral-400",
+					"bg-neutral-100 text-sm",
+					"placeholder:text-neutral-500",
 				].join(" "),
 			)}
 		/>

@@ -1,7 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetInboxTasksQueryKey, useUpdateTask } from "~/aether-sdk";
+import {
+	getGetInboxTasksQueryKey,
+	useDeleteTaskById,
+	useUpdateTask,
+} from "~/aether-sdk";
 import type { DbTask } from "~/aether-sdk/models/db-task";
 
+/**
+ * Optimistic update task
+ */
 export const useOptimisticUpdateTask = () => {
 	const queryClient = useQueryClient();
 	const mutation = useUpdateTask();
@@ -25,6 +32,9 @@ export const useOptimisticUpdateTask = () => {
 	};
 };
 
+/**
+ * Optimistic update task query
+ */
 export const useOptimisticUpdateTaskQuery = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
@@ -50,6 +60,42 @@ export const useOptimisticUpdateTaskQuery = () => {
 
 	return {
 		updateLocalInstance,
+		previousTasks,
+	};
+};
+
+/**
+ * Optimistic delete task
+ */
+export const useOptimisticDeleteTask = () => {
+	const queryClient = useQueryClient();
+	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
+	const previousTasks = queryClient.getQueryData<{ data: DbTask[] }>(
+		inboxTasksQueryKey,
+	);
+	const mutation = useDeleteTaskById();
+
+	const mutate = (variables: { id: string }) => {
+		// Optimistically update cache: remove the task from the cache
+		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
+			const oldData = old?.data || [];
+			return {
+				...old,
+				data: oldData.filter((task) => task.id !== variables.id),
+			};
+		});
+
+		mutation.mutate(variables, {
+			onError: () => {
+				// Rollback to previous cache state if error
+				queryClient.setQueryData(inboxTasksQueryKey, previousTasks);
+			},
+		});
+	};
+
+	return {
+		...mutation,
+		mutate,
 		previousTasks,
 	};
 };

@@ -66,9 +66,9 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	return (
 		<Timeline.Item
 			key={entry.id}
-			className="grid-cols-24 grid"
-			leftContainerClassName="col-start-5 col-end-9"
-			rightContainerClassName="col-start-10 col-end-20"
+			className="max-w-4xl bg-red-0"
+			indicatorContainerClassName="w-10"
+			leftContainerClassName="w-40"
 			indicator={
 				<JournalActionsDropdown
 					entry={entry}
@@ -93,7 +93,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 					<div className="relative group w-fit ml-auto shrink-0">
 						<Tooltip
 							trigger={
-								<p className="text-xs text-neutral-500 text-right newsreader-font px-1 py-0.5 rounded-md cursor-default">
+								<p className="text-xs text-neutral-500 text-right font-gt-ultra px-1 py-0.5 rounded-md cursor-default">
 									{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
 										addSuffix: true,
 									})}
@@ -102,12 +102,11 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 							content={`created at ${format(new Date(), "MMMM d, yyyy")}`}
 						/>
 					</div>
-
-					{shouldShowTags && <EntryTags entry={entry} />}
 				</Timeline.LeftContent>
 			}
 			rightContent={
 				<Timeline.RightContent className="mb-5 flex flex-col gap-1">
+					{/* {shouldShowTags && <EntryTags entry={entry} />} */}
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
 						document={entry.document ?? ""}

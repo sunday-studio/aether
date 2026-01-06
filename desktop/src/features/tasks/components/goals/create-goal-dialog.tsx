@@ -27,6 +27,7 @@ const createGoalSchema = z.object({
 		RecurrenceType.BI_WEEKLY,
 		RecurrenceType.WEEKLY,
 		RecurrenceType.MONTHLY,
+		RecurrenceType.YEARLY,
 		RecurrenceType.CUSTOM,
 	]),
 	recurrenceInterval: z.number(),
@@ -46,13 +47,11 @@ export const CreateGoalDialog = () => {
 			recurrenceType: "",
 			recurrenceInterval: 1,
 			recurrenceAnchor: new Date(),
-			// recurrenceMeta: undefined,
 		},
 		validators: {
 			onChange: createGoalSchema,
 			onMount: createGoalSchema,
 		},
-		// validationLogic: revalidateLogic(),
 		onSubmit: async ({ value }) => {
 			mutate(
 				{
@@ -96,6 +95,9 @@ export const CreateGoalDialog = () => {
 				break;
 			case RecurrenceType.MONTHLY:
 				form.setFieldValue("recurrenceInterval", 30);
+				break;
+			case RecurrenceType.YEARLY:
+				form.setFieldValue("recurrenceInterval", 365);
 				break;
 
 			default:
@@ -171,6 +173,7 @@ export const CreateGoalDialog = () => {
 										<SelectItem id="weekly">Weekly</SelectItem>
 										<SelectItem id="bi-weekly">Bi-weekly</SelectItem>
 										<SelectItem id="monthly">Monthly</SelectItem>
+										<SelectItem id="yearly">Yearly</SelectItem>
 										<SelectItem id="custom">Custom</SelectItem>
 									</Select>
 									{/* {field.state.meta.errors[0] && (
