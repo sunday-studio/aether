@@ -36,8 +36,6 @@ export const InboxTasksView = () => {
 		);
 	}
 
-	console.log("inboxTasks ->", { inboxTasks, errorInboxTasks });
-
 	const groupedTasks = groupTaskByCreatedAt(inboxTasks?.data ?? []);
 
 	const handleCreateTask = () => {
@@ -65,7 +63,7 @@ export const InboxTasksView = () => {
 					shortcuts={["⌘", "N"]}
 				/>
 			</div>
-			{/* <VirtualizedTaskList groupedTasks={groupedTasks} /> */}
+			<VirtualizedTaskList groupedTasks={groupedTasks} />
 		</div>
 	);
 };

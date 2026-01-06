@@ -34,13 +34,13 @@ const GoalsList = () => {
 				<CreateGoalDialog />
 			</div>
 			<ul className="flex flex-col gap-1 items-start">
-				{/* {goals?.data?.map((goal) => (
+				{goals?.data?.map((goal) => (
 					<NavigationItem
 						key={goal.id}
 						route={`/tasks/goal/${goal.id}`}
 						label={goal.name ?? ""}
 					/>
-				))} */}
+				))}
 			</ul>
 		</div>
 	);

@@ -10,10 +10,20 @@ const api = ky.create({
 		statusCodes: [408, 500, 502, 503, 504],
 	},
 	timeout: 30000,
+	// Don't throw on HTTP errors - we'll handle them ourselves
+	throwHttpErrors: false,
 	hooks: {
 		beforeRequest: [
 			(request: Request) => {
 				request.headers.set("Content-Type", "application/json");
+			},
+		],
+		beforeRetry: [
+			async ({ error }) => {
+				// Don't retry if request was aborted
+				if (error instanceof Error && error.name === "AbortError") {
+					throw error;
+				}
 			},
 		],
 	},
@@ -26,28 +36,67 @@ export const customFetch = async <T>(
 	// Remove leading slash for ky's prefixUrl to work correctly
 	const cleanUrl = url.startsWith("/") ? url.slice(1) : url;
 
-	console.log("cleanUrl ->", { cleanUrl, API_URL });
+	try {
+		const response = await api(cleanUrl, {
+			method: options?.method as "get" | "post" | "put" | "patch" | "delete",
+			body: options?.body as string | undefined,
+			headers: options?.headers as Record<string, string>,
+			signal: options?.signal,
+		});
 
-	const response = await api(cleanUrl, {
-		method: options?.method as "get" | "post" | "put" | "patch" | "delete",
-		body: options?.body as string | undefined,
-		headers: options?.headers as Record<string, string>,
-	});
+		// Handle empty responses (204 No Content, etc.)
+		const contentType = response.headers.get("content-type");
+		if (
+			response.status === 204 ||
+			!contentType ||
+			!contentType.includes("application/json")
+		) {
+			// Return wrapped empty response for Orval
+			return {
+				data: undefined,
+				status: response.status,
+				headers: response.headers,
+			} as T;
+		}
 
-	// Handle empty responses
-	const contentType = response.headers.get("content-type");
-	if (!contentType || !contentType.includes("application/json")) {
-		return undefined as T;
+		const json = await response.json();
+
+		// Wrap ALL responses (success and error) in Orval's expected format
+		// Orval generates types as: { data: T, status: number, headers: Headers }
+		const wrappedResponse = {
+			data: json,
+			status: response.status,
+			headers: response.headers,
+		} as T;
+
+		// For error status codes, throw the wrapped response
+		// This allows react-query to catch errors properly
+		if (!response.ok) {
+			throw wrappedResponse;
+		}
+
+		return wrappedResponse;
+	} catch (error) {
+		// If it's already our wrapped response, re-throw it
+		if (
+			error &&
+			typeof error === "object" &&
+			"data" in error &&
+			"status" in error
+		) {
+			throw error;
+		}
+
+		// Handle AbortErrors gracefully (expected when requests are cancelled)
+		if (error instanceof Error && error.name === "AbortError") {
+			// Don't log AbortErrors - they're normal when components unmount
+			throw error;
+		}
+
+		// For network errors or other issues, log and re-throw
+		console.error("Network error:", error);
+		throw error;
 	}
-
-	const json = await response.json();
-
-	// Unwrap the response if it has a data property with status/headers wrapper
-	if (json && typeof json === "object" && "data" in json && "status" in json) {
-		return (json as { data: T }).data;
-	}
-
-	return json as T;
 };
 
 export default customFetch;

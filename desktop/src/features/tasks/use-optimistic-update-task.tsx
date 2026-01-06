@@ -38,7 +38,9 @@ export const useOptimisticUpdateTask = () => {
 export const useOptimisticUpdateTaskQuery = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const previousTasks = queryClient.getQueryData<DbTask[]>(inboxTasksQueryKey);
+	const previousTasks = queryClient.getQueryData<{ data: DbTask[] }>(
+		inboxTasksQueryKey,
+	);
 
 	const updateLocalInstance = (variables: {
 		id: string;

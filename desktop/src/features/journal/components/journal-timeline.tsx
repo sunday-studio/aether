@@ -10,11 +10,9 @@ export const JournalTimeline = () => {
 	const { data: entries } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
 
-	console.log("entries ->", entries);
-
-	// const sortedEntries = sortEntries(
-	// 	(entries?.data as unknown as DbEntry[]) ?? [],
-	// );
+	const sortedEntries = sortEntries(
+		(entries?.data as unknown as DbEntry[]) ?? [],
+	);
 
 	return (
 		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2 mb-100! bg=">
@@ -33,9 +31,9 @@ export const JournalTimeline = () => {
 						</Timeline.RightContent>
 					}
 				/>
-				{/* {sortedEntries?.map((entry) => {
+				{sortedEntries?.map((entry) => {
 					return <JournalTimelineItem key={entry.id} entry={entry} />;
-				})} */}
+				})}
 			</Timeline>
 		</div>
 	);
