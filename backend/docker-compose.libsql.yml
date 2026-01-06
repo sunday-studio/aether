@@ -6,16 +6,13 @@ services:
     container_name: libsql-server
     ports:
       - "8080:8080"
-      - "5001:5001"
+      - "9001:5001"
     volumes:
       - ./libsql-data:/data
-    command:
-      - --grpc-listen-addr
-      - "0.0.0.0:5001"
-      - --http-listen-addr
-      - "0.0.0.0:8080"
-      - --data-dir
-      - /data
+    # The "No such file or directory" error for /usr/local/bin/sqld happens because the upstream libsql-server image
+    # does NOT contain /usr/local/bin/sqld — the image uses a different entrypoint (typically `/usr/local/bin/docker-entrypoint.sh`)
+    # and expects you to simply set environment variables or mount your data volume.
+    # To fix: Remove the custom 'command:' section entirely and let the default entrypoint run.
     restart: unless-stopped
     networks:
       - aether-network

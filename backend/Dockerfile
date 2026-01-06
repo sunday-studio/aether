@@ -25,5 +25,8 @@ ARG VERSION=dev
 # Set cross-compiler
 ENV CC=aarch64-linux-gnu-gcc
 
+# Set linker flags to handle duplicate symbols (both libSQL and GORM SQLite driver include SQLite)
+ENV CGO_LDFLAGS="-Wl,--allow-multiple-definition"
+
 # Build ARM64 binary with CGO enabled
-RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -o /src/aether-backend_${VERSION} ./main.go
+RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-Wl,--allow-multiple-definition" -o /src/aether-backend_${VERSION} ./main.go

@@ -4,10 +4,11 @@ import (
 	"aether/internal/logging"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
-	"github.com/tursodatabase/go-libsql"
+	_ "github.com/tursodatabase/go-libsql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -20,33 +21,40 @@ func Initialize() (*gorm.DB, error) {
 	libsqlURL := os.Getenv("LIBSQL_URL")
 	libsqlAuthToken := os.Getenv("LIBSQL_AUTH_TOKEN")
 
+	// Note: Using libSQL with gorm.io/driver/sqlite causes duplicate symbol errors on macOS
+	// because both include SQLite C code. Only use libSQL when explicitly set via LIBSQL_URL.
+
 	var db *gorm.DB
 	var err error
 
 	if libsqlURL != "" {
-		// Use libSQL server
+		// Use libSQL server (local Docker instance or remote)
 		log := logging.NewLogger()
 		log.Info("Connecting to libSQL server", "url", libsqlURL)
 
-		// Create libSQL connector for remote server
-		// go-libsql provides connectors for remote libSQL servers
-		opts := []libsql.ConnectorOption{}
+		// Build the connection URL with auth token if provided
+		// The libSQL driver supports http://, https://, and libsql:// URLs
+		connURL := libsqlURL
 		if libsqlAuthToken != "" {
-			opts = append(opts, libsql.WithAuthToken(libsqlAuthToken))
+			u, err := url.Parse(libsqlURL)
+			if err != nil {
+				return nil, fmt.Errorf("invalid libSQL URL: %w", err)
+			}
+			q := u.Query()
+			q.Set("authToken", libsqlAuthToken)
+			u.RawQuery = q.Encode()
+			connURL = u.String()
 		}
 
-		// Create remote connector for direct connection to libSQL server
-		connector, err := libsql.NewRemoteConnector(libsqlURL, opts...)
+		// Use the libSQL driver directly - it automatically handles remote connections
+		sqlDB, err := sql.Open("libsql", connURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create libSQL connector: %w", err)
+			return nil, fmt.Errorf("failed to open libSQL connection: %w", err)
 		}
 
-		// Open database/sql connection using the connector
-		sqlDB := sql.OpenDB(connector)
-
-		// Use GORM with the libSQL connection via sqlite driver
-		// libSQL is SQLite-compatible, so we can use sqlite driver
-		// The sqlite.Dialector accepts a *sql.DB connection
+		// Use GORM with the libSQL connection
+		// libSQL is SQLite-compatible, so we can use the SQLite dialector
+		// Note: This may cause duplicate symbol warnings at link time, but should still work
 		db, err = gorm.Open(sqlite.Dialector{Conn: sqlDB}, &gorm.Config{
 			Logger: gormLogger,
 		})
@@ -89,22 +97,5 @@ func Migrate(db *gorm.DB) error {
 
 	log.Info("Running database migrations")
 
-	fmt.Println("APP_ENV", os.Getenv("APP_ENV"))
-
-	if err := db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &Goal{}, &GoalInstance{}); err != nil {
-		log.Error("Migration failed", "error", err)
-		return err
-	}
-
-	// if err := SeedDatabase(db); err != nil {
-	// 	log.Error("Seeding database failed", "error", err)
-	// 	return err
-	// }
-
-	log.Info("Database migrations completed successfully")
-	return nil
+	return db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &Goal{}, &GoalInstance{})
 }
-
-// 	if os.Getenv("APP_ENV") == "development" {
-// 	db.SeedDatabase(db)
-// }
