@@ -25,6 +25,7 @@ type UpdateGoalPayload struct {
 	RecurrenceAnchor   *time.Time      `json:"recurrenceAnchor"`
 	RecurrenceMeta     *datatypes.JSON `json:"recurrenceMeta"`
 	TagIDs             *[]string       `json:"tagIds"`
+	UpdatedAt          *time.Time      `json:"updatedAt"` // For last-write-wins conflict detection
 }
 
 type GoalHandler struct {
