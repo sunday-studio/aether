@@ -3,7 +3,6 @@ import { defineConfig } from "orval";
 
 dotenv.config();
 
-
 console.log("API_URL", process.env.API_URL);
 
 export default defineConfig({
@@ -17,9 +16,12 @@ export default defineConfig({
 			schemas: "./src/aether-sdk/models",
 			client: "react-query",
 			mock: false,
-			baseUrl: process.env.API_URL,
+			override: {
+				mutator: {
+					path: "./src/lib/api-client.ts",
+					name: "customFetch",
+				},
+			},
 		},
 	},
 });
-
-// http://nowhere.local:9119/v1/ping

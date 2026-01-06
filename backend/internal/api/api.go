@@ -68,10 +68,10 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskGroup.Delete("/:id/goal", taskHandler.RemoveGoalFromTask)
 
 	// subtasks
-	taskGroup.Post("/:taskId/subtasks", taskHandler.CreateSubTask)
-	taskGroup.Put("/:taskId/subtasks/:subtaskId", taskHandler.UpdateSubTask)
-	taskGroup.Delete("/:taskId/subtasks/:subtaskId", taskHandler.DeleteSubTask)
-	taskGroup.Post("/:taskId/subtasks/reorder", taskHandler.ReorderSubTasks)
+	// taskGroup.Post("/:taskId/subtasks", taskHandler.CreateSubTask)
+	// taskGroup.Put("/:taskId/subtasks/:subtaskId", taskHandler.UpdateSubTask)
+	// taskGroup.Delete("/:taskId/subtasks/:subtaskId", taskHandler.DeleteSubTask)
+	// taskGroup.Post("/:taskId/subtasks/reorder", taskHandler.ReorderSubTasks)
 
 	// goals
 	goalGroup := api.Group("/goals")

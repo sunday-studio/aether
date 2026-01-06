@@ -40,6 +40,7 @@ app-example
 
 backend/sqlite
 backend/libsql-data
+backend/libsql-replica
 backend/tmp
 todo.md
 desktop/.env.production

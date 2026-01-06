@@ -8,7 +8,7 @@ export enum RecurrenceType {
 	CUSTOM = "custom",
 }
 
-export const groupTaskByCreatedAt = (tasks: DbTask[]) => {
+export const groupTaskByCreatedAt = (tasks: DbTask[] = []) => {
 	if (tasks.length === 0) return {};
 
 	const groupedTasks: Record<string, DbTask[]> = {};

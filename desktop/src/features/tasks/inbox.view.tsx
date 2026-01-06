@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Loader } from "lucide-react";
 import {
 	getGetInboxTasksQueryKey,
 	useCreateTask,
@@ -11,9 +12,31 @@ import { groupTaskByCreatedAt } from "./tasks.domain";
 export const InboxTasksView = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const { data: inboxTasks } = useGetInboxTasks();
+	const {
+		data: inboxTasks,
+		isLoading: isLoadingInboxTasks,
+		error: errorInboxTasks,
+	} = useGetInboxTasks();
 
 	const { mutate: createTask } = useCreateTask();
+
+	if (errorInboxTasks) {
+		return (
+			<div className="h-full flex items-center justify-center">
+				<p className="text-sm text-neutral-500">Error loading inbox tasks</p>
+			</div>
+		);
+	}
+
+	if (isLoadingInboxTasks) {
+		return (
+			<div className="h-full flex items-center justify-center">
+				<Loader className="w-4 h-4 animate-spin" />
+			</div>
+		);
+	}
+
+	console.log("inboxTasks ->", { inboxTasks, errorInboxTasks });
 
 	const groupedTasks = groupTaskByCreatedAt(inboxTasks?.data ?? []);
 
@@ -42,7 +65,7 @@ export const InboxTasksView = () => {
 					shortcuts={["⌘", "N"]}
 				/>
 			</div>
-			<VirtualizedTaskList groupedTasks={groupedTasks} />
+			{/* <VirtualizedTaskList groupedTasks={groupedTasks} /> */}
 		</div>
 	);
 };

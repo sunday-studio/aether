@@ -2,7 +2,7 @@ import { eachDayOfInterval, format, subMonths } from "date-fns";
 import type { DbEntry } from "~/aether-sdk/models";
 
 export const sortEntries = (entries: DbEntry[]) => {
-	return entries.sort((a, b) => {
+	return entries?.sort((a, b) => {
 		return (
 			new Date(b.createdAt ?? "").getTime() -
 			new Date(a.createdAt ?? "").getTime()
