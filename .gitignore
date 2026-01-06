@@ -38,9 +38,8 @@ yarn-error.*
 
 app-example
 
-
-
 backend/sqlite
+backend/libsql-data
 backend/tmp
 todo.md
 desktop/.env.production

@@ -12,10 +12,15 @@ import (
 	"aether/internal/db"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
 func main() {
+
+	// load env config
+	godotenv.Load()
+
 	database, err := db.Initialize()
 	if err != nil {
 		log.Fatal(err)

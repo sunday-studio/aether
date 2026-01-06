@@ -1,3 +1,5 @@
+// TODO: migrate to react-aria
+
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Archive, Pin, Tag, Trash } from "lucide-react";
 import type { DbEntry } from "~/aether-sdk/models";

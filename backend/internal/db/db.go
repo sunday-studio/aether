@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/glebarez/sqlite"
 	_ "github.com/tursodatabase/go-libsql"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -21,8 +21,8 @@ func Initialize() (*gorm.DB, error) {
 	libsqlURL := os.Getenv("LIBSQL_URL")
 	libsqlAuthToken := os.Getenv("LIBSQL_AUTH_TOKEN")
 
-	// Note: Using libSQL with gorm.io/driver/sqlite causes duplicate symbol errors on macOS
-	// because both include SQLite C code. Only use libSQL when explicitly set via LIBSQL_URL.
+	// Note: We use glebarez/sqlite (pure Go) instead of gorm.io/driver/sqlite to avoid
+	// duplicate symbol errors with go-libsql (both would embed their own SQLite C code).
 
 	var db *gorm.DB
 	var err error

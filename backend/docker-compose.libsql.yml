@@ -1,3 +1,27 @@
+# version: '3.8'
+
+# services:
+#   libsql-server:
+#     image: ghcr.io/tursodatabase/libsql-server:latest
+#     container_name: libsql-server
+#     ports:
+#       - "8080:8080"
+#       - "5001:5001"
+#     volumes:
+#       - ./libsql-data:/data
+#     # The "No such file or directory" error for /usr/local/bin/sqld happens because the upstream libsql-server image
+#     # does NOT contain /usr/local/bin/sqld — the image uses a different entrypoint (typically `/usr/local/bin/docker-entrypoint.sh`)
+#     # and expects you to simply set environment variables or mount your data volume.
+#     # To fix: Remove the custom 'command:' section entirely and let the default entrypoint run.
+#     restart: unless-stopped
+#     networks:
+#       - aether-network
+
+# networks:
+#   aether-network:
+#     driver: bridge
+
+
 version: '3.8'
 
 services:
@@ -6,13 +30,12 @@ services:
     container_name: libsql-server
     ports:
       - "8080:8080"
-      - "9001:5001"
+      - "5001:5001"
     volumes:
-      - ./libsql-data:/data
-    # The "No such file or directory" error for /usr/local/bin/sqld happens because the upstream libsql-server image
-    # does NOT contain /usr/local/bin/sqld — the image uses a different entrypoint (typically `/usr/local/bin/docker-entrypoint.sh`)
-    # and expects you to simply set environment variables or mount your data volume.
-    # To fix: Remove the custom 'command:' section entirely and let the default entrypoint run.
+      - ./libsql-data:/var/lib/sqld
+    environment:
+      - SQLD_NODE=primary
+      - SQLD_DB_PATH=/var/lib/sqld/data.sqld
     restart: unless-stopped
     networks:
       - aether-network
@@ -20,4 +43,3 @@ services:
 networks:
   aether-network:
     driver: bridge
-
