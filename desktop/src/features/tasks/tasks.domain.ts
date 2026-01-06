@@ -8,6 +8,8 @@ export enum RecurrenceType {
 }
 
 export const groupTaskByCreatedAt = (tasks: DbTask[]) => {
+	if (tasks.length === 0) return {};
+
 	const groupedTasks: Record<string, DbTask[]> = {};
 
 	tasks?.forEach((task) => {

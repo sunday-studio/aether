@@ -17,9 +17,7 @@ const NavigationItem = ({ goal, route }: { goal: string; route: string }) => {
 				);
 			}}
 		>
-			{/* <li className="text-xs p-1 px-1.5 text-neutral-600 cursor-pointer rounded-md hover:bg-neutral-200 inline-flex w-full"> */}
 			{goal}
-			{/* </li> */}
 		</NavLink>
 	);
 };
@@ -34,13 +32,13 @@ const GoalsList = () => {
 				<CreateGoalDialog />
 			</div>
 			<ul className="flex flex-col gap-1 items-start">
-				{goals?.data.map((goal) => (
+				{/* {goals?.data?.map((goal) => (
 					<NavigationItem
 						key={goal.id}
 						route={`/tasks/goal/${goal.id}`}
 						goal={goal.name ?? ""}
 					/>
-				))}
+				))} */}
 			</ul>
 		</div>
 	);
