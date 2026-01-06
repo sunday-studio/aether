@@ -21,6 +21,7 @@ type UpdateTaskPayload struct {
 	IsCompleted    *bool      `json:"isCompleted"`
 	GoalInstanceID *string    `json:"goalInstanceId"`
 	TagIDs         *[]string  `json:"tagIds"`
+	UpdatedAt      *time.Time `json:"updatedAt"` // For last-write-wins conflict detection
 }
 
 type TaskHandler struct {

@@ -7,6 +7,7 @@ toolchain go1.24.10
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
+	github.com/tursodatabase/go-libsql v0.0.15
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )

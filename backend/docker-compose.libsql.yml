@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  libsql-server:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: libsql-server
+    ports:
+      - "8080:8080"
+      - "5001:5001"
+    volumes:
+      - ./libsql-data:/data
+    command:
+      - --grpc-listen-addr
+      - "0.0.0.0:5001"
+      - --http-listen-addr
+      - "0.0.0.0:8080"
+      - --data-dir
+      - /data
+    restart: unless-stopped
+    networks:
+      - aether-network
+
+networks:
+  aether-network:
+    driver: bridge
+

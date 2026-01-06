@@ -19,6 +19,8 @@ import (
 // @Success 200 {object} db.Task
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
+// @Failure 409 {object} map[string]interface{} "Conflict: Task was modified by another device"
+// @Failure 500 {object} map[string]string
 // @Router /tasks/{id} [put]
 func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -34,6 +36,18 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	var task db.Task
 	if err := h.db.First(&task, "id = ?", id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "task not found"})
+	}
+
+	// Last-Write-Wins: Check if client's UpdatedAt is older than server's
+	if payload.UpdatedAt != nil && !payload.UpdatedAt.IsZero() {
+		if payload.UpdatedAt.Before(task.UpdatedAt) {
+			// Client has stale data, return current server version
+			return c.Status(409).JSON(fiber.Map{
+				"error":   "conflict",
+				"message": "Task was modified by another device",
+				"current": task,
+			})
+		}
 	}
 
 	if payload.Title != nil {
