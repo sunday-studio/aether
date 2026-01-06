@@ -29,7 +29,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 	};
 
 	return (
-		<div className="flex gap-4 w-full  overflow-hidden">
+		<div className="flex gap-4 w-full overflow-hidden  pb-1">
 			<div className="flex items-start">
 				<TaskItemCheckbox
 					isChecked={task.isCompleted ?? false}

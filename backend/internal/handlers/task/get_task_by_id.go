@@ -4,7 +4,6 @@ import (
 	"aether/internal/db"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 // GetTaskByID godoc
@@ -20,11 +19,7 @@ func (h *TaskHandler) GetTaskByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	var task db.Task
-	if err := h.db.Preload("Tags").
-		Preload("SubTasks", func(db *gorm.DB) *gorm.DB {
-			return db.Order("order_sort ASC")
-		}).
-		First(&task, "id = ?", id).Error; err != nil {
+	if err := h.db.Preload("Tags").First(&task, "id = ?", id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "task not found"})
 	}
 

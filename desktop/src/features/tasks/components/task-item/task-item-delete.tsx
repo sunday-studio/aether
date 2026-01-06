@@ -1,15 +1,14 @@
 import { Trash } from "lucide-react";
 import { useState } from "react";
 import { Button } from "react-aria-components";
-import { useDeleteTaskById } from "~/aether-sdk";
-import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
 import { cn } from "~/utils/cn";
+import { useOptimisticDeleteTask } from "../../use-optimistic-update-task";
 import { TaskActionButton } from "./task-shared-components";
 
 export const TaskItemDelete = ({ taskId }: { taskId: string }) => {
 	const [isFirstClick, setIsFirstClick] = useState(true);
-	const { mutate: deleteTask } = useDeleteTaskById();
+	const { mutate: deleteTask } = useOptimisticDeleteTask();
 
 	const handleOnDeleteTask = () => {
 		setIsFirstClick(false);
@@ -18,16 +17,7 @@ export const TaskItemDelete = ({ taskId }: { taskId: string }) => {
 			return;
 		}
 
-		deleteTask(
-			{ id: taskId },
-			{
-				onSuccess: () => {
-					showToast({
-						title: "Task deleted successfully",
-					});
-				},
-			},
-		);
+		deleteTask({ id: taskId });
 	};
 
 	return (
@@ -43,10 +33,5 @@ export const TaskItemDelete = ({ taskId }: { taskId: string }) => {
 				</Button>
 			}
 		/>
-		// <div>
-		// 	<Button>
-		// 		<Trash2 className="size-4" />
-		// 	</Button>
-		// </div>
 	);
 };
