@@ -59,13 +59,13 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskGroup.Post("/", taskHandler.CreateTask)
 	taskGroup.Get("/inbox", taskHandler.GetInboxTasks)
 	taskGroup.Get("/overdue", taskHandler.GetOverdueTasks)
-	taskGroup.Get("/:id", taskHandler.GetTaskByID)
-	taskGroup.Put("/:id", taskHandler.UpdateTask)
-	taskGroup.Delete("/:id", taskHandler.DeleteTask)
 	taskGroup.Post("/:id/tags", taskHandler.AddTagsToTask)
 	taskGroup.Delete("/:id/tags", taskHandler.RemoveTagsFromTask)
 	taskGroup.Post("/:id/goal", taskHandler.AddGoalToTask)
 	taskGroup.Delete("/:id/goal", taskHandler.RemoveGoalFromTask)
+	taskGroup.Get("/:id", taskHandler.GetTaskByID)
+	taskGroup.Put("/:id", taskHandler.UpdateTask)
+	taskGroup.Delete("/:id", taskHandler.DeleteTask)
 
 	// subtasks
 	// taskGroup.Post("/:taskId/subtasks", taskHandler.CreateSubTask)

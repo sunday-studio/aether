@@ -13,7 +13,7 @@ export const TaskTitleInput = ({ value, onChange }: TaskTitleInputProps) => {
 
 	useEffect(() => {
 		if (debouncedValue !== value) {
-			// onChange(debouncedValue);
+			onChange(debouncedValue);
 		}
 	}, [debouncedValue, onChange, value]);
 
@@ -22,7 +22,7 @@ export const TaskTitleInput = ({ value, onChange }: TaskTitleInputProps) => {
 			value={inputValue}
 			onChange={(e) => setInputValue(e.target.value)}
 			placeholder="Add a task"
-			className="w-full text-sm font-medium text-neutral-700 outline-none"
+			className="w-full text-sm font-inter font-medium text-neutral-700  outline-none"
 		/>
 	);
 };

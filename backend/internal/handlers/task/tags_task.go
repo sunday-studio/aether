@@ -3,6 +3,7 @@ package handlers
 import (
 	"aether/internal/db"
 	"aether/internal/utils"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -23,6 +24,7 @@ import (
 // @Router /tasks/{id}/tags [post]
 func (h *TaskHandler) AddTagsToTask(c *fiber.Ctx) error {
 	taskID := c.Params("id")
+	fmt.Println("taskID AddTagsToTask ->", taskID)
 	if taskID == "" || !utils.IsValidID(taskID, "task") {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "task ID is required",
