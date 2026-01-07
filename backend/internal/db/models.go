@@ -8,6 +8,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type SchemaMigration struct {
+	ID        uint      `gorm:"primaryKey"`
+	Version   string    `gorm:"unique;not null"` // e.g., "20260107_fix_corrupted_ids"
+	Name      string    `gorm:"not null"`
+	AppliedAt time.Time `gorm:"not null"`
+}
+
 type Entry struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Document  string    `json:"document" gorm:"type:text;not null"`

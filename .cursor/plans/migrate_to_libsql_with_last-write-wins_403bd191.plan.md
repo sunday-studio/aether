@@ -1,60 +1,3 @@
----
-name: Migrate to libSQL with Last-Write-Wins
-overview: "Migrate backend from SQLite to libSQL (self-hosted) and implement last-write-wins conflict resolution using timestamps. This enables multi-device sync with automatic replication. **DEFERRED: This will be implemented after the project reaches feature parity.**"
-todos:
-  - id: setup-sqld-server
-    content: Set up self-hosted sqld server (Docker or binary) on server infrastructure
-    status: cancelled
-  - id: update-dependencies
-    content: Update go.mod to use libSQL driver instead of SQLite driver
-    status: cancelled
-    dependencies:
-      - setup-sqld-server
-  - id: update-db-init
-    content: Modify backend/internal/db/db.go to connect to self-hosted libSQL server via HTTP
-    status: cancelled
-    dependencies:
-      - update-dependencies
-  - id: implement-lww-entry
-    content: Add last-write-wins conflict detection to entry update handler using UpdatedAt timestamps
-    status: cancelled
-    dependencies:
-      - update-db-init
-  - id: implement-lww-task
-    content: Add last-write-wins conflict detection to task update handler using UpdatedAt timestamps
-    status: cancelled
-    dependencies:
-      - update-db-init
-  - id: implement-lww-goal
-    content: Add last-write-wins conflict detection to goal update handler using UpdatedAt timestamps
-    status: cancelled
-    dependencies:
-      - update-db-init
-  - id: migrate-data
-    content: Export SQLite data and import to libSQL database
-    status: cancelled
-    dependencies:
-      - update-db-init
-  - id: update-env-config
-    content: Add LIBSQL_URL pointing to self-hosted server and update deployment scripts
-    status: cancelled
-    dependencies:
-      - setup-sqld-server
-  - id: test-migration
-    content: Test all CRUD operations, conflict resolution, and verify data integrity after migration
-    status: cancelled
-    dependencies:
-      - implement-lww-entry
-      - implement-lww-task
-      - implement-lww-goal
-      - migrate-data
-  - id: desktop-embedded-replica
-    content: ""
-    status: cancelled
-    dependencies:
-      - test-migration
----
-
 # Migrate to libSQL with Last-Write-Wins Conflict Resolution
 
 ## Status: DEFERRED
@@ -103,13 +46,13 @@ Local DB (offline)            Backend → libSQL Server
 
 1. **Install `sqld` (libSQL server):**
    ```bash
-               # Option 1: Build from source
-               git clone https://github.com/tursodatabase/libsql.git
-               cd libsql
-               cargo build --release
-               
-               # Option 2: Use Docker (recommended)
-               docker pull ghcr.io/tursodatabase/libsql-server:latest
+                  # Option 1: Build from source
+                  git clone https://github.com/tursodatabase/libsql.git
+                  cd libsql
+                  cargo build --release
+                  
+                  # Option 2: Use Docker (recommended)
+                  docker pull ghcr.io/tursodatabase/libsql-server:latest
    ```
 
 
@@ -117,18 +60,18 @@ Local DB (offline)            Backend → libSQL Server
 
 2. **Run libSQL server:**
    ```bash
-               # Docker approach
-               docker run -d \
-                 --name libsql-server \
-                 -p 8080:8080 \
-                 -v $(pwd)/data:/data \
-                 ghcr.io/tursodatabase/libsql-server:latest \
-                 --grpc-listen-addr 0.0.0.0:5001 \
-                 --http-listen-addr 0.0.0.0:8080 \
-                 --data-dir /data
-               
-               # Or run sqld binary directly
-               ./sqld --grpc-listen-addr 0.0.0.0:5001 --http-listen-addr 0.0.0.0:8080
+                  # Docker approach
+                  docker run -d \
+                    --name libsql-server \
+                    -p 8080:8080 \
+                    -v $(pwd)/data:/data \
+                    ghcr.io/tursodatabase/libsql-server:latest \
+                    --grpc-listen-addr 0.0.0.0:5001 \
+                    --http-listen-addr 0.0.0.0:8080 \
+                    --data-dir /data
+                  
+                  # Or run sqld binary directly
+                  ./sqld --grpc-listen-addr 0.0.0.0:5001 --http-listen-addr 0.0.0.0:8080
    ```
 
 
@@ -288,7 +231,7 @@ Update deployment scripts to include these variables.
 
 1. **Export existing SQLite data:**
    ```bash
-                  sqlite3 sqlite/aether.db .dump > aether_backup.sql
+                     sqlite3 sqlite/aether.db .dump > aether_backup.sql
    ```
 
 
@@ -339,8 +282,8 @@ You have **three options** for how the desktop app interfaces with libSQL:
 
 1. Install `@libsql/client` in desktop app:
      ```bash
-                         cd desktop
-                         npm install @libsql/client
+                              cd desktop
+                              npm install @libsql/client
      ```
 
 
@@ -348,17 +291,17 @@ You have **three options** for how the desktop app interfaces with libSQL:
 
 2. Create libSQL client wrapper:
      ```typescript
-                         // desktop/src/lib/libsql-client.ts
-                         import { createClient } from '@libsql/client';
-                         
-                         const client = createClient({
-                           url: 'file:./local-aether.db', // Local embedded database
-                           syncUrl: 'http://your-server:8080', // Sync with server
-                           authToken: process.env.LIBSQL_AUTH_TOKEN,
-                         });
-                         
-                         // Sync in background
-                         await client.sync();
+                              // desktop/src/lib/libsql-client.ts
+                              import { createClient } from '@libsql/client';
+                              
+                              const client = createClient({
+                                url: 'file:./local-aether.db', // Local embedded database
+                                syncUrl: 'http://your-server:8080', // Sync with server
+                                authToken: process.env.LIBSQL_AUTH_TOKEN,
+                              });
+                              
+                              // Sync in background
+                              await client.sync();
      ```
 
 
@@ -503,4 +446,3 @@ If issues arise:
 ## Implementation Timeline
 
 1. **Current**: Focus on reaching project feature parity with existing SQLite setup
-2. **After Parity**: Implement Phase 1 (Backend migration to libSQL with Option A architecture)

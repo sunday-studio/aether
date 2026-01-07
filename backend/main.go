@@ -10,6 +10,10 @@ import (
 
 	"aether/internal/api"
 	"aether/internal/db"
+	"aether/internal/db/migrations"
+
+	// Import migrations to register them
+	_ "aether/internal/db/migrations"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -27,6 +31,11 @@ func main() {
 	}
 
 	if err := db.Migrate(database); err != nil {
+		log.Fatal(err)
+	}
+
+	// Run data migrations
+	if err := migrations.RunCustomMigrations(database); err != nil {
 		log.Fatal(err)
 	}
 

@@ -32,5 +32,5 @@ func IsValidID(value string, prefix string) bool {
 }
 
 func GenerateID(prefix string) string {
-	return fmt.Sprintf("%s-%s", prefix, uuid.New().String())
+	return fmt.Sprintf("%s_%s", prefix, uuid.New().String())
 }
