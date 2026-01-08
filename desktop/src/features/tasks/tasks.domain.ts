@@ -1,6 +1,7 @@
 import type { DbGoal, DbGoalInstance, DbTask } from "~/aether-sdk/models";
 
 export enum RecurrenceType {
+	DAILY = "daily",
 	WEEKLY = "weekly",
 	BI_WEEKLY = "bi-weekly",
 	MONTHLY = "monthly",

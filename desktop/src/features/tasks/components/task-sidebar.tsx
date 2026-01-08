@@ -1,7 +1,10 @@
+import { Plus } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "tailwind-variants";
 import { useGetGoals } from "~/aether-sdk";
-import { CreateGoalDialog } from "./goals/create-goal-dialog";
+import { Tooltip } from "~/components/shared/tooltip";
+import { GoalFormDialog } from "./goals/goal-form-dialog";
+import { TaskActionButton } from "./task-item/task-shared-components";
 
 const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 	return (
@@ -30,7 +33,19 @@ const GoalsList = () => {
 		<div className="w-full">
 			<div className=" py-2 flex items-center justify-between">
 				<p className="text-sm text-neutral-800 font-medium">Goals</p>
-				<CreateGoalDialog />
+				<GoalFormDialog
+					trigger={
+						<Tooltip
+							trigger={
+								<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
+									<Plus size={14} strokeWidth={3} />
+								</TaskActionButton>
+							}
+							content="Create a new goal"
+							shortcuts={["⌘", "G"]}
+						/>
+					}
+				/>
 			</div>
 			<ul className="flex flex-col gap-1 items-start">
 				{goals?.data?.map((goal) => (

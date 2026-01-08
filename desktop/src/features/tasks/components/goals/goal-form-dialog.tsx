@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/correctness/noChildrenProp: <explanation> */
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { format } from "date-fns";
 import { useState } from "react";
 import {
 	Button,
@@ -11,14 +11,21 @@ import {
 	type Key,
 } from "react-aria-components";
 import { z } from "zod";
-import { getGetGoalsQueryKey, useCreateGoal } from "~/aether-sdk";
+import {
+	getGetGoalsQueryKey,
+	useCreateGoal,
+	useUpdateGoal,
+} from "~/aether-sdk";
+import type { DbGoal } from "~/aether-sdk/models";
+import { DateTimePicker } from "~/components/shared/datepicker";
+import { Label } from "~/components/shared/field";
 import { Modal, modalContentStyles } from "~/components/shared/modal";
 import { Select, SelectItem } from "~/components/shared/select";
 import { Spinner } from "~/components/shared/spinner";
 import { TextAreaField, TextField } from "~/components/shared/text-field";
-import { Tooltip } from "~/components/shared/tooltip";
+import { cn } from "~/utils/cn";
+import { convertCalendarDateToIsoString, getDateValue } from "~/utils/date";
 import { RecurrenceType } from "../../tasks.domain";
-import { TaskActionButton } from "../task-item/task-shared-components";
 
 const createGoalSchema = z.object({
 	name: z.string().min(1, { message: "Name is required" }),
@@ -31,29 +38,64 @@ const createGoalSchema = z.object({
 		RecurrenceType.CUSTOM,
 	]),
 	recurrenceInterval: z.number(),
-	recurrenceAnchor: z.date(),
-	// recurrenceMeta: z.string().optional(),
+	recurrenceAnchor: z.iso.datetime(),
 });
 
-export const CreateGoalDialog = () => {
+interface CreateGoalFormProps {
+	goal?: DbGoal;
+	trigger: React.ReactNode;
+}
+
+export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
-	const { mutate, isPending, reset } = useCreateGoal({});
+	const {
+		mutate: createGoal,
+		isPending: isCreatingGoal,
+		reset,
+	} = useCreateGoal({});
+	const { mutate: updateGoal, isPending: isUpdatingGoal } = useUpdateGoal({});
+
+	const isEditMode = !!goal;
 
 	const form = useForm({
 		defaultValues: {
-			name: "",
-			description: "",
-			recurrenceType: "",
-			recurrenceInterval: 1,
-			recurrenceAnchor: new Date(),
+			name: goal?.name ?? "",
+			description: goal?.description ?? "",
+			recurrenceType: goal?.recurrenceType ?? "",
+			recurrenceInterval: goal?.recurrenceInterval ?? 1,
+			recurrenceAnchor: goal?.recurrenceAnchor ?? new Date().toISOString()
 		},
 		validators: {
 			onChange: createGoalSchema,
 			onMount: createGoalSchema,
 		},
 		onSubmit: async ({ value }) => {
-			mutate(
+			if (isEditMode) {
+				updateGoal(
+					{
+						id: goal?.id ?? "",
+						data: {
+							name: value.name,
+							description: value.description,
+							recurrenceType: value.recurrenceType,
+							recurrenceInterval: value.recurrenceInterval,
+							recurrenceAnchor: value.recurrenceAnchor,
+						},
+					},
+					{
+						onSuccess: () => {
+							queryClient.invalidateQueries({
+								queryKey: getGetGoalsQueryKey(),
+							});
+							setIsOpen(false);
+						},
+					},
+				);
+				return;
+			}
+
+			createGoal(
 				{
 					data: {
 						name: value.name,
@@ -61,14 +103,10 @@ export const CreateGoalDialog = () => {
 						recurrenceType: value.recurrenceType,
 						recurrenceInterval: value.recurrenceInterval,
 						recurrenceAnchor: value.recurrenceAnchor,
-						// recurrenceMeta: value.recurrenceMeta,
 					},
 				},
 
 				{
-					onError: (error) => {
-						console.log("error ->", error);
-					},
 					onSuccess: () => {
 						queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
 						setIsOpen(false);
@@ -87,6 +125,9 @@ export const CreateGoalDialog = () => {
 		form.setFieldValue("recurrenceType", value?.toString() ?? "");
 
 		switch (value?.toString()) {
+			case RecurrenceType.DAILY:
+				form.setFieldValue("recurrenceInterval", 1);
+				break;
 			case RecurrenceType.WEEKLY:
 				form.setFieldValue("recurrenceInterval", 7);
 				break;
@@ -111,22 +152,19 @@ export const CreateGoalDialog = () => {
 		(state) => state.values.recurrenceType === RecurrenceType.CUSTOM,
 	);
 
+	const hasEditFormChanged = useStore(
+		form.store,
+		(state) =>
+			state.values.name !== goal?.name ||
+			state.values.description !== goal?.description,
+	);
+
+
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-			<Button>
-				<Tooltip
-					trigger={
-						<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
-							<Plus size={14} strokeWidth={3} />
-						</TaskActionButton>
-					}
-					content="Create a new goal"
-					shortcuts={["⌘", "G"]}
-				/>
-			</Button>
+			<Button>{trigger}</Button>
 			<Modal isDismissable isOpen={isOpen} onOpenChange={setIsOpen}>
 				<Dialog className={modalContentStyles}>
-					{/* <p>Let's create a new goal</p> */}
 					<Form
 						className="space-y-4"
 						onSubmit={(e) => {
@@ -169,6 +207,7 @@ export const CreateGoalDialog = () => {
 										onChange={(value: Key | null) => {
 											handleRecurrenceTypeChange(value);
 										}}
+										isDisabled={isEditMode}
 									>
 										<SelectItem id="weekly">Weekly</SelectItem>
 										<SelectItem id="bi-weekly">Bi-weekly</SelectItem>
@@ -176,35 +215,45 @@ export const CreateGoalDialog = () => {
 										<SelectItem id="yearly">Yearly</SelectItem>
 										<SelectItem id="custom">Custom</SelectItem>
 									</Select>
-									{/* {field.state.meta.errors[0] && (
-										<p className="text-xs text-red-600 mt-1">
-											{field.state.meta.errors[0]}
-										</p>
-									)} */}
 								</div>
 							)}
 						</form.Field>
 
 						<div className="flex gap-2">
 							<form.Field name="recurrenceAnchor">
-								{(field) => (
-									<TextField
-										type="date"
-										name={field.name}
-										label="Start date"
-										placeholder="Select date"
+								{(field) => {
+								
+
+									return(
+											<DateTimePicker
+										isDisabled={isEditMode}
 										className="flex-1"
-										value={
-											field.state.value instanceof Date
-												? field.state.value.toISOString().slice(0, 10)
-												: field.state.value
-										}
+										value={getDateValue(field.state.value ?? undefined)}
 										onChange={(value) => {
-											field.handleChange(new Date(value));
+											const dateString = convertCalendarDateToIsoString(value);
+											field.handleChange(dateString);
 										}}
-										errorMessage={field.state.meta.errors[0]?.message}
+										trigger={
+											<div className="flex-1 flex flex-col gap-1">
+												<Label>Start date</Label>
+												<div
+													className={cn([
+														"px-3 py-0 min-h-9 flex-1 min-w-0 items-center flex ",
+														"border-0 outline-0",
+														"bg-neutral-100 text-sm",
+														"placeholder:text-neutral-500 rounded-xl",
+														{
+															"opacity-50": isEditMode,
+														},
+													])}
+												>
+													<p>{format(field.state.value, "dd/MM/yyyy")}</p>
+												</div>
+											</div>
+										}
 									/>
-								)}
+									)
+								}}
 							</form.Field>
 
 							<form.Field name="recurrenceInterval">
@@ -229,24 +278,35 @@ export const CreateGoalDialog = () => {
 								type="button"
 								className="bg-neutral-200 p-1 rounded-lg px-2 text-sm"
 								onPress={handleDialogClose}
-								isDisabled={form.state.isSubmitting || isPending}
+								isDisabled={
+									form.state.isSubmitting || isCreatingGoal || isUpdatingGoal
+								}
 							>
 								Cancel
 							</Button>
 							<form.Subscribe
 								selector={(state) => [state.isValid, state.isSubmitting]}
 								children={([isValid, isSubmitting]) => {
+									const isDisabled = isEditMode
+										? !hasEditFormChanged ||
+											isSubmitting ||
+											isUpdatingGoal ||
+											!isValid
+										: !isValid || isSubmitting || isCreatingGoal;
+
+
 									return (
 										<Button
 											type="submit"
 											className="bg-linear-to-b from-green-800 to-green-900 text-neutral-200 p-1 rounded-lg px-2 text-[13px] flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-											isDisabled={!isValid || isSubmitting || isPending}
+											isDisabled={isDisabled}
 										>
-											{isPending ||
+											{isCreatingGoal ||
+												isUpdatingGoal ||
 												(form.state.isSubmitting && (
 													<Spinner className="size-3" strokeWidth={3} />
 												))}
-											Create Goal
+											{isEditMode ? "Save" : "Create Goal"}
 										</Button>
 									);
 								}}

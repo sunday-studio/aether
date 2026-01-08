@@ -1,7 +1,7 @@
 # Create Migration Command
 
 ## Purpose
-This command generates a new database migration file for the Aether backend.
+This command generates a new database migration file for the Aether backend. Only use it for changes that automigrate can't handle effectively 
 
 ## Usage
 User can request a migration by saying:

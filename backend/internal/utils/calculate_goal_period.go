@@ -10,38 +10,57 @@ type RecurringGoal struct {
 	RecurrenceAnchor   time.Time
 }
 
-func CalculateGoalPeriod(goal RecurringGoal, now time.Time) (time.Time, time.Time) {
+// CalculateGoalPeriod calculates the period start and end times for a recurring goal.
+// If loc is nil, uses the timezone from the provided times.
+// If loc is provided, all calculations are performed in that timezone (DST-aware).
+func CalculateGoalPeriod(goal RecurringGoal, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	// If no timezone provided, use the timezone from the anchor or now
+	if loc == nil {
+		loc = goal.RecurrenceAnchor.Location()
+		if loc == time.UTC && now.Location() != time.UTC {
+			loc = now.Location()
+		}
+	}
+
+	// Convert times to target timezone
+	anchorInTZ := goal.RecurrenceAnchor.In(loc)
+	nowInTZ := now.In(loc)
+
 	switch goal.RecurrenceType {
 
 	case "daily":
-		start := startOfDay(now)
+		start := startOfDayInTimezone(nowInTZ, loc)
 		end := start.Add(24*time.Hour - time.Nanosecond)
 		return start, end
 
 	case "weekly":
-		return calculateWeekly(goal, now)
+		return calculateWeekly(goal, anchorInTZ, nowInTZ, loc)
 
 	case "monthly":
-		return calculateMonthly(goal, now)
+		return calculateMonthly(goal, anchorInTZ, nowInTZ, loc)
+
+	case "yearly":
+		return calculateYearly(goal, anchorInTZ, nowInTZ, loc)
 
 	case "custom":
-		return calculateCustom(goal, now)
+		return calculateCustom(goal, anchorInTZ, nowInTZ, loc)
 
 	default:
-		start := startOfDay(now)
+		start := startOfDayInTimezone(nowInTZ, loc)
 		end := start.Add(24*time.Hour - time.Nanosecond)
 		return start, end
 	}
 }
 
-func startOfDay(t time.Time) time.Time {
-	y, m, d := t.Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+// startOfDayInTimezone returns the start of day in the specified timezone.
+// This is a helper that uses the timezone utility function.
+func startOfDayInTimezone(t time.Time, loc *time.Location) time.Time {
+	return StartOfDayInTimezone(t, loc)
 }
 
-func calculateWeekly(goal RecurringGoal, now time.Time) (time.Time, time.Time) {
-	anchor := startOfDay(goal.RecurrenceAnchor)
-	now = startOfDay(now)
+func calculateWeekly(goal RecurringGoal, anchor, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	anchor = startOfDayInTimezone(anchor, loc)
+	now = startOfDayInTimezone(now, loc)
 
 	daysSince := int(now.Sub(anchor).Hours() / 24)
 	weeksSince := daysSince / 7
@@ -59,8 +78,9 @@ func calculateWeekly(goal RecurringGoal, now time.Time) (time.Time, time.Time) {
 	return start, end
 }
 
-func calculateMonthly(goal RecurringGoal, now time.Time) (time.Time, time.Time) {
-	anchor := startOfDay(goal.RecurrenceAnchor)
+func calculateMonthly(goal RecurringGoal, anchor, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	anchor = startOfDayInTimezone(anchor, loc)
+	now = startOfDayInTimezone(now, loc)
 
 	interval := goal.RecurrenceInterval
 	if interval <= 0 {
@@ -80,9 +100,28 @@ func calculateMonthly(goal RecurringGoal, now time.Time) (time.Time, time.Time) 
 	return start, end
 }
 
-func calculateCustom(goal RecurringGoal, now time.Time) (time.Time, time.Time) {
-	anchor := startOfDay(goal.RecurrenceAnchor)
-	now = startOfDay(now)
+func calculateYearly(goal RecurringGoal, anchor, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	anchor = startOfDayInTimezone(anchor, loc)
+	now = startOfDayInTimezone(now, loc)
+
+	interval := goal.RecurrenceInterval
+	if interval <= 0 {
+		interval = 1
+	}
+
+	yearsSince := now.Year() - anchor.Year()
+	periodIndex := yearsSince / interval
+
+	// AddDate handles leap years automatically
+	start := anchor.AddDate(periodIndex*interval, 0, 0)
+	end := start.AddDate(interval, 0, 0).Add(-time.Nanosecond)
+
+	return start, end
+}
+
+func calculateCustom(goal RecurringGoal, anchor, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	anchor = startOfDayInTimezone(anchor, loc)
+	now = startOfDayInTimezone(now, loc)
 
 	interval := goal.RecurrenceInterval
 	if interval <= 0 {

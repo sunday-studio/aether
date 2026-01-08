@@ -1,4 +1,5 @@
 import type { DbTask } from "~/aether-sdk/models";
+import { convertCalendarDateToIsoString } from "~/utils/date";
 import { useOptimisticUpdateTask } from "../../use-optimistic-update-task";
 import { TaskGoalSelector } from "./task-goal-selector";
 import { TaskItemCheckbox } from "./task-item-checkbox";
@@ -55,20 +56,12 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<TaskDueDateInput
 						value={task.dueDate}
 						onChange={(value) => {
-							let date = null;
 							if (value) {
-								const now = new Date();
-								const tempDate = value.toDate("UTC");
-								tempDate.setUTCHours(
-									now.getUTCHours(),
-									now.getUTCMinutes(),
-									now.getUTCSeconds(),
-									now.getUTCMilliseconds(),
+								handleOnUpdateTask(
+									"dueDate",
+									convertCalendarDateToIsoString(value),
 								);
-								date = tempDate.toISOString();
 							}
-
-							handleOnUpdateTask("dueDate", date);
 						}}
 					/>
 

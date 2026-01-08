@@ -7,22 +7,13 @@ import { useMemo } from "react";
 import { DateTimePicker } from "~/components/shared/datepicker";
 import { Tooltip } from "~/components/shared/tooltip";
 import { cn } from "~/utils/cn";
+import { getDateValue } from "~/utils/date";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskDueDateInputProps {
 	value: string | undefined;
 	onChange: (value: CalendarDate | null) => void;
 }
-
-const SQLITE_NULL_DATE = "0001-01-01T00:00:00Z";
-
-const getDateValue = (value: string | undefined) => {
-	if (SQLITE_NULL_DATE === value || !value) {
-		return undefined;
-	}
-	const dateonly = value?.split("T")[0];
-	return parseDate(dateonly as string);
-};
 
 export const TaskDueDateInput = ({
 	value,
@@ -78,14 +69,13 @@ export const TaskDueDateInput = ({
 	return (
 		<div className={cn("shrink-0")}>
 			<DateTimePicker
-				value={getDateValue(value)}
+				value={getDateValue(value ?? undefined)}
 				onChange={onChange}
 				trigger={
 					<Tooltip
 						content="Set due date"
 						trigger={trigger}
 						disabled={Boolean(value)}
-						// disabled={value !== undefined}
 					/>
 				}
 			/>

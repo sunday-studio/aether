@@ -34,7 +34,7 @@ const styles = tv({
 			),
 			true: cn(
 				"border-transparent text-neutral-200 bg-neutral-100",
-				"forced-colors:text-[GrayText]",
+				"forced-colors:text-[GrayText] opacity-50",
 			),
 		},
 	},

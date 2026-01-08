@@ -10,8 +10,8 @@ import {
 	type TextProps,
 } from "react-aria-components";
 import { twMerge } from "tailwind-merge";
-import { cn, tv } from "tailwind-variants";
-import { composeTailwindRenderProps, focusRing } from "~/utils/cn";
+import { tv } from "tailwind-variants";
+import { cn, composeTailwindRenderProps, focusRing } from "~/utils/cn";
 
 export function Label(props: LabelProps) {
 	return (
@@ -82,12 +82,12 @@ export function Input(props: InputProps) {
 			{...props}
 			className={composeTailwindRenderProps(
 				props.className,
-				[
+				cn([
 					"px-3 py-0 min-h-9 flex-1 min-w-0",
 					"border-0 outline-0",
 					"bg-neutral-100 text-sm",
 					"placeholder:text-neutral-500",
-				].join(" "),
+				]),
 			)}
 		/>
 	);

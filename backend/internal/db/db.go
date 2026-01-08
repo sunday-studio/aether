@@ -178,6 +178,7 @@ func Migrate(db *gorm.DB) error {
 		&Task{},
 		&Goal{},
 		&GoalInstance{},
+		&Settings{},
 	}
 
 	migrationErrors := []error{}

@@ -15,6 +15,13 @@ type SchemaMigration struct {
 	AppliedAt time.Time `gorm:"not null"`
 }
 
+type Settings struct {
+	ID        string    `json:"id" gorm:"primaryKey"`
+	Timezone  string    `json:"timezone" gorm:"not null;default:'UTC'"` // IANA timezone name
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 type Entry struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Document  string    `json:"document" gorm:"type:text;not null"`
@@ -65,6 +72,7 @@ type Goal struct {
 	RecurrenceInterval int            `json:"recurrenceInterval" gorm:"not null"` // 1, 2, 25, etc
 	RecurrenceAnchor   time.Time      `json:"recurrenceAnchor" gorm:"not null"`
 	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" swaggerignore:"true"`
+	Timezone           string         `json:"timezone" gorm:"not null;default:'UTC'"` // IANA timezone name, snapshot at creation
 
 	Tags []Tag `json:"tags" gorm:"many2many:goal_tags;"`
 
@@ -76,7 +84,7 @@ type Goal struct {
 type GoalInstance struct {
 	ID string `json:"id" gorm:"primaryKey"`
 
-	GoalID string `json:"goalId" gorm:"index;uniqueIndex:idx_goal_period"`
+	GoalID string `json:"goalId" gorm:"index;index:idx_goal_created_at;uniqueIndex:idx_goal_period"`
 	Goal   Goal   `json:"goal" gorm:"constraint:OnDelete:CASCADE"`
 
 	PeriodStart time.Time `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
@@ -84,7 +92,7 @@ type GoalInstance struct {
 
 	Status string `json:"status" gorm:"not null"` // active | completed | skipped
 
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index:idx_goal_created_at"`
 
 	Tags  []Tag  `json:"tags" gorm:"many2many:goal_instance_tags"`
 	Tasks []Task `json:"tasks"`
@@ -114,6 +122,16 @@ func (t *Task) BeforeCreate(tx *gorm.DB) error {
 func (t *Tag) BeforeCreate(tx *gorm.DB) error {
 	if t.ID == "" {
 		t.ID = utils.GenerateID("tag")
+	}
+	return nil
+}
+
+func (s *Settings) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = utils.GenerateID("settings")
+	}
+	if s.Timezone == "" {
+		s.Timezone = "UTC"
 	}
 	return nil
 }

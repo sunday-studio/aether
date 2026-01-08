@@ -8,6 +8,7 @@ import {
 	useGetGoalByID,
 	useGetGoalInstances,
 } from "~/aether-sdk";
+import { GoalFormDialog } from "./components/goals/goal-form-dialog";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
@@ -57,7 +58,7 @@ export const GoalView = () => {
 
 	return (
 		<div className="h-full">
-			<div className="flex items-start justify-between py-4 gap-1">
+			<div className="flex items-start justify-between py-4 gap-5">
 				<div className="flex items-start flex-col gap-1">
 					<h3 className="font-gt-ultra text-2xl font-medium">
 						{goal?.data?.name}
@@ -70,12 +71,22 @@ export const GoalView = () => {
 					<RecurrencyTag recurrenceType={goal?.data?.recurrenceType ?? ""} />
 				</div>
 
-				<Button
-					onClick={handleCreateTask}
-					className="hover:bg-neutral-200 rounded-lg bg-neutral-100 cursor-pointer p-1"
-				>
-					<Plus size={16} strokeWidth={3} />
-				</Button>
+				<div className="flex items-center gap-1 shrink-0 ring ring-neutral-200 rounded-lg px-0.5 py-0.5 text-xs">
+					<Button
+						onClick={handleCreateTask}
+						className="cursor-pointer p-1 px-1.5 hover:bg-neutral-200 rounded-md"
+					>
+						Add task
+					</Button>
+					<GoalFormDialog
+						goal={goal?.data}
+						trigger={
+							<div className="cursor-pointer p-1 px-1.5 hover:bg-neutral-200 rounded-md">
+								Edit
+							</div>
+						}
+					/>
+				</div>
 			</div>
 			<VirtualizedTaskList groupedTasks={groupedGoalInstances} />
 		</div>
