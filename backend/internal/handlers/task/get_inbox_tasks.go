@@ -19,7 +19,6 @@ func (h *TaskHandler) GetInboxTasks(c *fiber.Ctx) error {
 
 	if err := h.db.
 		Preload("Tags").
-		// Preload("GoalInstance").
 		Order("due_date ASC").
 		Find(&tasks).
 		Error; err != nil {

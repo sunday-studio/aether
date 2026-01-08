@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 // UpdateTask godoc
@@ -65,9 +66,19 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	if payload.IsCompleted != nil {
 		task.IsCompleted = *payload.IsCompleted
 	}
-	if payload.GoalInstanceID != nil {
-		task.GoalInstanceID = payload.GoalInstanceID
+	if payload.GoalID != nil {
+		task.GoalID = payload.GoalID
+		// Find or create the current goal instance for the goal
+		goalInstanceID, err := h.getOrCreateCurrentGoalInstance(*payload.GoalID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return c.Status(404).JSON(fiber.Map{"error": "goal not found"})
+			}
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		task.GoalInstanceID = goalInstanceID
 	}
+	// Note: To remove a goal from a task, use the DELETE /tasks/{id}/goal endpoint
 
 	utils.PrettyPrint(task)
 

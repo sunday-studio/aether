@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -146,6 +147,92 @@ func Initialize() (*gorm.DB, error) {
 
 func Migrate(db *gorm.DB) error {
 	log := logging.NewLogger()
+
+	// Check if we're using libSQL replica mode
+	useReplica := os.Getenv("LIBSQL_USE_REPLICA") == "true"
+	libsqlURL := os.Getenv("LIBSQL_URL")
+
+	if useReplica {
+		log.Info("Running migrations in libSQL replica mode")
+		log.Info("Writes will be delegated to primary database")
+
+		// First, check if tables already exist by trying to query them
+		var taskCount int64
+		tableExists := db.Model(&Task{}).Count(&taskCount).Error == nil
+
+		if tableExists {
+			log.Info("Tables already exist, skipping AutoMigrate")
+			log.Info("If you need to update schema, run migrations on primary database first")
+			return nil
+		}
+
+		log.Warn("Tables do not exist. Attempting to create them on primary database...")
+		log.Warn("If this fails, you may need to run migrations directly on the primary database.")
+	}
+
 	log.Info("Running database migrations")
-	return db.AutoMigrate(&Entry{}, &Tag{}, &Task{}, &Goal{}, &GoalInstance{})
+
+	models := []interface{}{
+		&Entry{},
+		&Tag{},
+		&Task{},
+		&Goal{},
+		&GoalInstance{},
+	}
+
+	migrationErrors := []error{}
+	for _, model := range models {
+		if err := db.AutoMigrate(model); err != nil {
+			log.Error("Failed to migrate model", "error", err, "model", fmt.Sprintf("%T", model))
+			migrationErrors = append(migrationErrors, fmt.Errorf("%T: %w", model, err))
+
+			// Don't fail immediately, try to migrate other models
+			continue
+		}
+		log.Info("Successfully migrated model", "model", fmt.Sprintf("%T", model))
+	}
+
+	// If we had errors, provide helpful guidance
+	if len(migrationErrors) > 0 {
+		if useReplica {
+			log.Error("=" + strings.Repeat("=", 70))
+			log.Error("MIGRATION FAILED: Tables could not be created on primary database")
+			log.Error("=" + strings.Repeat("=", 70))
+			log.Error("")
+			log.Error("SOLUTION: Run migrations directly on the primary database first:")
+			log.Error("")
+			log.Error("  1. Temporarily disable replica mode:")
+			log.Error("     unset LIBSQL_USE_REPLICA")
+			log.Error("")
+			log.Error("  2. Or set it to false:")
+			log.Error("     export LIBSQL_USE_REPLICA=false")
+			log.Error("")
+			if libsqlURL != "" {
+				log.Error(fmt.Sprintf("  3. Ensure LIBSQL_URL is set: %s", libsqlURL))
+			}
+			log.Error("")
+			log.Error("  4. Restart the application to run migrations on primary")
+			log.Error("")
+			log.Error("  5. After migrations succeed, re-enable replica mode:")
+			log.Error("     export LIBSQL_USE_REPLICA=true")
+			log.Error("")
+			log.Error("=" + strings.Repeat("=", 70))
+		}
+
+		return fmt.Errorf("failed to migrate %d model(s): %v", len(migrationErrors), migrationErrors)
+	}
+
+	// Verify tables exist by checking if we can query them
+	var count int64
+	if err := db.Model(&Task{}).Count(&count).Error; err != nil {
+		log.Warn("Could not verify tasks table exists", "error", err)
+		if useReplica {
+			log.Error("Table verification failed. Primary database may not have tables.")
+		}
+	} else {
+		log.Info("Verified tasks table exists and is accessible", "rowCount", count)
+	}
+
+	log.Info("All database migrations completed successfully")
+	return nil
 }

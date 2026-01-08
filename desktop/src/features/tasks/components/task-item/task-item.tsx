@@ -75,10 +75,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
 					<p className="text-xs text-neutral-400">•</p>
-					<TaskGoalSelector
-						value={task.goalInstanceId}
-						taskId={task.id as string}
-					/>
+					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskSubtasksTrigger />
 					<p className="text-xs text-neutral-400">•</p>

@@ -3,7 +3,6 @@ package handlers
 import (
 	"aether/internal/db"
 	"aether/internal/utils"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -69,9 +68,9 @@ func (h *TaskHandler) AddGoalToTask(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get the goal
-	var goal db.Goal
-	if err := h.db.First(&goal, "id = ?", body.GoalID).Error; err != nil {
+	// Get or create current goal instance (this also validates the goal exists)
+	goalInstanceID, err := h.getOrCreateCurrentGoalInstance(body.GoalID)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(404).JSON(fiber.Map{
 				"error": "goal not found",
@@ -82,41 +81,10 @@ func (h *TaskHandler) AddGoalToTask(c *fiber.Ctx) error {
 		})
 	}
 
-	// Calculate current period for the goal
-	start, end := utils.CalculateGoalPeriod(utils.RecurringGoal{
-		RecurrenceType:     goal.RecurrenceType,
-		RecurrenceInterval: goal.RecurrenceInterval,
-		RecurrenceAnchor:   goal.RecurrenceAnchor,
-	}, time.Now())
+	// Update task with goal ID and goal instance ID
+	task.GoalID = &body.GoalID
+	task.GoalInstanceID = goalInstanceID
 
-	// Get or create current goal instance
-	var instance db.GoalInstance
-	err := h.db.
-		Where("goal_id = ? AND period_start = ?", goal.ID, start).
-		First(&instance).
-		Error
-
-	if err == gorm.ErrRecordNotFound {
-		// Create new instance
-		instance = db.GoalInstance{
-			GoalID:      goal.ID,
-			PeriodStart: start,
-			PeriodEnd:   end,
-			Status:      "active",
-		}
-		if err := h.db.Create(&instance).Error; err != nil {
-			return c.Status(500).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-	} else if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	// Update task with goal instance ID
-	task.GoalInstanceID = &instance.ID
 	if err := h.db.Save(&task).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
@@ -161,7 +129,8 @@ func (h *TaskHandler) RemoveGoalFromTask(c *fiber.Ctx) error {
 		})
 	}
 
-	// Remove goal instance association
+	// Remove goal association (both GoalID and GoalInstanceID)
+	task.GoalID = nil
 	task.GoalInstanceID = nil
 	if err := h.db.Save(&task).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{

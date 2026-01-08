@@ -9,6 +9,7 @@ import {
 	searchInputStyles,
 } from "~/components/shared/tags-popover-selector";
 import { Tooltip } from "~/components/shared/tooltip";
+import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-update-task";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskGoalSelectorProps {
@@ -18,11 +19,15 @@ interface TaskGoalSelectorProps {
 
 const CustomTrigger = forwardRef<
 	HTMLDivElement,
-	{ goalName: string } & React.HTMLAttributes<HTMLDivElement>
->(({ goalName, ...rest }, ref) => {
+	{ goalName: string; hasGoal: boolean } & React.HTMLAttributes<HTMLDivElement>
+>(({ goalName, hasGoal, ...rest }, ref) => {
 	return (
-		<TaskActionButton ref={ref} {...rest}>
-			<Disc size={15} strokeWidth={3} className="" />
+		<TaskActionButton
+			ref={ref}
+			className={hasGoal ? "w-auto px-1.5 text-xs" : undefined}
+			{...rest}
+		>
+			{!hasGoal && <Disc size={15} strokeWidth={3} className="" />}
 			{goalName}
 		</TaskActionButton>
 	);
@@ -32,6 +37,8 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 	const { data: goals } = useGetGoals();
 	const { mutate: addGoalToTask } = useAddGoalToTask();
 	const [searchValue, setSearchValue] = useState("");
+
+	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
 
 	const selectedGoal = useMemo(() => {
 		return goals?.data.find((goal) => goal.id === value);
@@ -52,7 +59,14 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 				},
 			},
 			{
-				onSuccess: () => {},
+				onSuccess: ({ data }) => {
+					updateLocalInstance({
+						id: taskId,
+						data: {
+							goalInstanceId: data?.goalInstanceId ?? "",
+						},
+					});
+				},
 			},
 		);
 	};
@@ -61,7 +75,12 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 		<DialogTrigger>
 			<Button>
 				<Tooltip
-					trigger={<CustomTrigger goalName={selectedGoal?.name ?? ""} />}
+					trigger={
+						<CustomTrigger
+							goalName={selectedGoal?.name ?? ""}
+							hasGoal={selectedGoal !== undefined}
+						/>
+					}
 					content="Select goal"
 					disabled={Boolean(selectedGoal)}
 				/>

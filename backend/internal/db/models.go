@@ -48,8 +48,8 @@ type Task struct {
 	IsCompleted bool       `json:"isCompleted" gorm:"default:false"`
 	DueDate     *time.Time `json:"dueDate" gorm:"index"`
 
-	GoalInstanceID *string       `json:"goalInstanceId" gorm:"index"`
-	GoalInstance   *GoalInstance `json:"goalInstance" swaggerignore:"true"`
+	GoalInstanceID *string `json:"goalInstanceId" gorm:"index"`
+	GoalID         *string `json:"goalId" gorm:"index"`
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
