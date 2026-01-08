@@ -30,6 +30,7 @@ export const GoalView = () => {
 		goalInstances?.data ?? [],
 	);
 
+
 	const handleCreateTask = () => {
 		createTask(
 			{

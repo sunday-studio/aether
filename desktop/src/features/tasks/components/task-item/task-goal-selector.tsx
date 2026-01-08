@@ -9,7 +9,7 @@ import {
 	searchInputStyles,
 } from "~/components/shared/tags-popover-selector";
 import { Tooltip } from "~/components/shared/tooltip";
-import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-update-task";
+import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-task-hooks";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskGoalSelectorProps {

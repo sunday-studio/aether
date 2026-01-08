@@ -2,14 +2,14 @@ import { Trash } from "lucide-react";
 
 import { Tooltip } from "~/components/shared/tooltip";
 import { cn } from "~/utils/cn";
-import { useOptimisticDeleteTask } from "../../use-optimistic-update-task";
+import { useOptimisticDeleteTask } from "../../use-optimistic-task-hooks";
 import { TaskActionButton } from "./task-shared-components";
 
-export const TaskItemDelete = ({ taskId }: { taskId: string }) => {
+export const TaskItemDelete = ({ taskId, goalId }: { taskId: string, goalId?: string }) => {
 	const { mutate: deleteTask } = useOptimisticDeleteTask();
 
 	const handleClick = () => {
-		deleteTask({ id: taskId });
+		deleteTask({ id: taskId, goalId });
 	};
 
 	return (
