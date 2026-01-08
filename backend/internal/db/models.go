@@ -18,8 +18,8 @@ type SchemaMigration struct {
 type Settings struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Timezone  string    `json:"timezone" gorm:"not null;default:'UTC'"` // IANA timezone name
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updatedAt" gorm:"autoUpdateTime;default:(datetime('now'))"`
 }
 
 type Entry struct {

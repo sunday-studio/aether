@@ -11,11 +11,6 @@ export const getDateValue = (value: string | undefined | Date) => {
 		return parseDate(value.toISOString()?.split("T")[0]);
 	}
 
-    console.log('value (getDateValue) ->', value)
-
-	return undefined;
-	
-
 	const dateonly = value?.split("T")[0];
 	return parseDate(dateonly as string);
 };

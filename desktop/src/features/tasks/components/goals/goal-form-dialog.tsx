@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 import {
 	getGetGoalsQueryKey,
+	getGetGoalByIDQueryKey,
 	useCreateGoal,
 	useUpdateGoal,
 } from "~/aether-sdk";
@@ -56,6 +57,8 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 	} = useCreateGoal({});
 	const { mutate: updateGoal, isPending: isUpdatingGoal } = useUpdateGoal({});
 
+	const goalQueryKey = getGetGoalByIDQueryKey(goal?.id ?? "");
+
 	const isEditMode = !!goal;
 
 	const form = useForm({
@@ -86,7 +89,7 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 					{
 						onSuccess: () => {
 							queryClient.invalidateQueries({
-								queryKey: getGetGoalsQueryKey(),
+								queryKey: goalQueryKey,
 							});
 							setIsOpen(false);
 						},

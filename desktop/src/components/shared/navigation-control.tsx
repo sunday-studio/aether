@@ -1,4 +1,4 @@
-import { Atom, BadgeCheck, Egg } from "lucide-react";
+import { Atom, BadgeCheck, Bookmark, Egg } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "~/utils/cn";
 import { RadialAvatar } from "./radiant-avatar";
@@ -62,13 +62,18 @@ const routes = [
 		shortcut: ["⌘", "C"],
 		icon: <Atom className="size-5.5" />,
 	},
-
+	{
+		label: "Bookmarks",
+		route: "/bookmarks",
+		shortcut: ["⌘", "B"],
+		icon: <Bookmark className="size-5.5" />,
+	},
 	{
 		label: "Settings",
 		route: "/settings",
 		shortcut: ["⌘", "S"],
 		icon: <RadialAvatar size="sm" seed={Math.random().toString()} />,
-	},
+	}
 ];
 
 export const NavigationControl = () => {
