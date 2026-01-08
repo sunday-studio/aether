@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useDebouncedValue } from "~/hooks/use-debounce";
+import { useEffect, useRef } from "react";
+import { useDebounceCallback } from "~/hooks/use-debounce";
 
 interface TaskDescriptionInputProps {
 	value: string | undefined;
@@ -10,19 +10,10 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
 	value,
 	onChange,
 }) => {
-	const [inputValue, setInputValue] = useState(value ?? "");
-	const debouncedValue = useDebouncedValue(inputValue, 500);
 	const divRef = useRef<HTMLDivElement>(null);
+	const debouncedOnChange = useDebounceCallback(onChange, 500);
 
-	// Update debounced value
-	useEffect(() => {
-		if (debouncedValue !== value) {
-			// onChange(debouncedValue);
-			// TODO: FIX THIS BROKEN shit
-		}
-	}, [debouncedValue, onChange, value]);
-
-	// Only sync external value changes when user isn't editing
+	// Set initial value and sync external changes when not focused
 	useEffect(() => {
 		const div = divRef.current;
 		if (!div) return;
@@ -33,12 +24,11 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
 		// Only update if value actually changed
 		if (value !== div.textContent) {
 			div.textContent = value ?? "";
-			setInputValue(value ?? "");
 		}
 	}, [value]);
 
 	const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-		setInputValue(e.currentTarget.textContent ?? "");
+		debouncedOnChange(e.currentTarget.textContent ?? "");
 	};
 
 	return (

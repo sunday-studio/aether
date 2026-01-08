@@ -3,7 +3,6 @@ package handlers
 import (
 	"aether/internal/db"
 	"aether/internal/utils"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -29,11 +28,16 @@ type AddGoalToTaskPayload struct {
 // @Router /tasks/{id}/goal [post]
 func (h *TaskHandler) AddGoalToTask(c *fiber.Ctx) error {
 	taskID := c.Params("id")
-	fmt.Println("taskID AddGoalToTask ->", taskID)
 
-	if taskID == "" || !utils.IsValidID(taskID, "task") {
+	if taskID == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "task ID is required",
+		})
+	}
+
+	if !utils.IsValidID(taskID, "task") {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "invalid task ID",
 		})
 	}
 

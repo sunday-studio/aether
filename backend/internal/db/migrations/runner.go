@@ -52,7 +52,7 @@ func RunCustomMigrations(database *gorm.DB) error {
 		if migration.NoTransaction {
 			// Run migration without transaction (needed for PRAGMA changes)
 			log.Info("Running migration without transaction", "version", migration.Version)
-			
+
 			// Execute the migration
 			if err = migration.Up(database); err != nil {
 				log.Error("Migration failed", "version", migration.Version, "error", err)
@@ -142,7 +142,7 @@ func Rollback(database *gorm.DB, steps int) error {
 		if migration.NoTransaction {
 			// Run rollback without transaction (needed for PRAGMA changes)
 			log.Info("Running rollback without transaction", "version", migration.Version)
-			
+
 			// Execute the rollback
 			if err = migration.Down(database); err != nil {
 				log.Error("Rollback failed", "version", migration.Version, "error", err)

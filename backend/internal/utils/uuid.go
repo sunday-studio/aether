@@ -12,7 +12,7 @@ func IsValidID(value string, prefix string) bool {
 	value = strings.TrimSpace(value)
 
 	// Check if the value starts with the expected prefix
-	expectedPrefix := prefix + "-"
+	expectedPrefix := prefix + "_"
 	if !strings.HasPrefix(value, expectedPrefix) {
 		return false
 	}

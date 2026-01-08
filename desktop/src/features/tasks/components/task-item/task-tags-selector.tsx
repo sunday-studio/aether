@@ -33,6 +33,8 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
 
+	console.log({ taskId });
+
 	const tags = value ?? [];
 	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
 

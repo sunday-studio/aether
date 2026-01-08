@@ -25,9 +25,16 @@ import (
 func (h *TaskHandler) AddTagsToTask(c *fiber.Ctx) error {
 	taskID := c.Params("id")
 	fmt.Println("taskID AddTagsToTask ->", taskID)
-	if taskID == "" || !utils.IsValidID(taskID, "task") {
+
+	if taskID == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "task ID is required",
+		})
+	}
+
+	if !utils.IsValidID(taskID, "task") {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "invalid task ID",
 		})
 	}
 
