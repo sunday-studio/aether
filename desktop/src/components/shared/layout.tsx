@@ -4,6 +4,7 @@ import { NavigationControl } from "./navigation-control";
 
 export const Layout = () => {
 	const location = useLocation();
+	const isDev = import.meta.env.DEV;
 	useRegisterShortcuts();
 	return (
 		<div className="w-screen h-screen relative overflow-hidden">
@@ -11,7 +12,7 @@ export const Layout = () => {
 				className="h-12  flex items-center justify-center pl-14 pr-3"
 				data-tauri-drag-region
 			>
-				<div className="text-center">{location.pathname}</div>
+				{isDev && <div className="text-sm">{location.pathname}</div>}
 			</div>
 			<div
 				className="w-full h-full overflow-y-auto"
