@@ -1,7 +1,13 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader, Plus } from "lucide-react";
 import { Button } from "react-aria-components";
 import { useParams } from "react-router";
-import { useGetGoalByID, useGetGoalInstances } from "~/aether-sdk";
+import {
+	getGetGoalInstancesQueryKey,
+	useCreateTask,
+	useGetGoalByID,
+	useGetGoalInstances,
+} from "~/aether-sdk";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
@@ -9,14 +15,37 @@ import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
 export const GoalView = () => {
 	const { goalId } = useParams();
 	const { data: goal, isLoading: isLoadingGoal } = useGetGoalByID(goalId ?? "");
+
+	const queryClient = useQueryClient();
+	const goalInstancesQueryKey = getGetGoalInstancesQueryKey(goalId ?? "");
+
 	const { data: goalInstances, isLoading: isLoadingGoalInstances } =
 		useGetGoalInstances(goalId ?? "");
+	const { mutate: createTask } = useCreateTask();
 
 	const isLoading = isLoadingGoal || isLoadingGoalInstances;
 
 	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(
 		goalInstances?.data ?? [],
 	);
+
+	const handleCreateTask = () => {
+		createTask(
+			{
+				data: {
+					title: "New Task",
+					goalId: goalId ?? "",
+				},
+			},
+			{
+				onSuccess: () => {
+					queryClient.invalidateQueries({
+						queryKey: goalInstancesQueryKey,
+					});
+				},
+			},
+		);
+	};
 
 	if (isLoading) {
 		return (
@@ -41,7 +70,10 @@ export const GoalView = () => {
 					<RecurrencyTag recurrenceType={goal?.data?.recurrenceType ?? ""} />
 				</div>
 
-				<Button className="hover:bg-neutral-200 rounded-lg bg-neutral-100 cursor-pointer p-1">
+				<Button
+					onClick={handleCreateTask}
+					className="hover:bg-neutral-200 rounded-lg bg-neutral-100 cursor-pointer p-1"
+				>
 					<Plus size={16} strokeWidth={3} />
 				</Button>
 			</div>
