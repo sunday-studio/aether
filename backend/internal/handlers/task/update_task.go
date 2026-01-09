@@ -3,7 +3,6 @@ package handlers
 import (
 	"aether/internal/db"
 	"aether/internal/utils"
-	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -25,9 +24,6 @@ import (
 // @Router /tasks/{id} [put]
 func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 	id := c.Params("id")
-
-	fmt.Println("Updating task", id)
-	utils.PrettyPrint(c.Body())
 
 	var payload UpdateTaskPayload
 	if err := c.BodyParser(&payload); err != nil {

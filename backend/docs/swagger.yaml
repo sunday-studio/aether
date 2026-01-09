@@ -1062,6 +1062,39 @@ paths:
       tags:
       - Tasks
   /tasks/{taskId}/subtasks:
+    get:
+      description: Gets all subtasks for a specific task
+      operationId: getSubTasks
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.SubTask'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all subtasks for a task
+      tags:
+      - Tasks
     post:
       consumes:
       - application/json

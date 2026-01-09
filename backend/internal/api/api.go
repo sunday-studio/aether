@@ -68,6 +68,7 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskGroup.Delete("/:id", taskHandler.DeleteTask)
 
 	// subtasks
+	taskGroup.Get("/:taskId/subtasks", taskHandler.GetSubTasks)
 	taskGroup.Post("/:taskId/subtasks", taskHandler.CreateSubTask)
 	taskGroup.Put("/:taskId/subtasks/:subtaskId", taskHandler.UpdateSubTask)
 	taskGroup.Delete("/:taskId/subtasks/:subtaskId", taskHandler.DeleteSubTask)
