@@ -1,6 +1,7 @@
 import type { DbTask } from "~/aether-sdk/models";
 import { convertCalendarDateToIsoString } from "~/utils/date";
 import { useOptimisticUpdateTask } from "../../use-optimistic-task-hooks";
+import { SubtaskList } from "../sub-task-item/subtask-list";
 import { TaskGoalSelector } from "./task-goal-selector";
 import { TaskItemCheckbox } from "./task-item-checkbox";
 import { TaskItemDelete } from "./task-item-delete";
@@ -8,12 +9,15 @@ import { TaskDescriptionInput } from "./task-item-description";
 import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskSubtasksTrigger } from "./task-subtask-list";
-import { TaskSubtasks } from "./task-subtasks";
 import { TaskTagsInput } from "./task-tags-selector";
 
 interface TaskItemProps {
 	task: DbTask;
 }
+
+const Divider = () => {
+	return <span className="text-xs text-neutral-400">•</span>;
+};
 
 export const TaskItem = ({ task }: TaskItemProps) => {
 	const { mutate: updateTask } = useOptimisticUpdateTask();
@@ -53,7 +57,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				<TaskSubtasks taskId={task.id as string} goalId={task.goalId} />
+				<SubtaskList taskId={task.id as string} />
 				<div className="flex gap-1 items-center">
 					<TaskDueDateInput
 						value={task.dueDate}
@@ -66,14 +70,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 							}
 						}}
 					/>
-
-					<p className="text-xs text-neutral-400">•</p>
+					<Divider />
 					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
-					<p className="text-xs text-neutral-400">•</p>
+					<Divider />
 					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
-					<p className="text-xs text-neutral-400">•</p>
+					<Divider />
 					<TaskSubtasksTrigger taskId={task.id as string} />
-					<p className="text-xs text-neutral-400">•</p>
+					<Divider />
 					<TaskItemDelete taskId={task.id as string} goalId={task.goalId} />
 				</div>
 			</div>

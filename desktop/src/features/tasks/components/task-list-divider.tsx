@@ -23,7 +23,7 @@ export const TaskListDivider = ({
 		<div className={cn("flex items-center justify-between gap-4 my-6")}>
 			<div
 				className={cn(
-					"shrink-0 bg-linear-to-b from-neutral-100 text-neutral-600 to-neutral-200 py-1.5 rounded-full px-3 ring ring-neutral-200",
+					"shrink-0 bg-linear-to-b from-neutral-100 to-neutral-200 text-neutral-600  py-1 rounded-lg px-1.5 ring ring-neutral-200",
 					{
 						"ring-rose-200 from-rose-100 to-rose-200 text-rose-700": isOverdue,
 					},

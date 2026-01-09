@@ -81,9 +81,10 @@ type Goal struct {
 	Name        string  `json:"name" gorm:"not null"`
 	Description *string `json:"description"`
 
-	RecurrenceType     string         `json:"recurrenceType" gorm:"not null"`     // bi-weekly | weekly | monthly | custom
-	RecurrenceInterval int            `json:"recurrenceInterval" gorm:"not null"` // 1, 2, 25, etc
-	RecurrenceAnchor   time.Time      `json:"recurrenceAnchor" gorm:"not null"`
+	IsNonRecurring     bool           `json:"isNonRecurring" gorm:"default:false"`
+	RecurrenceType     *string        `json:"recurrenceType"`     // bi-weekly | weekly | monthly | custom (nullable for non-recurring)
+	RecurrenceInterval *int           `json:"recurrenceInterval"` // 1, 2, 25, etc (nullable for non-recurring)
+	RecurrenceAnchor   *time.Time     `json:"recurrenceAnchor"`   // (nullable for non-recurring)
 	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta" swaggerignore:"true"`
 	Timezone           string         `json:"timezone" gorm:"not null;default:'UTC'"` // IANA timezone name, snapshot at creation
 
@@ -100,8 +101,8 @@ type GoalInstance struct {
 	GoalID string `json:"goalId" gorm:"index;index:idx_goal_created_at;uniqueIndex:idx_goal_period"`
 	Goal   Goal   `json:"goal" gorm:"constraint:OnDelete:CASCADE"`
 
-	PeriodStart time.Time `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
-	PeriodEnd   time.Time `json:"periodEnd" gorm:"index"`
+	PeriodStart time.Time  `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
+	PeriodEnd   *time.Time `json:"periodEnd" gorm:"index"` // nullable for non-recurring goals
 
 	Status string `json:"status" gorm:"not null"` // active | completed | skipped
 

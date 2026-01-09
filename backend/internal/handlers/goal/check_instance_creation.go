@@ -10,6 +10,11 @@ import (
 // All intervals are in days, regardless of recurrence type.
 // Uses goal's timezone for all date comparisons (DST-aware).
 func (h *GoalHandler) checkCreateNewGoalInstance(goal db.Goal, lastInstance *db.GoalInstance) (bool, error) {
+	// Non-recurring goals never create new instances - always use the same one
+	if goal.IsNonRecurring {
+		return false, nil
+	}
+
 	// If no last instance exists, we should create the first one
 	if lastInstance == nil {
 		return true, nil
@@ -29,7 +34,10 @@ func (h *GoalHandler) checkCreateNewGoalInstance(goal db.Goal, lastInstance *db.
 	daysSince := utils.DaysSinceInTimezone(lastInstanceDateInTZ, nowInTZ, loc)
 
 	// Get the interval (all intervals are in days)
-	interval := goal.RecurrenceInterval
+	interval := 1
+	if goal.RecurrenceInterval != nil {
+		interval = *goal.RecurrenceInterval
+	}
 	if interval <= 0 {
 		interval = 1
 	}

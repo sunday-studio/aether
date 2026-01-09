@@ -75,9 +75,9 @@ func (h *TaskHandler) getOrCreateCurrentGoalInstance(goalID string) (*string, er
 
 	// Use transaction to ensure task and instance creation are atomic
 	err := h.db.Transaction(func(tx *gorm.DB) error {
-		// Get goal (only fetch needed fields for optimization)
+		// Get goal (fetch is_non_recurring field as well)
 		var goal db.Goal
-		if err := tx.Select("id", "recurrence_type", "recurrence_interval", "recurrence_anchor", "timezone").
+		if err := tx.Select("id", "is_non_recurring", "recurrence_type", "recurrence_interval", "recurrence_anchor", "timezone").
 			First(&goal, "id = ?", goalID).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return gorm.ErrRecordNotFound
@@ -91,6 +91,31 @@ func (h *TaskHandler) getOrCreateCurrentGoalInstance(goalID string) (*string, er
 			return err
 		}
 
+		// For non-recurring goals, always return the same instance (or create if none exists)
+		if goal.IsNonRecurring {
+			if lastInstance == nil {
+				// Create instance for non-recurring goal
+				instance := db.GoalInstance{
+					GoalID:      goal.ID,
+					PeriodStart: time.Now(),
+					PeriodEnd:   nil, // nil for non-recurring goals
+					Status:      "active",
+				}
+
+				if err := tx.Create(&instance).Error; err != nil {
+					return err
+				}
+
+				instanceID = &instance.ID
+				return nil
+			}
+
+			// Use existing instance (non-recurring goals always use the same instance)
+			instanceID = &lastInstance.ID
+			return nil
+		}
+
+		// For recurring goals, use existing logic
 		// If no instance exists, create the first one
 		if lastInstance == nil {
 			// Get goal's timezone location
@@ -101,15 +126,15 @@ func (h *TaskHandler) getOrCreateCurrentGoalInstance(goalID string) (*string, er
 
 			// Calculate first period (lazy calculation - only when creating)
 			periodStart, periodEnd := utils.CalculateGoalPeriod(utils.RecurringGoal{
-				RecurrenceType:     goal.RecurrenceType,
-				RecurrenceInterval: goal.RecurrenceInterval,
-				RecurrenceAnchor:   goal.RecurrenceAnchor,
+				RecurrenceType:     *goal.RecurrenceType,
+				RecurrenceInterval: *goal.RecurrenceInterval,
+				RecurrenceAnchor:   *goal.RecurrenceAnchor,
 			}, time.Now(), loc)
 
 			instance := db.GoalInstance{
 				GoalID:      goal.ID,
 				PeriodStart: periodStart,
-				PeriodEnd:   periodEnd,
+				PeriodEnd:   &periodEnd,
 				Status:      "active",
 			}
 
@@ -136,15 +161,15 @@ func (h *TaskHandler) getOrCreateCurrentGoalInstance(goalID string) (*string, er
 
 			// Calculate new period (lazy calculation - only when creating)
 			periodStart, periodEnd := utils.CalculateGoalPeriod(utils.RecurringGoal{
-				RecurrenceType:     goal.RecurrenceType,
-				RecurrenceInterval: goal.RecurrenceInterval,
-				RecurrenceAnchor:   goal.RecurrenceAnchor,
+				RecurrenceType:     *goal.RecurrenceType,
+				RecurrenceInterval: *goal.RecurrenceInterval,
+				RecurrenceAnchor:   *goal.RecurrenceAnchor,
 			}, time.Now(), loc)
 
 			instance := db.GoalInstance{
 				GoalID:      goal.ID,
 				PeriodStart: periodStart,
-				PeriodEnd:   periodEnd,
+				PeriodEnd:   &periodEnd,
 				Status:      "active",
 			}
 
@@ -193,6 +218,11 @@ func (h *TaskHandler) getLastGoalInstanceWithTx(tx *gorm.DB, goalID string) (*db
 
 // checkCreateNewGoalInstanceWithTx checks if new instance should be created within a transaction
 func (h *TaskHandler) checkCreateNewGoalInstanceWithTx(tx *gorm.DB, goal db.Goal, lastInstance *db.GoalInstance) (bool, error) {
+	// Non-recurring goals never create new instances - always use the same one
+	if goal.IsNonRecurring {
+		return false, nil
+	}
+
 	// If no last instance exists, we should create the first one
 	if lastInstance == nil {
 		return true, nil
@@ -212,7 +242,10 @@ func (h *TaskHandler) checkCreateNewGoalInstanceWithTx(tx *gorm.DB, goal db.Goal
 	daysSince := utils.DaysSinceInTimezone(lastInstanceDateInTZ, nowInTZ, loc)
 
 	// Get the interval (all intervals are in days)
-	interval := goal.RecurrenceInterval
+	interval := 1
+	if goal.RecurrenceInterval != nil {
+		interval = *goal.RecurrenceInterval
+	}
 	if interval <= 0 {
 		interval = 1
 	}

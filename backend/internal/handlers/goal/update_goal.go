@@ -48,21 +48,44 @@ func (h *GoalHandler) UpdateGoal(c *fiber.Ctx) error {
 		}
 	}
 
+	// Prevent changing IsNonRecurring field - if provided, it must match current value
+	if payload.IsNonRecurring != nil {
+		if *payload.IsNonRecurring != goal.IsNonRecurring {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "cannot change isNonRecurring field - goal type cannot be converted between recurring and non-recurring",
+			})
+		}
+	}
+
 	if payload.Name != nil {
 		goal.Name = *payload.Name
 	}
 	if payload.Description != nil {
 		goal.Description = payload.Description
 	}
-	if payload.RecurrenceType != nil {
-		goal.RecurrenceType = *payload.RecurrenceType
+
+	// Update recurrence fields based on whether goal is non-recurring
+	if goal.IsNonRecurring {
+		// For non-recurring goals, recurrence fields should remain nil
+		// If user tries to set them, return error
+		if payload.RecurrenceType != nil || payload.RecurrenceInterval != nil || payload.RecurrenceAnchor != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "cannot set recurrence fields for non-recurring goals",
+			})
+		}
+	} else {
+		// For recurring goals, allow updating recurrence fields
+		if payload.RecurrenceType != nil {
+			goal.RecurrenceType = payload.RecurrenceType
+		}
+		if payload.RecurrenceInterval != nil {
+			goal.RecurrenceInterval = payload.RecurrenceInterval
+		}
+		if payload.RecurrenceAnchor != nil {
+			goal.RecurrenceAnchor = payload.RecurrenceAnchor
+		}
 	}
-	if payload.RecurrenceInterval != nil {
-		goal.RecurrenceInterval = *payload.RecurrenceInterval
-	}
-	if payload.RecurrenceAnchor != nil {
-		goal.RecurrenceAnchor = *payload.RecurrenceAnchor
-	}
+
 	if payload.RecurrenceMeta != nil {
 		goal.RecurrenceMeta = *payload.RecurrenceMeta
 	}

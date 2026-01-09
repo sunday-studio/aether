@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/a11y/useSemanticElements: false positive */
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: false positive */
-import { type CalendarDate, parseDate } from "@internationalized/date";
+import type { CalendarDate } from "@internationalized/date";
 import { format } from "date-fns";
 import { Bell, X } from "lucide-react";
 import { useMemo } from "react";

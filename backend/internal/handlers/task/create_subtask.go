@@ -29,10 +29,6 @@ func (h *TaskHandler) CreateSubTask(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
 	}
 
-	if payload.Title == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "title is required"})
-	}
-
 	// Verify task exists
 	var task db.Task
 	if err := h.db.First(&task, "id = ?", taskID).Error; err != nil {

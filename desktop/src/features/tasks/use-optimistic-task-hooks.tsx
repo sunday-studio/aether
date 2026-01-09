@@ -4,6 +4,8 @@ import {
 	getGetInboxTasksQueryKey,
 	getGetOverdueTasksQueryKey,
 	getGetSubTasksQueryKey,
+	useCreateSubTask,
+	useDeleteSubTask,
 	useDeleteTaskById,
 	useUpdateSubTask,
 	useUpdateTask,
@@ -190,8 +192,6 @@ const updateSubtaskInQueryCache = (
 	updates: Partial<DbSubTask>,
 ) => {
 	const subtasksQueryKey = getGetSubTasksQueryKey(taskId);
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
 
 	// Update subtasks query directly
 	queryClient.setQueryData<{ data: DbSubTask[] }>(subtasksQueryKey, (old) => {
@@ -201,53 +201,6 @@ const updateSubtaskInQueryCache = (
 		);
 		return { ...old, data: updatedSubtasks };
 	});
-
-	const updateTaskSubtasks = (tasks: DbTask[] | undefined): DbTask[] => {
-		if (!tasks) return [];
-		return tasks.map((task) => {
-			if (task.id === taskId) {
-				const updatedSubtasks = (task.subTasks || []).map((subtask) =>
-					subtask.id === subtaskId ? { ...subtask, ...updates } : subtask,
-				);
-				return { ...task, subTasks: updatedSubtasks };
-			}
-			return task;
-		});
-	};
-
-	// Update inbox tasks
-	queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
-		if (!old) return old;
-		return { ...old, data: updateTaskSubtasks(old.data) };
-	});
-
-	// Update overdue tasks
-	queryClient.setQueryData<{ data: DbTask[] }>(overdueTasksQueryKey, (old) => {
-		if (!old) return old;
-		return { ...old, data: updateTaskSubtasks(old.data) };
-	});
-
-	// Update goal instances (if task has a goalId)
-	const inboxTasks = queryClient.getQueryData<{ data: DbTask[] }>(
-		inboxTasksQueryKey,
-	);
-	const task = inboxTasks?.data?.find((t) => t.id === taskId);
-	if (task?.goalId) {
-		const goalInstancesQueryKey = getGetGoalInstancesQueryKey(task.goalId);
-		queryClient.setQueryData<{ data: DbGoalInstance[] }>(
-			goalInstancesQueryKey,
-			(old) => {
-				if (!old) return old;
-				return {
-					...old,
-					data: old.data.map((goalInstance) => ({
-						...goalInstance,
-						tasks: updateTaskSubtasks(goalInstance.tasks),
-					})),
-				};
-			},
-		);
-	}
 };
 
 /**
@@ -257,29 +210,18 @@ export const useOptimisticUpdateSubtask = () => {
 	const queryClient = useQueryClient();
 	const mutation = useUpdateSubTask();
 
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
-
-	const mutate = (variables: {
-		taskId: string;
-		subtaskId: string;
-		data: { title?: string; isCompleted?: boolean };
-	}) => {
+	const mutate = (
+		variables: {
+			taskId: string;
+			subtaskId: string;
+			data: { title?: string; isCompleted?: boolean };
+		},
+		options?: { onSuccess?: (data: unknown) => void; onError?: () => void },
+	) => {
 		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
 
 		// Store previous state for rollback
 		const previousSubtasks = queryClient.getQueryData(subtasksQueryKey);
-		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
-		const previousOverdueTasks = queryClient.getQueryData(overdueTasksQueryKey);
-
-		// Get task to check for goalId
-		const inboxTasks = queryClient.getQueryData<{ data: DbTask[] }>(
-			inboxTasksQueryKey,
-		);
-		const task = inboxTasks?.data?.find((t) => t.id === variables.taskId);
-		const previousGoalInstances = task?.goalId
-			? queryClient.getQueryData(getGetGoalInstancesQueryKey(task.goalId))
-			: null;
 
 		// Optimistic update
 		updateSubtaskInQueryCache(
@@ -291,23 +233,109 @@ export const useOptimisticUpdateSubtask = () => {
 
 		// Perform actual mutation
 		mutation.mutate(variables, {
+			onSuccess: (data) => {
+				options?.onSuccess?.(data);
+			},
 			onError: () => {
 				// Rollback on error
 				if (previousSubtasks) {
 					queryClient.setQueryData(subtasksQueryKey, previousSubtasks);
 				}
-				if (previousInboxTasks) {
-					queryClient.setQueryData(inboxTasksQueryKey, previousInboxTasks);
+				options?.onError?.();
+			},
+		});
+	};
+
+	return {
+		...mutation,
+		mutate,
+	};
+};
+
+/**
+ * Wait for create subtask success, then update local cache
+ */
+export const useOptimisticCreateSubtask = () => {
+	const queryClient = useQueryClient();
+	const mutation = useCreateSubTask();
+
+	const mutate = (
+		variables: { taskId: string; data: { title: string } },
+		options?: {
+			onSuccess?: (data: { data: DbSubTask }) => void;
+			onError?: () => void;
+		},
+	) => {
+		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
+		const previousSubtasks = queryClient.getQueryData(subtasksQueryKey);
+
+		mutation.mutate(variables, {
+			onSuccess: (response) => {
+				const newSubtask = response as { data: DbSubTask };
+				queryClient.setQueryData<{ data: DbSubTask[] }>(
+					subtasksQueryKey,
+					(old) => {
+						if (!old) return { data: [newSubtask.data] };
+						return { ...old, data: [...(old.data || []), newSubtask.data] };
+					},
+				);
+				options?.onSuccess?.(newSubtask);
+			},
+			onError: () => {
+				// Rollback on error
+				if (previousSubtasks) {
+					queryClient.setQueryData(subtasksQueryKey, previousSubtasks);
 				}
-				if (previousOverdueTasks) {
-					queryClient.setQueryData(overdueTasksQueryKey, previousOverdueTasks);
+				options?.onError?.();
+			},
+		});
+	};
+
+	return {
+		...mutation,
+		mutate,
+	};
+};
+
+/**
+ * Optimistic delete subtask
+ */
+export const useOptimisticDeleteSubtask = () => {
+	const queryClient = useQueryClient();
+	const mutation = useDeleteSubTask();
+
+	const mutate = (
+		variables: { taskId: string; subtaskId: string },
+		options?: {
+			onSuccess?: () => void;
+			onError?: () => void;
+		},
+	) => {
+		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
+		const previousSubtasks = queryClient.getQueryData<{ data: DbSubTask[] }>(
+			subtasksQueryKey,
+		);
+
+		// Optimistically update local cache
+		queryClient.setQueryData<{ data: DbSubTask[] }>(subtasksQueryKey, (old) => {
+			if (!old) return old;
+			return {
+				...old,
+				data: old.data.filter((subtask) => subtask.id !== variables.subtaskId),
+			};
+		});
+
+		mutation.mutate(variables, {
+			onSuccess: () => {
+				// If needed, further updates or success handlers go here
+				options?.onSuccess?.();
+			},
+			onError: () => {
+				// Rollback to previous subtasks list on error
+				if (previousSubtasks) {
+					queryClient.setQueryData(subtasksQueryKey, previousSubtasks);
 				}
-				if (previousGoalInstances && task?.goalId) {
-					queryClient.setQueryData(
-						getGetGoalInstancesQueryKey(task.goalId),
-						previousGoalInstances,
-					);
-				}
+				options?.onError?.();
 			},
 		});
 	};

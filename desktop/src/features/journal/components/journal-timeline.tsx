@@ -27,6 +27,7 @@ export const JournalTimeline = () => {
 								onClick={createEntry}
 								label="Write"
 								shortcuts={["⌘", "N"]}
+								tooltipContent="Create a new entry"
 							/>
 						</Timeline.RightContent>
 					}
