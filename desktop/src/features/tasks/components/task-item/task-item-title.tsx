@@ -37,7 +37,7 @@ export const TaskTitleInput = ({ value, onChange }: TaskTitleInputProps) => {
 			value={inputValue}
 			onChange={handleChange}
 			placeholder="Add a task"
-			className="w-full text-sm font-inter font-medium text-neutral-600  outline-none"
+			className="w-full text-sm font-inter font-medium text-neutral-600 outline-none"
 		/>
 	);
 };

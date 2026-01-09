@@ -24,6 +24,19 @@ type UpdateTaskPayload struct {
 	UpdatedAt   *time.Time `json:"updatedAt"` // For last-write-wins conflict detection
 }
 
+type CreateSubTaskPayload struct {
+	Title string `json:"title"`
+}
+
+type UpdateSubTaskPayload struct {
+	Title       *string `json:"title"`
+	IsCompleted *bool   `json:"isCompleted"`
+}
+
+type ReorderSubTasksPayload struct {
+	SubTaskIDs []string `json:"subTaskIds"` // Ordered list of subtask IDs
+}
+
 type TaskHandler struct {
 	db *gorm.DB
 }

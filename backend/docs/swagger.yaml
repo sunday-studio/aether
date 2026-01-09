@@ -43,6 +43,9 @@ definitions:
         items:
           $ref: '#/definitions/db.Tag'
         type: array
+      timezone:
+        description: IANA timezone name, snapshot at creation
+        type: string
       updatedAt:
         type: string
     type: object
@@ -72,6 +75,23 @@ definitions:
           $ref: '#/definitions/db.Task'
         type: array
     type: object
+  db.SubTask:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      isCompleted:
+        type: boolean
+      orderIndex:
+        type: integer
+      taskId:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   db.Tag:
     properties:
       createdAt:
@@ -99,6 +119,10 @@ definitions:
         type: string
       isCompleted:
         type: boolean
+      subTasks:
+        items:
+          $ref: '#/definitions/db.SubTask'
+        type: array
       tags:
         items:
           $ref: '#/definitions/db.Tag'
@@ -132,6 +156,11 @@ definitions:
     type: object
   handlers.CreateGoalPayload:
     type: object
+  handlers.CreateSubTaskPayload:
+    properties:
+      title:
+        type: string
+    type: object
   handlers.CreateTaskPayload:
     properties:
       description:
@@ -147,7 +176,22 @@ definitions:
       title:
         type: string
     type: object
+  handlers.ReorderSubTasksPayload:
+    properties:
+      subTaskIds:
+        description: Ordered list of subtask IDs
+        items:
+          type: string
+        type: array
+    type: object
   handlers.UpdateGoalPayload:
+    type: object
+  handlers.UpdateSubTaskPayload:
+    properties:
+      isCompleted:
+        type: boolean
+      title:
+        type: string
     type: object
   handlers.UpdateTaskPayload:
     properties:
@@ -1015,6 +1059,181 @@ paths:
               type: string
             type: object
       summary: Add tags to a task
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new subtask for a task
+      operationId: createSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask payload
+        in: body
+        name: subtask
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateSubTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.SubTask'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new subtask
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks/{subtaskId}:
+    delete:
+      consumes:
+      - application/json
+      description: Marks the specified subtask as deleted (soft-delete)
+      operationId: deleteSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask ID
+        in: path
+        name: subtaskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a subtask (soft delete)
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      description: Updates a subtask
+      operationId: updateSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask ID
+        in: path
+        name: subtaskId
+        required: true
+        type: string
+      - description: Subtask payload
+        in: body
+        name: subtask
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateSubTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.SubTask'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a subtask
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks/reorder:
+    post:
+      consumes:
+      - application/json
+      description: Reorders subtasks for a task based on the provided order
+      operationId: reorderSubTasks
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Reorder payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ReorderSubTasksPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Reorder subtasks
       tags:
       - Tasks
   /tasks/inbox:

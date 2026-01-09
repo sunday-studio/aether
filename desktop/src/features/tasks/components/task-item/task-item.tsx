@@ -9,6 +9,7 @@ import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
+import { TaskSubtasks } from "./task-subtasks";
 
 interface TaskItemProps {
 	task: DbTask;
@@ -52,6 +53,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
+				<TaskSubtasks taskId={task.id as string} subtasks={task.subTasks ?? []} />
 				<div className="flex gap-1 items-center">
 					<TaskDueDateInput
 						value={task.dueDate}
@@ -70,7 +72,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
 					<p className="text-xs text-neutral-400">•</p>
-					<TaskSubtasksTrigger />
+					<TaskSubtasksTrigger taskId={task.id as string} />
 					<p className="text-xs text-neutral-400">•</p>
 					<TaskItemDelete taskId={task.id as string} goalId={task.goalId} />
 				</div>

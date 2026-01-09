@@ -58,9 +58,22 @@ type Task struct {
 	GoalInstanceID *string `json:"goalInstanceId" gorm:"index"`
 	GoalID         *string `json:"goalId" gorm:"index"`
 
+	SubTasks []SubTask `json:"subTasks" gorm:"foreignKey:TaskID;constraint:OnDelete:CASCADE"`
+
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
+}
+
+type SubTask struct {
+	ID          string         `json:"id" gorm:"primaryKey"`
+	Title       string         `json:"title"`
+	IsCompleted bool           `json:"isCompleted" gorm:"default:false"`
+	TaskID      string         `json:"taskId" gorm:"index"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index" swaggerignore:"true"`
+	OrderIndex  int            `json:"orderIndex" gorm:"not null"`
 }
 
 type Goal struct {
@@ -132,6 +145,13 @@ func (s *Settings) BeforeCreate(tx *gorm.DB) error {
 	}
 	if s.Timezone == "" {
 		s.Timezone = "UTC"
+	}
+	return nil
+}
+
+func (st *SubTask) BeforeCreate(tx *gorm.DB) error {
+	if st.ID == "" {
+		st.ID = utils.GenerateID("subtask")
 	}
 	return nil
 }

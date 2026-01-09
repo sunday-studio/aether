@@ -20,6 +20,7 @@ func (h *TaskHandler) GetInboxTasks(c *fiber.Ctx) error {
 	if err := h.db.
 		Preload("Tags").
 		Order("due_date ASC").
+		Preload("SubTasks").
 		Find(&tasks).
 		Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})

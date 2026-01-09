@@ -139,6 +139,7 @@ func Migrate(db *gorm.DB) error {
 		&Goal{},
 		&GoalInstance{},
 		&Task{},
+		&SubTask{},
 	}
 
 	for _, model := range models {
