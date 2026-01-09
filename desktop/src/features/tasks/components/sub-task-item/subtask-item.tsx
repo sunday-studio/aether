@@ -9,6 +9,7 @@ interface TaskSubtaskItemProps {
 	onChangeIsCompletedChange: (value: boolean) => void;
 	onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 	setInputRef: (el: HTMLInputElement | null) => void;
+	onDelete: () => void;
 }
 
 export const TaskSubtaskItem = ({
@@ -17,6 +18,7 @@ export const TaskSubtaskItem = ({
 	onChangeIsCompletedChange,
 	onKeyDown,
 	setInputRef,
+	onDelete,
 }: TaskSubtaskItemProps) => {
 	const [inputValue, setInputValue] = useState(subtask.title ?? "");
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -84,9 +86,14 @@ export const TaskSubtaskItem = ({
 				<div className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400  transition-transform duration-200 cursor-pointer">
 					<GripHorizontal size={15} strokeWidth={2} />
 				</div>
-				<div className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400 transition-transform duration-200 cursor-pointer">
+				<button
+					type="button"
+					tabIndex={0}
+					className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400 transition-transform duration-200 cursor-pointer"
+					onClick={onDelete}
+				>
 					<Trash2 size={13} strokeWidth={2} />
-				</div>
+				</button>
 			</div>
 		</div>
 	);

@@ -4,6 +4,7 @@ import { useGetSubTasks } from "~/aether-sdk";
 import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
 import {
 	useOptimisticCreateSubtask,
+	useOptimisticDeleteSubtask,
 	useOptimisticUpdateSubtask,
 } from "../../use-optimistic-task-hooks";
 import { TaskSubtaskItem } from "./subtask-item";
@@ -16,6 +17,7 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 	const { mutate: updateSubtask } = useOptimisticUpdateSubtask();
 	const { mutate: createSubtask } = useOptimisticCreateSubtask();
 	const { data: subtasksData, isLoading } = useGetSubTasks(taskId);
+	const { mutate: deleteSubtask } = useOptimisticDeleteSubtask();
 
 	const subtasks: DbSubTask[] = (subtasksData?.data as DbSubTask[]) ?? [];
 
@@ -181,6 +183,9 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 							handleOnChangeIsCompletedChange(subtaskId, value);
 						}}
 						onKeyDown={(e) => handleKeyDown(e, subtaskId, index)}
+						onDelete={() =>
+							deleteSubtask({ taskId: taskId, subtaskId: subtaskId })
+						}
 					/>
 				);
 			})}
