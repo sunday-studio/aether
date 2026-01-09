@@ -263,6 +263,8 @@ export const TaskSubtasks = ({ taskId, goalId }: TaskSubtasksProps) => {
 		);
 	}
 
+	if (subtasks.length === 0) return null;
+
 	return (
 		<div className="flex  flex-col my-3">
 			{subtasks.map((subtask, index) => {
