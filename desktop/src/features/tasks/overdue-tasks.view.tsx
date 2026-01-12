@@ -8,7 +8,7 @@ export const OverdueTasksView = () => {
 	const groupedTasks = groupTaskByCreatedAt(overdueTasks?.data ?? []);
 
 	return (
-		<div className="px-0.5">
+		<div>
 			<div className="flex items-center justify-between py-4">
 				<h3 className="font-gt-ultra text-2xl font-medium">Overdue tasks</h3>
 			</div>

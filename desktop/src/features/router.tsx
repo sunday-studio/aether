@@ -4,6 +4,7 @@ import {
 	Route,
 } from "react-router";
 import { Layout } from "~/components/shared/layout";
+import { BookmarksView } from "./bookmarks/bookmarks.view";
 import { CanvasView } from "./canvas/canvas.view";
 // Features
 import { Journal } from "./journal/journal";
@@ -24,6 +25,7 @@ export const router = createBrowserRouter(
 				<Route path="/tasks/goal/:goalId" element={<GoalView />} />
 			</Route>
 			<Route path="/canvas" element={<CanvasView />} />
+			<Route path="/bookmarks" element={<BookmarksView />} />
 			<Route path="/settings" element={<SettingsView />} />
 		</Route>,
 	),

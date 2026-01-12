@@ -11,10 +11,10 @@ import (
 type CreateGoalPayload struct {
 	Name               string         `json:"name"`
 	Description        *string        `json:"description"`
-	IsNonRecurring     *bool          `json:"isNonRecurring"` // optional, defaults to false
-	RecurrenceType     *string        `json:"recurrenceType"` // nullable for non-recurring goals
+	IsNonRecurring     *bool          `json:"isNonRecurring"`     // optional, defaults to false
+	RecurrenceType     *string        `json:"recurrenceType"`     // nullable for non-recurring goals
 	RecurrenceInterval *int           `json:"recurrenceInterval"` // nullable for non-recurring goals
-	RecurrenceAnchor   *time.Time     `json:"recurrenceAnchor"` // nullable for non-recurring goals
+	RecurrenceAnchor   *time.Time     `json:"recurrenceAnchor"`   // nullable for non-recurring goals
 	RecurrenceMeta     datatypes.JSON `json:"recurrenceMeta"`
 	TagIDs             []string       `json:"tagIds"`
 }

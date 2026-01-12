@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader, Plus } from "lucide-react";
+import { Loader } from "lucide-react";
 import { Button } from "react-aria-components";
 import { useParams } from "react-router";
 import {
@@ -29,7 +29,6 @@ export const GoalView = () => {
 	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(
 		goalInstances?.data ?? [],
 	);
-
 
 	const handleCreateTask = () => {
 		createTask(

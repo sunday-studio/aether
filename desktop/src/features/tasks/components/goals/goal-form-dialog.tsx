@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/correctness/noChildrenProp: <explanation> */
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -12,12 +11,13 @@ import {
 } from "react-aria-components";
 import { z } from "zod";
 import {
-	getGetGoalsQueryKey,
 	getGetGoalByIDQueryKey,
+	getGetGoalsQueryKey,
 	useCreateGoal,
 	useUpdateGoal,
 } from "~/aether-sdk";
 import type { DbGoal } from "~/aether-sdk/models";
+import { Checkbox } from "~/components/shared/checkbox";
 import { DateTimePicker } from "~/components/shared/datepicker";
 import { Label } from "~/components/shared/field";
 import { Modal, modalContentStyles } from "~/components/shared/modal";
@@ -28,19 +28,60 @@ import { cn } from "~/utils/cn";
 import { convertCalendarDateToIsoString, getDateValue } from "~/utils/date";
 import { RecurrenceType } from "../../tasks.domain";
 
-const createGoalSchema = z.object({
-	name: z.string().min(1, { message: "Name is required" }),
-	description: z.string(),
-	recurrenceType: z.enum([
-		RecurrenceType.BI_WEEKLY,
-		RecurrenceType.WEEKLY,
-		RecurrenceType.MONTHLY,
-		RecurrenceType.YEARLY,
-		RecurrenceType.CUSTOM,
-	]),
-	recurrenceInterval: z.number(),
-	recurrenceAnchor: z.iso.datetime(),
-});
+const createGoalSchema = z
+	.object({
+		name: z.string().min(1, { message: "Name is required" }),
+		description: z.string(),
+		recurrenceType: z.preprocess(
+			(val) => (val === "" ? undefined : val),
+			z
+				.enum([
+					RecurrenceType.BI_WEEKLY,
+					RecurrenceType.WEEKLY,
+					RecurrenceType.MONTHLY,
+					RecurrenceType.YEARLY,
+					RecurrenceType.CUSTOM,
+				])
+				.optional(),
+		),
+		recurrenceInterval: z.number().optional(),
+		recurrenceAnchor: z.preprocess(
+			(val) => (val === "" ? undefined : val),
+			z.string().datetime().optional(),
+		),
+		isNonRecurring: z.boolean(),
+	})
+	.superRefine((data, ctx) => {
+		// If non-recurring, all recurring fields are optional - skip validation
+		if (data.isNonRecurring) {
+			return;
+		}
+		// If recurring, all recurring fields are required
+		if (!data.recurrenceType) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Recurrence type is required when goal is recurring",
+				path: ["recurrenceType"],
+			});
+		}
+		if (
+			data.recurrenceInterval === undefined ||
+			data.recurrenceInterval === null
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Recurrence interval is required when goal is recurring",
+				path: ["recurrenceInterval"],
+			});
+		}
+		if (!data.recurrenceAnchor) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Recurrence anchor is required when goal is recurring",
+				path: ["recurrenceAnchor"],
+			});
+		}
+	});
 
 interface CreateGoalFormProps {
 	goal?: DbGoal;
@@ -65,26 +106,36 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 		defaultValues: {
 			name: goal?.name ?? "",
 			description: goal?.description ?? "",
-			recurrenceType: goal?.recurrenceType ?? "",
-			recurrenceInterval: goal?.recurrenceInterval ?? 1,
-			recurrenceAnchor: goal?.recurrenceAnchor ?? new Date().toISOString()
+			recurrenceType: goal?.recurrenceType ?? undefined,
+			recurrenceInterval: goal?.recurrenceInterval ?? undefined,
+			recurrenceAnchor: goal?.recurrenceAnchor ?? undefined,
+			isNonRecurring: goal?.isNonRecurring ?? false,
 		},
 		validators: {
-			onChange: createGoalSchema,
-			onMount: createGoalSchema,
+			// biome-ignore lint/suspicious/noExplicitAny: Type mismatch between Zod schema and TanStack Form types
+			onChange: createGoalSchema as any,
+			// biome-ignore lint/suspicious/noExplicitAny: Type mismatch between Zod schema and TanStack Form types
+			onMount: createGoalSchema as any,
 		},
 		onSubmit: async ({ value }) => {
+			const data = {
+				name: value.name,
+				description: value.description,
+				recurrenceType: value.recurrenceType,
+				recurrenceInterval: value.recurrenceInterval,
+				recurrenceAnchor: value.recurrenceAnchor,
+				isNonRecurring: value.isNonRecurring,
+			};
+
+			console.log(data);
+
+			// return;
+
 			if (isEditMode) {
 				updateGoal(
 					{
 						id: goal?.id ?? "",
-						data: {
-							name: value.name,
-							description: value.description,
-							recurrenceType: value.recurrenceType,
-							recurrenceInterval: value.recurrenceInterval,
-							recurrenceAnchor: value.recurrenceAnchor,
-						},
+						data,
 					},
 					{
 						onSuccess: () => {
@@ -100,13 +151,7 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 
 			createGoal(
 				{
-					data: {
-						name: value.name,
-						description: value.description,
-						recurrenceType: value.recurrenceType,
-						recurrenceInterval: value.recurrenceInterval,
-						recurrenceAnchor: value.recurrenceAnchor,
-					},
+					data,
 				},
 
 				{
@@ -155,13 +200,17 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 		(state) => state.values.recurrenceType === RecurrenceType.CUSTOM,
 	);
 
+	const isNonRecurring = useStore(
+		form.store,
+		(state) => state.values.isNonRecurring,
+	);
+
 	const hasEditFormChanged = useStore(
 		form.store,
 		(state) =>
 			state.values.name !== goal?.name ||
 			state.values.description !== goal?.description,
 	);
-
 
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
@@ -200,17 +249,45 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 								/>
 							)}
 						</form.Field>
+
+						<form.Field name="isNonRecurring">
+							{(field) => (
+								<div className="px-2">
+									<Checkbox
+										isDisabled={isEditMode}
+										name={field.name}
+										isSelected={field.state.value}
+										onChange={(checked) => {
+											field.handleChange(checked);
+											// Clear recurring fields when non-recurring is enabled
+											if (checked) {
+												form.setFieldValue("recurrenceType", undefined);
+												form.setFieldValue("recurrenceInterval", undefined);
+												form.setFieldValue("recurrenceAnchor", undefined);
+											}
+										}}
+									>
+										<p className="text-sm">Non-recurring</p>
+									</Checkbox>
+								</div>
+							)}
+						</form.Field>
+
 						<form.Field name="recurrenceType">
 							{(field) => (
 								<div className="">
 									<Select
 										label="Recurrence type"
 										placeholder="Select recurrence type"
-										value={field.state.value}
+										value={field.state.value ?? ""}
 										onChange={(value: Key | null) => {
-											handleRecurrenceTypeChange(value);
+											if (value === null || value === "") {
+												form.setFieldValue("recurrenceType", undefined);
+											} else {
+												handleRecurrenceTypeChange(value);
+											}
 										}}
-										isDisabled={isEditMode}
+										isDisabled={isEditMode || isNonRecurring}
 									>
 										<SelectItem id="weekly">Weekly</SelectItem>
 										<SelectItem id="bi-weekly">Bi-weekly</SelectItem>
@@ -225,37 +302,40 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 						<div className="flex gap-2">
 							<form.Field name="recurrenceAnchor">
 								{(field) => {
-								
-
-									return(
-											<DateTimePicker
-										isDisabled={isEditMode}
-										className="flex-1"
-										value={getDateValue(field.state.value ?? undefined)}
-										onChange={(value) => {
-											const dateString = convertCalendarDateToIsoString(value);
-											field.handleChange(dateString);
-										}}
-										trigger={
-											<div className="flex-1 flex flex-col gap-1">
-												<Label>Start date</Label>
-												<div
-													className={cn([
-														"px-3 py-0 min-h-9 flex-1 min-w-0 items-center flex ",
-														"border-0 outline-0",
-														"bg-neutral-100 text-sm",
-														"placeholder:text-neutral-500 rounded-xl",
-														{
-															"opacity-50": isEditMode,
-														},
-													])}
-												>
-													<p>{format(field.state.value, "dd/MM/yyyy")}</p>
+									return (
+										<DateTimePicker
+											isDisabled={isEditMode || isNonRecurring}
+											className="flex-1"
+											value={getDateValue(field.state.value ?? undefined)}
+											onChange={(value) => {
+												const dateString =
+													convertCalendarDateToIsoString(value);
+												field.handleChange(dateString);
+											}}
+											trigger={
+												<div className="flex-1 flex flex-col gap-1">
+													<Label>Start date</Label>
+													<div
+														className={cn([
+															"px-3 py-0 min-h-9 flex-1 min-w-0 items-center flex ",
+															"border-0 outline-0",
+															"bg-neutral-100 text-sm",
+															"placeholder:text-neutral-500 rounded-xl",
+															{
+																"opacity-50": isEditMode || isNonRecurring,
+															},
+														])}
+													>
+														<p>
+															{field.state.value
+																? format(field.state.value, "dd/MM/yyyy")
+																: "Select date"}
+														</p>
+													</div>
 												</div>
-											</div>
-										}
-									/>
-									)
+											}
+										/>
+									);
 								}}
 							</form.Field>
 
@@ -266,8 +346,8 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 										name={field.name}
 										label="Interval"
 										placeholder="e.g. 1"
-										isDisabled={!isCustomRecurrenceType}
-										value={field.state.value.toString()}
+										isDisabled={!isCustomRecurrenceType || isNonRecurring}
+										value={field.state.value?.toString() ?? ""}
 										onChange={(value) => field.handleChange(Number(value))}
 										errorMessage={field.state.meta.errors[0]?.message}
 									/>
@@ -289,6 +369,7 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 							</Button>
 							<form.Subscribe
 								selector={(state) => [state.isValid, state.isSubmitting]}
+								// biome-ignore lint/correctness/noChildrenProp: TanStack Form Subscribe requires children prop
 								children={([isValid, isSubmitting]) => {
 									const isDisabled = isEditMode
 										? !hasEditFormChanged ||
@@ -296,7 +377,6 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 											isUpdatingGoal ||
 											!isValid
 										: !isValid || isSubmitting || isCreatingGoal;
-
 
 									return (
 										<Button

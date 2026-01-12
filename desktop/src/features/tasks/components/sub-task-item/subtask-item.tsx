@@ -1,6 +1,7 @@
 import { Circle, CircleDashed, GripHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
+import { Tooltip } from "~/components/shared/tooltip";
 import { useDebounceCallback } from "~/hooks/use-debounce";
 
 interface TaskSubtaskItemProps {
@@ -83,9 +84,11 @@ export const TaskSubtaskItem = ({
 			/>
 
 			<div className="flex items-center gap-1">
-				<div className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400  transition-transform duration-200 cursor-pointer">
+				{/* TODO: do the ordering functionality later */}
+				{/* <div className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400  transition-transform duration-200 cursor-pointer">
 					<GripHorizontal size={15} strokeWidth={2} />
-				</div>
+				</div> */}
+
 				<button
 					type="button"
 					tabIndex={0}

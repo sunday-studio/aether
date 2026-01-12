@@ -60,6 +60,7 @@ export const InboxTasksView = () => {
 				<AddNewButton
 					onClick={handleCreateTask}
 					label="Add task"
+					tooltipContent="Add a new task"
 					shortcuts={["⌘", "N"]}
 				/>
 			</div>

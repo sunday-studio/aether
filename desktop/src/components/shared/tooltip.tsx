@@ -6,7 +6,7 @@ import {
 	FloatingArrow,
 	FloatingPortal,
 	flip,
-	offset,
+	offset as offsetMiddleware,
 	shift,
 	useFloating,
 	useHover,
@@ -27,6 +27,7 @@ interface TooltipProps {
 	contentClassName?: string;
 	containerClassName?: string;
 	disabled?: boolean;
+	offset?: number;
 }
 
 export const Tooltip: FC<TooltipProps> = ({
@@ -41,6 +42,7 @@ export const Tooltip: FC<TooltipProps> = ({
 	contentClassName,
 	containerClassName,
 	disabled = false,
+	offset = 8,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const arrowRef = useRef(null);
@@ -50,7 +52,7 @@ export const Tooltip: FC<TooltipProps> = ({
 		open: isOpen,
 		onOpenChange: setIsOpen,
 		middleware: [
-			offset(8),
+			offsetMiddleware(offset),
 			shouldFlip && flip(),
 			shift(),
 			arrow({ element: arrowRef }),

@@ -1733,18 +1733,22 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "isNonRecurring": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
                 "recurrenceAnchor": {
+                    "description": "(nullable for non-recurring)",
                     "type": "string"
                 },
                 "recurrenceInterval": {
-                    "description": "1, 2, 25, etc",
+                    "description": "1, 2, 25, etc (nullable for non-recurring)",
                     "type": "integer"
                 },
                 "recurrenceType": {
-                    "description": "bi-weekly | weekly | monthly | custom",
+                    "description": "bi-weekly | weekly | monthly | custom (nullable for non-recurring)",
                     "type": "string"
                 },
                 "tags": {
@@ -1778,6 +1782,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "periodEnd": {
+                    "description": "nullable for non-recurring goals",
                     "type": "string"
                 },
                 "periodStart": {

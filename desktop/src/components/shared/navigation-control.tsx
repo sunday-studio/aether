@@ -57,23 +57,23 @@ const routes = [
 		icon: <BadgeCheck className="size-5.5" />,
 	},
 	{
-		label: "Canvas",
-		route: "/canvas",
-		shortcut: ["⌘", "C"],
-		icon: <Atom className="size-5.5" />,
-	},
-	{
 		label: "Bookmarks",
 		route: "/bookmarks",
 		shortcut: ["⌘", "B"],
 		icon: <Bookmark className="size-5.5" />,
 	},
 	{
+		label: "Canvas",
+		route: "/canvas",
+		shortcut: ["⌘", "C"],
+		icon: <Atom className="size-5.5" />,
+	},
+	{
 		label: "Settings",
 		route: "/settings",
 		shortcut: ["⌘", "S"],
 		icon: <RadialAvatar size="sm" seed={Math.random().toString()} />,
-	}
+	},
 ];
 
 export const NavigationControl = () => {

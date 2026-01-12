@@ -14,13 +14,13 @@ export const TaskActionButton = forwardRef<
 		<span
 			ref={ref}
 			className={cn(
-				"w-6 h-6 rounded-lg",
+				"w-6 h-6 rounded-lg transition-all duration-200",
 				"bg-neutral-200 text-neutral-400 text-sm",
 				"flex items-center justify-center",
 				"focus:ring-2 focus:ring-offset-1 focus:ring-neutral-300",
 				"active:bg-neutral-300 active:ring-2 active:ring-offset-1 active:ring-neutral-300",
 				"transition-colors",
-				"hover:bg-neutral-300 hover:text-neutral-500 cursor-pointer",
+				"hover:bg-neutral-300 hover:text-neutral-500 cursor-pointer hover:rotate-3 hover:scale-110 ",
 				className,
 			)}
 		>
