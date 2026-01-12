@@ -13,7 +13,7 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 			end
 			className={({ isActive }) => {
 				return cn(
-					"group relative text-xs leading-none py-1 leading-[12px] px-1.5 -mx-1.5 rounded-md hover:bg-neutral-100",
+					"group relative text-xs py-1 leading-[12px] px-1.5 -mx-1.5 rounded-md hover:bg-neutral-100",
 					{
 						"before:absolute before:top-1/2 before:left-[-10px] before:-translate-y-1/2 before:block before:-skew-y-3 before:h-2 before:w-2 before:rounded-full before:bg-green-700 text-green-900":
 							isActive,
@@ -31,8 +31,9 @@ const GoalsList = () => {
 
 	return (
 		<div className="w-full">
-			<div className=" py-2 flex items-center justify-between">
+			<div className=" py-2 flex items-center justify-between gap-2">
 				<p className="text-sm text-neutral-800 font-medium">Goals</p>
+				<div className="w-full h-px bg-neutral-200/50"></div>
 				<GoalFormDialog
 					trigger={
 						<Tooltip

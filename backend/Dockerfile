@@ -22,11 +22,20 @@ COPY . .
 # Set build version
 ARG VERSION=dev
 
+# Environment variables as build args
+ARG LIBSQL_URL
+ARG LIBSQL_USE_REPLICA
+ARG LIBSQL_SYNC_INTERVAL
+ARG LIBSQL_AUTH_TOKEN
+
 # Set cross-compiler
 ENV CC=aarch64-linux-gnu-gcc
 
-# Set linker flags to handle duplicate symbols (both libSQL and GORM SQLite driver include SQLite)
-ENV CGO_LDFLAGS="-Wl,--allow-multiple-definition"
+# Create .env file from build args
+RUN echo "LIBSQL_URL=${LIBSQL_URL}" > /src/.env && \
+    echo "LIBSQL_USE_REPLICA=${LIBSQL_USE_REPLICA}" >> /src/.env && \
+    echo "LIBSQL_SYNC_INTERVAL=${LIBSQL_SYNC_INTERVAL}" >> /src/.env && \
+    echo "LIBSQL_AUTH_TOKEN=${LIBSQL_AUTH_TOKEN}" >> /src/.env
 
-# Build ARM64 binary with CGO enabled
-RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-Wl,--allow-multiple-definition" -o /src/aether-backend_${VERSION} ./main.go
+# Build ARM64 binary with CGO enabled (required for libsql)
+RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -o /src/aether-backend_${VERSION} ./main.go

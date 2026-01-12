@@ -3,6 +3,7 @@ package api
 import (
 	entryHandlers "aether/internal/handlers/entry"
 	goalHandlers "aether/internal/handlers/goal"
+	syncHandlers "aether/internal/handlers/sync"
 	tagHandlers "aether/internal/handlers/tag"
 	taskHandlers "aether/internal/handlers/task"
 	trashHandlers "aether/internal/handlers/trash"
@@ -25,12 +26,16 @@ func RegisterRoutes(app *fiber.App, gormDB *gorm.DB) {
 	taskHandler := taskHandlers.NewTaskHandler(gormDB)
 	trashHandler := trashHandlers.NewTrashHandler(gormDB)
 	goalHandler := goalHandlers.NewGoalHandler(gormDB)
+	syncHandler := syncHandlers.NewSyncHandler()
 
 	api := app.Group("/v1")
 
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "pong pong"})
 	})
+
+	// sync
+	api.Post("/sync", syncHandler.Sync)
 
 	// trash
 	trashGroup := api.Group("/trash")

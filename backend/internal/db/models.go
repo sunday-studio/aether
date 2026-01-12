@@ -98,15 +98,15 @@ type Goal struct {
 type GoalInstance struct {
 	ID string `json:"id" gorm:"primaryKey"`
 
-	GoalID string `json:"goalId" gorm:"index;index:idx_goal_created_at;uniqueIndex:idx_goal_period"`
+	GoalID string `json:"goalId" gorm:"index;uniqueIndex:idx_goal_period"`
 	Goal   Goal   `json:"goal" gorm:"constraint:OnDelete:CASCADE"`
 
-	PeriodStart time.Time  `json:"periodStart" gorm:"index;uniqueIndex:idx_goal_period"`
-	PeriodEnd   *time.Time `json:"periodEnd" gorm:"index"` // nullable for non-recurring goals
+	PeriodStart time.Time  `json:"periodStart" gorm:"uniqueIndex:idx_goal_period"`
+	PeriodEnd   *time.Time `json:"periodEnd"` // nullable for non-recurring goals
 
 	Status string `json:"status" gorm:"not null"` // active | completed | skipped
 
-	CreatedAt time.Time `json:"createdAt" gorm:"index:idx_goal_created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 
 	Tags  []Tag  `json:"tags" gorm:"many2many:goal_instance_tags"`
 	Tasks []Task `json:"tasks"`
