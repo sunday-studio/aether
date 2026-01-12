@@ -299,13 +299,13 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 							)}
 						</form.Field>
 
-						<div className="flex gap-2">
+						<div className="flex gap-2 items-start">
 							<form.Field name="recurrenceAnchor">
 								{(field) => {
 									return (
 										<DateTimePicker
 											isDisabled={isEditMode || isNonRecurring}
-											className="flex-1"
+											className="flex-1  w-1/2"
 											value={getDateValue(field.state.value ?? undefined)}
 											onChange={(value) => {
 												const dateString =
@@ -342,6 +342,7 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 							<form.Field name="recurrenceInterval">
 								{(field) => (
 									<TextField
+										className="w-1/2"
 										type="number"
 										name={field.name}
 										label="Interval"

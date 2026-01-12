@@ -104,7 +104,7 @@ export const VirtualizedTaskList = ({
 								}}
 								className={cn(
 									"px-0.5 transform-gpu transition-opacity duration-200",
-									// item.isPast && "opacity-60",
+									item.isPast && "opacity-60",
 								)}
 							>
 								<TaskListDivider
@@ -127,10 +127,11 @@ export const VirtualizedTaskList = ({
 								left: 0,
 								width: "100%",
 								transform: `translateY(${virtualRow.start}px)`,
+								willChange: item.isPast ? "opacity" : undefined,
 							}}
 							className={cn(
 								"px-0.5 pb-4 transform-gpu transition-opacity duration-200",
-								// item.isPast && "opacity-60 hover:opacity-100",
+								item.isPast && "opacity-60 hover:opacity-100",
 							)}
 						>
 							<TaskItem task={item.task} />
