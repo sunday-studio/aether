@@ -1,0 +1,124 @@
+services:
+  libsql-server:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: libsql-server
+    ports:
+      - "9090:8080"   # HTTP API (Mac:9090 -> Container:8080)
+      - "5001:5001"   # Hrana WebSocket protocol
+    volumes:
+      - ./libsql-data:/var/lib/sqld
+      - ./libsql-backups:/backups
+    environment:
+      # Primary node configuration
+      - SQLD_NODE=primary
+      - SQLD_DB_PATH=/var/lib/sqld/data.sqld
+      
+      # Authentication (uncomment when ready)
+      # - SQLD_AUTH_JWT_KEY_FILE=/var/lib/sqld/jwt-key.pem
+      # - SQLD_HTTP_AUTH=jwt-ed25519
+      
+      # Performance optimizations
+      - SQLD_IDLE_SHUTDOWN_TIMEOUT_S=3600
+      - SQLD_MAX_CONCURRENT_CONNECTIONS=100
+      
+      # Logging
+      - RUST_LOG=info
+      
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    networks:
+      - aether-network
+
+  # Weekly backup service
+  backup:
+    image: alpine:latest
+    container_name: libsql-backup
+    depends_on:
+      - libsql-server  # Just wait for server to start, no health check
+    volumes:
+      - ./libsql-data:/data:ro
+      - ./libsql-backups:/backups
+    environment:
+      - TZ=Europe/Amsterdam
+      - BACKUP_RETENTION_DAYS=60
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        apk add --no-cache dcron tzdata
+        
+        # Create backup script
+        cat > /backup.sh << 'SCRIPT_EOF'
+        #!/bin/sh
+        set -e
+        BACKUP_DATE=$$(date +%Y%m%d-%H%M%S)
+        BACKUP_FILE="/backups/backup-$$BACKUP_DATE.sqld"
+        echo "$$(date): Starting weekly backup..."
+        
+        # Check if database file exists
+        if [ ! -f /data/data.sqld ]; then
+          echo "$$(date): ERROR: Database file not found"
+          exit 1
+        fi
+        
+        # Create backup
+        cp /data/data.sqld "$$BACKUP_FILE"
+        echo "$$(date): Backup created"
+        
+        # Compress
+        gzip "$$BACKUP_FILE"
+        echo "$$(date): Backup compressed"
+        
+        # Clean old backups (using environment variable)
+        DELETED=$$(find /backups -name "backup-*.sqld.gz" -mtime +60 -delete -print | wc -l)
+        if [ $$DELETED -gt 0 ]; then
+          echo "$$(date): Cleaned up $$DELETED old backup(s)"
+        fi
+        
+        # Stats
+        BACKUP_SIZE=$$(du -h "$$BACKUP_FILE.gz" | cut -f1)
+        BACKUP_COUNT=$$(ls -1 /backups/backup-*.sqld.gz 2>/dev/null | wc -l)
+        echo "$$(date): Size: $$BACKUP_SIZE | Total: $$BACKUP_COUNT"
+        echo "$$(date): Backup completed successfully"
+        SCRIPT_EOF
+        
+        chmod +x /backup.sh
+        
+        # Setup cron (every Sunday at 2 AM)
+        echo "0 2 * * 0 /backup.sh" > /etc/crontabs/root
+        
+        # Initial check
+        echo "$$(date): Backup service starting..."
+        if [ -f /data/data.sqld ]; then
+          DB_SIZE=$$(du -h /data/data.sqld | cut -f1)
+          echo "$$(date): Database found: $$DB_SIZE"
+        else
+          echo "$$(date): Database will be created by libSQL server"
+        fi
+        echo "$$(date): Cron configured for Sunday 2 AM (Europe/Amsterdam)"
+        echo "$$(date): Retention: 60 days"
+        echo "$$(date): Waiting for scheduled backup..."
+        
+        # Start cron in foreground
+        crond -f -l 2
+        
+    restart: unless-stopped
+    networks:
+      - aether-network
+
+networks:
+  aether-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
