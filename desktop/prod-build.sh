@@ -17,7 +17,7 @@ if [ -f ".env.production" ]; then
 fi
 
 echo "Generating SDK in production mode..."
-pnpm run generate:sdk
+bun generate:sdk
 
 echo "Building Tauri app (bundles: app, target: universal-apple-darwin)..."
-pnpm tauri build --bundles app --target universal-apple-darwin
+bun tauri build --bundles app --target universal-apple-darwin

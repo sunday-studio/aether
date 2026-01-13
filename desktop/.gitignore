@@ -25,3 +25,6 @@ dist-ssr
 
 
 src/aether-sdk
+.env
+.env.production
+.env.development
