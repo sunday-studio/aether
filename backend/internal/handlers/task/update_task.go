@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"aether/internal/db"
-	"aether/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -74,9 +73,6 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
 		}
 		task.GoalInstanceID = goalInstanceID
 	}
-	// Note: To remove a goal from a task, use the DELETE /tasks/{id}/goal endpoint
-
-	utils.PrettyPrint(task)
 
 	if err := h.db.Save(&task).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})

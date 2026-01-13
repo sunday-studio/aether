@@ -3,8 +3,6 @@ import { defineConfig } from "orval";
 
 dotenv.config();
 
-console.log("API_URL ->", process.env.API_URL);
-
 export default defineConfig({
 	"aether-sdk": {
 		input: "../backend/docs/swagger.json",

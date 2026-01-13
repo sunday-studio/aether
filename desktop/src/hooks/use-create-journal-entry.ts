@@ -23,12 +23,10 @@ export const useCreateJournalEntry = () => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					console.log("data ->", data);
 					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
 					requestFocus(data?.id ?? "");
 				},
 				onError: (error) => {
-					console.log("error ->", error);
 					console.error(error);
 				},
 			},

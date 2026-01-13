@@ -24,7 +24,8 @@ export const initQueryClient = () => {
 		defaultOptions: {
 			queries: {
 				refetchOnWindowFocus: false,
-				gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
+				// gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
+				gcTime: 0, // disable garbage collection
 
 				// Retry transient errors like STREAM_EXPIRED up to 3 times
 				retry: (failureCount, error) => {

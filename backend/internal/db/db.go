@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,74 +17,119 @@ import (
 )
 
 var (
-	// Global connector for manual sync access
-	globalConnector *libsql.Connector
-	connectorMutex  sync.RWMutex
+	globalConnector   *libsql.Connector
+	connectorMutex    sync.RWMutex
+	hasSyncCapability bool
 )
 
 func Initialize() (*gorm.DB, error) {
 	gormLogger := logger.Default.LogMode(logger.Info)
-
-	libsqlURL := os.Getenv("LIBSQL_URL")
-	if libsqlURL == "" {
-		return nil, fmt.Errorf("LIBSQL_URL environment variable must be set")
-	}
-
-	authToken := os.Getenv("LIBSQL_AUTH_TOKEN")
-	if authToken == "" {
-		return nil, fmt.Errorf("LIBSQL_AUTH_TOKEN environment variable must be set")
-	}
-
 	log := logging.NewLogger()
-	useReplica := os.Getenv("LIBSQL_USE_REPLICA") == "true"
 
-	fmt.Println("useReplica ->", useReplica)
+	libsqlURL := cleanEnvVar(os.Getenv("LIBSQL_URL"))
+	authToken := cleanEnvVar(os.Getenv("LIBSQL_AUTH_TOKEN"))
+
+	replicaPath := "./libsql-replica/local.db"
+	replicaDir := filepath.Dir(replicaPath)
+
+	if err := os.MkdirAll(replicaDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create replica dir: %w", err)
+	}
 
 	var db *gorm.DB
 	var err error
+	hasRemote := libsqlURL != ""
 
-	if useReplica {
-		log.Info("Using libSQL embedded replica mode", "syncUrl", libsqlURL)
-
-		replicaPath := "./libsql-replica/local.db"
-
-		if err = os.MkdirAll(filepath.Dir(replicaPath), 0755); err != nil {
-			return nil, fmt.Errorf("failed to create replica dir: %w", err)
+	if !hasRemote {
+		if hasReplicaMetadata(replicaPath) {
+			if err := cleanupReplicaMetadata(replicaPath, log); err != nil {
+				log.Warn("Failed to clean replica metadata", "error", err)
+			}
 		}
 
-		// Create connector with manual sync (no auto-sync interval)
-		connector, err := libsql.NewEmbeddedReplicaConnector(
-			replicaPath,
-			libsqlURL,
-			libsql.WithAuthToken(authToken),
-			libsql.WithSyncInterval(0), // Disable auto-sync for better write performance
-		)
+		sqlDB, err := sql.Open("libsql", fmt.Sprintf("file:%s", replicaPath))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create embedded replica connector: %w", err)
+			return nil, fmt.Errorf("failed to open local libSQL database: %w", err)
 		}
 
-		// Store connector globally for manual sync access
-		connectorMutex.Lock()
-		globalConnector = connector
-		connectorMutex.Unlock()
-
-		sqlDB := sql.OpenDB(connector)
-
-		// Pi-optimized connection pool settings
 		sqlDB.SetMaxIdleConns(5)
 		sqlDB.SetMaxOpenConns(10)
 		sqlDB.SetConnMaxLifetime(time.Hour)
 		sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
-		log.Info("Performing initial sync with primary...")
-		syncResult, err := connector.Sync()
+		db, err = gorm.Open(sqlite.Dialector{
+			Conn: sqlDB,
+		}, &gorm.Config{
+			Logger:      gormLogger,
+			PrepareStmt: true,
+		})
 		if err != nil {
-			log.Warn("Initial sync failed (this is OK if primary is empty)", "error", err)
-		} else {
-			log.Info("Initial sync completed", "framesSynced", syncResult.FramesSynced)
+			sqlDB.Close()
+			return nil, fmt.Errorf("failed to open GORM with local libSQL: %w", err)
 		}
 
-		// Use glebarez/sqlite dialector with the custom connection
+		connectorMutex.Lock()
+		globalConnector = nil
+		hasSyncCapability = false
+		connectorMutex.Unlock()
+
+	} else {
+		if err := checkAndCleanCorruptedReplica(replicaPath, log); err != nil {
+			log.Warn("Failed to check/clean replica", "error", err)
+		}
+
+		connectorOpts := []libsql.Option{
+			libsql.WithSyncInterval(0),
+		}
+
+		if authToken != "" {
+			connectorOpts = append(connectorOpts, libsql.WithAuthToken(authToken))
+		}
+
+		var connector *libsql.Connector
+		connector, err = libsql.NewSyncedDatabaseConnector(
+			replicaPath,
+			libsqlURL,
+			connectorOpts...,
+		)
+
+		if err != nil {
+			connector, err = libsql.NewEmbeddedReplicaConnector(
+				replicaPath,
+				libsqlURL,
+				connectorOpts...,
+			)
+
+			if err != nil {
+				if cleanErr := cleanupCorruptedReplica(replicaPath, log); cleanErr != nil {
+					return nil, fmt.Errorf("failed to cleanup replica: %w", cleanErr)
+				}
+
+				connector, err = libsql.NewEmbeddedReplicaConnector(
+					replicaPath,
+					libsqlURL,
+					connectorOpts...,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create synced connector after cleanup: %w", err)
+				}
+			}
+		}
+
+		connectorMutex.Lock()
+		globalConnector = connector
+		hasSyncCapability = true
+		connectorMutex.Unlock()
+
+		sqlDB := sql.OpenDB(connector)
+
+		sqlDB.SetMaxIdleConns(5)
+		sqlDB.SetMaxOpenConns(10)
+		sqlDB.SetConnMaxLifetime(time.Hour)
+		sqlDB.SetConnMaxIdleTime(10 * time.Minute)
+
+		connector.Sync()
+
 		db, err = gorm.Open(sqlite.Dialector{
 			Conn: sqlDB,
 		}, &gorm.Config{
@@ -92,65 +138,113 @@ func Initialize() (*gorm.DB, error) {
 		})
 		if err != nil {
 			connector.Close()
-			return nil, fmt.Errorf("failed to open GORM with libSQL replica: %w", err)
-		}
-
-		// Apply Pi-optimized SQLite settings
-		if err := applySQLiteOptimizations(db); err != nil {
-			log.Warn("Failed to apply SQLite optimizations", "error", err)
-		}
-
-		// Start background sync
-		syncInterval := getSyncInterval()
-		startBackgroundSync(syncInterval)
-
-		log.Info("Successfully connected to libSQL embedded replica")
-		log.Info("Background sync enabled", "interval", syncInterval)
-
-	} else {
-		log.Info("Using libSQL HTTP connection", "url", libsqlURL)
-		log.Warn("Direct HTTP mode may experience STREAM_EXPIRED errors. Consider setting LIBSQL_USE_REPLICA=true")
-
-		sqlDB, err := sql.Open("libsql", libsqlURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open libSQL connection: %w", err)
-		}
-
-		// Improved connection pool settings
-		sqlDB.SetMaxIdleConns(2)
-		sqlDB.SetMaxOpenConns(10)
-		sqlDB.SetConnMaxLifetime(30 * time.Second)
-
-		db, err = gorm.Open(sqlite.Dialector{
-			Conn: sqlDB,
-		}, &gorm.Config{
-			Logger:      gormLogger,
-			PrepareStmt: true,
-		})
-		if err != nil {
 			return nil, fmt.Errorf("failed to open GORM with libSQL: %w", err)
 		}
 
-		log.Info("Connected to libSQL HTTP mode with improved pooling")
+		startBackgroundSync(getSyncInterval())
+	}
+
+	if err := applySQLiteOptimizations(db); err != nil {
+		log.Warn("Failed to apply SQLite optimizations", "error", err)
 	}
 
 	return db, nil
 }
 
-// getSyncInterval returns sync interval from env or default (10 seconds)
+func hasReplicaMetadata(replicaPath string) bool {
+	metadataPatterns := []string{
+		replicaPath + "-shm",
+		replicaPath + "-wal",
+		filepath.Join(filepath.Dir(replicaPath), ".meta"),
+	}
+
+	for _, pattern := range metadataPatterns {
+		if _, err := os.Stat(pattern); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func cleanupReplicaMetadata(replicaPath string, log *logging.Logger) error {
+	replicaDir := filepath.Dir(replicaPath)
+	metadataFiles := []string{
+		replicaPath + "-shm",
+		replicaPath + "-wal",
+		filepath.Join(replicaDir, ".meta"),
+	}
+
+	for _, file := range metadataFiles {
+		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+			log.Warn("Failed to remove metadata file", "file", file, "error", err)
+		}
+	}
+
+	return nil
+}
+
+func cleanEnvVar(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, `"'`)
+	value = strings.TrimSpace(value)
+	return value
+}
+
+func checkAndCleanCorruptedReplica(replicaPath string, log *logging.Logger) error {
+	if _, err := os.Stat(replicaPath); err != nil {
+		return nil
+	}
+
+	metadataPatterns := []string{
+		replicaPath + "-shm",
+		replicaPath + "-wal",
+		filepath.Join(filepath.Dir(replicaPath), ".meta"),
+	}
+
+	hasMetadata := false
+	for _, pattern := range metadataPatterns {
+		if _, err := os.Stat(pattern); err == nil {
+			hasMetadata = true
+			break
+		}
+	}
+
+	if !hasMetadata {
+		return cleanupCorruptedReplica(replicaPath, log)
+	}
+
+	return nil
+}
+
+func cleanupCorruptedReplica(replicaPath string, log *logging.Logger) error {
+	replicaDir := filepath.Dir(replicaPath)
+
+	if err := os.RemoveAll(replicaDir); err != nil {
+		return fmt.Errorf("failed to remove replica directory: %w", err)
+	}
+
+	if err := os.MkdirAll(replicaDir, 0755); err != nil {
+		return fmt.Errorf("failed to recreate replica directory: %w", err)
+	}
+
+	return nil
+}
+
 func getSyncInterval() time.Duration {
-	if interval := os.Getenv("LIBSQL_SYNC_INTERVAL"); interval != "" {
+	interval := cleanEnvVar(os.Getenv("LIBSQL_SYNC_INTERVAL"))
+	if interval != "" {
+		if d, err := time.ParseDuration(interval + "s"); err == nil {
+			return d
+		}
 		if d, err := time.ParseDuration(interval); err == nil {
 			return d
 		}
 	}
-	return 10 * time.Second // Default: sync every 10 seconds
+	return 10 * time.Second
 }
 
-// startBackgroundSync starts a goroutine that periodically syncs with Turso
 func startBackgroundSync(interval time.Duration) {
 	go func() {
-		log := logging.NewLogger()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -160,67 +254,37 @@ func startBackgroundSync(interval time.Duration) {
 			connectorMutex.RUnlock()
 
 			if conn != nil {
-				result, err := conn.Sync()
-				if err != nil {
-					log.Warn("Background sync failed", "error", err)
-				} else if result.FramesSynced > 0 {
-					log.Info("Background sync completed",
-						"framesSynced", result.FramesSynced,
-						"frameNo", result.FrameNo)
-				}
+				conn.Sync()
 			}
 		}
 	}()
 }
 
-// applySQLiteOptimizations applies Pi-optimized PRAGMA settings
-// NOTE: We don't set WAL mode because libSQL manages its own replication WAL
 func applySQLiteOptimizations(db *gorm.DB) error {
-	log := logging.NewLogger()
-
-	// Check current journal mode (for debugging)
-	var journalMode string
-	if err := db.Raw("PRAGMA journal_mode").Scan(&journalMode).Error; err == nil {
-		log.Info("Current journal mode", "mode", journalMode)
-	}
-
-	// Pi-optimized pragmas (reduced memory for Raspberry Pi)
 	pragmas := []string{
-		// NOTE: Do NOT set "PRAGMA journal_mode = WAL"
-		// libSQL embedded replica manages its own WAL for replication
-		"PRAGMA synchronous = NORMAL",      // Balance safety and performance
-		"PRAGMA cache_size = -32000",       // 32MB cache (Pi-friendly)
-		"PRAGMA temp_store = MEMORY",       // Temp tables in RAM
-		"PRAGMA mmap_size = 67108864",      // 64MB memory-mapped I/O (Pi-friendly)
-		"PRAGMA page_size = 4096",          // Standard page size
-		"PRAGMA busy_timeout = 10000",      // 10s timeout for Pi's slower I/O
-		"PRAGMA foreign_keys = ON",         // Enable FK constraints
-		"PRAGMA locking_mode = NORMAL",     // Allow multiple connections
-		"PRAGMA auto_vacuum = INCREMENTAL", // Prevent bloat
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA cache_size = -32000",
+		"PRAGMA temp_store = MEMORY",
+		"PRAGMA mmap_size = 67108864",
+		"PRAGMA page_size = 4096",
+		"PRAGMA busy_timeout = 10000",
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA locking_mode = NORMAL",
+		"PRAGMA auto_vacuum = INCREMENTAL",
 	}
 
 	for _, pragma := range pragmas {
-		if err := db.Exec(pragma).Error; err != nil {
-			// Log warnings but don't fail - some pragmas may not be supported
-			log.Warn("Pragma execution warning", "pragma", pragma, "error", err)
-		}
+		db.Exec(pragma)
 	}
 
-	log.Info("SQLite optimizations applied (Pi-optimized)")
 	return nil
 }
 
 func Migrate(db *gorm.DB) error {
 	log := logging.NewLogger()
 
-	log.Info("Running database migrations")
+	db.Exec("PRAGMA foreign_keys = OFF")
 
-	// Temporarily disable foreign key constraints to allow schema changes
-	if err := db.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
-		log.Warn("Could not disable foreign keys", "error", err)
-	}
-
-	// AutoMigrate models
 	models := []interface{}{
 		&Entry{},
 		&Tag{},
@@ -233,37 +297,34 @@ func Migrate(db *gorm.DB) error {
 
 	for _, model := range models {
 		if err := db.AutoMigrate(model); err != nil {
-			log.Error("Failed to migrate model", "error", err, "model", fmt.Sprintf("%T", model))
 			db.Exec("PRAGMA foreign_keys = ON")
+			log.Error("Failed to migrate model", "error", err, "model", fmt.Sprintf("%T", model))
 			return fmt.Errorf("failed to migrate %T: %w", model, err)
 		}
-		log.Info("Successfully migrated model", "model", fmt.Sprintf("%T", model))
 	}
 
-	// Re-enable foreign key constraints
-	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
-		log.Warn("Could not re-enable foreign keys", "error", err)
-	}
-
-	log.Info("All database migrations completed successfully")
+	db.Exec("PRAGMA foreign_keys = ON")
 	return nil
 }
 
-// GetConnector returns the global libSQL connector for manual sync operations
 func GetConnector() *libsql.Connector {
 	connectorMutex.RLock()
 	defer connectorMutex.RUnlock()
 	return globalConnector
 }
 
-// SyncNow performs an immediate sync with Turso (useful for manual sync endpoint)
 func SyncNow() (frames int, err error) {
 	connectorMutex.RLock()
 	conn := globalConnector
+	canSync := hasSyncCapability
 	connectorMutex.RUnlock()
 
+	if !canSync {
+		return 0, fmt.Errorf("sync not available: no LIBSQL_URL configured - set LIBSQL_URL to enable sync")
+	}
+
 	if conn == nil {
-		return 0, fmt.Errorf("no connector available (not in replica mode)")
+		return 0, fmt.Errorf("no connector available")
 	}
 
 	result, err := conn.Sync()
@@ -272,4 +333,10 @@ func SyncNow() (frames int, err error) {
 	}
 
 	return result.FramesSynced, nil
+}
+
+func HasSyncCapability() bool {
+	connectorMutex.RLock()
+	defer connectorMutex.RUnlock()
+	return hasSyncCapability
 }

@@ -131,7 +131,8 @@ export const VirtualizedTaskList = ({
 							}}
 							className={cn(
 								"px-0.5 pb-4 transform-gpu transition-opacity duration-200",
-								item.isPast && "opacity-60 hover:opacity-100",
+								item.isPast &&
+									"opacity-60 hover:opacity-100 focus-within:opacity-100",
 							)}
 						>
 							<TaskItem task={item.task} />
