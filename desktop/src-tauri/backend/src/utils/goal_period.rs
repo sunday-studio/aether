@@ -3,6 +3,7 @@ use crate::utils::timezone::{days_since_in_timezone, get_goal_location, now_in_t
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use chrono_tz::Tz;
 
+#[derive(Clone)]
 pub struct RecurringGoal {
     pub recurrence_type: String,
     pub recurrence_interval: i32,

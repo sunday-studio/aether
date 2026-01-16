@@ -1,8 +1,9 @@
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::db::models::{Entry, SubTask, Tag, Task};
+use crate::db::models::{Entry, Goal, GoalInstance, SubTask, Tag, Task};
 use crate::handlers::entry;
+use crate::handlers::goal as goal_handlers;
 use crate::handlers::tag;
 use crate::handlers::task as task_handlers;
 
@@ -38,12 +39,24 @@ use crate::handlers::task as task_handlers;
         task_handlers::remove_tags_from_task,
         task_handlers::add_goal_to_task,
         task_handlers::remove_goal_from_task,
+        // Goal endpoints
+        goal_handlers::get_goals,
+        goal_handlers::get_goal_by_id,
+        goal_handlers::create_goal,
+        goal_handlers::update_goal,
+        goal_handlers::delete_goal,
+        goal_handlers::get_goal_instances,
+        goal_handlers::get_current_goal_instance,
+        goal_handlers::add_tags_to_goal,
+        goal_handlers::remove_tags_from_goal,
     ),
     components(schemas(
         Tag,
         Entry,
         Task,
         SubTask,
+        Goal,
+        GoalInstance,
         tag::CreateTagRequest,
         entry::CreateEntryRequest,
         entry::UpdateEntryRequest,
@@ -53,11 +66,15 @@ use crate::handlers::task as task_handlers;
         task_handlers::UpdateSubTaskRequest,
         task_handlers::ReorderSubTasksRequest,
         task_handlers::AddGoalToTaskRequest,
+        goal_handlers::CreateGoalRequest,
+        goal_handlers::UpdateGoalRequest,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
         (name = "Entries", description = "Entry management endpoints"),
         (name = "Tasks", description = "Task management endpoints"),
+        (name = "Goals", description = "Goal management endpoints"),
+        (name = "GoalInstances", description = "Goal instance management endpoints"),
     ),
 )]
 pub struct ApiDoc;

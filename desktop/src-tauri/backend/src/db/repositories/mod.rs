@@ -6,7 +6,7 @@ pub mod tag;
 pub mod task;
 pub mod goal;
 
-pub use entry::*;
-pub use tag::*;
-pub use task::*;
-pub use goal::*;
+pub use entry::EntryRepository;
+pub use tag::TagRepository;
+pub use task::TaskRepository;
+pub use goal::GoalRepository;

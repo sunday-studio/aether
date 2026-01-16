@@ -531,11 +531,13 @@ impl TaskRepository {
         Ok(())
     }
 
-    /// Add goal to a task (will be implemented with goal instance logic later)
+    /// Add goal to a task - gets or creates current goal instance
     pub async fn add_goal(&self, task_id: &str, goal_id: &str) -> Result<Option<String>> {
-        // This will be implemented in Milestone 5 when we have goal instance logic
-        // For now, return the goal_id as goal_instance_id placeholder
-        Ok(Some(goal_id.to_string()))
+        // Use GoalRepository to get or create current instance
+        use crate::db::repositories::goal::GoalRepository;
+        let goal_repo = GoalRepository::new(self.database.clone());
+        let instance = goal_repo.get_or_create_current_instance(goal_id).await?;
+        Ok(Some(instance.id))
     }
 
     /// Remove goal from a task

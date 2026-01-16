@@ -22,7 +22,7 @@ todos:
       - milestone-3-openapi-basic
   - id: milestone-5-goals
     content: "Milestone 5: Port goal handlers, goal instances, and recurrence logic"
-    status: in_progress
+    status: completed
     dependencies:
       - milestone-4-tasks
   - id: milestone-6-remaining
