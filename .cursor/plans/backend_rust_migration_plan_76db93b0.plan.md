@@ -32,7 +32,7 @@ todos:
       - milestone-5-goals
   - id: milestone-7-integration
     content: "Milestone 7: Integration testing, update desktop app, verify OpenAPI spec matches, create migration guide"
-    status: pending
+    status: completed
     dependencies:
       - milestone-6-remaining
 ---

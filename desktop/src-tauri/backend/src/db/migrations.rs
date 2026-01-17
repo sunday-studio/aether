@@ -45,15 +45,17 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     migration_files.sort();
 
     // Get applied migrations
+    let mut applied_versions = std::collections::HashSet::new();
+    
     let mut rows = conn
         .query("SELECT version FROM schema_migrations ORDER BY version", libsql::params![])
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
-    let mut applied_versions = std::collections::HashSet::new();
-    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-        let version: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
-        applied_versions.insert(version);
+    while let Ok(Some(row)) = rows.next().await {
+        if let Ok(version) = row.get::<String>(0) {
+            applied_versions.insert(version);
+        }
     }
 
     // Run pending migrations

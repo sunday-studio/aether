@@ -53,3 +53,8 @@ futures = "0.3"
 
 # Human-readable duration parsing
 humantime = "2.1"
+
+[dev-dependencies]
+# Testing
+reqwest = { version = "0.12", features = ["json"] }
+tokio-test = "0.4"
