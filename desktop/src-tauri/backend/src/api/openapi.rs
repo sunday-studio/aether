@@ -55,6 +55,7 @@ use crate::handlers::trash as trash_handlers;
         trash_handlers::get_trashed_tasks,
         trash_handlers::restore_task,
         // Sync endpoints
+        sync_handlers::configure_sync,
         sync_handlers::sync,
     ),
     components(schemas(
@@ -75,6 +76,7 @@ use crate::handlers::trash as trash_handlers;
         task_handlers::AddGoalToTaskRequest,
         goal_handlers::CreateGoalRequest,
         goal_handlers::UpdateGoalRequest,
+        sync_handlers::ConfigureSyncRequest,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),

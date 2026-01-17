@@ -1,10 +1,9 @@
-use crate::db::{DbState, TagRepository};
+use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
 use axum::{
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{get, post},
 };
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -30,7 +29,7 @@ pub struct BulkCreateTagsRequest {
     )
 )]
 pub async fn get_all_tags(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let repo = TagRepository::new(state.database);
+    let repo = TagRepository::new(connection::get_database(&state));
     let tags = repo.find_all().await?;
     Ok((StatusCode::OK, Json(tags)))
 }
@@ -55,7 +54,7 @@ pub async fn create_tag(
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
     }
 
-    let repo = TagRepository::new(state.database);
+    let repo = TagRepository::new(connection::get_database(&state));
     let tag = repo.create(payload.name).await?;
     Ok((StatusCode::OK, Json(tag)))
 }
@@ -76,7 +75,7 @@ pub async fn bulk_create_tags(
     State(state): State<DbState>,
     Json(payload): Json<Vec<CreateTagRequest>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TagRepository::new(state.database);
+    let repo = TagRepository::new(connection::get_database(&state));
     let names: Vec<String> = payload.into_iter().map(|t| t.name).collect();
     let tags = repo.bulk_create(names).await?;
     Ok((StatusCode::OK, Json(tags)))

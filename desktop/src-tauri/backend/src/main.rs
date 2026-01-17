@@ -22,7 +22,8 @@ async fn main() -> Result<()> {
     tracing::info!("Database initialized successfully");
 
     // Run migrations
-    aether_backend::db::migrations::run_migrations(&db_state.database).await?;
+    let database = aether_backend::db::connection::get_database(&db_state);
+    aether_backend::db::migrations::run_migrations(&database).await?;
     tracing::info!("Migrations completed");
 
     // Build application with routes

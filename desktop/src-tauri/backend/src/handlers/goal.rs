@@ -1,4 +1,4 @@
-use crate::db::{DbState, GoalRepository};
+use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
 use axum::{
     extract::{Path, State},
@@ -61,7 +61,7 @@ pub struct UpdateGoalRequest {
     )
 )]
 pub async fn get_goals(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     let goals = repo.find_all().await?;
     Ok((StatusCode::OK, Json(goals)))
 }
@@ -84,7 +84,7 @@ pub async fn get_goal_by_id(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     match repo.find_by_id(&id).await? {
         Some(goal) => Ok((StatusCode::OK, Json(goal))),
         None => Err(AppError::NotFound(format!("Goal {} not found", id))),
@@ -149,7 +149,7 @@ pub async fn create_goal(
     // For now, we'll default to UTC - can be enhanced later to read from settings
     let timezone = "UTC".to_string();
 
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     let goal = repo
         .create(
             payload.name,
@@ -193,7 +193,7 @@ pub async fn update_goal(
     Path(id): Path<String>,
     Json(payload): Json<UpdateGoalRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     let goal = repo
         .update(
             &id,
@@ -240,7 +240,7 @@ pub async fn delete_goal(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     repo.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -263,7 +263,7 @@ pub async fn get_goal_instances(
     State(state): State<DbState>,
     Path(goal_id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     let instances = repo.find_instances(&goal_id).await?;
     Ok((StatusCode::OK, Json(instances)))
 }
@@ -286,7 +286,7 @@ pub async fn get_current_goal_instance(
     State(state): State<DbState>,
     Path(goal_id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     let instance = repo.get_or_create_current_instance(&goal_id).await?;
     Ok((StatusCode::OK, Json(instance)))
 }
@@ -311,7 +311,7 @@ pub async fn add_tags_to_goal(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     repo.add_tags(&id, tag_ids).await?;
     
     // Return updated goal
@@ -340,7 +340,7 @@ pub async fn remove_tags_from_goal(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(state.database);
+    let repo = GoalRepository::new(connection::get_database(&state));
     repo.remove_tags(&id, tag_ids).await?;
     
     // Return updated goal

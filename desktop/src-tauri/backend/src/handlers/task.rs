@@ -1,4 +1,4 @@
-use crate::db::{DbState, TaskRepository};
+use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
 use axum::{
     extract::{Path, State},
@@ -83,7 +83,7 @@ pub async fn create_task(
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     
     // For now, goal_instance_id will be None - will be implemented in Milestone 5
     let task = repo
@@ -115,7 +115,7 @@ pub async fn create_task(
     )
 )]
 pub async fn get_inbox_tasks(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     let tasks = repo.find_inbox().await?;
     Ok((StatusCode::OK, Json(tasks)))
 }
@@ -131,7 +131,7 @@ pub async fn get_inbox_tasks(State(state): State<DbState>) -> Result<impl IntoRe
     )
 )]
 pub async fn get_overdue_tasks(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     let tasks = repo.find_overdue().await?;
     Ok((StatusCode::OK, Json(tasks)))
 }
@@ -154,7 +154,7 @@ pub async fn get_task_by_id(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     match repo.find_by_id(&id).await? {
         Some(task) => Ok((StatusCode::OK, Json(task))),
         None => Err(AppError::NotFound(format!("Task {} not found", id))),
@@ -183,7 +183,7 @@ pub async fn update_task(
     Path(id): Path<String>,
     Json(payload): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     
     // For goal_id, we'll need to get or create goal instance in Milestone 5
     // For now, pass None for goal_instance_id
@@ -234,7 +234,7 @@ pub async fn delete_task(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -257,7 +257,7 @@ pub async fn get_subtasks(
     State(state): State<DbState>,
     Path(task_id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     let subtasks = repo.find_subtasks(&task_id).await?;
     Ok((StatusCode::OK, Json(subtasks)))
 }
@@ -287,7 +287,7 @@ pub async fn create_subtask(
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     let subtask = repo.create_subtask(&task_id, payload.title).await?;
     Ok((StatusCode::OK, Json(subtask)))
 }
@@ -314,7 +314,7 @@ pub async fn update_subtask(
     Path((task_id, subtask_id)): Path<(String, String)>,
     Json(payload): Json<UpdateSubTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     let subtask = repo
         .update_subtask(&task_id, &subtask_id, payload.title, payload.is_completed)
         .await?;
@@ -340,7 +340,7 @@ pub async fn delete_subtask(
     State(state): State<DbState>,
     Path((task_id, subtask_id)): Path<(String, String)>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.delete_subtask(&task_id, &subtask_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -365,7 +365,7 @@ pub async fn reorder_subtasks(
     Path(task_id): Path<String>,
     Json(payload): Json<ReorderSubTasksRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.reorder_subtasks(&task_id, payload.sub_task_ids).await?;
     Ok((StatusCode::OK, Json(serde_json::json!({"success": true}))))
 }
@@ -390,7 +390,7 @@ pub async fn add_tags_to_task(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.add_tags(&id, tag_ids).await?;
     
     // Return updated task
@@ -419,7 +419,7 @@ pub async fn remove_tags_from_task(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.remove_tags(&id, tag_ids).await?;
     
     // Return updated task
@@ -448,7 +448,7 @@ pub async fn add_goal_to_task(
     Path(id): Path<String>,
     Json(payload): Json<AddGoalToTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     
     // Get or create goal instance - placeholder for now, will be implemented in Milestone 5
     let goal_instance_id = repo.add_goal(&id, &payload.goal_id).await?;
@@ -488,7 +488,7 @@ pub async fn remove_goal_from_task(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(state.database);
+    let repo = TaskRepository::new(connection::get_database(&state));
     repo.remove_goal(&id).await?;
     
     // Return updated task

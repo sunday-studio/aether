@@ -1,4 +1,4 @@
-use crate::db::{DbState, EntryRepository};
+use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
 use axum::{
     extract::{Path, State},
@@ -50,7 +50,7 @@ pub struct UpdateEntryRequest {
     )
 )]
 pub async fn get_entries(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     let entries = repo.find_all().await?;
     Ok((StatusCode::OK, Json(entries)))
 }
@@ -73,7 +73,7 @@ pub async fn get_entry_by_id(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     match repo.find_by_id(&id).await? {
         Some(entry) => Ok((StatusCode::OK, Json(entry))),
         None => Err(AppError::NotFound(format!("Entry {} not found", id))),
@@ -96,7 +96,7 @@ pub async fn create_entry(
     State(state): State<DbState>,
     Json(payload): Json<CreateEntryRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     let entry = repo
         .create(
             payload.document,
@@ -125,7 +125,7 @@ pub async fn bulk_create_entries(
     State(state): State<DbState>,
     Json(payload): Json<Vec<CreateEntryRequest>>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     let entries_data: Vec<_> = payload
         .into_iter()
         .map(|e| {
@@ -164,7 +164,7 @@ pub async fn update_entry(
     Path(id): Path<String>,
     Json(payload): Json<UpdateEntryRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     let entry = repo
         .update(
             &id,
@@ -196,7 +196,7 @@ pub async fn delete_entry(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     repo.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -221,7 +221,7 @@ pub async fn add_tags_to_entry(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     repo.add_tags(&id, tag_ids).await?;
     
     // Return updated entry
@@ -250,7 +250,7 @@ pub async fn remove_tags_from_entry(
     Path(id): Path<String>,
     Json(tag_id): Json<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(state.database);
+    let repo = EntryRepository::new(connection::get_database(&state));
     repo.remove_tags(&id, tag_id).await?;
     
     // Return updated entry

@@ -1,4 +1,4 @@
-use crate::db::DbState;
+use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use axum::{
     extract::{Path, State},
@@ -18,7 +18,7 @@ use utoipa::ToSchema;
     )
 )]
 pub async fn get_trashed_tasks(State(state): State<DbState>) -> Result<impl IntoResponse> {
-    let conn = state.database.connect().map_err(|e| AppError::LibSQL(e))?;
+    let conn = connection::get_database(&state).connect().map_err(|e| AppError::LibSQL(e))?;
     
     let mut rows = conn
         .query(
@@ -96,7 +96,7 @@ pub async fn restore_task(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let conn = state.database.connect().map_err(|e| AppError::LibSQL(e))?;
+    let conn = connection::get_database(&state).connect().map_err(|e| AppError::LibSQL(e))?;
     
     // Check if task exists and is deleted
     let mut rows = conn

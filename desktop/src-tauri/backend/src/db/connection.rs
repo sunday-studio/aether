@@ -2,20 +2,28 @@ use crate::error::{AppError, Result};
 use libsql::{Builder, Database};
 use std::env;
 use std::path::Path;
-use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use std::sync::{Arc, Mutex};
+use tokio::time::Duration;
 
 #[derive(Clone)]
 pub struct DbState {
-    pub database: Arc<Database>,
-    pub has_sync_capability: bool,
+    pub database: Arc<Mutex<Arc<Database>>>,
+    pub sync_url: Arc<Mutex<Option<String>>>,
+    pub auth_token: Arc<Mutex<Option<String>>>,
+    pub has_sync_capability: Arc<Mutex<bool>>,
 }
 
 /// Initialize the database connection
-/// Supports both local-only mode (no LIBSQL_URL) and embedded replica mode (with LIBSQL_URL)
+/// Always starts in local-only mode. Sync can be enabled later via configure_sync()
+/// 
+/// According to Turso's Offline Writes feature:
+/// - Embedded replicas allow writes to local SQLite WAL first (offline writes)
+/// - Changes are synced to remote when connectivity is available
+/// - Reads are always served from local replica for zero latency
+/// - Sync pushes local WAL changes and pulls remote changes
+/// 
+/// Reference: https://turso.tech/blog/introducing-offline-writes-for-turso
 pub async fn initialize() -> Result<DbState> {
-    let libsql_url = env::var("LIBSQL_URL").ok();
-    let _auth_token = env::var("LIBSQL_AUTH_TOKEN").ok();
     let replica_path = "./libsql-replica/local.db";
 
     // Ensure replica directory exists
@@ -24,48 +32,101 @@ pub async fn initialize() -> Result<DbState> {
             .map_err(|e| AppError::Io(e))?;
     }
 
-    let (database, has_sync) = if libsql_url.is_some() {
-        // Embedded replica mode
-        // Note: The libsql Rust crate API for embedded replicas may differ from Go
-        // For now, we'll use local mode and note that sync needs to be implemented
-        // based on the actual libsql Rust API when available
-        tracing::info!("Initializing embedded replica mode (sync implementation pending)");
+    // Always start in local-only mode
+    // Sync can be enabled later via configure_sync() API
+    tracing::info!("Initializing local-only mode (sync can be enabled via API)");
 
-        let database = Builder::new_local(replica_path)
-            .build()
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
-
-        // Start background sync (placeholder for now)
-        let sync_interval = get_sync_interval();
-        let db_for_sync = Arc::new(database);
-        let url = libsql_url.unwrap();
-        let token = _auth_token;
-        start_background_sync(db_for_sync.clone(), url, token, sync_interval);
-
-        (db_for_sync, true)
-    } else {
-        // Local-only mode
-        tracing::info!("Initializing local-only mode");
-
-        let database = Builder::new_local(replica_path)
-            .build()
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
-
-        (Arc::new(database), false)
-    };
+    let database = Builder::new_local(replica_path)
+        .build()
+        .await
+        .map_err(|e| AppError::LibSQL(e))?;
 
     // Apply SQLite optimizations
     apply_sqlite_optimizations(&database).await?;
 
-    // Run migrations - will be called from main.rs after initialization
-    // For now, skip here to avoid circular dependency
-
     Ok(DbState {
-        database,
-        has_sync_capability: has_sync,
+        database: Arc::new(Mutex::new(Arc::new(database))),
+        sync_url: Arc::new(Mutex::new(None)),
+        auth_token: Arc::new(Mutex::new(None)),
+        has_sync_capability: Arc::new(Mutex::new(false)),
     })
+}
+
+/// Configure sync with remote database
+/// This upgrades the local database to an embedded replica that syncs with remote
+/// The existing local data is preserved and will be synced to remote
+/// 
+/// According to Turso's Offline Writes:
+/// - Writes continue to go to local WAL first (offline writes)
+/// - Changes are automatically synced to remote based on sync_interval
+/// - Reads are always served from local replica
+pub async fn configure_sync(
+    state: &DbState,
+    sync_url: String,
+    auth_token: Option<String>,
+) -> Result<()> {
+    let replica_path = "./libsql-replica/local.db";
+    
+    tracing::info!("Configuring sync with URL: {}", sync_url);
+
+    // Create new embedded replica using the same database file
+    // This preserves all existing local data
+    let token = auth_token.as_deref().unwrap_or("").to_string();
+    
+    let mut builder = Builder::new_remote_replica(replica_path, sync_url.clone(), token);
+    
+    // Configure sync interval for automatic background sync
+    let sync_interval_secs = get_sync_interval().as_secs();
+    builder = builder.sync_interval(Duration::from_secs(sync_interval_secs));
+    
+    // Enable read-your-writes: local writes are immediately visible
+    builder = builder.read_your_writes(true);
+
+    let database = builder
+        .build()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create embedded replica: {}", e);
+            AppError::LibSQL(e)
+        })?;
+
+    // Apply SQLite optimizations to the new database instance
+    apply_sqlite_optimizations(&database).await?;
+
+    // Perform initial sync to push local data and pull remote data
+    match database.sync().await {
+        Ok(_result) => {
+            tracing::info!("Initial sync completed");
+        }
+        Err(e) => {
+            tracing::warn!("Initial sync failed (will retry automatically): {}", e);
+            // Don't fail - sync will retry automatically
+        }
+    }
+
+    // Update state atomically
+    {
+        let mut db_guard = state.database.lock().unwrap();
+        *db_guard = Arc::new(database);
+    }
+    
+    {
+        let mut url_guard = state.sync_url.lock().unwrap();
+        *url_guard = Some(sync_url);
+    }
+    
+    {
+        let mut token_guard = state.auth_token.lock().unwrap();
+        *token_guard = auth_token;
+    }
+    
+    {
+        let mut sync_guard = state.has_sync_capability.lock().unwrap();
+        *sync_guard = true;
+    }
+
+    tracing::info!("Sync configured successfully");
+    Ok(())
 }
 
 /// Get sync interval from environment or use default
@@ -79,27 +140,6 @@ fn get_sync_interval() -> Duration {
     } else {
         Duration::from_secs(10) // Default: 10 seconds
     }
-}
-
-/// Start background sync task
-/// For embedded replicas, this would sync with the remote database
-/// TODO: Implement actual sync using libsql replication API when available
-fn start_background_sync(
-    _database: Arc<Database>,
-    _url: String,
-    _auth_token: Option<String>,
-    interval_duration: Duration,
-) {
-    tokio::spawn(async move {
-        let mut interval = interval(interval_duration);
-        loop {
-            interval.tick().await;
-            // For now, we'll just log - actual sync implementation depends on libsql API
-            // In production, you'd use the replication API to sync frames
-            // This requires understanding the libsql replication protocol
-            tracing::debug!("Background sync tick (sync implementation pending)");
-        }
-    });
 }
 
 /// Apply SQLite optimizations (PRAGMA settings)
@@ -130,15 +170,51 @@ async fn apply_sqlite_optimizations(database: &Database) -> Result<()> {
 }
 
 /// Manual sync trigger
+/// Pushes local WAL changes to remote and pulls remote changes to local
+/// 
+/// According to Turso's Offline Writes:
+/// - Pushes local WAL frames (offline writes) to remote
+/// - Pulls remote WAL frames to local
+/// - Returns number of frames synced
+/// 
+/// Reference: https://turso.tech/blog/introducing-offline-writes-for-turso
 pub async fn sync_now(state: &DbState) -> Result<u64> {
-    if !state.has_sync_capability {
+    let has_sync = {
+        let sync_guard = state.has_sync_capability.lock().unwrap();
+        *sync_guard
+    };
+
+    if !has_sync {
         return Err(AppError::BadRequest(
-            "Sync not available: no LIBSQL_URL configured".to_string(),
+            "Sync not available: no sync URL configured. Use /v1/sync/configure to enable sync".to_string(),
         ));
     }
 
-    // For embedded replicas, sync would be handled through the replication API
-    // This is a placeholder - actual implementation depends on libsql replication API
-    tracing::info!("Manual sync triggered (sync implementation pending)");
-    Ok(0) // Placeholder - would return actual frames synced
+    tracing::info!("Manual sync triggered");
+    
+    let database = {
+        let db_guard = state.database.lock().unwrap();
+        Arc::clone(&*db_guard)
+    };
+    
+    database
+        .sync()
+        .await
+        .map_err(|e| {
+            tracing::error!("Manual sync failed: {}", e);
+            AppError::LibSQL(e)
+        })?;
+
+    tracing::info!("Manual sync completed");
+    // Note: frames_synced is not accessible from the Replicated struct
+    // Return 0 as placeholder - the sync operation succeeded
+    Ok(0)
+}
+
+/// Get current database instance (for use in handlers and repositories)
+/// This ensures repositories always get the latest database instance,
+/// even after sync is configured
+pub fn get_database(state: &DbState) -> Arc<Database> {
+    let db_guard = state.database.lock().unwrap();
+    Arc::clone(&*db_guard)
 }

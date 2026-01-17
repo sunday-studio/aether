@@ -2,7 +2,7 @@ use crate::db::DbState;
 use crate::handlers::{entry, goal, sync, tag, task, trash};
 use axum::{
     response::Json,
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Router,
 };
 use serde_json::json;
@@ -56,7 +56,8 @@ pub fn register_routes(state: DbState) -> Router {
         // Trash routes
         .route("/v1/trash/tasks", get(trash::get_trashed_tasks))
         .route("/v1/trash/:id/restore", post(trash::restore_task))
-        // Sync route
+        // Sync routes
+        .route("/v1/sync/configure", post(sync::configure_sync))
         .route("/v1/sync", post(sync::sync))
         .with_state(state)
 }
