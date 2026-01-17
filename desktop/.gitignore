@@ -28,3 +28,6 @@ src/aether-sdk
 .env
 .env.production
 .env.development
+
+
+src-tauri/backend/target

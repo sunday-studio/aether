@@ -27,7 +27,7 @@ todos:
       - milestone-4-tasks
   - id: milestone-6-remaining
     content: "Milestone 6: Port trash and sync handlers, complete all remaining endpoints"
-    status: pending
+    status: completed
     dependencies:
       - milestone-5-goals
   - id: milestone-7-integration

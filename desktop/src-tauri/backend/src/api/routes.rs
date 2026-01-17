@@ -1,5 +1,5 @@
 use crate::db::DbState;
-use crate::handlers::{entry, goal, tag, task};
+use crate::handlers::{entry, goal, sync, tag, task, trash};
 use axum::{
     response::Json,
     routing::{delete, get, post, put},
@@ -53,6 +53,11 @@ pub fn register_routes(state: DbState) -> Router {
         .route("/v1/goals/:id/tags", post(goal::add_tags_to_goal).delete(goal::remove_tags_from_goal))
         .route("/v1/goals/:goalId/instances", get(goal::get_goal_instances))
         .route("/v1/goals/:goalId/instances/current", get(goal::get_current_goal_instance))
+        // Trash routes
+        .route("/v1/trash/tasks", get(trash::get_trashed_tasks))
+        .route("/v1/trash/:id/restore", post(trash::restore_task))
+        // Sync route
+        .route("/v1/sync", post(sync::sync))
         .with_state(state)
 }
 

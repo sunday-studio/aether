@@ -4,8 +4,10 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::db::models::{Entry, Goal, GoalInstance, SubTask, Tag, Task};
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
+use crate::handlers::sync as sync_handlers;
 use crate::handlers::tag;
 use crate::handlers::task as task_handlers;
+use crate::handlers::trash as trash_handlers;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -49,6 +51,11 @@ use crate::handlers::task as task_handlers;
         goal_handlers::get_current_goal_instance,
         goal_handlers::add_tags_to_goal,
         goal_handlers::remove_tags_from_goal,
+        // Trash endpoints
+        trash_handlers::get_trashed_tasks,
+        trash_handlers::restore_task,
+        // Sync endpoints
+        sync_handlers::sync,
     ),
     components(schemas(
         Tag,
@@ -75,6 +82,8 @@ use crate::handlers::task as task_handlers;
         (name = "Tasks", description = "Task management endpoints"),
         (name = "Goals", description = "Goal management endpoints"),
         (name = "GoalInstances", description = "Goal instance management endpoints"),
+        (name = "Trash", description = "Trash management endpoints"),
+        (name = "Sync", description = "Sync management endpoints"),
     ),
 )]
 pub struct ApiDoc;
