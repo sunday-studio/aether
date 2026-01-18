@@ -94,9 +94,9 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 						<Tooltip
 							trigger={
 								<p className="text-xs text-neutral-500 text-right font-gt-ultra px-1 py-0.5 rounded-md cursor-default">
-									{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
+									{/* {formatDistanceToNow(new Date(entry.createdAt ?? ""), {
 										addSuffix: true,
-									})}
+									})} */}
 								</p>
 							}
 							content={`created at ${format(new Date(), "MMMM d, yyyy")}`}

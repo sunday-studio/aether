@@ -90,6 +90,6 @@ use crate::handlers::trash as trash_handlers;
 )]
 pub struct ApiDoc;
 
-pub fn swagger_ui() -> SwaggerUi {
-    SwaggerUi::new("/swagger/*").url("/api-doc/openapi.json", ApiDoc::openapi())
-}
+// pub fn swagger_ui() -> SwaggerUi {
+//     SwaggerUi::new("/swagger/{*path}").url("/api-doc/openapi.json", ApiDoc::openapi())
+// }

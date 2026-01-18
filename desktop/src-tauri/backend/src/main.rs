@@ -57,6 +57,6 @@ fn create_app(state: db::DbState) -> Router {
     
     Router::new()
         .merge(aether_backend::api::register_routes(state))
-        .merge(openapi::swagger_ui())
+        // .merge(openapi::swagger_ui())
         .layer(cors)
 }

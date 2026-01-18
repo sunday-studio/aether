@@ -161,9 +161,18 @@ async fn apply_sqlite_optimizations(database: &Database) -> Result<()> {
     ];
 
     for pragma in pragmas {
-        conn.execute(pragma, libsql::params![])
+        // Use query() instead of execute() for PRAGMA statements
+        // Some PRAGMAs can return rows, and LibSQL requires using query() for statements that return rows
+        let mut rows = conn
+            .query(pragma, libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
+        
+        // Consume any returned rows (even if empty)
+        while let Ok(Some(_)) = rows.next().await {
+            // PRAGMA statements may return rows with the current value
+            // We just need to consume them
+        }
     }
 
     Ok(())

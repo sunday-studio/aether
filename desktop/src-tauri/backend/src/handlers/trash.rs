@@ -5,7 +5,6 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use utoipa::ToSchema;
 
 /// Get all trashed tasks
 #[utoipa::path(

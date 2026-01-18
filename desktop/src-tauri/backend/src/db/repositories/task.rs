@@ -448,15 +448,6 @@ impl TaskRepository {
             return Ok(());
         }
 
-        // Build placeholders for IN clause
-        let placeholders: Vec<String> = (1..=tag_ids.len())
-            .map(|i| format!("?{}", i))
-            .collect();
-        let query = format!(
-            "SELECT id FROM tags WHERE id IN ({})",
-            placeholders.join(", ")
-        );
-
         // Check tags exist - we'll use a simpler approach
         for tag_id in &tag_ids {
             let mut rows = conn
@@ -532,7 +523,7 @@ impl TaskRepository {
     }
 
     /// Add goal to a task - gets or creates current goal instance
-    pub async fn add_goal(&self, task_id: &str, goal_id: &str) -> Result<Option<String>> {
+    pub async fn add_goal(&self, _task_id: &str, goal_id: &str) -> Result<Option<String>> {
         // Use GoalRepository to get or create current instance
         use crate::db::repositories::goal::GoalRepository;
         let goal_repo = GoalRepository::new(self.database.clone());

@@ -4,7 +4,7 @@ use libsql::Database;
 use std::fs;
 use std::path::Path;
 
-/// Run all pending migrations
+/// Run all pending migrations from SQL files
 pub async fn run_migrations(database: &Database) -> Result<()> {
     // Ensure schema_migrations table exists
     let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
@@ -58,9 +58,9 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         }
     }
 
-    // Run pending migrations
+    // Run pending migrations from files
     for migration_file in migration_files {
-        // Extract version from filename (e.g., "001_initial.sql" -> "001_initial")
+        // Extract version from filename (e.g., "001_initial_schema.sql" -> "001_initial_schema")
         let version = migration_file
             .strip_suffix(".sql")
             .unwrap_or(&migration_file)
@@ -77,23 +77,60 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         let sql = fs::read_to_string(&migration_path)
             .map_err(|e| AppError::Io(e))?;
 
+        // Skip empty migration files
+        if sql.trim().is_empty() {
+            tracing::debug!("Migration {} is empty, skipping", version);
+            continue;
+        }
+
         // Execute migration in a transaction
-        // Note: Some migrations may need to run without transaction (PRAGMA statements)
-        // For now, we'll run all in transaction - can be enhanced later
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         // Split SQL by semicolons and execute each statement
-        for statement in sql.split(';') {
-            let statement = statement.trim();
-            if statement.is_empty() || statement.starts_with("--") {
+        // First, remove comment lines and inline comments
+        let mut cleaned_sql = String::new();
+        for line in sql.lines() {
+            let trimmed = line.trim();
+            // Skip comment-only lines
+            if trimmed.starts_with("--") {
                 continue;
             }
+            // Remove inline comments
+            let line_content = if let Some(comment_pos) = trimmed.find("--") {
+                &trimmed[..comment_pos]
+            } else {
+                trimmed
+            };
+            if !line_content.is_empty() {
+                cleaned_sql.push_str(line_content);
+                cleaned_sql.push(' ');
+            }
+        }
 
+        // Split by semicolons and filter empty statements
+        let statements: Vec<&str> = cleaned_sql
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for (idx, statement) in statements.iter().enumerate() {
+            // Log the first few characters of each statement for debugging
+            let stmt_preview = if statement.len() > 60 {
+                format!("{}...", &statement[..60])
+            } else {
+                statement.to_string()
+            };
+            tracing::debug!("Executing statement {}: {}", idx + 1, stmt_preview);
+            
+            // Use execute() for DDL statements (CREATE TABLE, CREATE INDEX, etc.)
+            // These don't return rows, so execute() is appropriate
             conn.execute(statement, libsql::params![])
                 .await
                 .map_err(|e| {
+                    tracing::error!("Failed to execute statement {}: {}", idx + 1, statement);
                     let _ = conn.execute("ROLLBACK", libsql::params![]);
                     AppError::LibSQL(e)
                 })?;

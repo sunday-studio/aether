@@ -1,6 +1,6 @@
 use crate::error::{AppError, Result};
 use crate::utils::timezone::{days_since_in_timezone, get_goal_location, now_in_timezone};
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use chrono_tz::Tz;
 
 #[derive(Clone)]
