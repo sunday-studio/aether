@@ -10,6 +10,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateGoalRequest {
     pub name: String,
     #[serde(default)]
@@ -29,6 +30,7 @@ pub struct CreateGoalRequest {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateGoalRequest {
     #[serde(default)]
     pub name: Option<String>,

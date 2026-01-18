@@ -12,11 +12,16 @@ import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
 import { JournalActionsDropdown } from "./journal-actions-dropdown";
 import { JournalEditor } from "./journal-editor";
-import { EntryTags } from "./journal-tags";
+
+// import { EntryTags } from "./journal-tags";
 
 interface JournalTimelineItemProps {
 	entry: DbEntry;
 }
+
+const isEntryDocumentDifferent = (oldDocument: string, newDocument: string) => {
+	return oldDocument !== newDocument;
+};
 
 export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	const { mutate: updateEntry } = useUpdateEntry();
@@ -32,19 +37,22 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 		isTagsShown || (entry?.tags && entry?.tags?.length > 0);
 
 	const onUpdateEntry = async (entryId: string, document: string) => {
-		updateEntry(
-			{
-				id: entryId,
-				data: {
-					document,
+		if (isEntryDocumentDifferent(entry.document ?? "", document)) {
+			console.log("onUpdateEntry", entryId, document);
+			updateEntry(
+				{
+					id: entryId,
+					data: {
+						document,
+					},
 				},
-			},
-			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+				{
+					onSuccess: () => {
+						queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					},
 				},
-			},
-		);
+			);
+		}
 	};
 
 	const onDeleteEntry = async (entryId: string) => {
@@ -94,9 +102,9 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 						<Tooltip
 							trigger={
 								<p className="text-xs text-neutral-500 text-right font-gt-ultra px-1 py-0.5 rounded-md cursor-default">
-									{/* {formatDistanceToNow(new Date(entry.createdAt ?? ""), {
+									{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
 										addSuffix: true,
-									})} */}
+									})}
 								</p>
 							}
 							content={`created at ${format(new Date(), "MMMM d, yyyy")}`}

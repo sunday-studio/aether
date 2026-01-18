@@ -4,6 +4,7 @@ use utoipa::ToSchema;
 
 /// Schema migration tracking
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaMigration {
     pub id: i64,
     pub version: String,
@@ -13,6 +14,7 @@ pub struct SchemaMigration {
 
 /// Settings model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub id: String,
     pub timezone: String,
@@ -22,6 +24,7 @@ pub struct Settings {
 
 /// Entry model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Entry {
     pub id: String,
     pub document: String,
@@ -36,6 +39,7 @@ pub struct Entry {
 
 /// Tag model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub id: String,
     pub name: String,
@@ -47,6 +51,7 @@ pub struct Tag {
 
 /// Task model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: String,
     pub title: String,
@@ -67,6 +72,7 @@ pub struct Task {
 
 /// SubTask model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SubTask {
     pub id: String,
     pub title: String,
@@ -81,6 +87,7 @@ pub struct SubTask {
 
 /// Goal model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Goal {
     pub id: String,
     pub name: String,
@@ -104,6 +111,7 @@ pub struct Goal {
 
 /// GoalInstance model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GoalInstance {
     pub id: String,
     pub goal_id: String,

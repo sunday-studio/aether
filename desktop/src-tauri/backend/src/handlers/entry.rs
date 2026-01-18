@@ -10,6 +10,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateEntryRequest {
     pub document: String,
     #[serde(default = "default_created_at")]
@@ -27,6 +28,7 @@ fn default_created_at() -> chrono::DateTime<Utc> {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateEntryRequest {
     pub document: String,
     #[serde(default)]

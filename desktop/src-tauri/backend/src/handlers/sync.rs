@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 
 /// Request to configure sync with remote database
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ConfigureSyncRequest {
     pub sync_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

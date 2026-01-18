@@ -1,0 +1,9 @@
+# Cargo watch configuration to ignore database files
+[watch]
+ignore = [
+  "backend/libsql-replica/**",
+  "**/*.db",
+  "**/*.db-shm",
+  "**/*.db-wal",
+  "**/*.db-journal"
+]

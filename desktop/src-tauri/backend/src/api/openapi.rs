@@ -1,5 +1,4 @@
 use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 
 use crate::db::models::{Entry, Goal, GoalInstance, SubTask, Tag, Task};
 use crate::handlers::entry;

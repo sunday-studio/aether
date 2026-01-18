@@ -13,6 +13,16 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_macos_haptics::init());
     }
 
+    // Start the backend server in a background thread with its own runtime
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(async {
+            if let Err(e) = aether_backend::start_server().await {
+                eprintln!("Failed to start backend server: {}", e);
+            }
+        });
+    });
+
     builder
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![greet])

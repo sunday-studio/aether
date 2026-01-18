@@ -2,7 +2,53 @@
 use crate::error::{AppError, Result};
 use libsql::Database;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Find the migrations directory
+/// 
+/// The app is started from desktop/ directory, and when Tauri runs:
+/// - Working directory is typically desktop/src-tauri/
+/// - Migrations are at desktop/src-tauri/backend/migrations/
+fn find_migrations_directory() -> PathBuf {
+    // Try 1: Relative to current working directory (most common in dev)
+    // When running from src-tauri/, this resolves to ./backend/migrations
+    let relative_path = PathBuf::from("./backend/migrations");
+    if relative_path.exists() {
+        return relative_path;
+    }
+    
+    // Try 2: Relative to executable (for production builds)
+    // Executable might be in target/debug/ or target/release/
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            // Try: exe_dir/../backend/migrations (if exe is in target/debug/)
+            let parent_backend = exe_dir.parent()
+                .map(|p| p.join("backend").join("migrations"));
+            if let Some(ref path) = parent_backend {
+                if path.exists() {
+                    return path.clone();
+                }
+            }
+            
+            // Try: exe_dir/backend/migrations (if exe is in src-tauri/)
+            let exe_backend = exe_dir.join("backend").join("migrations");
+            if exe_backend.exists() {
+                return exe_backend;
+            }
+        }
+    }
+    
+    // Try 3: Compile-time path (using CARGO_MANIFEST_DIR)
+    // This points to desktop/src-tauri/backend/ at compile time
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let manifest_migrations = PathBuf::from(manifest_dir).join("migrations");
+    if manifest_migrations.exists() {
+        return manifest_migrations;
+    }
+    
+    // Fallback: return the most likely path (will be checked for existence by caller)
+    PathBuf::from("./backend/migrations")
+}
 
 /// Run all pending migrations from SQL files
 pub async fn run_migrations(database: &Database) -> Result<()> {
@@ -21,14 +67,32 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     .await
     .map_err(|e| AppError::LibSQL(e))?;
 
-    // Get all migration files
-    let migrations_dir = Path::new("./migrations");
+    // Find migrations directory
+    // Execution context: app is started from desktop/ directory via `bun tauri dev`
+    // When Tauri runs, the working directory is typically desktop/src-tauri/
+    // Migrations are located at: desktop/src-tauri/backend/migrations/
+    
+    use std::path::PathBuf;
+    
+    // Strategy: Try paths in order of likelihood
+    // 1. ./backend/migrations - when running from src-tauri/ (most common in dev)
+    // 2. Relative to executable - for production builds
+    // 3. Compile-time path - using CARGO_MANIFEST_DIR (fallback)
+    
+    let migrations_dir = find_migrations_directory();
+    
     if !migrations_dir.exists() {
-        tracing::warn!("Migrations directory not found, skipping migrations");
+        tracing::warn!(
+            "Migrations directory not found at {:?}. Current working directory: {:?}",
+            migrations_dir,
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("unknown"))
+        );
         return Ok(());
     }
+    
+    tracing::info!("Using migrations directory: {:?}", migrations_dir);
 
-    let mut migration_files: Vec<_> = fs::read_dir(migrations_dir)
+    let mut migration_files: Vec<_> = fs::read_dir(&migrations_dir)
         .map_err(|e| AppError::Io(e))?
         .filter_map(|entry| {
             entry.ok().and_then(|e| {

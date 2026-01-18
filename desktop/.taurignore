@@ -1,0 +1,5 @@
+# Ignore database files to prevent Tauri from rebuilding when DB changes
+src-tauri/libsql-replica/
+src-tauri/libsql-replica/**
+src-tauri/backend/libsql-replica/
+src-tauri/backend/libsql-replica/**

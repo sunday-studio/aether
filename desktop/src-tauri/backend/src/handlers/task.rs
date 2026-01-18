@@ -10,6 +10,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateTaskRequest {
     pub title: String,
     #[serde(default)]
@@ -23,6 +24,7 @@ pub struct CreateTaskRequest {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateTaskRequest {
     #[serde(default)]
     pub title: Option<String>,
@@ -41,11 +43,13 @@ pub struct UpdateTaskRequest {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateSubTaskRequest {
     pub title: String,
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateSubTaskRequest {
     #[serde(default)]
     pub title: Option<String>,
@@ -54,11 +58,13 @@ pub struct UpdateSubTaskRequest {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ReorderSubTasksRequest {
     pub sub_task_ids: Vec<String>,
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AddGoalToTaskRequest {
     pub goal_id: String,
 }
