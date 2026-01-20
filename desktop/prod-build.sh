@@ -20,4 +20,4 @@ echo "Generating SDK in production mode..."
 bun generate:sdk
 
 echo "Building Tauri app (bundles: app, target: universal-apple-darwin)..."
-bun tauri build --bundles app --debug --target universal-apple-darwin
+bun tauri build --bundles app --target universal-apple-darwin
