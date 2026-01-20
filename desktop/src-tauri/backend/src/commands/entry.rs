@@ -38,6 +38,9 @@ pub async fn get_entry_by_id(
     state: State<'_, DbState>,
     id: String,
 ) -> Result<crate::db::models::Entry> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.find_by_id(&id)
         .await?
@@ -132,12 +135,26 @@ pub async fn bulk_create_entries(
 pub async fn update_entry(
     state: State<'_, DbState>,
     id: String,
-    document: String,
+    document: Option<String>,
     is_pinned: Option<bool>,
     is_archived: Option<bool>,
     is_deleted: Option<bool>,
     updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Entry> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
+
+    // If document is not provided, fetch the current entry to preserve it
+    let document = if let Some(doc) = document {
+        doc
+    } else {
+        let repo = EntryRepository::new(connection::get_database(&*state));
+        let current_entry = repo.find_by_id(&id).await?
+            .ok_or_else(|| AppError::NotFound(format!("Entry {} not found", id)))?;
+        current_entry.document
+    };
+
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.update(
         &id,
@@ -166,6 +183,9 @@ pub async fn update_entry(
 )]
 #[tauri::command]
 pub async fn delete_entry(state: State<'_, DbState>, id: String) -> Result<()> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.delete(&id).await
 }
@@ -191,6 +211,9 @@ pub async fn add_tags_to_entry(
     id: String,
     tag_ids: Vec<String>,
 ) -> Result<crate::db::models::Entry> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.add_tags(&id, tag_ids).await?;
     
@@ -221,6 +244,12 @@ pub async fn remove_tags_from_entry(
     id: String,
     tag_id: String,
 ) -> Result<crate::db::models::Entry> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
+    if tag_id.is_empty() {
+        return Err(AppError::BadRequest("Tag ID is required".to_string()));
+    }
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.remove_tags(&id, tag_id).await?;
     

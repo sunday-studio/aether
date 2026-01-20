@@ -99,6 +99,9 @@ pub async fn get_task_by_id(
     state: State<'_, DbState>,
     id: String,
 ) -> Result<crate::db::models::Task> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.find_by_id(&id)
         .await?
@@ -134,6 +137,10 @@ pub async fn update_task(
     tag_ids: Option<Vec<String>>,
     updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Task> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
+
     let repo = TaskRepository::new(connection::get_database(&*state));
     
     let task = repo
@@ -175,6 +182,9 @@ pub async fn update_task(
 )]
 #[tauri::command]
 pub async fn delete_task(state: State<'_, DbState>, id: String) -> Result<()> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.delete(&id).await
 }
@@ -198,6 +208,9 @@ pub async fn get_subtasks(
     state: State<'_, DbState>,
     task_id: String,
 ) -> Result<Vec<crate::db::models::SubTask>> {
+    if task_id.is_empty() {
+        return Err(AppError::BadRequest("Task ID is required".to_string()));
+    }
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.find_subtasks(&task_id).await
 }
@@ -224,6 +237,9 @@ pub async fn create_subtask(
     task_id: String,
     title: String,
 ) -> Result<crate::db::models::SubTask> {
+    if task_id.is_empty() {
+        return Err(AppError::BadRequest("Task ID is required".to_string()));
+    }
     if title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
@@ -257,6 +273,13 @@ pub async fn update_subtask(
     title: Option<String>,
     is_completed: Option<bool>,
 ) -> Result<crate::db::models::SubTask> {
+    if task_id.is_empty() {
+        return Err(AppError::BadRequest("Task ID is required".to_string()));
+    }
+    if subtask_id.is_empty() {
+        return Err(AppError::BadRequest("Subtask ID is required".to_string()));
+    }
+
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.update_subtask(&task_id, &subtask_id, title, is_completed)
         .await
@@ -283,6 +306,12 @@ pub async fn delete_subtask(
     task_id: String,
     subtask_id: String,
 ) -> Result<()> {
+    if task_id.is_empty() {
+        return Err(AppError::BadRequest("Task ID is required".to_string()));
+    }
+    if subtask_id.is_empty() {
+        return Err(AppError::BadRequest("Subtask ID is required".to_string()));
+    }
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.delete_subtask(&task_id, &subtask_id).await
 }

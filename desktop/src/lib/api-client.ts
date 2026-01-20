@@ -63,7 +63,10 @@ function extractPathParams(
 		const patternPart = patternParts[i];
 		if (patternPart?.startsWith(":")) {
 			const paramName = patternPart.slice(1);
-			params[paramName] = urlParts[i] || "";
+			// Adjust index: patternParts[0] is empty string, urlParts[0] is first real part
+			// So patternParts[i] maps to urlParts[i - 1] when i > 0
+			const urlIndex = i > 0 ? i - 1 : i;
+			params[paramName] = urlParts[urlIndex] || "";
 		}
 	}
 
@@ -137,11 +140,19 @@ export const customFetch = async <T>(
 
 	try {
 		// Prepare command arguments
+		// Start with path params (these take precedence)
 		const args: Record<string, unknown> = { ...match.params };
 		if (body !== undefined) {
 			// If body is an object, merge it into args
+			// But don't overwrite path params - they take precedence
 			if (typeof body === "object" && !Array.isArray(body) && body !== null) {
-				Object.assign(args, body);
+				// Merge body into args, but preserve path params
+				for (const [key, value] of Object.entries(body)) {
+					// Only add if not already set by path params
+					if (!(key in args)) {
+						args[key] = value;
+					}
+				}
 			} else {
 				// For array bodies or other types, use 'payload' key
 				args.payload = body;

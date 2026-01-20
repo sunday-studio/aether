@@ -158,6 +158,10 @@ pub async fn update_goal(
     tag_ids: Option<Vec<String>>,
     updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Goal> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
+
     let repo = GoalRepository::new(connection::get_database(&*state));
     let goal = repo
         .update(
@@ -199,6 +203,9 @@ pub async fn update_goal(
 )]
 #[tauri::command]
 pub async fn delete_goal(state: State<'_, DbState>, id: String) -> Result<()> {
+    if id.is_empty() {
+        return Err(AppError::BadRequest("ID is required".to_string()));
+    }
     let repo = GoalRepository::new(connection::get_database(&*state));
     repo.delete(&id).await
 }
