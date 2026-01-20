@@ -31,4 +31,4 @@ src/aether-sdk
 
 
 src-tauri/backend/target
-src-tauri/backend/libsql-replica
+src-tauri/backend/libsql-replica/**
