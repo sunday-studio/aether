@@ -31,17 +31,17 @@ pub async fn get_all_tags(state: State<'_, DbState>) -> Result<Vec<crate::db::mo
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn create_tag(
     state: State<'_, DbState>,
-    payload: CreateTagRequest,
+    name: String,
 ) -> Result<crate::db::models::Tag> {
-    if payload.name.is_empty() {
+    if name.is_empty() {
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
     }
 
     let repo = TagRepository::new(connection::get_database(&*state));
-    repo.create(payload.name).await
+    repo.create(name).await
 }
 
 /// Bulk create tags

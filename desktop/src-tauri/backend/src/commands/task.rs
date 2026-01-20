@@ -1,9 +1,5 @@
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::task::{
-    AddGoalToTaskRequest, CreateSubTaskRequest, CreateTaskRequest, ReorderSubTasksRequest,
-    UpdateSubTaskRequest, UpdateTaskRequest,
-};
 use tauri::State;
 
 /// Create a new task
@@ -18,12 +14,16 @@ use tauri::State;
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn create_task(
     state: State<'_, DbState>,
-    payload: CreateTaskRequest,
+    title: String,
+    description: Option<String>,
+    due_date: Option<chrono::DateTime<chrono::Utc>>,
+    goal_id: Option<String>,
+    tag_ids: Option<Vec<String>>,
 ) -> Result<crate::db::models::Task> {
-    if payload.title.is_empty() {
+    if title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
@@ -31,16 +31,18 @@ pub async fn create_task(
     
     let task = repo
         .create(
-            payload.title,
-            payload.description,
-            payload.due_date,
-            payload.goal_id.clone(),
+            title,
+            description,
+            due_date,
+            goal_id.clone(),
             None, // goal_instance_id - will be set in Milestone 5
         )
         .await?;
 
-    if !payload.tag_ids.is_empty() {
-        repo.add_tags(&task.id, payload.tag_ids).await?;
+    if let Some(tag_ids) = tag_ids {
+        if !tag_ids.is_empty() {
+            repo.add_tags(&task.id, tag_ids).await?;
+        }
     }
 
     Ok(task)
@@ -120,28 +122,34 @@ pub async fn get_task_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn update_task(
     state: State<'_, DbState>,
     id: String,
-    payload: UpdateTaskRequest,
+    title: Option<String>,
+    description: Option<Option<String>>,
+    due_date: Option<Option<chrono::DateTime<chrono::Utc>>>,
+    is_completed: Option<bool>,
+    goal_id: Option<Option<String>>,
+    tag_ids: Option<Vec<String>>,
+    updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Task> {
     let repo = TaskRepository::new(connection::get_database(&*state));
     
     let task = repo
         .update(
             &id,
-            payload.title,
-            payload.description,
-            payload.due_date,
-            payload.is_completed,
-            payload.goal_id,
+            title,
+            description,
+            due_date,
+            is_completed,
+            goal_id,
             None, // goal_instance_id - will be set in Milestone 5
-            payload.updated_at,
+            updated_at,
         )
         .await?;
 
-    if let Some(tag_ids) = payload.tag_ids {
+    if let Some(tag_ids) = tag_ids {
         let current_task = repo.find_by_id(&id).await?;
         if current_task.is_some() {
             repo.add_tags(&id, tag_ids).await?;
@@ -210,18 +218,18 @@ pub async fn get_subtasks(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn create_subtask(
     state: State<'_, DbState>,
     task_id: String,
-    payload: CreateSubTaskRequest,
+    title: String,
 ) -> Result<crate::db::models::SubTask> {
-    if payload.title.is_empty() {
+    if title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
     let repo = TaskRepository::new(connection::get_database(&*state));
-    repo.create_subtask(&task_id, payload.title).await
+    repo.create_subtask(&task_id, title).await
 }
 
 /// Update a subtask
@@ -241,15 +249,16 @@ pub async fn create_subtask(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn update_subtask(
     state: State<'_, DbState>,
     task_id: String,
     subtask_id: String,
-    payload: UpdateSubTaskRequest,
+    title: Option<String>,
+    is_completed: Option<bool>,
 ) -> Result<crate::db::models::SubTask> {
     let repo = TaskRepository::new(connection::get_database(&*state));
-    repo.update_subtask(&task_id, &subtask_id, payload.title, payload.is_completed)
+    repo.update_subtask(&task_id, &subtask_id, title, is_completed)
         .await
 }
 
@@ -293,14 +302,14 @@ pub async fn delete_subtask(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn reorder_subtasks(
     state: State<'_, DbState>,
     task_id: String,
-    payload: ReorderSubTasksRequest,
+    sub_task_ids: Vec<String>,
 ) -> Result<serde_json::Value> {
     let repo = TaskRepository::new(connection::get_database(&*state));
-    repo.reorder_subtasks(&task_id, payload.sub_task_ids).await?;
+    repo.reorder_subtasks(&task_id, sub_task_ids).await?;
     Ok(serde_json::json!({"success": true}))
 }
 
@@ -377,15 +386,15 @@ pub async fn remove_tags_from_task(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn add_goal_to_task(
     state: State<'_, DbState>,
     id: String,
-    payload: AddGoalToTaskRequest,
+    goal_id: String,
 ) -> Result<crate::db::models::Task> {
     let repo = TaskRepository::new(connection::get_database(&*state));
     
-    let goal_instance_id = repo.add_goal(&id, &payload.goal_id).await?;
+    let goal_instance_id = repo.add_goal(&id, &goal_id).await?;
     
     repo.update(
         &id,
@@ -393,7 +402,7 @@ pub async fn add_goal_to_task(
         None,
         None,
         None,
-        Some(Some(payload.goal_id.clone())),
+        Some(Some(goal_id.clone())),
         Some(goal_instance_id),
         None,
     )

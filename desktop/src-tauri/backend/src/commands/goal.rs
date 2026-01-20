@@ -1,6 +1,5 @@
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::goal::{CreateGoalRequest, UpdateGoalRequest};
 use tauri::State;
 
 /// Get all goals
@@ -56,29 +55,36 @@ pub async fn get_goal_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn create_goal(
     state: State<'_, DbState>,
-    payload: CreateGoalRequest,
+    name: String,
+    description: Option<String>,
+    is_non_recurring: Option<bool>,
+    recurrence_type: Option<String>,
+    recurrence_interval: Option<i32>,
+    recurrence_anchor: Option<chrono::DateTime<chrono::Utc>>,
+    recurrence_meta: Option<serde_json::Value>,
+    tag_ids: Option<Vec<String>>,
 ) -> Result<crate::db::models::Goal> {
-    if payload.name.is_empty() {
+    if name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
     }
 
-    let is_non_recurring = payload.is_non_recurring.unwrap_or(false);
+    let is_non_recurring = is_non_recurring.unwrap_or(false);
 
     if !is_non_recurring {
-        if payload.recurrence_type.is_none() || payload.recurrence_type.as_ref().unwrap().is_empty() {
+        if recurrence_type.is_none() || recurrence_type.as_ref().unwrap().is_empty() {
             return Err(AppError::BadRequest(
                 "recurrenceType is required for recurring goals".to_string(),
             ));
         }
-        if payload.recurrence_interval.is_none() {
+        if recurrence_interval.is_none() {
             return Err(AppError::BadRequest(
                 "recurrenceInterval is required for recurring goals".to_string(),
             ));
         }
-        if payload.recurrence_anchor.is_none() {
+        if recurrence_anchor.is_none() {
             return Err(AppError::BadRequest(
                 "recurrenceAnchor is required for recurring goals".to_string(),
             ));
@@ -86,9 +92,9 @@ pub async fn create_goal(
     }
 
     if is_non_recurring {
-        if payload.recurrence_type.is_some()
-            || payload.recurrence_interval.is_some()
-            || payload.recurrence_anchor.is_some()
+        if recurrence_type.is_some()
+            || recurrence_interval.is_some()
+            || recurrence_anchor.is_some()
         {
             return Err(AppError::BadRequest(
                 "recurrence fields must be null for non-recurring goals".to_string(),
@@ -101,19 +107,21 @@ pub async fn create_goal(
     let repo = GoalRepository::new(connection::get_database(&*state));
     let goal = repo
         .create(
-            payload.name,
-            payload.description,
+            name,
+            description,
             is_non_recurring,
-            payload.recurrence_type,
-            payload.recurrence_interval,
-            payload.recurrence_anchor,
-            payload.recurrence_meta,
+            recurrence_type,
+            recurrence_interval,
+            recurrence_anchor,
+            recurrence_meta,
             timezone,
         )
         .await?;
 
-    if !payload.tag_ids.is_empty() {
-        repo.add_tags(&goal.id, payload.tag_ids).await?;
+    if let Some(tag_ids) = tag_ids {
+        if !tag_ids.is_empty() {
+            repo.add_tags(&goal.id, tag_ids).await?;
+        }
     }
 
     Ok(goal)
@@ -136,28 +144,36 @@ pub async fn create_goal(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn update_goal(
     state: State<'_, DbState>,
     id: String,
-    payload: UpdateGoalRequest,
+    name: Option<String>,
+    description: Option<Option<String>>,
+    is_non_recurring: Option<bool>,
+    recurrence_type: Option<Option<String>>,
+    recurrence_interval: Option<Option<i32>>,
+    recurrence_anchor: Option<Option<chrono::DateTime<chrono::Utc>>>,
+    recurrence_meta: Option<Option<serde_json::Value>>,
+    tag_ids: Option<Vec<String>>,
+    updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Goal> {
     let repo = GoalRepository::new(connection::get_database(&*state));
     let goal = repo
         .update(
             &id,
-            payload.name,
-            payload.description,
-            payload.is_non_recurring,
-            payload.recurrence_type,
-            payload.recurrence_interval,
-            payload.recurrence_anchor,
-            payload.recurrence_meta,
-            payload.updated_at,
+            name,
+            description,
+            is_non_recurring,
+            recurrence_type,
+            recurrence_interval,
+            recurrence_anchor,
+            recurrence_meta,
+            updated_at,
         )
         .await?;
 
-    if let Some(tag_ids) = payload.tag_ids {
+    if let Some(tag_ids) = tag_ids {
         repo.remove_tags(&id, vec![]).await?;
         if !tag_ids.is_empty() {
             repo.add_tags(&id, tag_ids).await?;

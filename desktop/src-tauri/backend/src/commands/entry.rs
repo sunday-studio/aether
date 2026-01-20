@@ -1,6 +1,6 @@
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::entry::{CreateEntryRequest, UpdateEntryRequest};
+use crate::handlers::entry::CreateEntryRequest;
 use tauri::State;
 
 /// Get all entries
@@ -56,21 +56,27 @@ pub async fn get_entry_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn create_entry(
     state: State<'_, DbState>,
-    payload: CreateEntryRequest,
+    document: String,
+    date: Option<chrono::DateTime<chrono::Utc>>,
+    is_pinned: Option<bool>,
+    is_archived: Option<bool>,
+    is_deleted: Option<bool>,
 ) -> Result<crate::db::models::Entry> {
+    let date = date.unwrap_or_else(chrono::Utc::now);
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.create(
-        payload.document,
-        payload.date,
-        payload.is_pinned.unwrap_or(false),
-        payload.is_archived.unwrap_or(false),
-        payload.is_deleted.unwrap_or(false),
+        document,
+        date,
+        is_pinned.unwrap_or(false),
+        is_archived.unwrap_or(false),
+        is_deleted.unwrap_or(false),
     )
     .await
 }
+
 
 /// Bulk create entries
 #[utoipa::path(
@@ -122,20 +128,24 @@ pub async fn bulk_create_entries(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn update_entry(
     state: State<'_, DbState>,
     id: String,
-    payload: UpdateEntryRequest,
+    document: String,
+    is_pinned: Option<bool>,
+    is_archived: Option<bool>,
+    is_deleted: Option<bool>,
+    updated_at: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<crate::db::models::Entry> {
     let repo = EntryRepository::new(connection::get_database(&*state));
     repo.update(
         &id,
-        payload.document,
-        payload.is_pinned.unwrap_or(false),
-        payload.is_archived.unwrap_or(false),
-        payload.is_deleted.unwrap_or(false),
-        payload.updated_at,
+        document,
+        is_pinned.unwrap_or(false),
+        is_archived.unwrap_or(false),
+        is_deleted.unwrap_or(false),
+        updated_at,
     )
     .await
 }

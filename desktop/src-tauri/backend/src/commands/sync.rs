@@ -1,6 +1,5 @@
 use crate::db::{connection, DbState};
 use crate::error::Result;
-use crate::handlers::sync::ConfigureSyncRequest;
 use serde_json::json;
 use tauri::State;
 
@@ -23,14 +22,15 @@ use tauri::State;
         (status = 500, description = "Failed to configure sync")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn configure_sync(
     state: State<'_, DbState>,
-    payload: ConfigureSyncRequest,
+    sync_url: String,
+    auth_token: Option<String>,
 ) -> Result<serde_json::Value> {
-    tracing::info!("Configuring sync with URL: {}", payload.sync_url);
+    tracing::info!("Configuring sync with URL: {}", sync_url);
     
-    connection::configure_sync(&*state, payload.sync_url, payload.auth_token).await?;
+    connection::configure_sync(&*state, sync_url, auth_token).await?;
 
     Ok(json!({
         "success": true,
