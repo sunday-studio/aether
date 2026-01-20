@@ -137,6 +137,8 @@ pub async fn create_schema(database: &Database) -> Result<()> {
             period_end TEXT,
             status TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            updated_at TEXT,
+            deleted_at TEXT,
             FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
         )",
         libsql::params![],

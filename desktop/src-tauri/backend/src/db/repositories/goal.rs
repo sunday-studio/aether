@@ -401,7 +401,7 @@ impl GoalRepository {
             let now = Utc::now();
             let created_at_str = now.to_rfc3339();
             let created_at_str_1 = created_at_str.clone();
-            let created_at_str_2 = created_at_str.clone();
+            let updated_at_str = created_at_str.clone();
 
             conn.execute(
                 "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
@@ -412,7 +412,7 @@ impl GoalRepository {
                     created_at_str,
                     "active",
                     created_at_str_1,
-                    created_at_str_2
+                    updated_at_str
                 ],
             )
             .await
@@ -470,8 +470,7 @@ impl GoalRepository {
 
             let instance_id = generate_id("goal_instance");
             let created_at_str = now.to_rfc3339();
-            let created_at_str_1 = created_at_str.clone();
-            let created_at_str_2 = created_at_str.clone();
+            let updated_at_str = created_at_str.clone();
 
             conn.execute(
                 "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
@@ -482,8 +481,8 @@ impl GoalRepository {
                     period_start_str,
                     period_end_str,
                     "active",
-                    created_at_str_1,
-                    created_at_str_2
+                    created_at_str,
+                    updated_at_str
                 ],
             )
             .await
