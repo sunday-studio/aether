@@ -5,7 +5,7 @@ import { useParams } from "react-router";
 import {
 	getGetGoalInstancesQueryKey,
 	useCreateTask,
-	useGetGoalByID,
+	useGetGoalById,
 	useGetGoalInstances,
 } from "~/aether-sdk";
 import { GoalFormDialog } from "./components/goals/goal-form-dialog";
@@ -15,7 +15,7 @@ import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
 
 export const GoalView = () => {
 	const { goalId } = useParams();
-	const { data: goal, isLoading: isLoadingGoal } = useGetGoalByID(goalId ?? "");
+	const { data: goal, isLoading: isLoadingGoal } = useGetGoalById(goalId ?? "");
 
 	const queryClient = useQueryClient();
 	const goalInstancesQueryKey = getGetGoalInstancesQueryKey(goalId ?? "");

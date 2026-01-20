@@ -3,11 +3,11 @@ import {
 	getGetGoalInstancesQueryKey,
 	getGetInboxTasksQueryKey,
 	getGetOverdueTasksQueryKey,
-	getGetSubTasksQueryKey,
-	useCreateSubTask,
-	useDeleteSubTask,
-	useDeleteTaskById,
-	useUpdateSubTask,
+	getGetSubtasksQueryKey,
+	useCreateSubtask,
+	useDeleteSubtask,
+	useDeleteTask,
+	useUpdateSubtask,
 	useUpdateTask,
 } from "~/aether-sdk";
 import type { DbGoalInstance } from "~/aether-sdk/models/db-goal-instance";
@@ -82,7 +82,7 @@ export const useOptimisticDeleteTask = () => {
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
 
-	const mutation = useDeleteTaskById();
+	const mutation = useDeleteTask();
 
 	const mutate = (variables: { id: string; goalId?: string }) => {
 		// Store previous states for rollback
@@ -208,7 +208,7 @@ const updateSubtaskInQueryCache = (
  */
 export const useOptimisticUpdateSubtask = () => {
 	const queryClient = useQueryClient();
-	const mutation = useUpdateSubTask();
+	const mutation = useUpdateSubtask();
 
 	const mutate = (
 		variables: {
@@ -257,7 +257,7 @@ export const useOptimisticUpdateSubtask = () => {
  */
 export const useOptimisticCreateSubtask = () => {
 	const queryClient = useQueryClient();
-	const mutation = useCreateSubTask();
+	const mutation = useCreateSubtask();
 
 	const mutate = (
 		variables: { taskId: string; data: { title: string } },
@@ -302,7 +302,7 @@ export const useOptimisticCreateSubtask = () => {
  */
 export const useOptimisticDeleteSubtask = () => {
 	const queryClient = useQueryClient();
-	const mutation = useDeleteSubTask();
+	const mutation = useDeleteSubtask();
 
 	const mutate = (
 		variables: { taskId: string; subtaskId: string },

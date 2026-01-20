@@ -89,6 +89,15 @@ use crate::handlers::trash as trash_handlers;
 )]
 pub struct ApiDoc;
 
+/// Get the OpenAPI spec as JSON string
+/// This is used for build-time spec generation
+pub fn get_openapi_json() -> String {
+    let openapi = ApiDoc::openapi();
+    serde_json::to_string_pretty(&openapi).unwrap_or_else(|e| {
+        panic!("Failed to serialize OpenAPI spec: {}", e);
+    })
+}
+
 // pub fn swagger_ui() -> SwaggerUi {
 //     SwaggerUi::new("/swagger/{*path}").url("/api-doc/openapi.json", ApiDoc::openapi())
 // }

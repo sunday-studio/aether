@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useRef } from "react";
-import { useGetSubTasks } from "~/aether-sdk";
+import { useGetSubtasks } from "~/aether-sdk";
 import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
 import {
 	useOptimisticCreateSubtask,
@@ -16,7 +16,7 @@ interface SubtaskListProps {
 export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 	const { mutate: updateSubtask } = useOptimisticUpdateSubtask();
 	const { mutate: createSubtask } = useOptimisticCreateSubtask();
-	const { data: subtasksData, isLoading } = useGetSubTasks(taskId);
+	const { data: subtasksData, isLoading } = useGetSubtasks(taskId);
 	const { mutate: deleteSubtask } = useOptimisticDeleteSubtask();
 
 	const subtasks: DbSubTask[] = (subtasksData?.data as DbSubTask[]) ?? [];

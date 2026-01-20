@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Flag } from "lucide-react";
 import { Button } from "react-aria-components";
-import { getGetSubTasksQueryKey, useCreateSubTask } from "~/aether-sdk";
+import { getGetSubtasksQueryKey, useCreateSubtask } from "~/aether-sdk";
 import { Tooltip } from "~/components/shared/tooltip";
 import { TaskActionButton } from "./task-shared-components";
 
 export const TaskSubtasksTrigger = ({ taskId }: { taskId: string }) => {
-	const { mutate: createSubtask } = useCreateSubTask();
+	const { mutate: createSubtask } = useCreateSubtask();
 	const queryClient = useQueryClient();
 
 	const handleCreateSubtask = () => {
@@ -20,7 +20,7 @@ export const TaskSubtasksTrigger = ({ taskId }: { taskId: string }) => {
 			{
 				onSuccess: () => {
 					queryClient.invalidateQueries({
-						queryKey: getGetSubTasksQueryKey(taskId),
+						queryKey: getGetSubtasksQueryKey(taskId),
 					});
 				},
 			},

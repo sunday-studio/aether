@@ -9,7 +9,8 @@
     "core:default",
     "opener:default",
     "macos-haptics:default",
-    "core:window:default", 
-    "core:window:allow-start-dragging"
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "http:default"
   ]
 }

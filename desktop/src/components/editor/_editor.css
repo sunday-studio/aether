@@ -12,7 +12,7 @@
 
 .editor-placeholder {
 	font-style: italic;
-	font-family: "Newsreader", serif;
+	/* font-family: "Newsreader", serif; */
 	z-index: 2;
 	position: absolute;
 	margin-top: -24px;

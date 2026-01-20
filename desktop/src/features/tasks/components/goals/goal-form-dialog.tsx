@@ -11,7 +11,7 @@ import {
 } from "react-aria-components";
 import { z } from "zod";
 import {
-	getGetGoalByIDQueryKey,
+	getGetGoalByIdQueryKey,
 	getGetGoalsQueryKey,
 	useCreateGoal,
 	useUpdateGoal,
@@ -98,7 +98,7 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 	} = useCreateGoal({});
 	const { mutate: updateGoal, isPending: isUpdatingGoal } = useUpdateGoal({});
 
-	const goalQueryKey = getGetGoalByIDQueryKey(goal?.id ?? "");
+	const goalQueryKey = getGetGoalByIdQueryKey(goal?.id ?? "");
 
 	const isEditMode = !!goal;
 

@@ -7,16 +7,20 @@ edition = "2021"
 name = "aether-backend"
 path = "src/main.rs"
 
+[[bin]]
+name = "generate-openapi"
+path = "src/bin/generate-openapi.rs"
+
 [lib]
 name = "aether_backend"
 path = "src/lib.rs"
 
 [dependencies]
-# Web framework
-axum = { version = "0.7", features = ["macros", "tower-log"] }
+# Async runtime
 tokio = { version = "1", features = ["full"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Web framework (only for handler types used in OpenAPI spec generation)
+axum = { version = "0.7", features = ["macros"] }
 
 # Database
 libsql = { version = "0.9", features = ["replication", "remote"] }
@@ -26,8 +30,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # OpenAPI
-utoipa = { version = "4", features = ["axum_extras", "chrono"] }
-utoipa-swagger-ui = { version = "6", features = ["axum"] }
+utoipa = { version = "4", features = ["chrono"] }
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -53,6 +56,9 @@ futures = "0.3"
 
 # Human-readable duration parsing
 humantime = "2.1"
+
+# Tauri (for commands)
+tauri = { version = "2", features = [] }
 
 [dev-dependencies]
 # Testing
