@@ -2,7 +2,7 @@
 use crate::error::{AppError, Result};
 use libsql::Database;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Find the migrations directory
 /// 

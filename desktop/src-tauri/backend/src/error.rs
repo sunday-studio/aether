@@ -1,3 +1,4 @@
+use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,6 +20,16 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+}
+
+impl Serialize for AppError {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Serialize as a simple string message for Tauri IPC
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;
