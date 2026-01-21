@@ -4,12 +4,9 @@ version = "0.1.0"
 description = "something something app"
 authors = ["you"]
 edition = "2021"
+default-run = "Aether"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]]
-name = "aether-backend"
-path = "src/bin/server.rs"
 
 [[bin]]
 name = "generate-openapi"
@@ -36,7 +33,6 @@ tokio = { version = "1", features = ["full"] }
 
 # Web framework (only for handler types used in OpenAPI spec generation)
 axum = { version = "0.7", features = ["macros"] }
-tower-http = { version = "0.5", features = ["cors"] }
 
 # Database
 libsql = { version = "0.9", features = ["replication", "remote"] }
