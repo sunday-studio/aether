@@ -12,7 +12,7 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, entry, goal, sync, tag, task, trash, search,
+    activity, canvas, entry, goal, sync, tag, task, trash, search,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -107,6 +107,12 @@ pub fn run() {
             goal::get_current_goal_instance,
             goal::add_tags_to_goal,
             goal::remove_tags_from_goal,
+            // Canvas commands
+            canvas::get_canvases,
+            canvas::get_canvas_by_id,
+            canvas::create_canvas,
+            canvas::update_canvas,
+            canvas::delete_canvas,
             // Trash commands
             trash::get_trashed_tasks,
             trash::restore_task,
@@ -133,6 +139,11 @@ pub fn run() {
             commands::transcription::delete_model,
             commands::transcription::get_setting,
             commands::transcription::set_setting,
+            // Embedding model commands
+            commands::embeddings::list_embedding_models,
+            commands::embeddings::download_embedding_model,
+            commands::embeddings::verify_embedding_model,
+            commands::embeddings::delete_embedding_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

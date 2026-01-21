@@ -55,7 +55,7 @@ impl EmbeddingModel {
 /// Initialize the embedding model (lazy loading)
 async fn init_model() -> Result<Arc<EmbeddingModel>> {
     // Ensure models directory exists
-    model_manager::ensure_models_dir()?;
+    model_manager::ensure_models_directory()?;
     
     // For now, create a placeholder model
     // TODO: Load actual model from filesystem

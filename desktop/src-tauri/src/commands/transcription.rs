@@ -224,7 +224,7 @@ pub async fn list_available_models() -> Result<Vec<ModelInfo>> {
             name: model.name,
             size: model.size,
             file_size: model.file_size,
-            download_url: model.download_url,
+            download_url: model.download_url.unwrap_or_default(),
             is_downloaded,
         });
     }

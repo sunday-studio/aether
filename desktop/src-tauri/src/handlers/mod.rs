@@ -6,6 +6,8 @@ pub mod goal;
 pub mod trash;
 pub mod sync;
 pub mod search;
+pub mod settings;
+pub mod bookmark;
 
 pub use entry::*;
 pub use tag::*;
@@ -13,3 +15,5 @@ pub use task::*;
 pub use goal::*;
 pub use trash::*;
 pub use sync::*;
+pub use settings::*;
+pub use bookmark::*;

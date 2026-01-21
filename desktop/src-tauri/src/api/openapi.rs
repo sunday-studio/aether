@@ -9,6 +9,7 @@ use crate::handlers::tag;
 use crate::handlers::task as task_handlers;
 use crate::handlers::trash as trash_handlers;
 use crate::handlers::search as search_handlers;
+use crate::handlers::settings as settings_handlers;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -62,6 +63,9 @@ use crate::handlers::search as search_handlers;
         activity_handlers::get_activities,
         // Search endpoints
         search_handlers::search,
+        // Settings endpoints
+        settings_handlers::get_setting,
+        settings_handlers::set_setting,
     ),
     components(schemas(
         Tag,
@@ -86,6 +90,8 @@ use crate::handlers::search as search_handlers;
         search_handlers::SearchRequest,
         search_handlers::SearchResponse,
         search_handlers::SearchResultResponse,
+        settings_handlers::SettingResponse,
+        settings_handlers::SetSettingRequest,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
@@ -97,6 +103,7 @@ use crate::handlers::search as search_handlers;
         (name = "Sync", description = "Sync management endpoints"),
         (name = "Activities", description = "Activity tracking endpoints"),
         (name = "Search", description = "Search endpoints"),
+        (name = "Settings", description = "Settings management endpoints"),
     ),
 )]
 pub struct ApiDoc;
