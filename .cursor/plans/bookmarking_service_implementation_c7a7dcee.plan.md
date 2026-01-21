@@ -719,6 +719,7 @@ url = "2.5"
 ### Backend Files (Milestone 1)
 
 **New:**
+
 - `desktop/src-tauri/migrations/007_add_bookmarks_table.sql`
 - `desktop/src-tauri/src/db/repositories/bookmark.rs`
 - `desktop/src-tauri/src/commands/bookmark.rs`
@@ -727,6 +728,7 @@ url = "2.5"
 - `desktop/src-tauri/src/utils/metadata/providers.rs`
 
 **Modified:**
+
 - `desktop/src-tauri/src/db/models.rs` - Add Bookmark model
 - `desktop/src-tauri/src/db/repositories/mod.rs` - Export bookmark repository
 - `desktop/src-tauri/src/db/repositories/search.rs` - Add bookmark search
@@ -739,6 +741,7 @@ url = "2.5"
 ### Frontend Files (Milestone 2)
 
 **New:**
+
 - `desktop/src/features/bookmarks/bookmarks.domain.ts`
 - `desktop/src/features/bookmarks/components/bookmark-form.tsx`
 - `desktop/src/features/bookmarks/components/bookmark-form-dialog.tsx`
@@ -752,12 +755,14 @@ url = "2.5"
 - `desktop/chrome-extension/icons/icon-*.png`
 
 **Modified:**
+
 - `desktop/src/features/bookmarks/bookmarks.view.tsx` - Implement UI
 - `desktop/src/features/router.tsx` - Add bookmarks route
 
 ## Testing Considerations
 
 ### Backend Testing
+
 - Test metadata extraction for various sites (regular pages, Twitter, YouTube, GitHub, etc.)
 - Test duplicate URL handling
 - Test search integration (fuzzy and semantic)
@@ -766,6 +771,7 @@ url = "2.5"
 - Test tag management operations
 
 ### Frontend Testing
+
 - Test bookmark creation flow
 - Test bookmark editing
 - Test filtering and search

@@ -479,12 +479,15 @@ pub trait TranscriptionProvider: Send + Sync {
 
    - `save_audio_recording()` - Save audio file to filesystem and metadata to database, optionally queue transcription
    - `get_audio_data()` - Retrieve audio file bytes from filesystem
-   - `delete_audio()` - Delete media item, transcriptions, and file from filesystem
+   - `delete_audio_recording()` - Delete media item, transcriptions, and file from filesystem
+   - `get_media_items_for_entry()` - Get all media items (audio, images, etc.) for an entry
+   - `get_audio_metadata()` - Get media item metadata without loading the full file bytes
 
 2. **`desktop/src-tauri/src/commands/transcription.rs`**
 
    - `start_transcription()` - Manually trigger transcription
-   - `get_transcriptions()` - Get all transcriptions for audio
+   - `get_transcriptions()` - Get all transcriptions for an audio file
+   - `get_transcription_by_id()` - Get a specific transcription by ID
    - `set_active_transcription()` - Mark transcription as active
    - `list_providers()` - Provider status info
    - `validate_provider()` - Test provider config

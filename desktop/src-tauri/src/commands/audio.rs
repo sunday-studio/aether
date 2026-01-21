@@ -1,5 +1,6 @@
 use crate::audio::{delete_audio, read_audio_file, save_audio_file};
 use crate::db::connection;
+use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::settings;
 use tauri::{AppHandle, State};
@@ -85,4 +86,34 @@ pub async fn delete_audio_recording(
 
     let database = connection::get_database(&*state);
     delete_audio(database, &media_id).await
+}
+
+/// Get all media items (audio, images, etc.) for an entry
+#[tauri::command]
+pub async fn get_media_items_for_entry(
+    state: State<'_, crate::DbState>,
+    entry_id: String,
+) -> Result<Vec<crate::db::models::MediaItem>> {
+    if entry_id.is_empty() {
+        return Err(AppError::BadRequest("Entry ID is required".to_string()));
+    }
+
+    let database = connection::get_database(&*state);
+    let repo = MediaRepository::new(database);
+    repo.find_by_entry_id(&entry_id).await
+}
+
+/// Get audio metadata without loading the full file
+#[tauri::command]
+pub async fn get_audio_metadata(
+    state: State<'_, crate::DbState>,
+    media_id: String,
+) -> Result<Option<crate::db::models::MediaItem>> {
+    if media_id.is_empty() {
+        return Err(AppError::BadRequest("Media ID is required".to_string()));
+    }
+
+    let database = connection::get_database(&*state);
+    let repo = MediaRepository::new(database);
+    repo.find_by_id(&media_id).await
 }

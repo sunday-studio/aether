@@ -84,6 +84,21 @@ pub async fn get_transcriptions(
     repo.find_by_media_id(&media_id).await
 }
 
+/// Get a specific transcription by ID
+#[tauri::command]
+pub async fn get_transcription_by_id(
+    state: State<'_, crate::DbState>,
+    transcription_id: String,
+) -> Result<Option<crate::db::models::AudioTranscription>> {
+    if transcription_id.is_empty() {
+        return Err(AppError::BadRequest("Transcription ID is required".to_string()));
+    }
+
+    let database = connection::get_database(&*state);
+    let repo = TranscriptionRepository::new(database);
+    repo.find_by_id(&transcription_id).await
+}
+
 /// Set active transcription
 #[tauri::command]
 pub async fn set_active_transcription(

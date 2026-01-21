@@ -136,9 +136,12 @@ pub fn run() {
             commands::audio::save_audio_recording,
             commands::audio::get_audio_data,
             commands::audio::delete_audio_recording,
+            commands::audio::get_media_items_for_entry,
+            commands::audio::get_audio_metadata,
             // Transcription commands
             commands::transcription::start_transcription,
             commands::transcription::get_transcriptions,
+            commands::transcription::get_transcription_by_id,
             commands::transcription::set_active_transcription,
             commands::transcription::list_providers,
             commands::transcription::validate_provider,
