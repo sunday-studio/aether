@@ -11,7 +11,7 @@ import {
 	subMonths,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useGetActivities } from "~/aether-sdk";
 import { cn } from "~/utils/cn";
 import { Tooltip } from "./tooltip";
@@ -20,6 +20,9 @@ type ActivityData = Record<string, Record<string, Record<string, number>>>;
 
 export const ActivityHeatmap = () => {
 	const [currentMonth, setCurrentMonth] = useState(new Date());
+	const [isVisible, setIsVisible] = useState(false);
+	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 
 	const monthStart = startOfMonth(currentMonth);
 	const monthEnd = endOfMonth(currentMonth);
@@ -117,8 +120,41 @@ export const ActivityHeatmap = () => {
 		return weeksArray;
 	}, [days]);
 
+	// Handle mouse enter with immediate show
+	const handleMouseEnter = () => {
+		if (timeoutRef.current) {
+			clearTimeout(timeoutRef.current);
+			timeoutRef.current = null;
+		}
+		setIsVisible(true);
+	};
+
+	// Handle mouse leave with delayed hide to prevent flickering
+	const handleMouseLeave = () => {
+		timeoutRef.current = setTimeout(() => {
+			setIsVisible(false);
+		}, 100); // Small delay to prevent flickering when moving between elements
+	};
+
+	// Cleanup timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+			}
+		};
+	}, []);
+
 	return (
-		<div className="w-auto p-4 rounded-lg border border-neutral-200 absolute -bottom-20 z-10 -left-20 hover:bottom-5 hover:left-5 transition-all duration-300 bg-white">
+		<div
+			ref={containerRef}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
+			className={cn(
+				"w-auto p-4 rounded-lg border border-neutral-200 absolute z-10 transition-all duration-300 bg-white",
+				isVisible ? "bottom-5 left-5" : "-bottom-20 -left-20"
+			)}
+		>
 			{/* <div className="flex items-center justify-between mb-4">
 				<button
 					type="button"
