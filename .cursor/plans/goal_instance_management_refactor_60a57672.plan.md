@@ -92,8 +92,6 @@ flowchart TD
     I --> J
 ```
 
-
-
 ### Goal Creation Flow
 
 ```mermaid
@@ -105,8 +103,6 @@ flowchart TD
     E --> F[Set Status: active]
     F --> G[Return Goal]
 ```
-
-
 
 ### Instance Creation Check Flow
 
@@ -136,8 +132,6 @@ flowchart TD
     note1[Note: All intervals are in days]
 ```
 
-
-
 ### Task Assignment Flow
 
 ```mermaid
@@ -154,8 +148,6 @@ flowchart TD
     H --> I
     I --> J[Create Task]
 ```
-
-
 
 ### Optimized Instance Retrieval Flow
 
@@ -179,8 +171,6 @@ flowchart TD
     style F fill:#e1f5e1
     style J fill:#fff4e1
 ```
-
-
 
 ## Implementation Plan
 
@@ -465,8 +455,6 @@ type Settings struct {
 }
 ```
 
-
-
 - Store IANA timezone name (e.g., "Europe/Amsterdam", "America/Chicago")
 - Default: `"UTC"`
 - Singleton: One settings record (or per-user if multi-user)
@@ -560,8 +548,6 @@ flowchart TD
     style T fill:#e1f5e1
     style V fill:#fff4e1
 ```
-
-
 
 ### Example Scenarios
 
@@ -761,8 +747,6 @@ startOfDay := time.Date(
 // Calculate calendar days (works across DST transitions)
 daysSince := int(nowInGoalTZ.Sub(lastInstance.In(loc)).Hours() / 24)
 ```
-
-
 
 ### Performance Considerations
 

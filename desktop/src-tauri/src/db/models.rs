@@ -12,14 +12,45 @@ pub struct SchemaMigration {
     pub applied_at: DateTime<Utc>,
 }
 
-/// Settings model
+/// Settings model (key-value store)
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Settings {
+pub struct Setting {
+    pub key: String,
+    pub value: String,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// MediaItem model
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaItem {
     pub id: String,
-    pub timezone: String,
+    pub entry_id: String,
+    pub media_type: String, // "audio" | "image" | "video"
+    pub file_path: String,
+    pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+/// AudioTranscription model
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioTranscription {
+    pub id: String,
+    pub media_id: String,
+    pub transcription_text: String,
+    pub provider: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_config: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_score: Option<f32>,
+    pub status: String, // "pending" | "processing" | "complete" | "failed"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Entry model

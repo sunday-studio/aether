@@ -1,8 +1,11 @@
 pub mod api;
+pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod error;
 pub mod handlers;
+pub mod settings;
+pub mod transcription;
 pub mod utils;
 
 pub use db::DbState;

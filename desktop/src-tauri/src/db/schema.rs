@@ -7,14 +7,85 @@ use libsql::Database;
 pub async fn create_schema(database: &Database) -> Result<()> {
     let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
 
-    // Settings table
+    // Settings table (key-value store)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS settings (
-            id TEXT PRIMARY KEY,
-            timezone TEXT NOT NULL DEFAULT 'UTC',
-            created_at TEXT NOT NULL,
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key)",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    // Media items table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS media_items (
+            id TEXT PRIMARY KEY,
+            entry_id TEXT NOT NULL,
+            media_type TEXT NOT NULL CHECK(media_type IN ('audio', 'image', 'video')),
+            file_path TEXT NOT NULL,
+            metadata TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+        )",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_media_entry_id ON media_items(entry_id)",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(media_type)",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    // Audio transcriptions table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS audio_transcriptions (
+            id TEXT PRIMARY KEY,
+            media_id TEXT NOT NULL,
+            transcription_text TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            provider_config TEXT,
+            confidence_score REAL,
+            status TEXT NOT NULL CHECK(status IN ('pending', 'processing', 'complete', 'failed')),
+            error_message TEXT,
+            is_active INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (media_id) REFERENCES media_items(id) ON DELETE CASCADE
+        )",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_transcriptions_media_id ON audio_transcriptions(media_id)",
+        libsql::params![],
+    )
+    .await
+    .map_err(|e| AppError::LibSQL(e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON audio_transcriptions(status)",
         libsql::params![],
     )
     .await
