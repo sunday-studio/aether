@@ -5,6 +5,7 @@ pub mod task;
 pub mod goal;
 pub mod trash;
 pub mod sync;
+pub mod search;
 
 pub use entry::*;
 pub use tag::*;

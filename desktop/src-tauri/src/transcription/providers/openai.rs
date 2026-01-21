@@ -72,9 +72,10 @@ impl TranscriptionProvider for OpenAIProvider {
             .await
             .map_err(|e| format!("Request failed: {}", e))?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(format!("API error ({}): {}", response.status(), error_text));
+            return Err(format!("API error ({}): {}", status, error_text));
         }
 
         let result: serde_json::Value = response

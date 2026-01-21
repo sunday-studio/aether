@@ -79,3 +79,41 @@ async fn test_tag_crud() -> Result<()> {
     
     Ok(())
 }
+
+#[tokio::test]
+#[ignore] // Ignore by default - requires server to be running
+async fn test_search_endpoint() -> Result<()> {
+    let base_url = std::env::var("TEST_API_URL")
+        .unwrap_or_else(|_| "http://localhost:9119".to_string());
+    
+    if !wait_for_server(&format!("{}/v1/ping", base_url)).await {
+        eprintln!("Server not available at {}, skipping test", base_url);
+        return Ok(());
+    }
+    
+    let client = reqwest::Client::new();
+    
+    // Test search with a query
+    let response = client
+        .get(&format!("{}/v1/search", base_url))
+        .query(&[("q", "test")])
+        .send()
+        .await?;
+    
+    assert!(response.status().is_success());
+    let body: serde_json::Value = response.json().await?;
+    assert!(body.get("results").is_some());
+    assert!(body.get("query").is_some());
+    assert_eq!(body["query"], "test");
+    
+    // Test search with empty query (should return 400)
+    let response = client
+        .get(&format!("{}/v1/search", base_url))
+        .query(&[("q", "")])
+        .send()
+        .await?;
+    
+    assert!(response.status().is_client_error());
+    
+    Ok(())
+}

@@ -69,6 +69,25 @@ futures = "0.3"
 # Human-readable duration parsing
 humantime = "2.1"
 
+# Audio processing
+hound = "3.5"
+
+# HTTP clients
+reqwest = { version = "0.11", features = ["json", "multipart", "stream"] }
+
+# Encryption
+aes-gcm = "0.10"
+base64 = "0.21"
+
+# Async traits
+async-trait = "0.1"
+
+# Local Whisper (optional - for future implementation)
+# whisper-rs = "0.10"  # Uncomment when implementing local Whisper
+
+# Model verification
+sha2 = "0.10"
+
 [dev-dependencies]
 # Testing
 reqwest = { version = "0.12", features = ["json"] }

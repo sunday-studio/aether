@@ -66,7 +66,7 @@ impl TranscriptionProvider for SelfHostedProvider {
         let client = reqwest::Client::new();
         
         // Create multipart form
-        let mut form = multipart::Form::new()
+        let form = multipart::Form::new()
             .part("audio", multipart::Part::bytes(audio_data.to_vec())
                 .file_name(format!("audio.{}", format))
                 .mime_str(&get_mime_type(format))
@@ -85,9 +85,10 @@ impl TranscriptionProvider for SelfHostedProvider {
             .await
             .map_err(|e| format!("Request failed: {}", e))?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(format!("API error ({}): {}", response.status(), error_text));
+            return Err(format!("API error ({}): {}", status, error_text));
         }
 
         let result: serde_json::Value = response

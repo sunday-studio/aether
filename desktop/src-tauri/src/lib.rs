@@ -12,7 +12,7 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, entry, goal, sync, tag, task, trash,
+    activity, entry, goal, sync, tag, task, trash, search,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -56,6 +56,10 @@ pub fn run() {
         let database = db::connection::get_database(&state);
         db::migrations::run_migrations(&database).await
             .expect("Failed to run migrations");
+        
+        // Ensure media directory exists
+        audio::ensure_media_directory()
+            .expect("Failed to create media directory");
         
         state
     });
@@ -111,6 +115,24 @@ pub fn run() {
             sync::sync,
             // Activity commands
             activity::get_activities,
+            // Search commands
+            search::search_resources,
+            // Audio commands
+            commands::audio::save_audio_recording,
+            commands::audio::get_audio_data,
+            commands::audio::delete_audio_recording,
+            // Transcription commands
+            commands::transcription::start_transcription,
+            commands::transcription::get_transcriptions,
+            commands::transcription::set_active_transcription,
+            commands::transcription::list_providers,
+            commands::transcription::validate_provider,
+            commands::transcription::list_available_models,
+            commands::transcription::download_model,
+            commands::transcription::verify_model,
+            commands::transcription::delete_model,
+            commands::transcription::get_setting,
+            commands::transcription::set_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

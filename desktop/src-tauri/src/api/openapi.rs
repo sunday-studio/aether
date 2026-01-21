@@ -8,6 +8,7 @@ use crate::handlers::sync as sync_handlers;
 use crate::handlers::tag;
 use crate::handlers::task as task_handlers;
 use crate::handlers::trash as trash_handlers;
+use crate::handlers::search as search_handlers;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -59,6 +60,8 @@ use crate::handlers::trash as trash_handlers;
         sync_handlers::sync,
         // Activity endpoints
         activity_handlers::get_activities,
+        // Search endpoints
+        search_handlers::search,
     ),
     components(schemas(
         Tag,
@@ -80,6 +83,9 @@ use crate::handlers::trash as trash_handlers;
         goal_handlers::CreateGoalRequest,
         goal_handlers::UpdateGoalRequest,
         sync_handlers::ConfigureSyncRequest,
+        search_handlers::SearchRequest,
+        search_handlers::SearchResponse,
+        search_handlers::SearchResultResponse,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
@@ -90,6 +96,7 @@ use crate::handlers::trash as trash_handlers;
         (name = "Trash", description = "Trash management endpoints"),
         (name = "Sync", description = "Sync management endpoints"),
         (name = "Activities", description = "Activity tracking endpoints"),
+        (name = "Search", description = "Search endpoints"),
     ),
 )]
 pub struct ApiDoc;

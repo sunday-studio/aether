@@ -1,8 +1,8 @@
-use crate::db::{connection, MediaRepository};
+use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::utils::generate_id;
 use libsql::Database;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Get platform-specific media directory path

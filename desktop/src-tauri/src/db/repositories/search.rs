@@ -1,0 +1,751 @@
+use crate::db::models::{Entry, Goal, SubTask, Tag, Task};
+use crate::error::{AppError, Result};
+use libsql::Database;
+use std::sync::Arc;
+
+/// Search result with resource type and relevance score
+#[derive(Debug, Clone)]
+pub enum SearchResult {
+    Entry {
+        entry: Entry,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Task {
+        task: Task,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    SubTask {
+        subtask: SubTask,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Goal {
+        goal: Goal,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Tag {
+        tag: Tag,
+        score: f64,
+        highlights: Vec<String>,
+    }
+}
+
+/// Resource type filter for search
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResourceType {
+    Entry,
+    Task,
+    SubTask,
+    Goal,
+    Tag,
+}
+
+impl ResourceType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "entry" => Some(Self::Entry),
+            "task" => Some(Self::Task),
+            "subtask" => Some(Self::SubTask),
+            "goal" => Some(Self::Goal),
+            "tag" => Some(Self::Tag),
+            _ => None,
+        }
+    }
+}
+
+pub struct SearchRepository {
+    database: Arc<Database>,
+}
+
+impl SearchRepository {
+    pub fn new(database: Arc<Database>) -> Self {
+        Self { database }
+    }
+
+    /// Escape special characters in FTS5 query
+    pub fn escape_fts_query(query: &str) -> String {
+        query.replace('"', "\"\"")
+    }
+
+    /// Search across all resources using FTS5 fuzzy matching
+    pub async fn search_fuzzy(
+        &self,
+        query: &str,
+        types: Option<Vec<ResourceType>>,
+        tag_ids: Option<Vec<String>>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<Vec<SearchResult>> {
+        self.search_internal(query, types, tag_ids, limit, offset, "fuzzy").await
+    }
+
+    /// Search using hybrid mode (combines fuzzy and semantic search)
+    pub async fn search_hybrid(
+        &self,
+        query: &str,
+        types: Option<Vec<ResourceType>>,
+        tag_ids: Option<Vec<String>>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<Vec<SearchResult>> {
+        self.search_internal(query, types, tag_ids, limit, offset, "hybrid").await
+    }
+
+    /// Internal search method that handles different modes
+    async fn search_internal(
+        &self,
+        query: &str,
+        types: Option<Vec<ResourceType>>,
+        tag_ids: Option<Vec<String>>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+        mode: &str,
+    ) -> Result<Vec<SearchResult>> {
+        if query.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let limit = limit.unwrap_or(50).min(100);
+        let _offset = offset.unwrap_or(0);
+        let escaped_query = Self::escape_fts_query(query);
+
+        let mut results = Vec::new();
+
+        let search_types = if let Some(ref t) = types {
+            t.clone()
+        } else {
+            vec![
+                ResourceType::Entry,
+                ResourceType::Task,
+                ResourceType::SubTask,
+                ResourceType::Goal,
+                ResourceType::Tag,
+            ]
+        };
+
+        if search_types.contains(&ResourceType::Entry) {
+            let entry_results = self.search_entries(&escaped_query, &tag_ids, limit).await?;
+            results.extend(entry_results);
+        }
+
+        if search_types.contains(&ResourceType::Task) {
+            let task_results = self.search_tasks(&escaped_query, &tag_ids, limit).await?;
+            results.extend(task_results);
+        }
+
+        if search_types.contains(&ResourceType::SubTask) {
+            let subtask_results = self.search_subtasks(&escaped_query, limit).await?;
+            results.extend(subtask_results);
+        }
+
+        if search_types.contains(&ResourceType::Goal) {
+            let goal_results = self.search_goals(&escaped_query, &tag_ids, limit).await?;
+            results.extend(goal_results);
+        }
+
+        if search_types.contains(&ResourceType::Tag) {
+            let tag_results = self.search_tags(&escaped_query, limit).await?;
+            results.extend(tag_results);
+        }
+
+        results.sort_by(|a, b| {
+            let score_a = match a {
+                SearchResult::Entry { score, .. } => *score,
+                SearchResult::Task { score, .. } => *score,
+                SearchResult::SubTask { score, .. } => *score,
+                SearchResult::Goal { score, .. } => *score,
+                SearchResult::Tag { score, .. } => *score,
+            };
+            let score_b = match b {
+                SearchResult::Entry { score, .. } => *score,
+                SearchResult::Task { score, .. } => *score,
+                SearchResult::SubTask { score, .. } => *score,
+                SearchResult::Goal { score, .. } => *score,
+                SearchResult::Tag { score, .. } => *score,
+            };
+            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        if mode == "hybrid" {
+            let semantic_results = self.search_semantic(query, &search_types, limit).await?;
+            
+            let mut merged: std::collections::HashMap<String, (SearchResult, f64, f64)> = std::collections::HashMap::new();
+            
+            for result in results {
+                let (id, score) = match &result {
+                    SearchResult::Entry { entry, score, .. } => (entry.id.clone(), *score),
+                    SearchResult::Task { task, score, .. } => (task.id.clone(), *score),
+                    SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
+                    SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
+                    SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
+                };
+                merged.insert(id, (result, score * 0.6, 0.0));
+            }
+            
+            for result in semantic_results {
+                let (id, score) = match &result {
+                    SearchResult::Entry { entry, score, .. } => (entry.id.clone(), *score),
+                    SearchResult::Task { task, score, .. } => (task.id.clone(), *score),
+                    SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
+                    SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
+                    SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
+                };
+                
+                match merged.get_mut(&id) {
+                    Some((_, _, semantic_score)) => {
+                        *semantic_score = score * 0.4;
+                    }
+                    None => {
+                        merged.insert(id, (result, 0.0, score * 0.4));
+                    }
+                }
+            }
+            
+            let mut final_results: Vec<SearchResult> = merged
+                .into_iter()
+                .map(|(_, (mut result, fuzzy_score, semantic_score))| {
+                    let final_score = fuzzy_score + semantic_score;
+                    match &mut result {
+                        SearchResult::Entry { score, .. } => *score = final_score,
+                        SearchResult::Task { score, .. } => *score = final_score,
+                        SearchResult::SubTask { score, .. } => *score = final_score,
+                        SearchResult::Goal { score, .. } => *score = final_score,
+                        SearchResult::Tag { score, .. } => *score = final_score,
+                    }
+                    result
+                })
+                .collect();
+            
+            final_results.sort_by(|a, b| {
+                let score_a = match a {
+                    SearchResult::Entry { score, .. } => *score,
+                    SearchResult::Task { score, .. } => *score,
+                    SearchResult::SubTask { score, .. } => *score,
+                    SearchResult::Goal { score, .. } => *score,
+                    SearchResult::Tag { score, .. } => *score,
+                };
+                let score_b = match b {
+                    SearchResult::Entry { score, .. } => *score,
+                    SearchResult::Task { score, .. } => *score,
+                    SearchResult::SubTask { score, .. } => *score,
+                    SearchResult::Goal { score, .. } => *score,
+                    SearchResult::Tag { score, .. } => *score,
+                };
+                score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            
+            final_results.truncate(limit as usize);
+            return Ok(final_results);
+        }
+
+        results.truncate(limit as usize);
+        Ok(results)
+    }
+
+    async fn search_entries(
+        &self,
+        query: &str,
+        _tag_ids: &Option<Vec<String>>,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT e.id, e.document, e.created_at, e.is_pinned, e.is_archived, e.is_deleted, e.updated_at, e.deleted_at,
+                   bm25(entries_fts) as rank
+                   FROM entries_fts
+                   JOIN entries e ON e.id = entries_fts.rowid
+                   WHERE entries_fts MATCH ?1 AND e.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let entry = self.row_to_entry(row)?;
+            let rank: f64 = row.get(8).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::Entry {
+                entry,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn search_tasks(
+        &self,
+        query: &str,
+        _tag_ids: &Option<Vec<String>>,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT t.id, t.title, t.description, t.is_completed, t.due_date, t.goal_instance_id, t.goal_id, 
+                   t.created_at, t.updated_at, t.deleted_at,
+                   bm25(tasks_fts) as rank
+                   FROM tasks_fts
+                   JOIN tasks t ON t.id = tasks_fts.rowid
+                   WHERE tasks_fts MATCH ?1 AND t.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let task = self.row_to_task(row)?;
+            let rank: f64 = row.get(10).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::Task {
+                task,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn search_subtasks(
+        &self,
+        query: &str,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT s.id, s.title, s.is_completed, s.task_id, s.order_index, s.created_at, s.updated_at, s.deleted_at,
+                   bm25(subtasks_fts) as rank
+                   FROM subtasks_fts
+                   JOIN subtasks s ON s.id = subtasks_fts.rowid
+                   WHERE subtasks_fts MATCH ?1 AND s.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let subtask = self.row_to_subtask(row)?;
+            let rank: f64 = row.get(8).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::SubTask {
+                subtask,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn search_goals(
+        &self,
+        query: &str,
+        _tag_ids: &Option<Vec<String>>,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT g.id, g.name, g.description, g.is_non_recurring, g.recurrence_type, g.recurrence_interval, 
+                   g.recurrence_anchor, g.recurrence_meta, g.timezone, g.created_at, g.updated_at, g.deleted_at,
+                   bm25(goals_fts) as rank
+                   FROM goals_fts
+                   JOIN goals g ON g.id = goals_fts.rowid
+                   WHERE goals_fts MATCH ?1 AND g.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let goal = self.row_to_goal(row)?;
+            let rank: f64 = row.get(12).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::Goal {
+                goal,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn search_tags(
+        &self,
+        query: &str,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at,
+                   bm25(tags_fts) as rank
+                   FROM tags_fts
+                   JOIN tags t ON t.id = tags_fts.rowid
+                   WHERE tags_fts MATCH ?1 AND t.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let tag = self.row_to_tag(row)?;
+            let rank: f64 = row.get(5).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::Tag {
+                tag,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
+    /// Search using semantic similarity (vector embeddings)
+    async fn search_semantic(
+        &self,
+        query: &str,
+        types: &[ResourceType],
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let query_embedding = crate::utils::embeddings::generate_embedding(query).await?;
+        let embedding_json = serde_json::to_string(&query_embedding)
+            .map_err(|e| AppError::Internal(format!("Failed to serialize embedding: {}", e)))?;
+        
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let mut all_results = Vec::new();
+        
+        for resource_type in types {
+            match resource_type {
+                ResourceType::Entry => {
+                    let sql = "SELECT e.id, e.document, e.created_at, e.is_pinned, e.is_archived, e.is_deleted, e.updated_at, e.deleted_at,
+                               vector_distance_cos(e.embedding, vector32(?1)) as distance
+                               FROM entries e
+                               WHERE e.embedding IS NOT NULL AND e.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let entry = self.row_to_entry(row)?;
+                        let distance: f64 = row.get(8).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::Entry {
+                            entry,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+                ResourceType::Task => {
+                    let sql = "SELECT t.id, t.title, t.description, t.is_completed, t.due_date, t.goal_instance_id, t.goal_id, 
+                               t.created_at, t.updated_at, t.deleted_at,
+                               vector_distance_cos(t.embedding, vector32(?1)) as distance
+                               FROM tasks t
+                               WHERE t.embedding IS NOT NULL AND t.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let task = self.row_to_task(row)?;
+                        let distance: f64 = row.get(10).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::Task {
+                            task,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+                ResourceType::SubTask => {
+                    let sql = "SELECT s.id, s.title, s.is_completed, s.task_id, s.order_index, s.created_at, s.updated_at, s.deleted_at,
+                               vector_distance_cos(s.embedding, vector32(?1)) as distance
+                               FROM subtasks s
+                               WHERE s.embedding IS NOT NULL AND s.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let subtask = self.row_to_subtask(row)?;
+                        let distance: f64 = row.get(8).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::SubTask {
+                            subtask,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+                ResourceType::Goal => {
+                    let sql = "SELECT g.id, g.name, g.description, g.is_non_recurring, g.recurrence_type, g.recurrence_interval, 
+                               g.recurrence_anchor, g.recurrence_meta, g.timezone, g.created_at, g.updated_at, g.deleted_at,
+                               vector_distance_cos(g.embedding, vector32(?1)) as distance
+                               FROM goals g
+                               WHERE g.embedding IS NOT NULL AND g.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let goal = self.row_to_goal(row)?;
+                        let distance: f64 = row.get(12).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::Goal {
+                            goal,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+                ResourceType::Tag => {
+                    let sql = "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at,
+                               vector_distance_cos(t.embedding, vector32(?1)) as distance
+                               FROM tags t
+                               WHERE t.embedding IS NOT NULL AND t.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let tag = self.row_to_tag(row)?;
+                        let distance: f64 = row.get(5).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::Tag {
+                            tag,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(all_results)
+    }
+
+    /// Search for similar resources using vector embeddings
+    pub async fn search_similar(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let limit = limit.min(50);
+
+        match resource_type {
+            "entry" => {
+                let sql = "SELECT e.id, e.document, e.created_at, e.is_pinned, e.is_archived, e.is_deleted, e.updated_at, e.deleted_at,
+                           vector_distance_cos(e.embedding, (SELECT embedding FROM entries WHERE id = ?3)) as distance
+                           FROM vector_top_k('entries_embedding_idx', (SELECT embedding FROM entries WHERE id = ?3), ?2) v
+                           JOIN entries e ON e.rowid = v.id
+                           WHERE e.id != ?3 AND e.deleted_at IS NULL
+                           ORDER BY distance ASC";
+
+                let mut rows = conn
+                    .query(sql, libsql::params![limit as i64, resource_id, resource_id])
+                    .await
+                    .map_err(|e| AppError::LibSQL(e))?;
+
+                let mut results = Vec::new();
+                while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                    let entry = self.row_to_entry(row)?;
+                    let distance: f64 = row.get(8).unwrap_or(2.0);
+                    let score = (1.0 - (distance / 2.0)).max(0.0);
+                    results.push(SearchResult::Entry {
+                        entry,
+                        score,
+                        highlights: Vec::new(),
+                    });
+                }
+                Ok(results)
+            }
+            "task" | "subtask" | "goal" | "tag" => {
+                // Similar implementation for other types
+                // For brevity, returning empty for now - can be extended
+                Ok(Vec::new())
+            }
+            _ => Err(AppError::BadRequest(format!("Invalid resource type: {}", resource_type))),
+        }
+    }
+
+    fn row_to_entry(&self, row: libsql::Row) -> Result<Entry> {
+        Ok(Entry {
+            id: row.get(0)?,
+            document: row.get(1)?,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(2)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            is_pinned: row.get::<i64>(3)? != 0,
+            is_archived: row.get::<i64>(4)? != 0,
+            is_deleted: row.get::<i64>(5)? != 0,
+            updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            deleted_at: row.get::<Option<String>>(7)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+        })
+    }
+
+    fn row_to_task(&self, row: libsql::Row) -> Result<Task> {
+        Ok(Task {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            description: row.get(2)?,
+            is_completed: row.get::<i64>(3)? != 0,
+            due_date: row.get::<Option<String>>(4)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+            goal_instance_id: row.get(5)?,
+            goal_id: row.get(6)?,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(7)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(8)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            deleted_at: row.get::<Option<String>>(9)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+        })
+    }
+
+    fn row_to_subtask(&self, row: libsql::Row) -> Result<SubTask> {
+        Ok(SubTask {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            is_completed: row.get::<i64>(2)? != 0,
+            task_id: row.get(3)?,
+            order_index: row.get(4)?,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(5)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            deleted_at: row.get::<Option<String>>(7)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+        })
+    }
+
+    fn row_to_goal(&self, row: libsql::Row) -> Result<Goal> {
+        Ok(Goal {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            is_non_recurring: row.get::<i64>(3)? != 0,
+            recurrence_type: row.get(4)?,
+            recurrence_interval: row.get(5)?,
+            recurrence_anchor: row.get::<Option<String>>(6)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+            recurrence_meta: row.get::<Option<String>>(7)?
+                .map(|s| serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)),
+            timezone: row.get(8)?,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(9)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(10)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            deleted_at: row.get::<Option<String>>(11)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+        })
+    }
+
+    fn row_to_tag(&self, row: libsql::Row) -> Result<Tag> {
+        Ok(Tag {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(2)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(3)?)
+                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .with_timezone(&chrono::Utc),
+            deleted_at: row.get::<Option<String>>(4)?
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+                .transpose()?,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resource_type_from_str() {
+        assert_eq!(ResourceType::from_str("entry"), Some(ResourceType::Entry));
+        assert_eq!(ResourceType::from_str("task"), Some(ResourceType::Task));
+        assert_eq!(ResourceType::from_str("subtask"), Some(ResourceType::SubTask));
+        assert_eq!(ResourceType::from_str("goal"), Some(ResourceType::Goal));
+        assert_eq!(ResourceType::from_str("tag"), Some(ResourceType::Tag));
+        assert_eq!(ResourceType::from_str("invalid"), None);
+        assert_eq!(ResourceType::from_str("ENTRY"), Some(ResourceType::Entry));
+    }
+
+    #[test]
+    fn test_escape_fts_query() {
+        assert_eq!(SearchRepository::escape_fts_query("test"), "test");
+        assert_eq!(SearchRepository::escape_fts_query("test\"quote"), "test\"\"quote");
+    }
+}

@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 /// Compress audio for transcription to reduce file size and token usage
@@ -83,8 +83,3 @@ pub async fn compress_audio_bytes(
     Ok(compressed_data)
 }
 
-/// Get temporary file path for processed audio
-pub fn get_temp_processed_path(media_id: &str) -> Result<PathBuf> {
-    let temp_dir = std::env::temp_dir();
-    Ok(temp_dir.join(format!("processed_{}.mp3", media_id)))
-}

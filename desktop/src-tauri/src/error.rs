@@ -20,6 +20,18 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Transcription error: {0}")]
+    TranscriptionError(String),
+
+    #[error("Model error: {0}")]
+    ModelError(String),
+
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
+
+    #[error("Provider not configured: {0}")]
+    ProviderNotConfigured(String),
 }
 
 impl Serialize for AppError {

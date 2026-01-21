@@ -1,7 +1,10 @@
 pub mod activity;
+pub mod audio;
 pub mod entry;
 pub mod goal;
 pub mod sync;
 pub mod tag;
 pub mod task;
+pub mod transcription;
 pub mod trash;
+pub mod search;

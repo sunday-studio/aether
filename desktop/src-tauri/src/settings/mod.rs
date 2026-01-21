@@ -1,7 +1,7 @@
 pub mod encryption;
 
-use crate::db::{connection, SettingsRepository};
-use crate::error::{AppError, Result};
+use crate::db::repositories::SettingsRepository;
+use crate::error::Result;
 use libsql::Database;
 use std::sync::Arc;
 

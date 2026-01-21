@@ -92,7 +92,7 @@ impl TranscriptionProvider for LocalWhisperProvider {
         Ok(())
     }
 
-    async fn transcribe(&self, audio_data: &[u8], _format: &str) -> Result<TranscriptionResult, String> {
+    async fn transcribe(&self, _audio_data: &[u8], _format: &str) -> Result<TranscriptionResult, String> {
         if !self.initialized {
             return Err("Provider not initialized".to_string());
         }
