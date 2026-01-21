@@ -121,3 +121,16 @@ pub struct GoalInstance {
     pub status: String, // active | completed | skipped
     pub created_at: DateTime<Utc>,
 }
+
+/// Activity model for tracking user actions and audit logging
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Activity {
+    pub id: String,
+    pub action_type: String, // create, update, delete, complete, add_tags, remove_tags, add_goal, remove_goal, reorder, restore
+    pub entity_type: String, // entry, task, subtask, goal, tag, goal_instance
+    pub entity_id: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}

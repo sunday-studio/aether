@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -98,7 +99,8 @@ pub async fn create_entry(
     State(state): State<DbState>,
     Json(payload): Json<CreateEntryRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     let entry = repo
         .create(
             payload.document,
@@ -108,6 +110,10 @@ pub async fn create_entry(
             payload.is_deleted.unwrap_or(false),
         )
         .await?;
+    
+    // Log activity
+    let _ = log_create(db, "entry".to_string(), entry.id.clone()).await;
+    
     Ok((StatusCode::OK, Json(entry)))
 }
 
@@ -127,7 +133,8 @@ pub async fn bulk_create_entries(
     State(state): State<DbState>,
     Json(payload): Json<Vec<CreateEntryRequest>>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     let entries_data: Vec<_> = payload
         .into_iter()
         .map(|e| {
@@ -141,6 +148,12 @@ pub async fn bulk_create_entries(
         })
         .collect();
     let entries = repo.bulk_create(entries_data).await?;
+    
+    // Log activities for each created entry
+    for entry in &entries {
+        let _ = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await;
+    }
+    
     Ok((StatusCode::OK, Json(entries)))
 }
 
@@ -166,7 +179,8 @@ pub async fn update_entry(
     Path(id): Path<String>,
     Json(payload): Json<UpdateEntryRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     let entry = repo
         .update(
             &id,
@@ -177,6 +191,10 @@ pub async fn update_entry(
             payload.updated_at,
         )
         .await?;
+    
+    // Log activity
+    let _ = log_update(db, "entry".to_string(), entry.id.clone()).await;
+    
     Ok((StatusCode::OK, Json(entry)))
 }
 
@@ -198,8 +216,13 @@ pub async fn delete_entry(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     repo.delete(&id).await?;
+    
+    // Log activity
+    let _ = log_delete(db, "entry".to_string(), id).await;
+    
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -223,8 +246,12 @@ pub async fn add_tags_to_entry(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     repo.add_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await;
     
     // Return updated entry
     let entry = repo.find_by_id(&id).await?
@@ -252,8 +279,12 @@ pub async fn remove_tags_from_entry(
     Path(id): Path<String>,
     Json(tag_id): Json<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = EntryRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = EntryRepository::new(db.clone());
     repo.remove_tags(&id, tag_id).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await;
     
     // Return updated entry
     let entry = repo.find_by_id(&id).await?

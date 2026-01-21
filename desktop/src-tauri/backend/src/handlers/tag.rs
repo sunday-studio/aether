@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
+use crate::utils::log_create;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -54,8 +55,13 @@ pub async fn create_tag(
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
     }
 
-    let repo = TagRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TagRepository::new(db.clone());
     let tag = repo.create(payload.name).await?;
+    
+    // Log activity
+    let _ = log_create(db, "tag".to_string(), tag.id.clone()).await;
+    
     Ok((StatusCode::OK, Json(tag)))
 }
 
@@ -75,8 +81,15 @@ pub async fn bulk_create_tags(
     State(state): State<DbState>,
     Json(payload): Json<Vec<CreateTagRequest>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TagRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TagRepository::new(db.clone());
     let names: Vec<String> = payload.into_iter().map(|t| t.name).collect();
     let tags = repo.bulk_create(names).await?;
+    
+    // Log activities for each created tag
+    for tag in &tags {
+        let _ = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await;
+    }
+    
     Ok((StatusCode::OK, Json(tags)))
 }

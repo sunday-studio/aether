@@ -1,6 +1,7 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Entry, Goal, GoalInstance, SubTask, Tag, Task};
+use crate::db::models::{Activity, Entry, Goal, GoalInstance, SubTask, Tag, Task};
+use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
 use crate::handlers::sync as sync_handlers;
@@ -56,6 +57,8 @@ use crate::handlers::trash as trash_handlers;
         // Sync endpoints
         sync_handlers::configure_sync,
         sync_handlers::sync,
+        // Activity endpoints
+        activity_handlers::get_activities,
     ),
     components(schemas(
         Tag,
@@ -64,6 +67,7 @@ use crate::handlers::trash as trash_handlers;
         SubTask,
         Goal,
         GoalInstance,
+        Activity,
         tag::CreateTagRequest,
         entry::CreateEntryRequest,
         entry::UpdateEntryRequest,
@@ -85,6 +89,7 @@ use crate::handlers::trash as trash_handlers;
         (name = "GoalInstances", description = "Goal instance management endpoints"),
         (name = "Trash", description = "Trash management endpoints"),
         (name = "Sync", description = "Sync management endpoints"),
+        (name = "Activities", description = "Activity tracking endpoints"),
     ),
 )]
 pub struct ApiDoc;

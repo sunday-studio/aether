@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
+use crate::utils::log_restore;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -120,6 +121,10 @@ pub async fn restore_task(
     )
     .await
     .map_err(|e| AppError::LibSQL(e))?;
+
+    // Log activity
+    let db = connection::get_database(&state);
+    let _ = log_restore(db, "task".to_string(), id).await;
 
     Ok(StatusCode::NO_CONTENT)
 }

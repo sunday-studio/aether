@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -151,7 +152,8 @@ pub async fn create_goal(
     // For now, we'll default to UTC - can be enhanced later to read from settings
     let timezone = "UTC".to_string();
 
-    let repo = GoalRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = GoalRepository::new(db.clone());
     let goal = repo
         .create(
             payload.name,
@@ -169,6 +171,9 @@ pub async fn create_goal(
     if !payload.tag_ids.is_empty() {
         repo.add_tags(&goal.id, payload.tag_ids).await?;
     }
+
+    // Log activity
+    let _ = log_create(db, "goal".to_string(), goal.id.clone()).await;
 
     Ok((StatusCode::OK, Json(goal)))
 }
@@ -195,7 +200,8 @@ pub async fn update_goal(
     Path(id): Path<String>,
     Json(payload): Json<UpdateGoalRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = GoalRepository::new(db.clone());
     let goal = repo
         .update(
             &id,
@@ -221,6 +227,9 @@ pub async fn update_goal(
         }
     }
 
+    // Log activity
+    let _ = log_update(db, "goal".to_string(), goal.id.clone()).await;
+
     Ok((StatusCode::OK, Json(goal)))
 }
 
@@ -242,8 +251,13 @@ pub async fn delete_goal(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = GoalRepository::new(db.clone());
     repo.delete(&id).await?;
+    
+    // Log activity
+    let _ = log_delete(db, "goal".to_string(), id).await;
+    
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -313,8 +327,12 @@ pub async fn add_tags_to_goal(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = GoalRepository::new(db.clone());
     repo.add_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await;
     
     // Return updated goal
     let goal = repo.find_by_id(&id).await?
@@ -342,8 +360,12 @@ pub async fn remove_tags_from_goal(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = GoalRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = GoalRepository::new(db.clone());
     repo.remove_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await;
     
     // Return updated goal
     let goal = repo.find_by_id(&id).await?

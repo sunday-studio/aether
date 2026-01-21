@@ -1,5 +1,9 @@
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
+use crate::utils::{
+    log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
+    log_update,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -89,7 +93,8 @@ pub async fn create_task(
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     
     // For now, goal_instance_id will be None - will be implemented in Milestone 5
     let task = repo
@@ -106,6 +111,9 @@ pub async fn create_task(
     if !payload.tag_ids.is_empty() {
         repo.add_tags(&task.id, payload.tag_ids).await?;
     }
+
+    // Log activity
+    let _ = log_create(db, "task".to_string(), task.id.clone()).await;
 
     Ok((StatusCode::OK, Json(task)))
 }
@@ -189,7 +197,12 @@ pub async fn update_task(
     Path(id): Path<String>,
     Json(payload): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
+    
+    // Get current task to check completion status
+    let old_task = repo.find_by_id(&id).await?;
+    let was_completed = old_task.as_ref().map(|t| t.is_completed).unwrap_or(false);
     
     // For goal_id, we'll need to get or create goal instance in Milestone 5
     // For now, pass None for goal_instance_id
@@ -205,6 +218,20 @@ pub async fn update_task(
             payload.updated_at,
         )
         .await?;
+
+    // Log activity - check if completion changed
+    if let Some(new_completed) = payload.is_completed {
+        if !was_completed && new_completed {
+            // Task was just completed
+            let _ = log_complete(db.clone(), "task".to_string(), task.id.clone()).await;
+        } else {
+            // Regular update
+            let _ = log_update(db.clone(), "task".to_string(), task.id.clone()).await;
+        }
+    } else {
+        // Regular update (no completion change)
+        let _ = log_update(db.clone(), "task".to_string(), task.id.clone()).await;
+    }
 
     // Update tags if provided
     if let Some(tag_ids) = payload.tag_ids {
@@ -240,8 +267,13 @@ pub async fn delete_task(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.delete(&id).await?;
+    
+    // Log activity
+    let _ = log_delete(db, "task".to_string(), id).await;
+    
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -293,8 +325,13 @@ pub async fn create_subtask(
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     let subtask = repo.create_subtask(&task_id, payload.title).await?;
+    
+    // Log activity
+    let _ = log_create(db, "subtask".to_string(), subtask.id.clone()).await;
+    
     Ok((StatusCode::OK, Json(subtask)))
 }
 
@@ -320,10 +357,32 @@ pub async fn update_subtask(
     Path((task_id, subtask_id)): Path<(String, String)>,
     Json(payload): Json<UpdateSubTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
+    
+    // Get current subtask to check completion status
+    let subtasks = repo.find_subtasks(&task_id).await?;
+    let old_subtask = subtasks.iter().find(|s| s.id == subtask_id);
+    let was_completed = old_subtask.map(|s| s.is_completed).unwrap_or(false);
+    
     let subtask = repo
         .update_subtask(&task_id, &subtask_id, payload.title, payload.is_completed)
         .await?;
+    
+    // Log activity - check if completion changed
+    if let Some(new_completed) = payload.is_completed {
+        if !was_completed && new_completed {
+            // Subtask was just completed
+            let _ = log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+        } else {
+            // Regular update
+            let _ = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+        }
+    } else {
+        // Regular update (no completion change)
+        let _ = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+    }
+    
     Ok((StatusCode::OK, Json(subtask)))
 }
 
@@ -346,8 +405,13 @@ pub async fn delete_subtask(
     State(state): State<DbState>,
     Path((task_id, subtask_id)): Path<(String, String)>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.delete_subtask(&task_id, &subtask_id).await?;
+    
+    // Log activity
+    let _ = log_delete(db, "subtask".to_string(), subtask_id).await;
+    
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -371,8 +435,15 @@ pub async fn reorder_subtasks(
     Path(task_id): Path<String>,
     Json(payload): Json<ReorderSubTasksRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.reorder_subtasks(&task_id, payload.sub_task_ids).await?;
+    
+    // Log activity for each reordered subtask (using task_id as entity_id since reorder affects the task's subtasks)
+    // Actually, reorder is an action on subtasks, so we log it for the first subtask or the task itself
+    // For simplicity, we'll log it once for the task
+    let _ = log_reorder(db, "task".to_string(), task_id).await;
+    
     Ok((StatusCode::OK, Json(serde_json::json!({"success": true}))))
 }
 
@@ -396,8 +467,12 @@ pub async fn add_tags_to_task(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.add_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await;
     
     // Return updated task
     let task = repo.find_by_id(&id).await?
@@ -425,8 +500,12 @@ pub async fn remove_tags_from_task(
     Path(id): Path<String>,
     Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.remove_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    let _ = log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await;
     
     // Return updated task
     let task = repo.find_by_id(&id).await?
@@ -454,7 +533,8 @@ pub async fn add_goal_to_task(
     Path(id): Path<String>,
     Json(payload): Json<AddGoalToTaskRequest>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     
     // Get or create goal instance - placeholder for now, will be implemented in Milestone 5
     let goal_instance_id = repo.add_goal(&id, &payload.goal_id).await?;
@@ -472,6 +552,9 @@ pub async fn add_goal_to_task(
             None, // client_updated_at
         )
         .await?;
+    
+    // Log activity
+    let _ = log_goal_operation(db, "add_goal", "task".to_string(), task.id.clone()).await;
     
     Ok((StatusCode::OK, Json(task)))
 }
@@ -494,8 +577,12 @@ pub async fn remove_goal_from_task(
     State(state): State<DbState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse> {
-    let repo = TaskRepository::new(connection::get_database(&state));
+    let db = connection::get_database(&state);
+    let repo = TaskRepository::new(db.clone());
     repo.remove_goal(&id).await?;
+    
+    // Log activity
+    let _ = log_goal_operation(db.clone(), "remove_goal", "task".to_string(), id.clone()).await;
     
     // Return updated task
     let task = repo.find_by_id(&id).await?

@@ -5,8 +5,10 @@ pub mod entry;
 pub mod tag;
 pub mod task;
 pub mod goal;
+pub mod activity;
 
 pub use entry::EntryRepository;
 pub use tag::TagRepository;
 pub use task::TaskRepository;
 pub use goal::GoalRepository;
+pub use activity::ActivityRepository;
