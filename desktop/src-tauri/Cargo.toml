@@ -7,6 +7,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "aether-backend"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "generate-openapi"
+path = "src/bin/generate-openapi.rs"
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -18,11 +26,54 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Tauri
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+tauri-plugin-macos-haptics = "1.0.0"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework (only for handler types used in OpenAPI spec generation)
+axum = { version = "0.7", features = ["macros"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Database
+libsql = { version = "0.9", features = ["replication", "remote"] }
+
+# Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-macos-haptics = "1.0.0"
-aether-backend = { path = "backend" }
-tokio = { version = "1", features = ["full"] }
+
+# OpenAPI
+utoipa = { version = "4", features = ["chrono"] }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.9"
+lazy_static = "1.4"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Environment
 dotenvy = "0.15"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Async utilities
+futures = "0.3"
+
+# Human-readable duration parsing
+humantime = "2.1"
+
+[dev-dependencies]
+# Testing
+reqwest = { version = "0.12", features = ["json"] }
+tokio-test = "0.4"

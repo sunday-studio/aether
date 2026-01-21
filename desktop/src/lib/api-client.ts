@@ -47,6 +47,8 @@ const routeToCommand: Record<string, string> = {
 	// Sync
 	"POST /v1/sync/configure": "configure_sync",
 	"POST /v1/sync": "sync",
+	// Activities
+	"GET /v1/activities": "get_activities",
 };
 
 // Extract path parameters from URL
@@ -73,14 +75,35 @@ function extractPathParams(
 	return params;
 }
 
+// Extract query parameters from URL
+function extractQueryParams(url: string): Record<string, string> {
+	const params: Record<string, string> = {};
+	const queryString = url.split("?")[1];
+	if (!queryString) return params;
+
+	const pairs = queryString.split("&");
+	for (const pair of pairs) {
+		const [key, value] = pair.split("=");
+		if (key && value) {
+			params[decodeURIComponent(key)] = decodeURIComponent(value);
+		}
+	}
+	return params;
+}
+
 // Find matching route pattern
 function findMatchingRoute(
 	method: string,
 	url: string,
-): { command: string; params: Record<string, string> } | null {
+): {
+	command: string;
+	params: Record<string, string>;
+	queryParams: Record<string, string>;
+} | null {
 	// Remove query string and normalize URL
 	const cleanUrl = url.split("?")[0];
 	const urlPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`;
+	const queryParams = extractQueryParams(url);
 
 	// Try exact match first
 	const exactKey = `${method} ${urlPath}`;
@@ -88,6 +111,7 @@ function findMatchingRoute(
 		return {
 			command: routeToCommand[exactKey],
 			params: {},
+			queryParams,
 		};
 	}
 
@@ -118,7 +142,7 @@ function findMatchingRoute(
 
 		if (matches) {
 			const params = extractPathParams(routePath, urlPath);
-			return { command, params };
+			return { command, params, queryParams };
 		}
 	}
 
@@ -142,6 +166,12 @@ export const customFetch = async <T>(
 		// Prepare command arguments
 		// Start with path params (these take precedence)
 		const args: Record<string, unknown> = { ...match.params };
+		// Add query parameters (for GET requests with query params)
+		for (const [key, value] of Object.entries(match.queryParams)) {
+			if (!(key in args)) {
+				args[key] = value;
+			}
+		}
 		if (body !== undefined) {
 			// If body is an object, merge it into args
 			// But don't overwrite path params - they take precedence

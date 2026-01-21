@@ -1,6 +1,15 @@
+pub mod api;
+pub mod commands;
+pub mod db;
+pub mod error;
+pub mod handlers;
+pub mod utils;
 
-use aether_backend::commands::{
-    entry, goal, sync, tag, task, trash,
+pub use db::DbState;
+pub use error::{AppError, Result};
+
+use commands::{
+    activity, entry, goal, sync, tag, task, trash,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,12 +28,12 @@ pub fn run() {
         dotenvy::dotenv().ok();
 
         // Initialize database
-        let state = aether_backend::db::initialize().await
+        let state = db::initialize().await
             .expect("Failed to initialize database");
         
         // Run migrations
-        let database = aether_backend::db::connection::get_database(&state);
-        aether_backend::db::migrations::run_migrations(&database).await
+        let database = db::connection::get_database(&state);
+        db::migrations::run_migrations(&database).await
             .expect("Failed to run migrations");
         
         state
@@ -79,6 +88,8 @@ pub fn run() {
             // Sync commands
             sync::configure_sync,
             sync::sync,
+            // Activity commands
+            activity::get_activities,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -5,7 +5,7 @@ dotenv.config();
 
 export default defineConfig({
 	"aether-sdk": {
-		input: "../backend/docs/swagger.json",
+		input: "./src/openapi/spec.json",
 		output: {
 			namingConvention: "kebab-case",
 			clean: true,

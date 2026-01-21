@@ -1,13 +1,12 @@
-use aether_backend::api::openapi;
+use crate::api::openapi;
 use std::path::PathBuf;
 
 fn main() {
     let spec_json = openapi::get_openapi_json();
     
-    // Determine the workspace root (go up from src-tauri/backend to desktop)
+    // Determine the workspace root (go up from src-tauri to desktop)
     let mut output_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     output_path.pop(); 
-    output_path.pop();
     output_path.push("src");
     output_path.push("openapi");
     output_path.push("spec.json");

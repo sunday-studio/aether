@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router";
 import { useRegisterShortcuts } from "~/hooks/use-register-shortcuts";
+import { ActivityHeatmap } from "./activity-heatmap";
 import { NavigationControl } from "./navigation-control";
 
 export const Layout = () => {
@@ -22,6 +23,7 @@ export const Layout = () => {
 						"linear-gradient(to bottom, transparent, black 25px)",
 				}}
 			>
+				<ActivityHeatmap />
 				<NavigationControl />
 				<Outlet />
 			</div>
