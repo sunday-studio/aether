@@ -49,6 +49,15 @@ const routeToCommand: Record<string, string> = {
 	"POST /v1/sync": "sync",
 	// Activities
 	"GET /v1/activities": "get_activities",
+	// Bookmarks
+	"GET /v1/bookmarks": "get_bookmarks",
+	"POST /v1/bookmarks": "create_bookmark",
+	"GET /v1/bookmarks/:id": "get_bookmark_by_id",
+	"PUT /v1/bookmarks/:id": "update_bookmark",
+	"DELETE /v1/bookmarks/:id": "delete_bookmark",
+	"POST /v1/bookmarks/:id/tags": "add_tags_to_bookmark",
+	"DELETE /v1/bookmarks/:id/tags": "remove_tags_from_bookmark",
+	"GET /v1/bookmarks/extract-metadata": "extract_metadata",
 };
 
 // Extract path parameters from URL

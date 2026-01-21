@@ -1,4 +1,4 @@
-use crate::db::models::{Entry, Goal, SubTask, Tag, Task};
+use crate::db::models::{Entry, Goal, SubTask, Tag, Task, Bookmark};
 use crate::error::{AppError, Result};
 use libsql::Database;
 use std::sync::Arc;
@@ -30,7 +30,12 @@ pub enum SearchResult {
         tag: Tag,
         score: f64,
         highlights: Vec<String>,
-    }
+    },
+    Bookmark {
+        bookmark: Bookmark,
+        score: f64,
+        highlights: Vec<String>,
+    },
 }
 
 /// Resource type filter for search
@@ -41,6 +46,7 @@ pub enum ResourceType {
     SubTask,
     Goal,
     Tag,
+    Bookmark,
 }
 
 impl ResourceType {
@@ -51,6 +57,7 @@ impl ResourceType {
             "subtask" => Some(Self::SubTask),
             "goal" => Some(Self::Goal),
             "tag" => Some(Self::Tag),
+            "bookmark" => Some(Self::Bookmark),
             _ => None,
         }
     }
@@ -123,6 +130,7 @@ impl SearchRepository {
                 ResourceType::SubTask,
                 ResourceType::Goal,
                 ResourceType::Tag,
+                ResourceType::Bookmark,
             ]
         };
 
@@ -151,6 +159,11 @@ impl SearchRepository {
             results.extend(tag_results);
         }
 
+        if search_types.contains(&ResourceType::Bookmark) {
+            let bookmark_results = self.search_bookmarks(&escaped_query, &tag_ids, limit).await?;
+            results.extend(bookmark_results);
+        }
+
         results.sort_by(|a, b| {
             let score_a = match a {
                 SearchResult::Entry { score, .. } => *score,
@@ -158,6 +171,7 @@ impl SearchRepository {
                 SearchResult::SubTask { score, .. } => *score,
                 SearchResult::Goal { score, .. } => *score,
                 SearchResult::Tag { score, .. } => *score,
+                SearchResult::Bookmark { score, .. } => *score,
             };
             let score_b = match b {
                 SearchResult::Entry { score, .. } => *score,
@@ -165,6 +179,7 @@ impl SearchRepository {
                 SearchResult::SubTask { score, .. } => *score,
                 SearchResult::Goal { score, .. } => *score,
                 SearchResult::Tag { score, .. } => *score,
+                SearchResult::Bookmark { score, .. } => *score,
             };
             score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
         });
@@ -181,6 +196,7 @@ impl SearchRepository {
                     SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
                     SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
                     SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
+                    SearchResult::Bookmark { bookmark, score, .. } => (bookmark.id.clone(), *score),
                 };
                 merged.insert(id, (result, score * 0.6, 0.0));
             }
@@ -192,6 +208,7 @@ impl SearchRepository {
                     SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
                     SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
                     SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
+                    SearchResult::Bookmark { bookmark, score, .. } => (bookmark.id.clone(), *score),
                 };
                 
                 match merged.get_mut(&id) {
@@ -214,6 +231,7 @@ impl SearchRepository {
                         SearchResult::SubTask { score, .. } => *score = final_score,
                         SearchResult::Goal { score, .. } => *score = final_score,
                         SearchResult::Tag { score, .. } => *score = final_score,
+                        SearchResult::Bookmark { score, .. } => *score = final_score,
                     }
                     result
                 })
@@ -226,6 +244,7 @@ impl SearchRepository {
                     SearchResult::SubTask { score, .. } => *score,
                     SearchResult::Goal { score, .. } => *score,
                     SearchResult::Tag { score, .. } => *score,
+                    SearchResult::Bookmark { score, .. } => *score,
                 };
                 let score_b = match b {
                     SearchResult::Entry { score, .. } => *score,
@@ -233,6 +252,7 @@ impl SearchRepository {
                     SearchResult::SubTask { score, .. } => *score,
                     SearchResult::Goal { score, .. } => *score,
                     SearchResult::Tag { score, .. } => *score,
+                    SearchResult::Bookmark { score, .. } => *score,
                 };
                 score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
             });
@@ -420,6 +440,41 @@ impl SearchRepository {
         Ok(results)
     }
 
+    async fn search_bookmarks(
+        &self,
+        query: &str,
+        _tag_ids: &Option<Vec<String>>,
+        limit: u32,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let sql = "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.site_name, b.author, b.published_at, b.content_type, b.metadata_json, b.is_archived, b.is_deleted, b.created_at, b.updated_at, b.deleted_at,
+                   bm25(bookmarks_fts) as rank
+                   FROM bookmarks_fts
+                   JOIN bookmarks b ON b.id = bookmarks_fts.rowid
+                   WHERE bookmarks_fts MATCH ?1 AND b.deleted_at IS NULL
+                   ORDER BY rank LIMIT ?2";
+
+        let mut rows = conn
+            .query(sql, libsql::params![query, limit as i64])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let bookmark = self.row_to_bookmark(row)?;
+            let rank: f64 = row.get(16).unwrap_or(0.0);
+            let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
+            results.push(SearchResult::Bookmark {
+                bookmark,
+                score,
+                highlights: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
     /// Search using semantic similarity (vector embeddings)
     async fn search_semantic(
         &self,
@@ -553,6 +608,30 @@ impl SearchRepository {
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Tag {
                             tag,
+                            score,
+                            highlights: Vec::new(),
+                        });
+                    }
+                }
+                ResourceType::Bookmark => {
+                    let sql = "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.site_name, b.author, b.published_at, b.content_type, b.metadata_json, b.is_archived, b.is_deleted, b.created_at, b.updated_at, b.deleted_at,
+                               vector_distance_cos(b.embedding, vector32(?1)) as distance
+                               FROM bookmarks b
+                               WHERE b.embedding IS NOT NULL AND b.deleted_at IS NULL
+                               ORDER BY distance ASC
+                               LIMIT ?2";
+                    
+                    let mut rows = conn
+                        .query(sql, libsql::params![embedding_json.clone(), limit as i64])
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    
+                    while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                        let bookmark = self.row_to_bookmark(row)?;
+                        let distance: f64 = row.get(16).unwrap_or(2.0);
+                        let score = (1.0 - (distance / 2.0)).max(0.0);
+                        all_results.push(SearchResult::Bookmark {
+                            bookmark,
                             score,
                             highlights: Vec::new(),
                         });
@@ -726,6 +805,60 @@ impl SearchRepository {
                 .transpose()?,
         })
     }
+
+    fn row_to_bookmark(&self, row: libsql::Row) -> Result<Bookmark> {
+        let id: String = row.get(0)?;
+        let url: String = row.get(1)?;
+        let title: Option<String> = row.get(2)?;
+        let description: Option<String> = row.get(3)?;
+        let image_url: Option<String> = row.get(4)?;
+        let favicon_url: Option<String> = row.get(5)?;
+        let site_name: Option<String> = row.get(6)?;
+        let author: Option<String> = row.get(7)?;
+        let published_at_str: Option<String> = row.get(8)?;
+        let content_type: Option<String> = row.get(9)?;
+        let metadata_json_str: Option<String> = row.get(10)?;
+        let is_archived: i64 = row.get(11)?;
+        let is_deleted: i64 = row.get(12)?;
+        let created_at_str: String = row.get(13)?;
+        let updated_at_str: String = row.get(14)?;
+        let deleted_at_str: Option<String> = row.get(15)?;
+
+        let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+            .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+            .with_timezone(&chrono::Utc);
+        let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+            .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+            .with_timezone(&chrono::Utc);
+        let deleted_at = deleted_at_str
+            .map(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .flatten()
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+        let published_at = published_at_str
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+        let metadata_json = metadata_json_str
+            .and_then(|s| serde_json::from_str(&s).ok());
+
+        Ok(Bookmark {
+            id,
+            url,
+            title,
+            description,
+            image_url,
+            favicon_url,
+            site_name,
+            author,
+            published_at,
+            content_type,
+            metadata_json,
+            is_archived: is_archived != 0,
+            is_deleted: is_deleted != 0,
+            created_at,
+            updated_at,
+            deleted_at,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -739,6 +872,7 @@ mod tests {
         assert_eq!(ResourceType::from_str("subtask"), Some(ResourceType::SubTask));
         assert_eq!(ResourceType::from_str("goal"), Some(ResourceType::Goal));
         assert_eq!(ResourceType::from_str("tag"), Some(ResourceType::Tag));
+        assert_eq!(ResourceType::from_str("bookmark"), Some(ResourceType::Bookmark));
         assert_eq!(ResourceType::from_str("invalid"), None);
         assert_eq!(ResourceType::from_str("ENTRY"), Some(ResourceType::Entry));
     }
