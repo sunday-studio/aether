@@ -60,7 +60,9 @@ pub async fn create_tag(
     let tag = repo.create(payload.name).await?;
     
     // Log activity
-    let _ = log_create(db, "tag".to_string(), tag.id.clone()).await;
+    if let Err(e) = log_create(db, "tag".to_string(), tag.id.clone()).await {
+        tracing::warn!("Failed to log tag creation activity: {}", e);
+    }
     
     Ok((StatusCode::OK, Json(tag)))
 }
@@ -88,7 +90,9 @@ pub async fn bulk_create_tags(
     
     // Log activities for each created tag
     for tag in &tags {
-        let _ = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await;
+        if let Err(e) = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await {
+            tracing::warn!("Failed to log tag creation activity: {}", e);
+        }
     }
     
     Ok((StatusCode::OK, Json(tags)))

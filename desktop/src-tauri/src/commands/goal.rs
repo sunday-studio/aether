@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use tauri::State;
 
 /// Get all goals
@@ -104,7 +105,8 @@ pub async fn create_goal(
 
     let timezone = "UTC".to_string();
 
-    let repo = GoalRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = GoalRepository::new(db.clone());
     let goal = repo
         .create(
             name,
@@ -122,6 +124,11 @@ pub async fn create_goal(
         if !tag_ids.is_empty() {
             repo.add_tags(&goal.id, tag_ids).await?;
         }
+    }
+
+    // Log activity
+    if let Err(e) = log_create(db, "goal".to_string(), goal.id.clone()).await {
+        tracing::warn!("Failed to log goal creation activity: {}", e);
     }
 
     Ok(goal)
@@ -162,7 +169,8 @@ pub async fn update_goal(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
-    let repo = GoalRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = GoalRepository::new(db.clone());
     let goal = repo
         .update(
             &id,
@@ -182,6 +190,11 @@ pub async fn update_goal(
         if !tag_ids.is_empty() {
             repo.add_tags(&id, tag_ids).await?;
         }
+    }
+
+    // Log activity
+    if let Err(e) = log_update(db, "goal".to_string(), goal.id.clone()).await {
+        tracing::warn!("Failed to log goal update activity: {}", e);
     }
 
     Ok(goal)
@@ -206,8 +219,16 @@ pub async fn delete_goal(state: State<'_, DbState>, id: String) -> Result<()> {
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let repo = GoalRepository::new(connection::get_database(&*state));
-    repo.delete(&id).await
+    let db = connection::get_database(&*state);
+    let repo = GoalRepository::new(db.clone());
+    repo.delete(&id).await?;
+    
+    // Log activity
+    if let Err(e) = log_delete(db, "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log goal deletion activity for goal {}: {}", id, e);
+    }
+    
+    Ok(())
 }
 
 /// Get goal instances for a goal
@@ -277,8 +298,14 @@ pub async fn add_tags_to_goal(
     id: String,
     tag_ids: Vec<String>,
 ) -> Result<crate::db::models::Goal> {
-    let repo = GoalRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = GoalRepository::new(db.clone());
     repo.add_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log add_tags activity for goal {}: {}", id, e);
+    }
     
     repo.find_by_id(&id)
         .await?
@@ -306,8 +333,14 @@ pub async fn remove_tags_from_goal(
     id: String,
     tag_ids: Vec<String>,
 ) -> Result<crate::db::models::Goal> {
-    let repo = GoalRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = GoalRepository::new(db.clone());
     repo.remove_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_tags activity for goal {}: {}", id, e);
+    }
     
     repo.find_by_id(&id)
         .await?

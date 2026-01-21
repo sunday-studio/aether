@@ -112,7 +112,9 @@ pub async fn create_entry(
         .await?;
     
     // Log activity
-    let _ = log_create(db, "entry".to_string(), entry.id.clone()).await;
+    if let Err(e) = log_create(db, "entry".to_string(), entry.id.clone()).await {
+        tracing::warn!("Failed to log entry creation activity: {}", e);
+    }
     
     Ok((StatusCode::OK, Json(entry)))
 }
@@ -151,7 +153,9 @@ pub async fn bulk_create_entries(
     
     // Log activities for each created entry
     for entry in &entries {
-        let _ = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await;
+        if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
+            tracing::warn!("Failed to log entry creation activity for entry {}: {}", entry.id, e);
+        }
     }
     
     Ok((StatusCode::OK, Json(entries)))
@@ -193,7 +197,9 @@ pub async fn update_entry(
         .await?;
     
     // Log activity
-    let _ = log_update(db, "entry".to_string(), entry.id.clone()).await;
+    if let Err(e) = log_update(db, "entry".to_string(), entry.id.clone()).await {
+        tracing::warn!("Failed to log entry update activity: {}", e);
+    }
     
     Ok((StatusCode::OK, Json(entry)))
 }
@@ -221,7 +227,9 @@ pub async fn delete_entry(
     repo.delete(&id).await?;
     
     // Log activity
-    let _ = log_delete(db, "entry".to_string(), id).await;
+    if let Err(e) = log_delete(db, "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log entry deletion activity for entry {}: {}", id, e);
+    }
     
     Ok(StatusCode::NO_CONTENT)
 }
@@ -251,7 +259,9 @@ pub async fn add_tags_to_entry(
     repo.add_tags(&id, tag_ids).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log add_tags activity for entry {}: {}", id, e);
+    }
     
     // Return updated entry
     let entry = repo.find_by_id(&id).await?
@@ -284,7 +294,9 @@ pub async fn remove_tags_from_entry(
     repo.remove_tags(&id, tag_id).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_tags activity for entry {}: {}", id, e);
+    }
     
     // Return updated entry
     let entry = repo.find_by_id(&id).await?

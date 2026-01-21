@@ -1,5 +1,6 @@
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
+use crate::utils::log_restore;
 use tauri::State;
 
 /// Get all trashed tasks
@@ -114,6 +115,12 @@ pub async fn restore_task(state: State<'_, DbState>, id: String) -> Result<()> {
     )
     .await
     .map_err(|e| AppError::LibSQL(e))?;
+
+    // Log activity
+    let db = connection::get_database(&*state);
+    if let Err(e) = log_restore(db, "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log task restore activity for task {}: {}", id, e);
+    }
 
     Ok(())
 }

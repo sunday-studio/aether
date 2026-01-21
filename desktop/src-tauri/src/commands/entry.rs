@@ -1,6 +1,7 @@
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
 use crate::handlers::entry::CreateEntryRequest;
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use tauri::State;
 
 /// Get all entries
@@ -69,15 +70,23 @@ pub async fn create_entry(
     is_deleted: Option<bool>,
 ) -> Result<crate::db::models::Entry> {
     let date = date.unwrap_or_else(chrono::Utc::now);
-    let repo = EntryRepository::new(connection::get_database(&*state));
-    repo.create(
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
+    let entry = repo.create(
         document,
         date,
         is_pinned.unwrap_or(false),
         is_archived.unwrap_or(false),
         is_deleted.unwrap_or(false),
     )
-    .await
+    .await?;
+    
+    // Log activity
+    if let Err(e) = log_create(db, "entry".to_string(), entry.id.clone()).await {
+        tracing::warn!("Failed to log entry creation activity: {}", e);
+    }
+    
+    Ok(entry)
 }
 
 
@@ -98,7 +107,8 @@ pub async fn bulk_create_entries(
     state: State<'_, DbState>,
     payload: Vec<CreateEntryRequest>,
 ) -> Result<Vec<crate::db::models::Entry>> {
-    let repo = EntryRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
     let entries_data: Vec<_> = payload
         .into_iter()
         .map(|e| {
@@ -111,7 +121,16 @@ pub async fn bulk_create_entries(
             )
         })
         .collect();
-    repo.bulk_create(entries_data).await
+    let entries = repo.bulk_create(entries_data).await?;
+    
+    // Log activities for each created entry
+    for entry in &entries {
+        if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
+            tracing::warn!("Failed to log entry creation activity for entry {}: {}", entry.id, e);
+        }
+    }
+    
+    Ok(entries)
 }
 
 /// Update an entry
@@ -155,8 +174,9 @@ pub async fn update_entry(
         current_entry.document
     };
 
-    let repo = EntryRepository::new(connection::get_database(&*state));
-    repo.update(
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
+    let entry = repo.update(
         &id,
         document,
         is_pinned.unwrap_or(false),
@@ -164,7 +184,14 @@ pub async fn update_entry(
         is_deleted.unwrap_or(false),
         updated_at,
     )
-    .await
+    .await?;
+    
+    // Log activity
+    if let Err(e) = log_update(db, "entry".to_string(), entry.id.clone()).await {
+        tracing::warn!("Failed to log entry update activity: {}", e);
+    }
+    
+    Ok(entry)
 }
 
 /// Delete an entry
@@ -186,8 +213,16 @@ pub async fn delete_entry(state: State<'_, DbState>, id: String) -> Result<()> {
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let repo = EntryRepository::new(connection::get_database(&*state));
-    repo.delete(&id).await
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
+    repo.delete(&id).await?;
+    
+    // Log activity
+    if let Err(e) = log_delete(db, "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log entry deletion activity for entry {}: {}", id, e);
+    }
+    
+    Ok(())
 }
 
 /// Add tags to an entry
@@ -214,8 +249,14 @@ pub async fn add_tags_to_entry(
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let repo = EntryRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
     repo.add_tags(&id, tag_ids).await?;
+    
+    // Log activity
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log add_tags activity for entry {}: {}", id, e);
+    }
     
     // Return updated entry
     repo.find_by_id(&id)
@@ -250,8 +291,14 @@ pub async fn remove_tags_from_entry(
     if tag_id.is_empty() {
         return Err(AppError::BadRequest("Tag ID is required".to_string()));
     }
-    let repo = EntryRepository::new(connection::get_database(&*state));
+    let db = connection::get_database(&*state);
+    let repo = EntryRepository::new(db.clone());
     repo.remove_tags(&id, tag_id).await?;
+    
+    // Log activity
+    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_tags activity for entry {}: {}", id, e);
+    }
     
     // Return updated entry
     repo.find_by_id(&id)

@@ -14,6 +14,24 @@ use commands::{
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize tracing subscriber for logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| {
+                    // Default: info level globally, debug for our crate (includes activity logging)
+                    // You can override with RUST_LOG env var, e.g.:
+                    // RUST_LOG=debug bun tauri dev
+                    tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
+                }),
+        )
+        .with_target(true) // Show target module path for better debugging
+        .with_thread_ids(false) // Don't show thread IDs
+        .with_line_number(true) // Show line numbers
+        .init();
+
+    tracing::info!("Tauri application starting...");
+
     let mut builder = tauri::Builder::default();
 
     #[cfg(target_os = "macos")]

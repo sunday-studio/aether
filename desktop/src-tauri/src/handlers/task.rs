@@ -113,7 +113,9 @@ pub async fn create_task(
     }
 
     // Log activity
-    let _ = log_create(db, "task".to_string(), task.id.clone()).await;
+    if let Err(e) = log_create(db, "task".to_string(), task.id.clone()).await {
+        tracing::warn!("Failed to log task creation activity: {}", e);
+    }
 
     Ok((StatusCode::OK, Json(task)))
 }
@@ -223,14 +225,20 @@ pub async fn update_task(
     if let Some(new_completed) = payload.is_completed {
         if !was_completed && new_completed {
             // Task was just completed
-            let _ = log_complete(db.clone(), "task".to_string(), task.id.clone()).await;
+            if let Err(e) = log_complete(db.clone(), "task".to_string(), task.id.clone()).await {
+                tracing::warn!("Failed to log task completion activity: {}", e);
+            }
         } else {
             // Regular update
-            let _ = log_update(db.clone(), "task".to_string(), task.id.clone()).await;
+            if let Err(e) = log_update(db.clone(), "task".to_string(), task.id.clone()).await {
+                tracing::warn!("Failed to log task update activity: {}", e);
+            }
         }
     } else {
         // Regular update (no completion change)
-        let _ = log_update(db.clone(), "task".to_string(), task.id.clone()).await;
+        if let Err(e) = log_update(db.clone(), "task".to_string(), task.id.clone()).await {
+            tracing::warn!("Failed to log task update activity: {}", e);
+        }
     }
 
     // Update tags if provided
@@ -272,7 +280,9 @@ pub async fn delete_task(
     repo.delete(&id).await?;
     
     // Log activity
-    let _ = log_delete(db, "task".to_string(), id).await;
+    if let Err(e) = log_delete(db, "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log task deletion activity for task {}: {}", id, e);
+    }
     
     Ok(StatusCode::NO_CONTENT)
 }
@@ -330,7 +340,9 @@ pub async fn create_subtask(
     let subtask = repo.create_subtask(&task_id, payload.title).await?;
     
     // Log activity
-    let _ = log_create(db, "subtask".to_string(), subtask.id.clone()).await;
+    if let Err(e) = log_create(db, "subtask".to_string(), subtask.id.clone()).await {
+        tracing::warn!("Failed to log subtask creation activity: {}", e);
+    }
     
     Ok((StatusCode::OK, Json(subtask)))
 }
@@ -373,14 +385,20 @@ pub async fn update_subtask(
     if let Some(new_completed) = payload.is_completed {
         if !was_completed && new_completed {
             // Subtask was just completed
-            let _ = log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+            if let Err(e) = log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
+                tracing::warn!("Failed to log subtask completion activity: {}", e);
+            }
         } else {
             // Regular update
-            let _ = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+            if let Err(e) = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
+                tracing::warn!("Failed to log subtask update activity: {}", e);
+            }
         }
     } else {
         // Regular update (no completion change)
-        let _ = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await;
+        if let Err(e) = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
+            tracing::warn!("Failed to log subtask update activity: {}", e);
+        }
     }
     
     Ok((StatusCode::OK, Json(subtask)))
@@ -410,7 +428,9 @@ pub async fn delete_subtask(
     repo.delete_subtask(&task_id, &subtask_id).await?;
     
     // Log activity
-    let _ = log_delete(db, "subtask".to_string(), subtask_id).await;
+    if let Err(e) = log_delete(db, "subtask".to_string(), subtask_id.clone()).await {
+        tracing::warn!("Failed to log subtask deletion activity for subtask {}: {}", subtask_id, e);
+    }
     
     Ok(StatusCode::NO_CONTENT)
 }
@@ -442,7 +462,9 @@ pub async fn reorder_subtasks(
     // Log activity for each reordered subtask (using task_id as entity_id since reorder affects the task's subtasks)
     // Actually, reorder is an action on subtasks, so we log it for the first subtask or the task itself
     // For simplicity, we'll log it once for the task
-    let _ = log_reorder(db, "task".to_string(), task_id).await;
+    if let Err(e) = log_reorder(db, "task".to_string(), task_id.clone()).await {
+        tracing::warn!("Failed to log subtask reorder activity for task {}: {}", task_id, e);
+    }
     
     Ok((StatusCode::OK, Json(serde_json::json!({"success": true}))))
 }
@@ -472,7 +494,9 @@ pub async fn add_tags_to_task(
     repo.add_tags(&id, tag_ids).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log add_tags activity for task {}: {}", id, e);
+    }
     
     // Return updated task
     let task = repo.find_by_id(&id).await?
@@ -505,7 +529,9 @@ pub async fn remove_tags_from_task(
     repo.remove_tags(&id, tag_ids).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_tags activity for task {}: {}", id, e);
+    }
     
     // Return updated task
     let task = repo.find_by_id(&id).await?
@@ -554,7 +580,9 @@ pub async fn add_goal_to_task(
         .await?;
     
     // Log activity
-    let _ = log_goal_operation(db, "add_goal", "task".to_string(), task.id.clone()).await;
+    if let Err(e) = log_goal_operation(db, "add_goal", "task".to_string(), task.id.clone()).await {
+        tracing::warn!("Failed to log add_goal activity for task {}: {}", task.id, e);
+    }
     
     Ok((StatusCode::OK, Json(task)))
 }
@@ -582,7 +610,9 @@ pub async fn remove_goal_from_task(
     repo.remove_goal(&id).await?;
     
     // Log activity
-    let _ = log_goal_operation(db.clone(), "remove_goal", "task".to_string(), id.clone()).await;
+    if let Err(e) = log_goal_operation(db.clone(), "remove_goal", "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_goal activity for task {}: {}", id, e);
+    }
     
     // Return updated task
     let task = repo.find_by_id(&id).await?

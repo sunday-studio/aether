@@ -181,7 +181,7 @@ export const ActivityHeatmap = () => {
 											"col-span-1 w-3 h-3 aspect-square rounded-sm transition-colors",
 											getColorClass(intensity),
 											!isCurrentMonth && "opacity-30",
-											isCurrentDay && "ring-2 ring-green-500",
+											// isCurrentDay && "ring-2 ring-green-500",
 										)}
 									/>
 								}

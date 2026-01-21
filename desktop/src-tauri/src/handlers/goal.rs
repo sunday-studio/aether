@@ -173,7 +173,9 @@ pub async fn create_goal(
     }
 
     // Log activity
-    let _ = log_create(db, "goal".to_string(), goal.id.clone()).await;
+    if let Err(e) = log_create(db, "goal".to_string(), goal.id.clone()).await {
+        tracing::warn!("Failed to log goal creation activity: {}", e);
+    }
 
     Ok((StatusCode::OK, Json(goal)))
 }
@@ -228,7 +230,9 @@ pub async fn update_goal(
     }
 
     // Log activity
-    let _ = log_update(db, "goal".to_string(), goal.id.clone()).await;
+    if let Err(e) = log_update(db, "goal".to_string(), goal.id.clone()).await {
+        tracing::warn!("Failed to log goal update activity: {}", e);
+    }
 
     Ok((StatusCode::OK, Json(goal)))
 }
@@ -256,7 +260,9 @@ pub async fn delete_goal(
     repo.delete(&id).await?;
     
     // Log activity
-    let _ = log_delete(db, "goal".to_string(), id).await;
+    if let Err(e) = log_delete(db, "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log goal deletion activity for goal {}: {}", id, e);
+    }
     
     Ok(StatusCode::NO_CONTENT)
 }
@@ -332,7 +338,9 @@ pub async fn add_tags_to_goal(
     repo.add_tags(&id, tag_ids).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log add_tags activity for goal {}: {}", id, e);
+    }
     
     // Return updated goal
     let goal = repo.find_by_id(&id).await?
@@ -365,7 +373,9 @@ pub async fn remove_tags_from_goal(
     repo.remove_tags(&id, tag_ids).await?;
     
     // Log activity
-    let _ = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await;
+    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log remove_tags activity for goal {}: {}", id, e);
+    }
     
     // Return updated goal
     let goal = repo.find_by_id(&id).await?

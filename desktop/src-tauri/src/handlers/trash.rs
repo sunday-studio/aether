@@ -124,7 +124,9 @@ pub async fn restore_task(
 
     // Log activity
     let db = connection::get_database(&state);
-    let _ = log_restore(db, "task".to_string(), id).await;
+    if let Err(e) = log_restore(db, "task".to_string(), id.clone()).await {
+        tracing::warn!("Failed to log task restore activity for task {}: {}", id, e);
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
