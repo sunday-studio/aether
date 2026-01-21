@@ -1,4 +1,4 @@
-use crate::db::{connection, ActivityRepository, DbState};
+use crate::db::ActivityRepository;
 use crate::error::Result;
 use libsql::Database;
 use std::sync::Arc;

@@ -7,7 +7,6 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use std::collections::HashMap;
 
 #[derive(Deserialize)]
 pub struct ActivityQueryParams {
@@ -27,7 +26,7 @@ pub struct ActivityQueryParams {
         ("end_date" = Option<String>, Query, description = "End date (ISO 8601 format, defaults to now)")
     ),
     responses(
-        (status = 200, description = "Activities grouped by date", body = HashMap<String, HashMap<String, HashMap<String, i64>>>),
+        (status = 200, description = "Activities grouped by date"),
         (status = 400, description = "Bad request - invalid date format"),
         (status = 500, description = "Internal server error")
     )

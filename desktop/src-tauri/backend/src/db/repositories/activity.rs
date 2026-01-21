@@ -36,10 +36,10 @@ impl ActivityRepository {
             "INSERT INTO activities (id, action_type, entity_type, entity_id, created_at, metadata) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             libsql::params![
-                id,
-                action_type,
-                entity_type,
-                entity_id,
+                id.clone(),
+                action_type.clone(),
+                entity_type.clone(),
+                entity_id.clone(),
                 created_at_str,
                 metadata_str
             ],
