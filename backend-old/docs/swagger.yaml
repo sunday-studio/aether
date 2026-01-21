@@ -1,0 +1,1343 @@
+basePath: /v1
+definitions:
+  db.Entry:
+    properties:
+      createdAt:
+        type: string
+      document:
+        type: string
+      id:
+        type: string
+      isArchived:
+        type: boolean
+      isDeleted:
+        type: boolean
+      isPinned:
+        type: boolean
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  db.Goal:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      isNonRecurring:
+        type: boolean
+      name:
+        type: string
+      recurrenceAnchor:
+        description: (nullable for non-recurring)
+        type: string
+      recurrenceInterval:
+        description: 1, 2, 25, etc (nullable for non-recurring)
+        type: integer
+      recurrenceType:
+        description: bi-weekly | weekly | monthly | custom (nullable for non-recurring)
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      timezone:
+        description: IANA timezone name, snapshot at creation
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  db.GoalInstance:
+    properties:
+      createdAt:
+        type: string
+      goal:
+        $ref: '#/definitions/db.Goal'
+      goalId:
+        type: string
+      id:
+        type: string
+      periodEnd:
+        description: nullable for non-recurring goals
+        type: string
+      periodStart:
+        type: string
+      status:
+        description: active | completed | skipped
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      tasks:
+        items:
+          $ref: '#/definitions/db.Task'
+        type: array
+    type: object
+  db.SubTask:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      isCompleted:
+        type: boolean
+      orderIndex:
+        type: integer
+      taskId:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  db.Tag:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  db.Task:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalId:
+        type: string
+      goalInstanceId:
+        type: string
+      id:
+        type: string
+      isCompleted:
+        type: boolean
+      subTasks:
+        items:
+          $ref: '#/definitions/db.SubTask'
+        type: array
+      tags:
+        items:
+          $ref: '#/definitions/db.Tag'
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  handlers.AddGoalToTaskPayload:
+    properties:
+      goalId:
+        type: string
+    type: object
+  handlers.CreateEntryPayload:
+    properties:
+      date:
+        type: string
+      document:
+        type: string
+      isArchived:
+        type: boolean
+      isDeleted:
+        type: boolean
+      isPinned:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.CreateGoalPayload:
+    type: object
+  handlers.CreateSubTaskPayload:
+    properties:
+      title:
+        type: string
+    type: object
+  handlers.CreateTaskPayload:
+    properties:
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalId:
+        type: string
+      tagIds:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  handlers.ReorderSubTasksPayload:
+    properties:
+      subTaskIds:
+        description: Ordered list of subtask IDs
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.UpdateGoalPayload:
+    type: object
+  handlers.UpdateSubTaskPayload:
+    properties:
+      isCompleted:
+        type: boolean
+      title:
+        type: string
+    type: object
+  handlers.UpdateTaskPayload:
+    properties:
+      description:
+        type: string
+      dueDate:
+        type: string
+      goalId:
+        type: string
+      isCompleted:
+        type: boolean
+      tagIds:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        description: For last-write-wins conflict detection
+        type: string
+    type: object
+  tag.CreateTagPayload:
+    properties:
+      name:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: something, something to write in
+  title: Aether API
+  version: "1.0"
+paths:
+  /entry:
+    get:
+      description: Returns all non-deleted entries, including their tags
+      operationId: getEntries
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Entry'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all entries
+      tags:
+      - Entries
+    post:
+      consumes:
+      - application/json
+      description: Creates a new entry with optional tags
+      operationId: createEntry
+      parameters:
+      - description: Entry payload
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEntryPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new entry
+      tags:
+      - Entries
+  /entry/{id}:
+    delete:
+      operationId: deleteEntry
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an entry (soft delete)
+      tags:
+      - Entries
+    get:
+      description: Returns a single entry by its ID
+      operationId: getEntryByID
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get entry by ID
+      tags:
+      - Entries
+    put:
+      consumes:
+      - application/json
+      operationId: updateEntry
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated entry payload
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEntryPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: Record was modified by another device'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an entry
+      tags:
+      - Entries
+  /entry/{id}/tags:
+    delete:
+      consumes:
+      - application/json
+      operationId: removeTagsFromEntry
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tag ID to remove
+        in: body
+        name: tagId
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove a tag from an entry
+      tags:
+      - Entries
+    post:
+      consumes:
+      - application/json
+      operationId: addTagsToEntry
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag names
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Entry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add tags to an entry
+      tags:
+      - Entries
+  /goals:
+    get:
+      operationId: getGoals
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Goal'
+            type: array
+      summary: List active goals
+      tags:
+      - Goals
+    post:
+      consumes:
+      - application/json
+      operationId: createGoal
+      parameters:
+      - description: Goal payload
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new goal
+      tags:
+      - Goals
+  /goals/{goalId}/instances:
+    get:
+      operationId: getGoalInstances
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.GoalInstance'
+            type: array
+      summary: List instances for a goal
+      tags:
+      - GoalInstances
+  /goals/{goalId}/instances/current:
+    get:
+      operationId: getCurrentGoalInstance
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GoalInstance'
+      summary: Get or create current goal instance
+      tags:
+      - GoalInstances
+  /goals/{id}:
+    delete:
+      operationId: deleteGoal
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a goal (soft delete)
+      tags:
+      - Goals
+    get:
+      operationId: getGoalByID
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get goal by ID
+      tags:
+      - Goals
+    put:
+      consumes:
+      - application/json
+      operationId: updateGoal
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Goal payload
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateGoalPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: Goal was modified by another device'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a goal
+      tags:
+      - Goals
+  /tags:
+    get:
+      description: Returns all tags
+      operationId: getAllTags
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Tag'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all tags
+      tags:
+      - Tags
+    post:
+      consumes:
+      - application/json
+      operationId: createTag
+      parameters:
+      - description: Tag payload
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/tag.CreateTagPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Tag'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new tag
+      tags:
+      - Tags
+  /tags/bulk-create:
+    post:
+      consumes:
+      - application/json
+      operationId: bulkCreateTags
+      parameters:
+      - description: Tags payload
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/tag.CreateTagPayload'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Tag'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Bulk create tags
+      tags:
+      - Tags
+  /tasks:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task (standalone or goal-based)
+      operationId: createTask
+      parameters:
+      - description: Task payload
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Marks the specified task as deleted (soft-delete).
+      operationId: deleteTaskById
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a task (soft delete)
+      tags:
+      - Tasks
+    get:
+      operationId: getTaskByID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get task by ID
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      operationId: updateTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task payload
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: Task was modified by another device'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a task
+      tags:
+      - Tasks
+  /tasks/{id}/goal:
+    delete:
+      operationId: removeGoalFromTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove a task from its goal instance
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      operationId: addGoalToTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Goal ID to add the task to
+        in: body
+        name: goalId
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddGoalToTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add a task to the current instance of a goal
+      tags:
+      - Tasks
+  /tasks/{id}/tags:
+    delete:
+      consumes:
+      - application/json
+      operationId: removeTagsFromTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag IDs to remove
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove tags from a task
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      operationId: addTagsToTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: List of tag IDs to add
+        in: body
+        name: tags
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Task'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Add tags to a task
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks:
+    get:
+      description: Gets all subtasks for a specific task
+      operationId: getSubTasks
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.SubTask'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all subtasks for a task
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a new subtask for a task
+      operationId: createSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask payload
+        in: body
+        name: subtask
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateSubTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.SubTask'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new subtask
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks/{subtaskId}:
+    delete:
+      consumes:
+      - application/json
+      description: Marks the specified subtask as deleted (soft-delete)
+      operationId: deleteSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask ID
+        in: path
+        name: subtaskId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a subtask (soft delete)
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      description: Updates a subtask
+      operationId: updateSubTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Subtask ID
+        in: path
+        name: subtaskId
+        required: true
+        type: string
+      - description: Subtask payload
+        in: body
+        name: subtask
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateSubTaskPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.SubTask'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a subtask
+      tags:
+      - Tasks
+  /tasks/{taskId}/subtasks/reorder:
+    post:
+      consumes:
+      - application/json
+      description: Reorders subtasks for a task based on the provided order
+      operationId: reorderSubTasks
+      parameters:
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Reorder payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ReorderSubTasksPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Reorder subtasks
+      tags:
+      - Tasks
+  /tasks/inbox:
+    get:
+      description: Tasks not attached to any goal
+      operationId: getInboxTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List standalone tasks
+      tags:
+      - Tasks
+  /tasks/overdue:
+    get:
+      operationId: getOverdueTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List overdue tasks
+      tags:
+      - Tasks
+  /trash/{id}/restore:
+    post:
+      operationId: restoreTask
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Restore a deleted task
+      tags:
+      - Trash
+  /trash/tasks:
+    get:
+      operationId: getTrashedTasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
+      summary: List deleted tasks
+      tags:
+      - Trash
+swagger: "2.0"

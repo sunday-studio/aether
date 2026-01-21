@@ -15,10 +15,10 @@ export const JournalTimeline = () => {
 	);
 
 	return (
-		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2 mb-100! bg=">
+		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2 mb-100!">
 			<Timeline>
 				<Timeline.Item
-					className="max-w-5xl bg-red-0 pt-6"
+					className="max-w-5xl w-full bg-red-0 pt-6"
 					indicatorContainerClassName="w-10"
 					leftContainerClassName="w-40"
 					rightContent={

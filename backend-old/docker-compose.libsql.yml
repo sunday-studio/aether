@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  libsql-server:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: libsql-server
+    ports:
+      - "8080:8080"
+      - "5001:5001"
+    volumes:
+      - ./libsql-data:/var/lib/sqld
+    environment:
+      - SQLD_NODE=primary
+      - SQLD_DB_PATH=/var/lib/sqld/data.sqld
+    restart: unless-stopped
+    networks:
+      - aether-network
+
+networks:
+  aether-network:
+    driver: bridge

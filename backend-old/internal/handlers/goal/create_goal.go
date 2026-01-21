@@ -1,0 +1,144 @@
+package handlers
+
+import (
+	"aether/internal/db"
+	"aether/internal/utils"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+)
+
+// CreateGoal godoc
+// @Id createGoal
+// @Summary Create a new goal
+// @Tags Goals
+// @Accept json
+// @Produce json
+// @Param goal body handlers.CreateGoalPayload true "Goal payload"
+// @Success 200 {object} db.Goal
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /goals [post]
+func (h *GoalHandler) CreateGoal(c *fiber.Ctx) error {
+	var payload CreateGoalPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	// Determine if goal is non-recurring (default to false if not provided)
+	isNonRecurring := false
+	if payload.IsNonRecurring != nil {
+		isNonRecurring = *payload.IsNonRecurring
+	}
+
+	// Validation: require name
+	if payload.Name == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "name is required"})
+	}
+
+	// Validation: for recurring goals, require recurrence fields
+	if !isNonRecurring {
+		if payload.RecurrenceType == nil || *payload.RecurrenceType == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "recurrenceType is required for recurring goals"})
+		}
+		if payload.RecurrenceInterval == nil {
+			return c.Status(400).JSON(fiber.Map{"error": "recurrenceInterval is required for recurring goals"})
+		}
+		if payload.RecurrenceAnchor == nil {
+			return c.Status(400).JSON(fiber.Map{"error": "recurrenceAnchor is required for recurring goals"})
+		}
+	}
+
+	// Validation: for non-recurring goals, recurrence fields should be nil
+	if isNonRecurring {
+		if payload.RecurrenceType != nil || payload.RecurrenceInterval != nil || payload.RecurrenceAnchor != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "recurrence fields must be null for non-recurring goals"})
+		}
+	}
+
+	// Get user's current timezone from Settings (default to UTC if not found)
+	var settings db.Settings
+	timezone := "UTC"
+	if err := h.db.First(&settings).Error; err == nil {
+		timezone = settings.Timezone
+		if timezone == "" {
+			timezone = "UTC"
+		}
+	}
+
+	// Use transaction to ensure atomicity of goal + instance creation
+	return h.db.Transaction(func(tx *gorm.DB) error {
+		goal := db.Goal{
+			Name:           payload.Name,
+			Description:    payload.Description,
+			IsNonRecurring: isNonRecurring,
+			RecurrenceMeta: payload.RecurrenceMeta,
+			Timezone:       timezone, // Snapshot user timezone at creation
+		}
+
+		// Set recurrence fields based on whether goal is non-recurring
+		if isNonRecurring {
+			goal.RecurrenceType = nil
+			goal.RecurrenceInterval = nil
+			goal.RecurrenceAnchor = nil
+		} else {
+			goal.RecurrenceType = payload.RecurrenceType
+			goal.RecurrenceInterval = payload.RecurrenceInterval
+			goal.RecurrenceAnchor = payload.RecurrenceAnchor
+		}
+
+		if err := tx.Create(&goal).Error; err != nil {
+			return err
+		}
+
+		// Create goal instance
+		var firstInstance db.GoalInstance
+		if isNonRecurring {
+			// For non-recurring goals: create instance with periodStart=now, periodEnd=nil
+			firstInstance = db.GoalInstance{
+				GoalID:      goal.ID,
+				PeriodStart: time.Now(),
+				PeriodEnd:   nil, // nil for non-recurring goals
+				Status:      "active",
+			}
+		} else {
+			// For recurring goals: calculate period using goal's timezone
+			loc, err := utils.GetGoalLocation(goal.Timezone)
+			if err != nil {
+				return err
+			}
+
+			// Calculate first period using goal's timezone
+			periodStart, periodEnd := utils.CalculateGoalPeriod(utils.RecurringGoal{
+				RecurrenceType:     *goal.RecurrenceType,
+				RecurrenceInterval: *goal.RecurrenceInterval,
+				RecurrenceAnchor:   *goal.RecurrenceAnchor,
+			}, time.Now(), loc)
+
+			firstInstance = db.GoalInstance{
+				GoalID:      goal.ID,
+				PeriodStart: periodStart,
+				PeriodEnd:   &periodEnd, // pointer for consistency
+				Status:      "active",
+			}
+		}
+
+		if err := tx.Create(&firstInstance).Error; err != nil {
+			return err
+		}
+
+		// Handle tags association (outside transaction for now, but could be moved in)
+		if len(payload.TagIDs) > 0 {
+			var tags []db.Tag
+			if err := h.db.Where("id IN ?", payload.TagIDs).Find(&tags).Error; err != nil {
+				return err
+			}
+			if err := h.db.Model(&goal).Association("Tags").Replace(tags); err != nil {
+				return err
+			}
+		}
+
+		return c.JSON(goal)
+	})
+}
