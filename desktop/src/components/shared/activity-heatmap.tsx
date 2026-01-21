@@ -1,8 +1,6 @@
 import {
+	addDays,
 	addMonths,
-	eachDayOfInterval,
-	endOfMonth,
-	endOfWeek,
 	format,
 	isSameMonth,
 	isToday,
@@ -11,7 +9,8 @@ import {
 	subMonths,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetActivities } from "~/aether-sdk";
 import { cn } from "~/utils/cn";
 import { Tooltip } from "./tooltip";
@@ -21,13 +20,11 @@ type ActivityData = Record<string, Record<string, Record<string, number>>>;
 export const ActivityHeatmap = () => {
 	const [currentMonth, setCurrentMonth] = useState(new Date());
 	const [isVisible, setIsVisible] = useState(false);
-	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
 
 	const monthStart = startOfMonth(currentMonth);
-	const monthEnd = endOfMonth(currentMonth);
 	const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-	const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+	// Always show exactly 6 weeks (42 days = 6 weeks × 7 days)
+	const calendarEnd = addDays(calendarStart, 41);
 
 	// Calculate date range for API call (start of calendar to end of calendar)
 	const startDate = calendarStart.toISOString();
@@ -41,11 +38,6 @@ export const ActivityHeatmap = () => {
 	console.log(activitiesResponse);
 
 	const activities = activitiesResponse?.data as ActivityData | undefined;
-
-	// Generate all days in the calendar view
-	const days = useMemo(() => {
-		return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-	}, [calendarStart, calendarEnd]);
 
 	// Calculate activity count for each day
 	const getActivityCount = (date: Date): number => {
@@ -102,133 +94,94 @@ export const ActivityHeatmap = () => {
 		setCurrentMonth(addMonths(currentMonth, 1));
 	};
 
-	const monthName = format(currentMonth, "MMMM yyyy");
+	const monthName = format(currentMonth, "MMM yy");
 
-	// Group days by week
+	// Group days by week - always exactly 6 weeks
 	const weeks = useMemo(() => {
 		const weeksArray: Date[][] = [];
-		let currentWeek: Date[] = [];
 
-		days.forEach((day, index) => {
-			currentWeek.push(day);
-			if ((index + 1) % 7 === 0) {
-				weeksArray.push(currentWeek);
-				currentWeek = [];
+		// Always create exactly 6 weeks
+		for (let weekIndex = 0; weekIndex < 6; weekIndex++) {
+			const weekStart = addDays(calendarStart, weekIndex * 7);
+			const week: Date[] = [];
+			for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+				week.push(addDays(weekStart, dayIndex));
 			}
-		});
+			weeksArray.push(week);
+		}
 
 		return weeksArray;
-	}, [days]);
-
-	// Handle mouse enter with immediate show
-	const handleMouseEnter = () => {
-		if (timeoutRef.current) {
-			clearTimeout(timeoutRef.current);
-			timeoutRef.current = null;
-		}
-		setIsVisible(true);
-	};
-
-	// Handle mouse leave with delayed hide to prevent flickering
-	const handleMouseLeave = () => {
-		timeoutRef.current = setTimeout(() => {
-			setIsVisible(false);
-		}, 100); // Small delay to prevent flickering when moving between elements
-	};
-
-	// Cleanup timeout on unmount
-	useEffect(() => {
-		return () => {
-			if (timeoutRef.current) {
-				clearTimeout(timeoutRef.current);
-			}
-		};
-	}, []);
+	}, [calendarStart]);
 
 	return (
-		<div
-			ref={containerRef}
-			onMouseEnter={handleMouseEnter}
-			onMouseLeave={handleMouseLeave}
-			className={cn(
-				"w-auto p-4 rounded-lg border border-neutral-200 absolute z-10 transition-all duration-300 bg-white",
-				isVisible ? "bottom-5 left-5" : "-bottom-20 -left-20"
-			)}
-		>
-			{/* <div className="flex items-center justify-between mb-4">
-				<button
-					type="button"
-					onClick={handlePreviousMonth}
-					className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors"
-					aria-label="Previous month"
-				>
-					<ChevronLeft className="w-5 h-5 text-neutral-600" />
-				</button>
-
-				<h3 className="text-sm font-medium text-neutral-700">
-					{monthName}
-				</h3>
-
-				<button
-					type="button"
-					onClick={handleNextMonth}
-					className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors"
-					aria-label="Next month"
-				>
-					<ChevronRight className="w-5 h-5 text-neutral-600" />
-				</button>
-			</div> */}
-
-			{/* Week day labels */}
-			{/* <div className="grid grid-cols-7 gap-1 mb-2">
-				{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-					<div
-						key={day}
-						className="text-xs text-center text-neutral-500 font-medium"
+		<div className="absolute z-10  -bottom-30 -left-30 p-5 animate-in fade-in duration-200 ease-out hover:bottom-0 hover:left-0 group">
+			<div className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
+				<h3 className="text-xs text-neutral-700">{monthName}</h3>
+				<div>
+					<button
+						type="button"
+						onClick={handlePreviousMonth}
+						className="p-1.5 rounded-full hover:bg-neutral-200 transition-colors"
+						aria-label="Previous month"
 					>
-						{day}
-					</div>
-				))}
-			</div> */}
+						<ChevronLeft
+							className="w-3	 h-3 text-neutral-600"
+							strokeWidth={3}
+						/>
+					</button>
 
-			{/* Calendar grid */}
-			<div className="grid grid-cols-7 gap-1">
-				{weeks.map((week) =>
-					week.map((day) => {
-						const count = getActivityCount(day);
-						const intensity = getIntensity(count);
-						const isCurrentMonth = isSameMonth(day, currentMonth);
-						const isCurrentDay = isToday(day);
-						const dayKey = format(day, "yyyy-MM-dd");
-
-						return (
-							<Tooltip
-								key={dayKey}
-								content={
-									count > 0
-										? `${count} ${
-												count === 1 ? "activity" : "activities"
-											} on ${format(day, "MMM d, yyyy")}`
-										: `No activities on ${format(day, "MMM d, yyyy")}`
-								}
-								trigger={
-									<div
-										className={cn(
-											"col-span-1 w-3 h-3 aspect-square rounded-sm transition-colors",
-											getColorClass(intensity),
-											!isCurrentMonth && "opacity-30",
-											// isCurrentDay && "ring-2 ring-green-500",
-										)}
-									/>
-								}
-							/>
-						);
-					}),
-				)}
+					<button
+						type="button"
+						onClick={handleNextMonth}
+						aria-label="Next month"
+						className="p-1.5 rounded-full hover:bg-neutral-200 transition-colors"
+					>
+						<ChevronRight
+							className="w-3 h-3 text-neutral-600"
+							strokeWidth={3}
+						/>
+					</button>
+				</div>
 			</div>
 
-			{/* Legend */}
-			{/* <div className="flex items-center justify-end gap-1 mt-4">
+			<div className="w-auto p-3 navigation-control rounded-lg bg-white">
+				<div className="grid grid-cols-7 gap-1">
+					{weeks.map((week) =>
+						week.map((day) => {
+							const count = getActivityCount(day);
+							const intensity = getIntensity(count);
+							const isCurrentMonth = isSameMonth(day, currentMonth);
+							const isCurrentDay = isToday(day);
+							const dayKey = format(day, "yyyy-MM-dd");
+
+							return (
+								<Tooltip
+									key={dayKey}
+									content={
+										count > 0
+											? `${count} ${
+													count === 1 ? "activity" : "activities"
+												} on ${format(day, "MMM d, yyyy")}`
+											: `No activities on ${format(day, "MMM d, yyyy")}`
+									}
+									trigger={
+										<div
+											className={cn(
+												"col-span-1 w-3.5 h-3.5 aspect-square rounded-sm transition-colors",
+												getColorClass(intensity),
+												!isCurrentMonth && "opacity-30",
+												isCurrentDay && "border-2 border-green-500",
+											)}
+										/>
+									}
+								/>
+							);
+						}),
+					)}
+				</div>
+
+				{/* Legend */}
+				{/* <div className="flex items-center justify-end gap-1 mt-4">
 				<span className="text-xs text-neutral-500 mr-2">
 					Less
 				</span>
@@ -244,6 +197,7 @@ export const ActivityHeatmap = () => {
 					More
 				</span>
 			</div> */}
+			</div>
 		</div>
 	);
 };
