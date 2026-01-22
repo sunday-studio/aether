@@ -1,10 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
 	LexicalTypeaheadMenuPlugin,
 	MenuOption,
 	useBasicTypeaheadTriggerMatch,
 } from "@lexical/react/LexicalTypeaheadMenuPlugin";
+import { useQuery } from "@tanstack/react-query";
 import {
 	$createTextNode,
 	$getSelection,

@@ -79,11 +79,11 @@ export const ActivityHeatmap = () => {
 
 	const getColorClass = (intensity: number): string => {
 		const colors = [
-			"bg-neutral-100",
-			"bg-green-100",
-			"bg-green-300",
-			"bg-green-500",
-			"bg-green-700",
+			"bg-(--color-activity-heatmap-index-0)",
+			"bg-(--color-activity-heatmap-index-1)",
+			"bg-(--color-activity-heatmap-index-2)",
+			"bg-(--color-activity-heatmap-index-3)",
+			"bg-(--color-activity-heatmap-index-4)",
 		];
 		return colors[intensity] || colors[0];
 	};
@@ -100,7 +100,8 @@ export const ActivityHeatmap = () => {
 	}, [calendarStart]);
 
 	return (
-		<div className="absolute z-10 -bottom-30 -left-30 p-5 duration-300 ease-out hover:bottom-0 hover:left-0 group">
+		//
+		<div className="absolute -bottom-30 -left-30 z-10 p-5 duration-300 ease-out hover:bottom-0 hover:left-0 group">
 			<div className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
 				<h3 className="text-xs text-(--color-foreground)">{monthName}</h3>
 				<div className="flex gap-1">
@@ -129,14 +130,13 @@ export const ActivityHeatmap = () => {
 				</div>
 			</div>
 
-			<div className="w-auto p-3 navigation-control rounded-lg bg-(--color-card)">
+			<div className="w-auto p-3 navigation-control rounded-lg">
 				<div className="grid grid-cols-7 gap-1">
 					{weeks.map((week) =>
 						week.map((day) => {
 							const count = getActivityCount(day);
 							const intensity = getIntensity(count);
 							const isCurrentMonth = isSameMonth(day, currentMonth);
-							const isCurrentDay = isToday(day);
 							const dayKey = format(day, "yyyy-MM-dd");
 
 							return (
@@ -152,12 +152,12 @@ export const ActivityHeatmap = () => {
 									trigger={
 										<div
 											className={cn(
+												"flex items-center justify-center",
 												"col-span-1 w-3.5 h-3.5 aspect-square rounded-sm transition-colors",
 												getColorClass(intensity),
 												!isCurrentMonth && "opacity-30",
-												isCurrentDay && "border-2 border-(--color-ring)",
 											)}
-										/>
+										></div>
 									}
 								/>
 							);

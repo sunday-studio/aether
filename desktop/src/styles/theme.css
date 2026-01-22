@@ -1,6 +1,11 @@
 @import "./colors.css";
 
-@theme {
+/* 
+  The @theme {} syntax is not valid CSS and is meant for Tailwind or PostCSS extensions.
+  Replace it with :root for base (default) variables.
+*/
+
+:root {
 	--color-neutral-50: oklch(0.98 0 0);
 	--color-neutral-100: oklch(0.96 0 0);
 	--color-neutral-200: oklch(0.9 0 0);
@@ -32,8 +37,22 @@
 	--color-destructive-foreground: oklch(0.98 0 0);
 	--color-border: oklch(0.9 0 0);
 	--color-input: oklch(0.9 0 0);
-	--color-ring: oklch(0.45 0 0);
+	--color-ring: var(--color-red-100);
 	--radius: 0.625rem;
+	/* --color
+	rgb(255, 255, 255)  */
+
+	/* navigation-control */
+	--color-navigation-control-active: var(--green-dark-9);
+	--color-navigation-control-hover: var(--green-dark-8);
+	--color-navigation-control-active-background: var(--green-dark-9);
+
+	/* activity heatmap */
+	--color-activity-heatmap-index-0: var(--color-neutral-100);
+	--color-activity-heatmap-index-1: var(--color-green-300);
+	--color-activity-heatmap-index-2: var(--color-green-400);
+	--color-activity-heatmap-index-3: var(--color-green-500);
+	--color-activity-heatmap-index-4: var(--color-green-700);
 }
 
 [data-theme="light"] {
@@ -55,25 +74,27 @@
 	--color-destructive-foreground: oklch(0.98 0 0);
 	--color-border: oklch(0.9 0 0);
 	--color-input: oklch(0.9 0 0);
-	--color-ring: oklch(0.45 0 0);
+	--color-ring: var(--color-neutral-50);
 	--radius: 0.625rem;
-	/* Neutral scale */
-	--color-neutral-50: oklch(0.98 0 0);
-	--color-neutral-100: oklch(0.96 0 0);
-	--color-neutral-200: oklch(0.9 0 0);
-	--color-neutral-300: oklch(0.83 0 0);
-	--color-neutral-400: oklch(0.64 0 0);
-	--color-neutral-500: oklch(0.45 0 0);
-	--color-neutral-600: oklch(0.32 0 0);
-	--color-neutral-700: oklch(0.25 0 0);
-	--color-neutral-800: oklch(0.15 0 0);
-	--color-neutral-900: oklch(0.09 0 0);
+
+	/* navigation-control */
+	--color-navigation-control-active: var(--green-dark-9);
+	--color-navigation-control-hover: var(--green-dark-8);
+	--color-navigation-control-active-background: var(--green-dark-9);
+
+	/* activity heatmap */
+	--color-activity-heatmap-index-0: var(--color-neutral-100);
+	--color-activity-heatmap-index-1: var(--color-green-300);
+	--color-activity-heatmap-index-2: var(--color-green-400);
+	--color-activity-heatmap-index-3: var(--color-green-500);
+	--color-activity-heatmap-index-4: var(--color-green-700);
 }
 
+/* TODO: update colors to match design */
 [data-theme="amber"] {
-	--color-background: oklch(1 0 0);
-	--color-foreground: oklch(0.47 0.12 70);
-	--color-card: oklch(0.99 0.02 70);
+	--color-background: var(--color-orange-50);
+	--color-foreground: var(--color-orange-500);
+	--color-card: var(--color-orange-50);
 	--color-card-foreground: oklch(0.47 0.12 70);
 	--color-popover: oklch(1 0 0);
 	--color-popover-foreground: oklch(0.47 0.12 70);
@@ -91,8 +112,21 @@
 	--color-input: oklch(0.95 0.04 70);
 	--color-ring: oklch(0.6 0.08 70);
 	--radius: 0.625rem;
+
+	/* navigation-control */
+	--color-navigation-control-active: var(--color-orange-900);
+	--color-navigation-control-hover: var(--color-orange-800);
+	--color-navigation-control-active-background: var(--color-orange-900);
+
+	/* activity heatmap */
+	--color-activity-heatmap-index-0: var(--green-dark-3);
+	--color-activity-heatmap-index-1: var(--green-dark-5);
+	--color-activity-heatmap-index-2: var(--color-green-800);
+	--color-activity-heatmap-index-3: var(--color-green-700);
+	--color-activity-heatmap-index-4: var(--color-green-500);
 }
 
+/* TODO: update colors to match design  */
 [data-theme="dark"] {
 	--color-background: oklch(0.04 0 0);
 	--color-foreground: oklch(0.98 0 0);
@@ -118,7 +152,7 @@
 
 [data-theme="lime"] {
 	--color-background: var(--green-dark-1);
-	--color-foreground: var(--color-neutral-300);
+	--color-foreground: var(--green-4);
 	--color-card: var(--green-dark-2);
 	--color-card-foreground: oklch(0.78 0 0);
 	--color-popover: oklch(0.1 0 0);
@@ -137,4 +171,21 @@
 	--color-input: oklch(0.25 0 0);
 	--color-ring: var(--green-dark-4);
 	--radius: 0.625rem;
+
+	/* navigation-control */
+	--color-navigation-control-active: var(--green-dark-9);
+	--color-navigation-control-hover: var(--green-dark-8);
+	--color-navigation-control-active-background: var(--green-dark-9);
+
+	/* activity heatmap */
+	--color-activity-heatmap-index-0: var(--green-dark-3);
+	--color-activity-heatmap-index-1: var(--green-dark-5);
+	--color-activity-heatmap-index-2: var(--color-green-800);
+	--color-activity-heatmap-index-3: var(--color-green-700);
+	--color-activity-heatmap-index-4: var(--color-green-500);
+
+	/* --color-activity-heatmap-index-2: var(--green-dark-7);
+	--color-activity-heatmap-index-3: var(--green-dark-11);
+	--color-activity-heatmap-index-4: var(--green-12);
+	--color-activity-heatmap-index-5: var(--green-1); */
 }

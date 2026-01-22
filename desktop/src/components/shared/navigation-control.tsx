@@ -27,12 +27,11 @@ const NavigationControlItem = ({
 					to={route.route}
 					className={({ isActive }) =>
 						cn(
-							"text-sm flex shrink-0 items-center justify-center w-9.5 h-9.5 rounded-full hover:bg-neutral-100 transition-all duration-300",
+							"text-sm flex shrink-0 items-center justify-center w-9.5 h-9.5 rounded-full hover:bg-(--color-navigation-control-hover) transition-all duration-300",
 							{
-								"bg-green-900 text-green-100 hover:bg-green-800":
+								"bg-(--color-navigation-control-active) text-(--color-foreground) hover:bg-(--color-navigation-control-hover)":
 									isActive && !isSettings,
-								"bg-neutral-200 text-neutral-800 hover:bg-neutral-200":
-									isActive && isSettings,
+								"hover:bg-transparent": isSettings,
 							},
 						)
 					}
