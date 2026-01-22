@@ -88,6 +88,7 @@ const routeToCommand: Record<string, string> = {
 	// Settings
 	"GET /v1/settings": "get_setting",
 	"POST /v1/settings": "set_setting",
+	"GET /v1/settings/all": "get_all_settings",
 	// Canvas
 	"GET /v1/canvas": "get_canvases",
 	"GET /v1/canvas/:id": "get_canvas_by_id",

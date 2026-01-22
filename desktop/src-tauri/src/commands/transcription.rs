@@ -403,23 +403,3 @@ pub async fn delete_model(model_size: String) -> Result<()> {
     model_manager::delete_model(&model_size)
 }
 
-/// Get a setting value
-#[tauri::command]
-pub async fn get_setting(
-    state: State<'_, crate::DbState>,
-    key: String,
-) -> Result<Option<String>> {
-    let database = connection::get_database(&*state);
-    settings::get_setting(database, &key).await
-}
-
-/// Set a setting value
-#[tauri::command]
-pub async fn set_setting(
-    state: State<'_, crate::DbState>,
-    key: String,
-    value: String,
-) -> Result<()> {
-    let database = connection::get_database(&*state);
-    settings::set_setting(database, &key, &value).await
-}

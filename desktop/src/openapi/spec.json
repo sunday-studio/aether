@@ -1399,6 +1399,30 @@
         }
       }
     },
+    "/v1/settings/all": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get all settings",
+        "operationId": "get_all_settings",
+        "responses": {
+          "200": {
+            "description": "All settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSettingsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/sync": {
       "post": {
         "tags": [
@@ -2637,6 +2661,20 @@
         "properties": {
           "goalId": {
             "type": "string"
+          }
+        }
+      },
+      "AllSettingsResponse": {
+        "type": "object",
+        "required": [
+          "settings"
+        ],
+        "properties": {
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingResponse"
+            }
           }
         }
       },

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import { useGetAllSettings } from "~/aether-sdk";
 import customFetch from "~/lib/api-client";
 
 type ThemeMode = "light" | "dark" | "system";
@@ -76,6 +77,8 @@ function getEffectiveTheme(
 
 export function useTheme() {
 	const queryClient = useQueryClient();
+	const { data } = useGetAllSettings();
+	console.log(data);
 
 	// Fetch all theme settings
 	const { data: interfaceTheme } = useQuery({

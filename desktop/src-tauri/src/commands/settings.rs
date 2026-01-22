@@ -1,36 +1,8 @@
 use crate::db::connection;
-use crate::db::DbState;
 use crate::error::{AppError, Result};
+use crate::handlers::settings::{AllSettingsResponse, SetSettingRequest, SettingResponse};
 use crate::settings;
-use axum::{
-    extract::{Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json},
-};
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-
-#[derive(Deserialize, ToSchema)]
-pub struct GetSettingQuery {
-    pub key: String,
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct SettingResponse {
-    pub key: String,
-    pub value: Option<String>,
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct AllSettingsResponse {
-    pub settings: Vec<SettingResponse>,
-}
-
-#[derive(Deserialize, ToSchema)]
-pub struct SetSettingRequest {
-    pub key: String,
-    pub value: String,
-}
+use tauri::State;
 
 /// Get a setting value
 #[utoipa::path(
@@ -46,24 +18,19 @@ pub struct SetSettingRequest {
         (status = 500, description = "Internal server error")
     )
 )]
+#[tauri::command]
 pub async fn get_setting(
-    State(state): State<DbState>,
-    Query(params): Query<GetSettingQuery>,
-) -> Result<impl IntoResponse> {
-    if params.key.is_empty() {
+    state: State<'_, crate::DbState>,
+    key: String,
+) -> Result<SettingResponse> {
+    if key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }
 
-    let database = connection::get_database(&state);
-    let value = settings::get_setting(database, &params.key).await?;
+    let database = connection::get_database(&*state);
+    let value = settings::get_setting(database, &key).await?;
 
-    Ok((
-        StatusCode::OK,
-        Json(SettingResponse {
-            key: params.key,
-            value,
-        }),
-    ))
+    Ok(SettingResponse { key, value })
 }
 
 /// Get all settings
@@ -76,10 +43,11 @@ pub async fn get_setting(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tauri::command]
 pub async fn get_all_settings(
-    State(state): State<DbState>,
-) -> Result<impl IntoResponse> {
-    let database = connection::get_database(&state);
+    state: State<'_, crate::DbState>,
+) -> Result<AllSettingsResponse> {
+    let database = connection::get_database(&*state);
     let settings = settings::get_all_settings(database).await?;
 
     let settings_response: Vec<SettingResponse> = settings
@@ -90,12 +58,9 @@ pub async fn get_all_settings(
         })
         .collect();
 
-    Ok((
-        StatusCode::OK,
-        Json(AllSettingsResponse {
-            settings: settings_response,
-        }),
-    ))
+    Ok(AllSettingsResponse {
+        settings: settings_response,
+    })
 }
 
 /// Set a setting value
@@ -110,16 +75,18 @@ pub async fn get_all_settings(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tauri::command]
 pub async fn set_setting(
-    State(state): State<DbState>,
-    Json(payload): Json<SetSettingRequest>,
-) -> Result<impl IntoResponse> {
-    if payload.key.is_empty() {
+    state: State<'_, crate::DbState>,
+    key: String,
+    value: String,
+) -> Result<()> {
+    if key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }
 
-    let database = connection::get_database(&state);
-    settings::set_setting(database, &payload.key, &payload.value).await?;
+    let database = connection::get_database(&*state);
+    settings::set_setting(database, &key, &value).await?;
 
-    Ok((StatusCode::OK, Json(serde_json::json!({"success": true}))))
+    Ok(())
 }

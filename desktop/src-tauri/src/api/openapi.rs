@@ -76,6 +76,7 @@ use crate::commands::transcription as transcription_commands;
         link_commands::sync_links_from_content,
         // Settings endpoints
         settings_handlers::get_setting,
+        settings_handlers::get_all_settings,
         settings_handlers::set_setting,
         // Audio endpoints
         audio_commands::save_audio_recording,
@@ -122,6 +123,7 @@ use crate::commands::transcription as transcription_commands;
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,
         settings_handlers::SettingResponse,
+        settings_handlers::AllSettingsResponse,
         settings_handlers::SetSettingRequest,
         MediaItem,
         AudioTranscription,

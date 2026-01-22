@@ -66,6 +66,27 @@ pub async fn delete_setting(
     Ok(())
 }
 
+/// Get all settings (auto-decrypts if encrypted)
+pub async fn get_all_settings(
+    database: Arc<Database>,
+) -> Result<Vec<(String, String)>> {
+    let repo = SettingsRepository::new(database);
+    let settings = repo.get_all().await?;
+    
+    let mut result = Vec::new();
+    for setting in settings {
+        let value = if setting.value.starts_with("encrypted:") {
+            let encrypted_value = setting.value.strip_prefix("encrypted:").unwrap();
+            encryption::decrypt(encrypted_value)?
+        } else {
+            setting.value
+        };
+        result.push((setting.key, value));
+    }
+    
+    Ok(result)
+}
+
 /// Get all settings with a given prefix
 pub async fn get_settings_by_prefix(
     database: Arc<Database>,

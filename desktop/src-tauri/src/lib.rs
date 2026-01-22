@@ -158,8 +158,10 @@ pub fn run() {
             commands::transcription::download_model,
             commands::transcription::verify_model,
             commands::transcription::delete_model,
-            commands::transcription::get_setting,
-            commands::transcription::set_setting,
+            // Settings commands
+            commands::settings::get_setting,
+            commands::settings::get_all_settings,
+            commands::settings::set_setting,
             // Embedding model commands
             commands::embeddings::list_embedding_models,
             commands::embeddings::download_embedding_model,
