@@ -287,8 +287,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let entry = self.row_to_entry(row)?;
             let rank: f64 = row.get(8).unwrap_or(0.0);
+            let entry = self.row_to_entry(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::Entry {
                 entry,
@@ -323,8 +323,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let task = self.row_to_task(row)?;
             let rank: f64 = row.get(10).unwrap_or(0.0);
+            let task = self.row_to_task(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::Task {
                 task,
@@ -357,8 +357,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let subtask = self.row_to_subtask(row)?;
             let rank: f64 = row.get(8).unwrap_or(0.0);
+            let subtask = self.row_to_subtask(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::SubTask {
                 subtask,
@@ -393,8 +393,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let goal = self.row_to_goal(row)?;
             let rank: f64 = row.get(12).unwrap_or(0.0);
+            let goal = self.row_to_goal(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::Goal {
                 goal,
@@ -427,8 +427,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let tag = self.row_to_tag(row)?;
             let rank: f64 = row.get(5).unwrap_or(0.0);
+            let tag = self.row_to_tag(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::Tag {
                 tag,
@@ -462,8 +462,8 @@ impl SearchRepository {
 
         let mut results = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            let bookmark = self.row_to_bookmark(row)?;
             let rank: f64 = row.get(16).unwrap_or(0.0);
+            let bookmark = self.row_to_bookmark(row)?;
             let score = if rank > 0.0 { 1.0 / (1.0 + rank) } else { 1.0 };
             results.push(SearchResult::Bookmark {
                 bookmark,
@@ -505,8 +505,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let entry = self.row_to_entry(row)?;
                         let distance: f64 = row.get(8).unwrap_or(2.0);
+                        let entry = self.row_to_entry(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Entry {
                             entry,
@@ -530,8 +530,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let task = self.row_to_task(row)?;
                         let distance: f64 = row.get(10).unwrap_or(2.0);
+                        let task = self.row_to_task(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Task {
                             task,
@@ -554,8 +554,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let subtask = self.row_to_subtask(row)?;
                         let distance: f64 = row.get(8).unwrap_or(2.0);
+                        let subtask = self.row_to_subtask(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::SubTask {
                             subtask,
@@ -579,8 +579,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let goal = self.row_to_goal(row)?;
                         let distance: f64 = row.get(12).unwrap_or(2.0);
+                        let goal = self.row_to_goal(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Goal {
                             goal,
@@ -603,8 +603,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let tag = self.row_to_tag(row)?;
                         let distance: f64 = row.get(5).unwrap_or(2.0);
+                        let tag = self.row_to_tag(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Tag {
                             tag,
@@ -627,8 +627,8 @@ impl SearchRepository {
                         .map_err(|e| AppError::LibSQL(e))?;
                     
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                        let bookmark = self.row_to_bookmark(row)?;
                         let distance: f64 = row.get(16).unwrap_or(2.0);
+                        let bookmark = self.row_to_bookmark(row)?;
                         let score = (1.0 - (distance / 2.0)).max(0.0);
                         all_results.push(SearchResult::Bookmark {
                             bookmark,
@@ -669,8 +669,8 @@ impl SearchRepository {
 
                 let mut results = Vec::new();
                 while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-                    let entry = self.row_to_entry(row)?;
                     let distance: f64 = row.get(8).unwrap_or(2.0);
+                    let entry = self.row_to_entry(row)?;
                     let score = (1.0 - (distance / 2.0)).max(0.0);
                     results.push(SearchResult::Entry {
                         entry,
@@ -694,17 +694,17 @@ impl SearchRepository {
             id: row.get(0)?,
             document: row.get(1)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(2)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             is_pinned: row.get::<i64>(3)? != 0,
             is_archived: row.get::<i64>(4)? != 0,
             is_deleted: row.get::<i64>(5)? != 0,
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             deleted_at: row.get::<Option<String>>(7)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
         })
@@ -718,20 +718,20 @@ impl SearchRepository {
             is_completed: row.get::<i64>(3)? != 0,
             due_date: row.get::<Option<String>>(4)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
             goal_instance_id: row.get(5)?,
             goal_id: row.get(6)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(7)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(8)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             deleted_at: row.get::<Option<String>>(9)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
         })
@@ -745,14 +745,14 @@ impl SearchRepository {
             task_id: row.get(3)?,
             order_index: row.get(4)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(5)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             deleted_at: row.get::<Option<String>>(7)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
         })
@@ -768,21 +768,21 @@ impl SearchRepository {
             recurrence_interval: row.get(5)?,
             recurrence_anchor: row.get::<Option<String>>(6)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
             recurrence_meta: row.get::<Option<String>>(7)?
                 .map(|s| serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)),
             timezone: row.get(8)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(9)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(10)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             deleted_at: row.get::<Option<String>>(11)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
         })
@@ -793,14 +793,14 @@ impl SearchRepository {
             id: row.get(0)?,
             name: row.get(1)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(2)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(3)?)
-                .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+                .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
             deleted_at: row.get::<Option<String>>(4)?
                 .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))
+                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
         })
@@ -825,10 +825,10 @@ impl SearchRepository {
         let deleted_at_str: Option<String> = row.get(15)?;
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
-            .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+            .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
             .with_timezone(&chrono::Utc);
         let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
-            .map_err(|e| AppError::LibSQL(libsql::Error::InvalidColumnType(0, format!("Invalid datetime: {}", e))))?
+            .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
             .with_timezone(&chrono::Utc);
         let deleted_at = deleted_at_str
             .map(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())

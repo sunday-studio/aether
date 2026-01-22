@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Suspense } from "react";
 import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "./context/theme-context";
 import { router } from "./features/router";
 import { initQueryClient } from "./utils/query-client";
 
@@ -14,9 +15,11 @@ function App() {
 	return (
 		<Suspense fallback={<div>Loading...</div>}>
 			<QueryClientProvider client={queryClient}>
-				<Toaster />
-				<ReactQueryDevtools buttonPosition="top-right" initialIsOpen={false} />
-				<RouterProvider router={router} />
+				<ThemeProvider>
+					<Toaster />
+					<ReactQueryDevtools buttonPosition="top-right" initialIsOpen={false} />
+					<RouterProvider router={router} />
+				</ThemeProvider>
 			</QueryClientProvider>
 		</Suspense>
 	);

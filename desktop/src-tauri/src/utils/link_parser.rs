@@ -123,7 +123,7 @@ pub fn find_link_patterns_in_text(text: &str) -> Vec<String> {
     let mut chars = text.chars().peekable();
     let mut buffer = String::new();
     let mut in_link = false;
-    let mut bracket_count = 0;
+    let mut bracket_count: i32 = 0;
 
     while let Some(ch) = chars.next() {
         if ch == '[' {

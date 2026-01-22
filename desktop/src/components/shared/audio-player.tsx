@@ -22,20 +22,33 @@ export const AudioPlayer = ({
 
 	useEffect(() => {
 		const audio = audioRef.current;
-		if (!audio) return;
+		if (!audio || !audioUrl) return;
+
+		// Reset state when URL changes
+		setIsPlaying(false);
+		setCurrentTime(0);
+		setDuration(0);
+		audio.pause();
+		audio.currentTime = 0;
 
 		const updateTime = () => setCurrentTime(audio.currentTime);
 		const updateDuration = () => setDuration(audio.duration);
 		const handleEnded = () => setIsPlaying(false);
+		const handleError = () => {
+			setIsPlaying(false);
+			console.error("Audio playback error");
+		};
 
 		audio.addEventListener("timeupdate", updateTime);
 		audio.addEventListener("loadedmetadata", updateDuration);
 		audio.addEventListener("ended", handleEnded);
+		audio.addEventListener("error", handleError);
 
 		return () => {
 			audio.removeEventListener("timeupdate", updateTime);
 			audio.removeEventListener("loadedmetadata", updateDuration);
 			audio.removeEventListener("ended", handleEnded);
+			audio.removeEventListener("error", handleError);
 		};
 	}, [audioUrl]);
 

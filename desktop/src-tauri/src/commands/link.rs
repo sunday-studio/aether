@@ -1,9 +1,11 @@
 use crate::db::{connection, DbState};
 use crate::db::models::ResourceLink;
-use crate::db::repositories::{LinkRepository, SearchRepository, ResourceType};
+use crate::db::repositories::{LinkRepository};
+use crate::db::repositories::search::{SearchRepository, ResourceType};
 use crate::error::{AppError, Result};
 use crate::utils::link_parser::extract_links_from_lexical_content;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
 use utoipa::ToSchema;
 
@@ -110,7 +112,7 @@ pub async fn get_backlinks(
     // Enrich with source titles
     let mut backlinks = Vec::new();
     for link in links {
-        let source_title = get_resource_title(&db, &link.source_type, &link.source_id).await?;
+        let source_title = get_resource_title(db.clone(), &link.source_type, &link.source_id).await?;
         backlinks.push(BacklinkResponse {
             link,
             source_title,
@@ -223,17 +225,63 @@ pub async fn search_linkable_resources(
     let db = connection::get_database(&*state);
     let search_repo = SearchRepository::new(db.clone());
     
-    let results = search_repo
+    let results: Vec<crate::db::repositories::search::SearchResult> = search_repo
         .search_fuzzy(&q, resource_types, None, Some(limit), Some(0))
         .await?;
 
     let linkable_resources: Vec<LinkableResource> = results
         .into_iter()
-        .map(|result| LinkableResource {
-            id: result.id.clone(),
-            resource_type: result.resource_type.to_string(),
-            title: result.title.clone(),
-            preview: result.preview.clone(),
+        .filter_map(|result| {
+            match result {
+                crate::db::repositories::search::SearchResult::Entry { entry, .. } => {
+                    Some(LinkableResource {
+                        id: entry.id.clone(),
+                        resource_type: "entry".to_string(),
+                        title: extract_first_line_from_lexical(&entry.document).unwrap_or_default(),
+                        preview: None,
+                    })
+                }
+                crate::db::repositories::search::SearchResult::Task { task, .. } => {
+                    Some(LinkableResource {
+                        id: task.id.clone(),
+                        resource_type: "task".to_string(),
+                        title: task.title.clone(),
+                        preview: task.description.clone(),
+                    })
+                }
+                crate::db::repositories::search::SearchResult::SubTask { subtask, .. } => {
+                    Some(LinkableResource {
+                        id: subtask.id.clone(),
+                        resource_type: "subtask".to_string(),
+                        title: subtask.title.clone(),
+                        preview: None,
+                    })
+                }
+                crate::db::repositories::search::SearchResult::Goal { goal, .. } => {
+                    Some(LinkableResource {
+                        id: goal.id.clone(),
+                        resource_type: "goal".to_string(),
+                        title: goal.name.clone(),
+                        preview: goal.description.clone(),
+                    })
+                }
+                crate::db::repositories::search::SearchResult::Tag { tag, .. } => {
+                    Some(LinkableResource {
+                        id: tag.id.clone(),
+                        resource_type: "tag".to_string(),
+                        title: tag.name.clone(),
+                        preview: None,
+                    })
+                }
+                crate::db::repositories::search::SearchResult::Bookmark { bookmark, .. } => {
+                    Some(LinkableResource {
+                        id: bookmark.id.clone(),
+                        resource_type: "bookmark".to_string(),
+                        title: bookmark.title.clone().unwrap_or_default(),
+                        preview: bookmark.description.clone(),
+                    })
+                }
+            }
         })
         .collect();
 
@@ -336,7 +384,7 @@ pub async fn sync_links_from_content(
 
 /// Helper function to get resource title
 async fn get_resource_title(
-    db: &libsql::Database,
+    db: Arc<libsql::Database>,
     resource_type: &str,
     resource_id: &str,
 ) -> Result<Option<String>> {
@@ -346,7 +394,7 @@ async fn get_resource_title(
     
     match resource_type {
         "entry" => {
-            let repo = EntryRepository::new(db.clone());
+            let repo = EntryRepository::new(db);
             let entry = repo.find_by_id(resource_id).await?;
             Ok(entry.and_then(|e| {
                 // Extract first line from document (Lexical JSON)
@@ -354,22 +402,22 @@ async fn get_resource_title(
             }))
         }
         "task" => {
-            let repo = TaskRepository::new(db.clone());
+            let repo = TaskRepository::new(db);
             let task = repo.find_by_id(resource_id).await?;
             Ok(task.map(|t| t.title))
         }
         "goal" => {
-            let repo = GoalRepository::new(db.clone());
+            let repo = GoalRepository::new(db);
             let goal = repo.find_by_id(resource_id).await?;
             Ok(goal.map(|g| g.name))
         }
         "canvas" => {
-            let repo = CanvasRepository::new(db.clone());
+            let repo = CanvasRepository::new(db);
             let canvas = repo.find_by_id(resource_id).await?;
             Ok(canvas.map(|c| c.name))
         }
         "bookmark" => {
-            let repo = BookmarkRepository::new(db.clone());
+            let repo = BookmarkRepository::new(db);
             let bookmark = repo.find_by_id(resource_id).await?;
             Ok(bookmark.and_then(|b| b.title))
         }

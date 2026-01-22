@@ -158,8 +158,9 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             
             if let Ok(Some(row)) = rows.next().await {
                 if let Ok(tz) = row.get::<String>(0) {
+                    let tz_clone = tz.clone();
                     timezone_value = Some(tz);
-                    tracing::info!("Found existing timezone: {}", tz);
+                    tracing::info!("Found existing timezone: {}", tz_clone);
                 }
             }
             

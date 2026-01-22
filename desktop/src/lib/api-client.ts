@@ -85,6 +85,9 @@ const routeToCommand: Record<string, string> = {
 	"POST /v1/transcription/models/download": "download_model",
 	"POST /v1/transcription/models/verify": "verify_model",
 	"DELETE /v1/transcription/models/:modelSize": "delete_model",
+	// Settings
+	"GET /v1/settings": "get_setting",
+	"POST /v1/settings": "set_setting",
 };
 
 // Extract path parameters from URL

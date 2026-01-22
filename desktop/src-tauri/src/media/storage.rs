@@ -60,17 +60,12 @@ fn generate_blurhash(image_data: &[u8]) -> Option<String> {
             let rgba = img.to_rgba8();
             let (width, height) = rgba.dimensions();
             
-            // Convert to Vec<[u8; 4]> for blurhash
-            let pixels: Vec<[u8; 4]> = rgba.pixels().map(|p| p.0).collect();
+            // Convert to flat Vec<u8> for blurhash (RGBA format)
+            let pixels: Vec<u8> = rgba.pixels().flat_map(|p| p.0.iter().copied()).collect();
             
             // Generate blurhash with 4x3 components (standard)
-            match blurhash::encode(4, 3, width as usize, height as usize, &pixels) {
-                Ok(hash) => Some(hash),
-                Err(e) => {
-                    tracing::warn!("Failed to generate blurhash: {}", e);
-                    None
-                }
-            }
+            // blurhash::encode returns a String directly
+            Some(blurhash::encode(4, 3, width, height, &pixels))
         }
         Err(e) => {
             tracing::warn!("Failed to decode image for blurhash generation: {}", e);

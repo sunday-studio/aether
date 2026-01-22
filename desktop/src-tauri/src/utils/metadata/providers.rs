@@ -1,7 +1,7 @@
 use crate::error::{AppError, Result};
 use crate::utils::metadata::extractor::ExtractedMetadata;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 /// External API provider for metadata extraction
 pub enum MetadataProvider {

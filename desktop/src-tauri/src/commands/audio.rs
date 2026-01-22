@@ -20,7 +20,7 @@ use tauri::{AppHandle, State};
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn save_audio_recording(
     _app: AppHandle,
     state: State<'_, crate::DbState>,

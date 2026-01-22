@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AudioPlayer } from "~/components/shared/audio-player";
 
 interface MediaItem {
 	id: string;
+	entityType: string;
+	entityId: string;
 	mediaType: string;
 	filePath: string;
 	metadata: {
@@ -29,6 +31,19 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 		Record<string, AudioTranscription>
 	>({});
 	const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
+	const pollingIntervalRef = useRef<number | null>(null);
+
+	// Cleanup blob URLs on unmount
+	useEffect(() => {
+		return () => {
+			Object.values(audioUrls).forEach((url) => {
+				URL.revokeObjectURL(url);
+			});
+			if (pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+			}
+		};
+	}, [audioUrls]);
 
 	useEffect(() => {
 		const fetchMedia = async () => {
@@ -63,6 +78,8 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 	}, [entryId]);
 
 	useEffect(() => {
+		if (mediaItems.length === 0) return;
+
 		const fetchTranscriptions = async () => {
 			for (const item of mediaItems) {
 				try {
@@ -72,7 +89,18 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 					if (trans.length > 0) {
 						// Get the active or first transcription
 						const active = trans.find((t) => t.status === "complete") || trans[0];
-						setTranscriptions((prev) => ({ ...prev, [item.id]: active }));
+						setTranscriptions((prev) => {
+							// Only update if status changed to avoid infinite loops
+							const current = prev[item.id];
+							if (
+								!current ||
+								current.status !== active.status ||
+								current.transcriptionText !== active.transcriptionText
+							) {
+								return { ...prev, [item.id]: active };
+							}
+							return prev;
+						});
 					}
 				} catch (error) {
 					console.error(`Failed to fetch transcriptions for ${item.id}:`, error);
@@ -80,21 +108,24 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 			}
 		};
 
-		if (mediaItems.length > 0) {
-			fetchTranscriptions();
+		fetchTranscriptions();
 
-			// Poll for transcription updates if any are processing
-			const hasProcessing = mediaItems.some((item) => {
-				const trans = transcriptions[item.id];
-				return trans?.status === "processing" || trans?.status === "pending";
-			});
-
-			if (hasProcessing) {
-				const interval = setInterval(fetchTranscriptions, 2000);
-				return () => clearInterval(interval);
-			}
+		// Set up polling - check every 2 seconds
+		if (pollingIntervalRef.current) {
+			clearInterval(pollingIntervalRef.current);
 		}
-	}, [mediaItems, transcriptions]);
+
+		pollingIntervalRef.current = window.setInterval(() => {
+			fetchTranscriptions();
+		}, 2000);
+
+		return () => {
+			if (pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+				pollingIntervalRef.current = null;
+			}
+		};
+	}, [mediaItems]);
 
 	if (mediaItems.length === 0) {
 		return null;

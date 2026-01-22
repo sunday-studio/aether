@@ -1,8 +1,11 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "aether-backend",
-    "description": "",
+    "title": "Aether",
+    "description": "something something app",
+    "contact": {
+      "name": "you"
+    },
     "license": {
       "name": ""
     },
@@ -44,6 +47,167 @@
           },
           "400": {
             "description": "Bad request - invalid date format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/audio": {
+      "post": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Save audio recording to filesystem and database",
+        "operationId": "save_audio_recording",
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "description": "Entry ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Audio recording data",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Media ID of saved audio",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/audio/{mediaId}": {
+      "get": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Get audio file data",
+        "operationId": "get_audio_data",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audio file data",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Audio not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Delete audio recording",
+        "operationId": "delete_audio_recording",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audio deleted successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/audio/{mediaId}/metadata": {
+      "get": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Get audio metadata without loading the full file",
+        "operationId": "get_audio_metadata",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audio metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/crate.db.models.MediaItem"
+                    }
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
           },
           "500": {
             "description": "Internal server error"
@@ -142,6 +306,47 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/crate.db.models.Entry"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/entry/{entryId}/media": {
+      "get": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Get all media items (audio, images, etc.) for an entry",
+        "operationId": "get_media_items_for_entry",
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "description": "Entry ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of media items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/crate.db.models.MediaItem"
                   }
                 }
               }
@@ -725,6 +930,468 @@
           },
           "404": {
             "description": "Goal not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Create a link between resources",
+        "operationId": "create_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Delete a link",
+        "operationId": "delete_link",
+        "parameters": [
+          {
+            "name": "sourceType",
+            "in": "query",
+            "description": "Source resource type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "description": "Source resource ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetType",
+            "in": "query",
+            "description": "Target resource type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "in": "query",
+            "description": "Target resource ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Link deleted"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links/backlinks": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get all backlinks to a target resource",
+        "operationId": "get_backlinks",
+        "parameters": [
+          {
+            "name": "targetType",
+            "in": "query",
+            "description": "Target resource type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "in": "query",
+            "description": "Target resource ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of backlinks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BacklinkResponse"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links/graph": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get all links for graph visualization",
+        "operationId": "get_all_links_for_graph",
+        "responses": {
+          "200": {
+            "description": "All links for graph",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceLink"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links/outgoing": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get all outgoing links from a source resource",
+        "operationId": "get_outgoing_links",
+        "parameters": [
+          {
+            "name": "sourceType",
+            "in": "query",
+            "description": "Source resource type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "description": "Source resource ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of outgoing links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceLink"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links/search": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Search for resources to link (for autocomplete)",
+        "operationId": "search_linkable_resources",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "description": "Comma-separated resource types to filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results (default: 20)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of linkable resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LinkableResource"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/links/sync": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Sync links from content (extract and create/update links)",
+        "operationId": "sync_links_from_content",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncLinksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Links synced"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search across all resources",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "description": "Comma-separated resource types: entry,task,subtask,goal,tag",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Comma-separated tag IDs to filter by",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results (default: 50, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "Search mode: fuzzy, similar, or hybrid (default: fuzzy)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (empty query)"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get a setting value",
+        "operationId": "get_setting",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "description": "Setting key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Setting value",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - key is required"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set a setting value",
+        "operationId": "set_setting",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSettingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Setting updated successfully"
+          },
+          "400": {
+            "description": "Bad request"
           },
           "500": {
             "description": "Internal server error"
@@ -1498,6 +2165,377 @@
         }
       }
     },
+    "/v1/transcription": {
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Start transcription for an audio file",
+        "operationId": "start_transcription",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerName",
+            "in": "query",
+            "description": "Provider name (optional)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcription ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/by-id/{transcriptionId}": {
+      "get": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Get a specific transcription by ID",
+        "operationId": "get_transcription_by_id",
+        "parameters": [
+          {
+            "name": "transcriptionId",
+            "in": "path",
+            "description": "Transcription ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/crate.db.models.AudioTranscription"
+                    }
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/models": {
+      "get": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "List available Whisper models",
+        "operationId": "list_available_models",
+        "responses": {
+          "200": {
+            "description": "List of models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelInfo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/models/download": {
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Download a Whisper model",
+        "operationId": "download_model",
+        "parameters": [
+          {
+            "name": "modelSize",
+            "in": "path",
+            "description": "Model size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download status",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/models/verify": {
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Verify model integrity",
+        "operationId": "verify_model",
+        "parameters": [
+          {
+            "name": "modelSize",
+            "in": "path",
+            "description": "Model size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification result",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/models/{modelSize}": {
+      "delete": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Delete a downloaded model",
+        "operationId": "delete_model",
+        "parameters": [
+          {
+            "name": "modelSize",
+            "in": "path",
+            "description": "Model size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model deleted successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/providers": {
+      "get": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "List available providers and their status",
+        "operationId": "list_providers",
+        "responses": {
+          "200": {
+            "description": "List of providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderInfo"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/set-active": {
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Set active transcription",
+        "operationId": "set_active_transcription",
+        "parameters": [
+          {
+            "name": "transcriptionId",
+            "in": "path",
+            "description": "Transcription ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcription set as active"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/validate-provider": {
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Validate provider configuration",
+        "operationId": "validate_provider",
+        "parameters": [
+          {
+            "name": "providerName",
+            "in": "path",
+            "description": "Provider name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/{mediaId}": {
+      "get": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Get all transcriptions for an audio file",
+        "operationId": "get_transcriptions",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of transcriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/crate.db.models.AudioTranscription"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/trash/tasks": {
       "get": {
         "tags": [
@@ -1602,6 +2640,71 @@
           }
         }
       },
+      "AudioTranscription": {
+        "type": "object",
+        "description": "AudioTranscription model",
+        "required": [
+          "id",
+          "mediaId",
+          "transcriptionText",
+          "provider",
+          "status",
+          "isActive",
+          "createdAt"
+        ],
+        "properties": {
+          "confidenceScore": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "mediaId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerConfig": {
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "transcriptionText": {
+            "type": "string"
+          }
+        }
+      },
+      "BacklinkResponse": {
+        "type": "object",
+        "description": "Response for backlinks",
+        "required": [
+          "link"
+        ],
+        "properties": {
+          "link": {
+            "$ref": "#/components/schemas/ResourceLink"
+          },
+          "sourceTitle": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "ConfigureSyncRequest": {
         "type": "object",
         "description": "Request to configure sync with remote database",
@@ -1684,6 +2787,34 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "CreateLinkRequest": {
+        "type": "object",
+        "description": "Request to create a link",
+        "required": [
+          "sourceType",
+          "sourceId",
+          "targetType",
+          "targetId"
+        ],
+        "properties": {
+          "linkText": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "targetType": {
+            "type": "string"
           }
         }
       },
@@ -1877,6 +3008,130 @@
           }
         }
       },
+      "LinkableResource": {
+        "type": "object",
+        "description": "Response for linkable resource search",
+        "required": [
+          "id",
+          "resourceType",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "MediaItem": {
+        "type": "object",
+        "description": "MediaItem model",
+        "required": [
+          "id",
+          "entityType",
+          "entityId",
+          "mediaType",
+          "filePath",
+          "metadata",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "metadata": {},
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ModelInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "size",
+          "file_size",
+          "download_url",
+          "is_downloaded"
+        ],
+        "properties": {
+          "download_url": {
+            "type": "string"
+          },
+          "file_size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "is_downloaded": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          }
+        }
+      },
+      "ProviderInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "requires_api_key",
+          "requires_download",
+          "status"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "requires_api_key": {
+            "type": "boolean"
+          },
+          "requires_download": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "ReorderSubTasksRequest": {
         "type": "object",
         "required": [
@@ -1888,6 +3143,135 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ResourceLink": {
+        "type": "object",
+        "description": "ResourceLink model for bidirectional linking between resources",
+        "required": [
+          "id",
+          "sourceType",
+          "sourceId",
+          "targetType",
+          "targetId",
+          "createdAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "linkText": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "targetType": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "required": [
+          "q"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 0
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 0
+          },
+          "q": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "string",
+            "nullable": true
+          },
+          "types": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "total",
+          "query",
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SetSettingRequest": {
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "SettingResponse": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -2177,6 +3561,26 @@
     {
       "name": "Activities",
       "description": "Activity tracking endpoints"
+    },
+    {
+      "name": "Search",
+      "description": "Search endpoints"
+    },
+    {
+      "name": "Links",
+      "description": "Resource linking endpoints"
+    },
+    {
+      "name": "Settings",
+      "description": "Settings management endpoints"
+    },
+    {
+      "name": "Audio",
+      "description": "Audio recording and playback endpoints"
+    },
+    {
+      "name": "Transcription",
+      "description": "Audio transcription endpoints"
     }
   ]
 }

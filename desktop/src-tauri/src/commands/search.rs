@@ -1,7 +1,7 @@
 use crate::db::{connection, DbState};
-use crate::db::repositories::{SearchRepository, ResourceType};
+use crate::db::repositories::search::{SearchRepository, ResourceType};
 use crate::error::{AppError, Result};
-use crate::handlers::search::{SearchRequest, SearchResponse, SearchResultResponse};
+use crate::handlers::search::{SearchResponse, SearchResultResponse};
 use tauri::State;
 
 /// Search across all resources
@@ -71,7 +71,7 @@ pub async fn search_resources(
     let mode = mode.as_deref().unwrap_or("fuzzy").to_string();
 
     let repo = SearchRepository::new(connection::get_database(&*state));
-    let results = repo.search_fuzzy(
+    let results: Vec<crate::db::repositories::search::SearchResult> = repo.search_fuzzy(
         &q,
         types,
         tag_ids,
@@ -79,9 +79,10 @@ pub async fn search_resources(
         offset,
     ).await?;
 
+    let total = results.len();
     let response = SearchResponse {
         results: results.into_iter().map(SearchResultResponse::from).collect(),
-        total: results.len(),
+        total,
         query: q,
         mode,
     };

@@ -1,5 +1,5 @@
 use crate::db::{connection, DbState};
-use crate::db::repositories::{SearchRepository, ResourceType, SearchResult};
+use crate::db::repositories::search::{SearchRepository, ResourceType, SearchResult};
 use crate::error::{AppError, Result};
 use axum::{
     extract::{Query, State},
@@ -34,7 +34,7 @@ pub struct SearchResponse {
     pub mode: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SearchResultResponse {
     Entry {
@@ -69,6 +69,13 @@ pub enum SearchResultResponse {
         id: String,
         #[serde(flatten)]
         tag: crate::db::models::Tag,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Bookmark {
+        id: String,
+        #[serde(flatten)]
+        bookmark: crate::db::models::Bookmark,
         score: f64,
         highlights: Vec<String>,
     },
@@ -113,6 +120,14 @@ impl From<SearchResult> for SearchResultResponse {
                 SearchResultResponse::Tag {
                     id: tag.id.clone(),
                     tag,
+                    score,
+                    highlights,
+                }
+            }
+            SearchResult::Bookmark { bookmark, score, highlights } => {
+                SearchResultResponse::Bookmark {
+                    id: bookmark.id.clone(),
+                    bookmark,
                     score,
                     highlights,
                 }
@@ -214,9 +229,10 @@ pub async fn search(
         }
     };
 
+    let total = results.len();
     let response = SearchResponse {
         results: results.into_iter().map(SearchResultResponse::from).collect(),
-        total: results.len(),
+        total,
         query: params.q,
         mode,
     };

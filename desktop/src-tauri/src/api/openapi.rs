@@ -118,7 +118,6 @@ use crate::commands::transcription as transcription_commands;
         sync_handlers::ConfigureSyncRequest,
         search_handlers::SearchRequest,
         search_handlers::SearchResponse,
-        search_handlers::SearchResultResponse,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,

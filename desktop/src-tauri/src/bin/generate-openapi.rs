@@ -1,4 +1,4 @@
-use crate::api::openapi;
+use desktop_lib::api::openapi;
 use std::path::PathBuf;
 
 fn main() {
