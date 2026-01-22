@@ -1,15 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { getAllLinksForGraph } from "~/aether-sdk";
+import { getAllLinksForGraph, useGetAllLinksForGraph } from "~/aether-sdk";
 import { GraphVisualization } from "./components/graph-visualization";
 
 export const GraphView = () => {
-	const { data: response, isLoading, error } = useQuery({
-		queryKey: ["graphLinks"],
-		queryFn: async () => {
-			return getAllLinksForGraph();
-		},
-	});
+	const { data: response, isLoading, error } = useGetAllLinksForGraph();
 
 	if (error) {
 		return (

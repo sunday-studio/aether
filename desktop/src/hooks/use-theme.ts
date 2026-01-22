@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import customFetch from "~/lib/api-client";
 
@@ -27,10 +27,9 @@ const DEFAULT_SETTINGS: ThemeSettings = {
 // Fetch a setting value
 async function fetchSetting(key: string): Promise<string | null> {
 	try {
-		const response = await customFetch<{ data: { key: string; value: string | null } }>(
-			`/v1/settings?key=${encodeURIComponent(key)}`,
-			{ method: "GET" },
-		);
+		const response = await customFetch<{
+			data: { key: string; value: string | null };
+		}>(`/v1/settings?key=${encodeURIComponent(key)}`, { method: "GET" });
 		// The Tauri command returns { key, value } directly, which is wrapped in { data: ... }
 		const result = response.data as { key: string; value: string | null };
 		return result?.value ?? null;
@@ -57,7 +56,9 @@ async function updateSetting(key: string, value: string): Promise<void> {
 // Detect system color scheme preference
 function getSystemPreference(): "light" | "dark" {
 	if (typeof window === "undefined") return "light";
-	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	return window.matchMedia("(prefers-color-scheme: dark)").matches
+		? "dark"
+		: "light";
 }
 
 // Get the effective theme based on mode and system preference
@@ -100,27 +101,36 @@ export function useTheme() {
 		mutationFn: (value: ThemeMode) =>
 			updateSetting(SETTING_KEYS.interfaceTheme, value),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings", SETTING_KEYS.interfaceTheme] });
+			queryClient.invalidateQueries({
+				queryKey: ["settings", SETTING_KEYS.interfaceTheme],
+			});
 		},
 	});
 
 	const setThemeLight = useMutation({
-		mutationFn: (value: LightTheme) => updateSetting(SETTING_KEYS.themeLight, value),
+		mutationFn: (value: LightTheme) =>
+			updateSetting(SETTING_KEYS.themeLight, value),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings", SETTING_KEYS.themeLight] });
+			queryClient.invalidateQueries({
+				queryKey: ["settings", SETTING_KEYS.themeLight],
+			});
 		},
 	});
 
 	const setThemeDark = useMutation({
-		mutationFn: (value: DarkTheme) => updateSetting(SETTING_KEYS.themeDark, value),
+		mutationFn: (value: DarkTheme) =>
+			updateSetting(SETTING_KEYS.themeDark, value),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings", SETTING_KEYS.themeDark] });
+			queryClient.invalidateQueries({
+				queryKey: ["settings", SETTING_KEYS.themeDark],
+			});
 		},
 	});
 
 	// Compute effective theme
 	const effectiveTheme = useMemo(() => {
-		const mode = (interfaceTheme ?? DEFAULT_SETTINGS.interfaceTheme) as ThemeMode;
+		const mode = (interfaceTheme ??
+			DEFAULT_SETTINGS.interfaceTheme) as ThemeMode;
 		const light = (themeLight ?? DEFAULT_SETTINGS.themeLight) as LightTheme;
 		const dark = (themeDark ?? DEFAULT_SETTINGS.themeDark) as DarkTheme;
 		return getEffectiveTheme(mode, light, dark);
@@ -136,7 +146,8 @@ export function useTheme() {
 	// Listen to system preference changes when in system mode
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		const mode = (interfaceTheme ?? DEFAULT_SETTINGS.interfaceTheme) as ThemeMode;
+		const mode = (interfaceTheme ??
+			DEFAULT_SETTINGS.interfaceTheme) as ThemeMode;
 		if (mode !== "system") return;
 
 		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -151,7 +162,8 @@ export function useTheme() {
 
 	return {
 		// Current values
-		interfaceTheme: (interfaceTheme ?? DEFAULT_SETTINGS.interfaceTheme) as ThemeMode,
+		interfaceTheme: (interfaceTheme ??
+			DEFAULT_SETTINGS.interfaceTheme) as ThemeMode,
 		themeLight: (themeLight ?? DEFAULT_SETTINGS.themeLight) as LightTheme,
 		themeDark: (themeDark ?? DEFAULT_SETTINGS.themeDark) as DarkTheme,
 		effectiveTheme,

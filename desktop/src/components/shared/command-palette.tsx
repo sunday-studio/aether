@@ -9,7 +9,7 @@ import {
 import { Bookmark, Egg, Goal, ListTodo, Tag } from "lucide-react";
 import * as React from "react";
 import { useNavigate } from "react-router";
-import { useGetSearch } from "~/aether-sdk";
+import { useSearch } from "~/aether-sdk";
 
 interface CommandPaletteProps {
 	open: boolean;
@@ -20,7 +20,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = React.useState("");
 
-	const { data: searchResults, isLoading } = useGetSearch(
+	const { data: searchResults, isLoading } = useSearch(
 		{
 			q: searchQuery,
 			limit: 20,
@@ -32,10 +32,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 		},
 	);
 
-	const handleSelect = (result: {
-		type: string;
-		id: string;
-	}) => {
+	const handleSelect = (result: { type: string; id: string }) => {
 		onOpenChange(false);
 		setSearchQuery("");
 
@@ -115,7 +112,9 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 			case "Tag":
 				return result.tag?.name || "Untitled Tag";
 			case "Bookmark":
-				return result.bookmark?.title || result.bookmark?.url || "Untitled Bookmark";
+				return (
+					result.bookmark?.title || result.bookmark?.url || "Untitled Bookmark"
+				);
 			default:
 				return "Unknown";
 		}
@@ -144,36 +143,40 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 				)}
 				{results.length > 0 && (
 					<CommandGroup heading="Results">
-						{results.map((result: {
-							type: string;
-							id: string;
-							entry?: { document: string; id: string };
-							task?: { title: string; id: string };
-							subtask?: { title: string; id: string };
-							goal?: { name: string; id: string };
-							tag?: { name: string; id: string };
-							bookmark?: { title?: string; url?: string; id: string };
-						}) => {
-							// SearchResultResponse is a discriminated union with 'type' field
-							const type = result.type;
-							const id = result.id;
+						{results.map(
+							(result: {
+								type: string;
+								id: string;
+								entry?: { document: string; id: string };
+								task?: { title: string; id: string };
+								subtask?: { title: string; id: string };
+								goal?: { name: string; id: string };
+								tag?: { name: string; id: string };
+								bookmark?: { title?: string; url?: string; id: string };
+							}) => {
+								// SearchResultResponse is a discriminated union with 'type' field
+								const type = result.type;
+								const id = result.id;
 
-							return (
-								<CommandItem
-									key={`${type}-${id}`}
-									value={`${type}-${id}`}
-									onSelect={() => handleSelect({ type, id })}
-								>
-									<div className="flex items-center gap-2 w-full">
-										{getIcon(type)}
-										<span className="flex-1 truncate">{getTitle(result)}</span>
-										<span className="text-xs text-gray-500 capitalize">
-											{type.toLowerCase()}
-										</span>
-									</div>
-								</CommandItem>
-							);
-						})}
+								return (
+									<CommandItem
+										key={`${type}-${id}`}
+										value={`${type}-${id}`}
+										onSelect={() => handleSelect({ type, id })}
+									>
+										<div className="flex items-center gap-2 w-full">
+											{getIcon(type)}
+											<span className="flex-1 truncate">
+												{getTitle(result)}
+											</span>
+											<span className="text-xs text-gray-500 capitalize">
+												{type.toLowerCase()}
+											</span>
+										</div>
+									</CommandItem>
+								);
+							},
+						)}
 					</CommandGroup>
 				)}
 			</CommandList>

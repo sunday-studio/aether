@@ -286,12 +286,73 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             }
         }
 
-        // Split by semicolons and filter empty statements
-        let statements: Vec<&str> = cleaned_sql
-            .split(';')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .collect();
+        // Split by semicolons, but respect BEGIN...END blocks
+        // Track nesting level to avoid splitting inside triggers/procedures
+        let mut statements = Vec::new();
+        let mut current_statement = String::new();
+        let mut begin_count = 0;
+        let mut chars = cleaned_sql.chars().peekable();
+        
+        while let Some(ch) = chars.next() {
+            current_statement.push(ch);
+            
+            // Check for BEGIN keyword (case-insensitive, whole word)
+            if current_statement.len() >= 5 {
+                let end_pos = current_statement.len();
+                let start_pos = end_pos.saturating_sub(5);
+                let word = &current_statement[start_pos..end_pos];
+                if word.eq_ignore_ascii_case("BEGIN") {
+                    // Check word boundaries (not part of another word)
+                    let before = if start_pos > 0 {
+                        current_statement.chars().nth(start_pos - 1)
+                    } else {
+                        None
+                    };
+                    let after = chars.peek();
+                    if (before.is_none() || !before.unwrap().is_alphanumeric()) &&
+                       (after.is_none() || !after.unwrap().is_alphanumeric()) {
+                        begin_count += 1;
+                    }
+                }
+            }
+            
+            // Check for END keyword (case-insensitive, whole word)
+            if current_statement.len() >= 3 {
+                let end_pos = current_statement.len();
+                let start_pos = end_pos.saturating_sub(3);
+                let word = &current_statement[start_pos..end_pos];
+                if word.eq_ignore_ascii_case("END") {
+                    // Check word boundaries (not part of another word)
+                    let before = if start_pos > 0 {
+                        current_statement.chars().nth(start_pos - 1)
+                    } else {
+                        None
+                    };
+                    let after = chars.peek();
+                    if (before.is_none() || !before.unwrap().is_alphanumeric()) &&
+                       (after.is_none() || !after.unwrap().is_alphanumeric()) {
+                        if begin_count > 0 {
+                            begin_count -= 1;
+                        }
+                    }
+                }
+            }
+            
+            // Only split on semicolon if we're not inside a BEGIN...END block
+            if ch == ';' && begin_count == 0 {
+                let trimmed = current_statement.trim();
+                if !trimmed.is_empty() {
+                    statements.push(trimmed.to_string());
+                }
+                current_statement.clear();
+            }
+        }
+        
+        // Add any remaining statement
+        let trimmed = current_statement.trim();
+        if !trimmed.is_empty() {
+            statements.push(trimmed.to_string());
+        }
 
         for (idx, statement) in statements.iter().enumerate() {
             // Log the first few characters of each statement for debugging

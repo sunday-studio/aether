@@ -276,7 +276,8 @@ impl SearchRepository {
         let sql = "SELECT e.id, e.document, e.created_at, e.is_pinned, e.is_archived, e.is_deleted, e.updated_at, e.deleted_at,
                    bm25(entries_fts) as rank
                    FROM entries_fts
-                   JOIN entries e ON e.id = entries_fts.rowid
+                   JOIN entries_fts_map m ON m.rowid = entries_fts.rowid
+                   JOIN entries e ON e.id = m.entry_id
                    WHERE entries_fts MATCH ?1 AND e.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 
@@ -312,7 +313,8 @@ impl SearchRepository {
                    t.created_at, t.updated_at, t.deleted_at,
                    bm25(tasks_fts) as rank
                    FROM tasks_fts
-                   JOIN tasks t ON t.id = tasks_fts.rowid
+                   JOIN tasks_fts_map m ON m.rowid = tasks_fts.rowid
+                   JOIN tasks t ON t.id = m.task_id
                    WHERE tasks_fts MATCH ?1 AND t.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 
@@ -346,7 +348,8 @@ impl SearchRepository {
         let sql = "SELECT s.id, s.title, s.is_completed, s.task_id, s.order_index, s.created_at, s.updated_at, s.deleted_at,
                    bm25(subtasks_fts) as rank
                    FROM subtasks_fts
-                   JOIN subtasks s ON s.id = subtasks_fts.rowid
+                   JOIN subtasks_fts_map m ON m.rowid = subtasks_fts.rowid
+                   JOIN subtasks s ON s.id = m.subtask_id
                    WHERE subtasks_fts MATCH ?1 AND s.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 
@@ -382,7 +385,8 @@ impl SearchRepository {
                    g.recurrence_anchor, g.recurrence_meta, g.timezone, g.created_at, g.updated_at, g.deleted_at,
                    bm25(goals_fts) as rank
                    FROM goals_fts
-                   JOIN goals g ON g.id = goals_fts.rowid
+                   JOIN goals_fts_map m ON m.rowid = goals_fts.rowid
+                   JOIN goals g ON g.id = m.goal_id
                    WHERE goals_fts MATCH ?1 AND g.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 
@@ -416,7 +420,8 @@ impl SearchRepository {
         let sql = "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at,
                    bm25(tags_fts) as rank
                    FROM tags_fts
-                   JOIN tags t ON t.id = tags_fts.rowid
+                   JOIN tags_fts_map m ON m.rowid = tags_fts.rowid
+                   JOIN tags t ON t.id = m.tag_id
                    WHERE tags_fts MATCH ?1 AND t.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 
@@ -451,7 +456,8 @@ impl SearchRepository {
         let sql = "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.site_name, b.author, b.published_at, b.content_type, b.metadata_json, b.is_archived, b.is_deleted, b.created_at, b.updated_at, b.deleted_at,
                    bm25(bookmarks_fts) as rank
                    FROM bookmarks_fts
-                   JOIN bookmarks b ON b.id = bookmarks_fts.rowid
+                   JOIN bookmarks_fts_map m ON m.rowid = bookmarks_fts.rowid
+                   JOIN bookmarks b ON b.id = m.bookmark_id
                    WHERE bookmarks_fts MATCH ?1 AND b.deleted_at IS NULL
                    ORDER BY rank LIMIT ?2";
 

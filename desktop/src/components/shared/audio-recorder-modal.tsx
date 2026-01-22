@@ -1,7 +1,7 @@
 import { Mic, Square } from "lucide-react";
 import { useRef, useState } from "react";
-import { Modal, modalContentStyles } from "./modal";
 import { cn } from "~/utils/cn";
+import { Modal, modalContentStyles } from "./modal";
 
 interface AudioRecorderModalProps {
 	isOpen: boolean;
@@ -32,6 +32,14 @@ export const AudioRecorderModal = ({
 	const startRecording = async () => {
 		try {
 			setError(null);
+
+			// Check if navigator.mediaDevices is available
+			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+				throw new Error(
+					"Microphone access is not available. Please ensure your browser/Tauri app has microphone permissions enabled.",
+				);
+			}
+
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			streamRef.current = stream;
 
@@ -83,7 +91,9 @@ export const AudioRecorderModal = ({
 
 			// Stop all tracks
 			if (streamRef.current) {
-				streamRef.current.getTracks().forEach((track) => track.stop());
+				streamRef.current.getTracks().forEach((track) => {
+					track.stop();
+				});
 				streamRef.current = null;
 			}
 		}

@@ -34,21 +34,33 @@ CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
     detail='column'
 );
 
+-- Bookmarks FTS mapping table
+CREATE TABLE IF NOT EXISTS bookmarks_fts_map (
+    rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookmark_id TEXT NOT NULL UNIQUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_fts_map_bookmark_id ON bookmarks_fts_map(bookmark_id);
+
 -- Triggers to keep FTS index in sync
 CREATE TRIGGER IF NOT EXISTS bookmarks_fts_insert AFTER INSERT ON bookmarks BEGIN
+    INSERT INTO bookmarks_fts_map(bookmark_id) VALUES (new.id);
     INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-    VALUES (new.id, COALESCE(new.title, ''), COALESCE(new.description, ''), 
+    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id), 
+            COALESCE(new.title, ''), COALESCE(new.description, ''), 
             COALESCE(new.site_name, ''), COALESCE(new.author, ''));
 END;
 
 CREATE TRIGGER IF NOT EXISTS bookmarks_fts_delete AFTER DELETE ON bookmarks BEGIN
-    DELETE FROM bookmarks_fts WHERE rowid = old.id;
+    DELETE FROM bookmarks_fts WHERE rowid = (SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = old.id);
+    DELETE FROM bookmarks_fts_map WHERE bookmark_id = old.id;
 END;
 
 CREATE TRIGGER IF NOT EXISTS bookmarks_fts_update AFTER UPDATE ON bookmarks BEGIN
-    DELETE FROM bookmarks_fts WHERE rowid = old.id;
+    DELETE FROM bookmarks_fts WHERE rowid = (SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = old.id);
     INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-    VALUES (new.id, COALESCE(new.title, ''), COALESCE(new.description, ''), 
+    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id), 
+            COALESCE(new.title, ''), COALESCE(new.description, ''), 
             COALESCE(new.site_name, ''), COALESCE(new.author, ''));
 END;
 
@@ -69,7 +81,12 @@ CREATE INDEX IF NOT EXISTS bookmarks_embedding_idx
     ON bookmarks(libsql_vector_idx(embedding, 'metric=cosine'));
 
 -- Backfill existing bookmarks into FTS (if any exist)
+INSERT INTO bookmarks_fts_map(bookmark_id) 
+SELECT id FROM bookmarks WHERE deleted_at IS NULL;
+
 INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-SELECT id, COALESCE(title, ''), COALESCE(description, ''), 
-       COALESCE(site_name, ''), COALESCE(author, '')
-FROM bookmarks WHERE deleted_at IS NULL;
+SELECT m.rowid, COALESCE(b.title, ''), COALESCE(b.description, ''), 
+       COALESCE(b.site_name, ''), COALESCE(b.author, '')
+FROM bookmarks b
+JOIN bookmarks_fts_map m ON b.id = m.bookmark_id
+WHERE b.deleted_at IS NULL;
