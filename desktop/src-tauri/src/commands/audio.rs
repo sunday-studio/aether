@@ -6,6 +6,20 @@ use crate::settings;
 use tauri::{AppHandle, State};
 
 /// Save audio recording to filesystem and database
+#[utoipa::path(
+    post,
+    path = "/v1/audio",
+    tag = "Audio",
+    request_body(content = serde_json::Value, description = "Audio recording data"),
+    params(
+        ("entryId" = String, Path, description = "Entry ID"),
+    ),
+    responses(
+        (status = 200, description = "Media ID of saved audio", body = String),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn save_audio_recording(
     _app: AppHandle,
@@ -61,6 +75,20 @@ pub async fn save_audio_recording(
 }
 
 /// Get audio file data
+#[utoipa::path(
+    get,
+    path = "/v1/audio/{mediaId}",
+    tag = "Audio",
+    params(
+        ("mediaId" = String, Path, description = "Media ID")
+    ),
+    responses(
+        (status = 200, description = "Audio file data", body = Vec<u8>),
+        (status = 400, description = "Bad request"),
+        (status = 404, description = "Audio not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn get_audio_data(
     state: State<'_, crate::DbState>,
@@ -75,6 +103,19 @@ pub async fn get_audio_data(
 }
 
 /// Delete audio recording
+#[utoipa::path(
+    delete,
+    path = "/v1/audio/{mediaId}",
+    tag = "Audio",
+    params(
+        ("mediaId" = String, Path, description = "Media ID")
+    ),
+    responses(
+        (status = 200, description = "Audio deleted successfully"),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn delete_audio_recording(
     state: State<'_, crate::DbState>,
@@ -89,6 +130,19 @@ pub async fn delete_audio_recording(
 }
 
 /// Get all media items (audio, images, etc.) for an entry
+#[utoipa::path(
+    get,
+    path = "/v1/entry/{entryId}/media",
+    tag = "Audio",
+    params(
+        ("entryId" = String, Path, description = "Entry ID")
+    ),
+    responses(
+        (status = 200, description = "List of media items", body = Vec<crate::db::models::MediaItem>),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn get_media_items_for_entry(
     state: State<'_, crate::DbState>,
@@ -104,6 +158,19 @@ pub async fn get_media_items_for_entry(
 }
 
 /// Get audio metadata without loading the full file
+#[utoipa::path(
+    get,
+    path = "/v1/audio/{mediaId}/metadata",
+    tag = "Audio",
+    params(
+        ("mediaId" = String, Path, description = "Media ID")
+    ),
+    responses(
+        (status = 200, description = "Audio metadata", body = Option<crate::db::models::MediaItem>),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn get_audio_metadata(
     state: State<'_, crate::DbState>,

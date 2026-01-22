@@ -1,7 +1,9 @@
 use crate::db::{connection, DbState, EntryRepository};
+use crate::db::repositories::LinkRepository;
 use crate::error::{AppError, Result};
 use crate::handlers::entry::CreateEntryRequest;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
+use crate::utils::link_parser::extract_links_from_lexical_content;
 use tauri::State;
 
 /// Get all entries
@@ -73,13 +75,27 @@ pub async fn create_entry(
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     let entry = repo.create(
-        document,
+        document.clone(),
         date,
         is_pinned.unwrap_or(false),
         is_archived.unwrap_or(false),
         is_deleted.unwrap_or(false),
     )
     .await?;
+    
+    // Sync links from content
+    let link_repo = LinkRepository::new(db.clone());
+    if let Ok(extracted_links) = extract_links_from_lexical_content(&document) {
+        for link in extracted_links {
+            let _ = link_repo.create(
+                "entry".to_string(),
+                entry.id.clone(),
+                link.target_type,
+                link.target_id,
+                link.link_text,
+            ).await;
+        }
+    }
     
     // Log activity
     if let Err(e) = log_create(db, "entry".to_string(), entry.id.clone()).await {
@@ -178,13 +194,57 @@ pub async fn update_entry(
     let repo = EntryRepository::new(db.clone());
     let entry = repo.update(
         &id,
-        document,
+        document.clone(),
         is_pinned.unwrap_or(false),
         is_archived.unwrap_or(false),
         is_deleted.unwrap_or(false),
         updated_at,
     )
     .await?;
+    
+    // Sync links from content
+    let link_repo = LinkRepository::new(db.clone());
+    if let Ok(extracted_links) = extract_links_from_lexical_content(&document) {
+        // Get existing links
+        let existing_links = link_repo.find_by_source("entry", &id).await.unwrap_or_default();
+        let existing_targets: std::collections::HashSet<(String, String)> = existing_links
+            .iter()
+            .map(|l| (l.target_type.clone(), l.target_id.clone()))
+            .collect();
+        
+        // Create new links
+        let new_targets: std::collections::HashSet<(String, String)> = extracted_links
+            .iter()
+            .map(|l| (l.target_type.clone(), l.target_id.clone()))
+            .collect();
+        
+        // Delete removed links
+        for existing_link in &existing_links {
+            let target_key = (existing_link.target_type.clone(), existing_link.target_id.clone());
+            if !new_targets.contains(&target_key) {
+                let _ = link_repo.delete(
+                    &existing_link.source_type,
+                    &existing_link.source_id,
+                    &existing_link.target_type,
+                    &existing_link.target_id,
+                ).await;
+            }
+        }
+        
+        // Create new links
+        for link in extracted_links {
+            let target_key = (link.target_type.clone(), link.target_id.clone());
+            if !existing_targets.contains(&target_key) {
+                let _ = link_repo.create(
+                    "entry".to_string(),
+                    id.clone(),
+                    link.target_type,
+                    link.target_id,
+                    link.link_text,
+                ).await;
+            }
+        }
+    }
     
     // Log activity
     if let Err(e) = log_update(db, "entry".to_string(), entry.id.clone()).await {
@@ -216,6 +276,10 @@ pub async fn delete_entry(state: State<'_, DbState>, id: String) -> Result<()> {
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     repo.delete(&id).await?;
+    
+    // Delete all links from this entry
+    let link_repo = LinkRepository::new(db.clone());
+    let _ = link_repo.delete_by_source("entry", &id).await;
     
     // Log activity
     if let Err(e) = log_delete(db, "entry".to_string(), id.clone()).await {

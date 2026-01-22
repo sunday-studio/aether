@@ -7,8 +7,9 @@ use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAI
 use crate::transcription::provider::TranscriptionProvider;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ProviderInfo {
     pub name: String,
     pub display_name: String,
@@ -18,7 +19,7 @@ pub struct ProviderInfo {
     pub error_message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ModelInfo {
     pub name: String,
     pub size: String,
@@ -28,6 +29,20 @@ pub struct ModelInfo {
 }
 
 /// Start transcription for an audio file
+#[utoipa::path(
+    post,
+    path = "/v1/transcription",
+    tag = "Transcription",
+    params(
+        ("mediaId" = String, Path, description = "Media ID"),
+        ("providerName" = Option<String>, Query, description = "Provider name (optional)")
+    ),
+    responses(
+        (status = 200, description = "Transcription ID", body = String),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn start_transcription(
     app: AppHandle,
@@ -70,6 +85,19 @@ pub async fn start_transcription(
 }
 
 /// Get all transcriptions for an audio file
+#[utoipa::path(
+    get,
+    path = "/v1/transcription/{mediaId}",
+    tag = "Transcription",
+    params(
+        ("mediaId" = String, Path, description = "Media ID")
+    ),
+    responses(
+        (status = 200, description = "List of transcriptions", body = Vec<crate::db::models::AudioTranscription>),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn get_transcriptions(
     state: State<'_, crate::DbState>,
@@ -85,6 +113,19 @@ pub async fn get_transcriptions(
 }
 
 /// Get a specific transcription by ID
+#[utoipa::path(
+    get,
+    path = "/v1/transcription/by-id/{transcriptionId}",
+    tag = "Transcription",
+    params(
+        ("transcriptionId" = String, Path, description = "Transcription ID")
+    ),
+    responses(
+        (status = 200, description = "Transcription", body = Option<crate::db::models::AudioTranscription>),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn get_transcription_by_id(
     state: State<'_, crate::DbState>,
@@ -100,6 +141,20 @@ pub async fn get_transcription_by_id(
 }
 
 /// Set active transcription
+#[utoipa::path(
+    post,
+    path = "/v1/transcription/set-active",
+    tag = "Transcription",
+    params(
+        ("transcriptionId" = String, Path, description = "Transcription ID"),
+        ("mediaId" = String, Path, description = "Media ID")
+    ),
+    responses(
+        (status = 200, description = "Transcription set as active"),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn set_active_transcription(
     state: State<'_, crate::DbState>,
@@ -117,6 +172,15 @@ pub async fn set_active_transcription(
 }
 
 /// List available providers and their status
+#[utoipa::path(
+    get,
+    path = "/v1/transcription/providers",
+    tag = "Transcription",
+    responses(
+        (status = 200, description = "List of providers", body = Vec<ProviderInfo>),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn list_providers(
     state: State<'_, crate::DbState>,
@@ -205,6 +269,19 @@ pub async fn list_providers(
 }
 
 /// Validate provider configuration
+#[utoipa::path(
+    post,
+    path = "/v1/transcription/validate-provider",
+    tag = "Transcription",
+    params(
+        ("providerName" = String, Path, description = "Provider name")
+    ),
+    responses(
+        (status = 200, description = "Validation result", body = bool),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn validate_provider(
     state: State<'_, crate::DbState>,
@@ -226,6 +303,15 @@ pub async fn validate_provider(
 }
 
 /// List available Whisper models
+#[utoipa::path(
+    get,
+    path = "/v1/transcription/models",
+    tag = "Transcription",
+    responses(
+        (status = 200, description = "List of models", body = Vec<ModelInfo>),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn list_available_models() -> Result<Vec<ModelInfo>> {
     let models = model_manager::list_available_models();
