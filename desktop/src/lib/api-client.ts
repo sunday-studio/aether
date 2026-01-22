@@ -66,6 +66,23 @@ const routeToCommand: Record<string, string> = {
 	"GET /v1/links/search": "search_linkable_resources",
 	"GET /v1/links/graph": "get_all_links_for_graph",
 	"POST /v1/links/sync": "sync_links_from_content",
+	// Audio
+	"POST /v1/audio": "save_audio_recording",
+	"GET /v1/audio/:mediaId": "get_audio_data",
+	"DELETE /v1/audio/:mediaId": "delete_audio_recording",
+	"GET /v1/entry/:entryId/media": "get_media_items_for_entry",
+	"GET /v1/audio/:mediaId/metadata": "get_audio_metadata",
+	// Transcription
+	"POST /v1/transcription": "start_transcription",
+	"GET /v1/transcription/:mediaId": "get_transcriptions",
+	"GET /v1/transcription/by-id/:transcriptionId": "get_transcription_by_id",
+	"POST /v1/transcription/set-active": "set_active_transcription",
+	"GET /v1/transcription/providers": "list_providers",
+	"POST /v1/transcription/validate-provider": "validate_provider",
+	"GET /v1/transcription/models": "list_available_models",
+	"POST /v1/transcription/models/download": "download_model",
+	"POST /v1/transcription/models/verify": "verify_model",
+	"DELETE /v1/transcription/models/:modelSize": "delete_model",
 };
 
 // Extract path parameters from URL

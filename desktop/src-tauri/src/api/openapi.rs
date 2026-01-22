@@ -1,6 +1,6 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Activity, Entry, Goal, GoalInstance, ResourceLink, SubTask, Tag, Task};
+use crate::db::models::{Activity, AudioTranscription, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task};
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
@@ -11,6 +11,8 @@ use crate::handlers::trash as trash_handlers;
 use crate::handlers::search as search_handlers;
 use crate::handlers::settings as settings_handlers;
 use crate::commands::link as link_commands;
+use crate::commands::audio as audio_commands;
+use crate::commands::transcription as transcription_commands;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -75,6 +77,23 @@ use crate::commands::link as link_commands;
         // Settings endpoints
         settings_handlers::get_setting,
         settings_handlers::set_setting,
+        // Audio endpoints
+        audio_commands::save_audio_recording,
+        audio_commands::get_audio_data,
+        audio_commands::delete_audio_recording,
+        audio_commands::get_media_items_for_entry,
+        audio_commands::get_audio_metadata,
+        // Transcription endpoints
+        transcription_commands::start_transcription,
+        transcription_commands::get_transcriptions,
+        transcription_commands::get_transcription_by_id,
+        transcription_commands::set_active_transcription,
+        transcription_commands::list_providers,
+        transcription_commands::validate_provider,
+        transcription_commands::list_available_models,
+        transcription_commands::download_model,
+        transcription_commands::verify_model,
+        transcription_commands::delete_model,
     ),
     components(schemas(
         Tag,
@@ -105,6 +124,10 @@ use crate::commands::link as link_commands;
         link_commands::BacklinkResponse,
         settings_handlers::SettingResponse,
         settings_handlers::SetSettingRequest,
+        MediaItem,
+        AudioTranscription,
+        transcription_commands::ProviderInfo,
+        transcription_commands::ModelInfo,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
@@ -118,6 +141,8 @@ use crate::commands::link as link_commands;
         (name = "Search", description = "Search endpoints"),
         (name = "Links", description = "Resource linking endpoints"),
         (name = "Settings", description = "Settings management endpoints"),
+        (name = "Audio", description = "Audio recording and playback endpoints"),
+        (name = "Transcription", description = "Audio transcription endpoints"),
     ),
 )]
 pub struct ApiDoc;

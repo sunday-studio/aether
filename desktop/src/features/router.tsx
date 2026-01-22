@@ -7,6 +7,7 @@ import { Layout } from "~/components/shared/layout";
 import { BookmarksView } from "./bookmarks/bookmarks.view";
 import { CanvasView } from "./canvas/canvas.view";
 // Features
+import { GraphView } from "./graph/graph.view";
 import { Journal } from "./journal/journal";
 import { SettingsView } from "./settings/settings.view";
 import { TaskLayout } from "./tasks/components/task-layout";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter(
 			</Route>
 			<Route path="/canvas" element={<CanvasView />} />
 			<Route path="/bookmarks" element={<BookmarksView />} />
+			<Route path="/graph" element={<GraphView />} />
 			<Route path="/settings" element={<SettingsView />} />
 		</Route>,
 	),

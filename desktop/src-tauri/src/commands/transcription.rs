@@ -334,6 +334,19 @@ pub async fn list_available_models() -> Result<Vec<ModelInfo>> {
 }
 
 /// Download a Whisper model
+#[utoipa::path(
+    post,
+    path = "/v1/transcription/models/download",
+    tag = "Transcription",
+    params(
+        ("modelSize" = String, Path, description = "Model size")
+    ),
+    responses(
+        (status = 200, description = "Download status", body = String),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn download_model(
     _app: AppHandle,
@@ -354,12 +367,38 @@ pub async fn download_model(
 }
 
 /// Verify model integrity
+#[utoipa::path(
+    post,
+    path = "/v1/transcription/models/verify",
+    tag = "Transcription",
+    params(
+        ("modelSize" = String, Path, description = "Model size")
+    ),
+    responses(
+        (status = 200, description = "Verification result", body = bool),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn verify_model(model_size: String) -> Result<bool> {
     model_manager::verify_model(&model_size)
 }
 
 /// Delete a downloaded model
+#[utoipa::path(
+    delete,
+    path = "/v1/transcription/models/{modelSize}",
+    tag = "Transcription",
+    params(
+        ("modelSize" = String, Path, description = "Model size")
+    ),
+    responses(
+        (status = 200, description = "Model deleted successfully"),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tauri::command]
 pub async fn delete_model(model_size: String) -> Result<()> {
     model_manager::delete_model(&model_size)

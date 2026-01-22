@@ -1,4 +1,4 @@
-import { Atom, BadgeCheck, Bookmark, Egg } from "lucide-react";
+import { Atom, BadgeCheck, Bookmark, Egg, Network } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "~/utils/cn";
 import { RadialAvatar } from "./radiant-avatar";
@@ -67,6 +67,12 @@ const routes = [
 		route: "/canvas",
 		shortcut: ["⌘", "C"],
 		icon: <Atom className="size-5.5" />,
+	},
+	{
+		label: "Graph",
+		route: "/graph",
+		shortcut: ["⌘", "G"],
+		icon: <Network className="size-5.5" />,
 	},
 	{
 		label: "Settings",
