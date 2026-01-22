@@ -25,5 +25,4 @@ pub use settings::SettingsRepository;
 pub use canvas::CanvasRepository;
 pub use bookmark::BookmarkRepository;
 pub use link::LinkRepository;
-// Search repository exports (commented out until search.rs is fully implemented)
-// pub use search::{SearchRepository, SearchResult, ResourceType};
+pub use search::{SearchRepository, SearchResult, ResourceType};
