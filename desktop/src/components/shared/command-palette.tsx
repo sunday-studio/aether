@@ -84,7 +84,15 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 		}
 	};
 
-	const getTitle = (result: any) => {
+	const getTitle = (result: {
+		type: string;
+		entry?: { document: string };
+		task?: { title: string };
+		subtask?: { title: string };
+		goal?: { name: string };
+		tag?: { name: string };
+		bookmark?: { title?: string; url?: string };
+	}) => {
 		switch (result.type) {
 			case "Entry":
 				// Extract text from Lexical document JSON
@@ -136,7 +144,16 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 				)}
 				{results.length > 0 && (
 					<CommandGroup heading="Results">
-						{results.map((result: any) => {
+						{results.map((result: {
+							type: string;
+							id: string;
+							entry?: { document: string; id: string };
+							task?: { title: string; id: string };
+							subtask?: { title: string; id: string };
+							goal?: { name: string; id: string };
+							tag?: { name: string; id: string };
+							bookmark?: { title?: string; url?: string; id: string };
+						}) => {
 							// SearchResultResponse is a discriminated union with 'type' field
 							const type = result.type;
 							const id = result.id;
