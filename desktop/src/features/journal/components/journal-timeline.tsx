@@ -64,7 +64,6 @@ export const JournalTimeline = () => {
 			console.error("Failed to save audio:", error);
 			showToast({
 				title: "Failed to save audio recording",
-				variant: "error",
 			});
 		}
 	};
