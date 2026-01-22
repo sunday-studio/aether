@@ -35,6 +35,8 @@ import {
 	PageBreakNode,
 } from "./page-break-plugin/page-break-node";
 import PageBreakPlugin from "./page-break-plugin/page-break-plugin";
+import { ResourceLinkNode } from "./plugins/resource-link-plugin/resource-link-node";
+import { ResourceLinkPlugin } from "./plugins/resource-link-plugin/resource-link-plugin";
 
 const ONCHANGE_DEBOUNCE_TIME = 750;
 const ONHISTORYCHANGE_DEBOUNCE_TIME = 600000; // 10 minutes in milliseconds
@@ -117,6 +119,7 @@ export const Editor = ({
 			AutoLinkNode,
 			LinkNode,
 			PageBreakNode,
+			ResourceLinkNode,
 		],
 	};
 
@@ -168,6 +171,7 @@ export const Editor = ({
 				<HashtagPlugin />
 				<ReactiveFocusPlugin id={id} />
 				<PageBreakPlugin />
+				<ResourceLinkPlugin />
 			</div>
 		</LexicalComposer>
 	);
