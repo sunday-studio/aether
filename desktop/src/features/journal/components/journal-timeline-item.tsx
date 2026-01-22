@@ -12,6 +12,7 @@ import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
 import { JournalActionsDropdown } from "./journal-actions-dropdown";
 import { JournalEditor } from "./journal-editor";
+import { EntryAudio } from "./entry-audio";
 
 // import { EntryTags } from "./journal-tags";
 
@@ -115,6 +116,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 			rightContent={
 				<Timeline.RightContent className="mb-5 flex flex-col gap-1 ">
 					{/* {shouldShowTags && <EntryTags entry={entry} />} */}
+					<EntryAudio entryId={entry.id ?? ""} />
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
 						document={entry.document ?? ""}

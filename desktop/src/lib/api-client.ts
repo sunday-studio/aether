@@ -49,6 +49,8 @@ const routeToCommand: Record<string, string> = {
 	"POST /v1/sync": "sync",
 	// Activities
 	"GET /v1/activities": "get_activities",
+	// Search
+	"GET /v1/search": "search_resources",
 	// Bookmarks
 	"GET /v1/bookmarks": "get_bookmarks",
 	"POST /v1/bookmarks": "create_bookmark",
