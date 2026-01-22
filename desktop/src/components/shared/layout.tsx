@@ -1,12 +1,13 @@
 import { Outlet, useLocation } from "react-router";
 import { useRegisterShortcuts } from "~/hooks/use-register-shortcuts";
 import { ActivityHeatmap } from "./activity-heatmap";
+import { CommandPalette } from "./command-palette";
 import { NavigationControl } from "./navigation-control";
 
 export const Layout = () => {
 	const location = useLocation();
 	const isDev = import.meta.env.DEV;
-	useRegisterShortcuts();
+	const { commandPaletteOpen, setCommandPaletteOpen } = useRegisterShortcuts();
 	return (
 		<div className="w-screen h-screen relative overflow-hidden">
 			<div
@@ -27,6 +28,10 @@ export const Layout = () => {
 				<NavigationControl />
 				<Outlet />
 			</div>
+			<CommandPalette
+				open={commandPaletteOpen}
+				onOpenChange={setCommandPaletteOpen}
+			/>
 		</div>
 	);
 };

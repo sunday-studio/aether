@@ -137,15 +137,9 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 				{results.length > 0 && (
 					<CommandGroup heading="Results">
 						{results.map((result: any) => {
-							const type = result.type || Object.keys(result)[0];
-							const id =
-								result.id ||
-								result.entry?.id ||
-								result.task?.id ||
-								result.subtask?.id ||
-								result.goal?.id ||
-								result.tag?.id ||
-								result.bookmark?.id;
+							// SearchResultResponse is a discriminated union with 'type' field
+							const type = result.type;
+							const id = result.id;
 
 							return (
 								<CommandItem

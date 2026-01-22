@@ -129,7 +129,6 @@ export function useTheme() {
 	// Apply theme to document
 	useEffect(() => {
 		if (typeof document === "undefined") return;
-
 		const root = document.documentElement;
 		root.setAttribute("data-theme", effectiveTheme);
 	}, [effectiveTheme]);
