@@ -11,3 +11,4 @@ pub mod transcription;
 pub mod trash;
 pub mod search;
 pub mod bookmark;
+pub mod link;

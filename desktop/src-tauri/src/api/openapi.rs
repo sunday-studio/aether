@@ -1,6 +1,6 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Activity, Entry, Goal, GoalInstance, SubTask, Tag, Task};
+use crate::db::models::{Activity, Entry, Goal, GoalInstance, ResourceLink, SubTask, Tag, Task};
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
@@ -10,6 +10,7 @@ use crate::handlers::task as task_handlers;
 use crate::handlers::trash as trash_handlers;
 use crate::handlers::search as search_handlers;
 use crate::handlers::settings as settings_handlers;
+use crate::commands::link as link_commands;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -63,6 +64,14 @@ use crate::handlers::settings as settings_handlers;
         activity_handlers::get_activities,
         // Search endpoints
         search_handlers::search,
+        // Link endpoints
+        link_commands::create_link,
+        link_commands::get_backlinks,
+        link_commands::get_outgoing_links,
+        link_commands::delete_link,
+        link_commands::search_linkable_resources,
+        link_commands::get_all_links_for_graph,
+        link_commands::sync_links_from_content,
         // Settings endpoints
         settings_handlers::get_setting,
         settings_handlers::set_setting,
@@ -75,6 +84,7 @@ use crate::handlers::settings as settings_handlers;
         Goal,
         GoalInstance,
         Activity,
+        ResourceLink,
         tag::CreateTagRequest,
         entry::CreateEntryRequest,
         entry::UpdateEntryRequest,
@@ -90,6 +100,9 @@ use crate::handlers::settings as settings_handlers;
         search_handlers::SearchRequest,
         search_handlers::SearchResponse,
         search_handlers::SearchResultResponse,
+        link_commands::CreateLinkRequest,
+        link_commands::LinkableResource,
+        link_commands::BacklinkResponse,
         settings_handlers::SettingResponse,
         settings_handlers::SetSettingRequest,
     )),
@@ -103,6 +116,7 @@ use crate::handlers::settings as settings_handlers;
         (name = "Sync", description = "Sync management endpoints"),
         (name = "Activities", description = "Activity tracking endpoints"),
         (name = "Search", description = "Search endpoints"),
+        (name = "Links", description = "Resource linking endpoints"),
         (name = "Settings", description = "Settings management endpoints"),
     ),
 )]

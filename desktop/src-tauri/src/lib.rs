@@ -13,7 +13,7 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, canvas, entry, goal, sync, tag, task, trash, search, bookmark,
+    activity, canvas, entry, goal, sync, tag, task, trash, search, bookmark, link,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -124,6 +124,14 @@ pub fn run() {
             activity::get_activities,
             // Search commands
             search::search_resources,
+            // Link commands
+            link::create_link,
+            link::get_backlinks,
+            link::get_outgoing_links,
+            link::delete_link,
+            link::search_linkable_resources,
+            link::get_all_links_for_graph,
+            link::sync_links_from_content,
             // Bookmark commands
             bookmark::get_bookmarks,
             bookmark::get_bookmark_by_id,

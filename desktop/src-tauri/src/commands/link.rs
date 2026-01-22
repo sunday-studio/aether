@@ -1,0 +1,397 @@
+use crate::db::{connection, DbState};
+use crate::db::models::ResourceLink;
+use crate::db::repositories::{LinkRepository, SearchRepository, ResourceType};
+use crate::error::{AppError, Result};
+use crate::utils::link_parser::extract_links_from_lexical_content;
+use serde::{Deserialize, Serialize};
+use tauri::State;
+use utoipa::ToSchema;
+
+/// Request to create a link
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateLinkRequest {
+    pub source_type: String,
+    pub source_id: String,
+    pub target_type: String,
+    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_text: Option<String>,
+}
+
+/// Response for linkable resource search
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkableResource {
+    pub id: String,
+    pub resource_type: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
+}
+
+/// Response for backlinks
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BacklinkResponse {
+    pub link: ResourceLink,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_title: Option<String>,
+}
+
+/// Create a link between resources
+#[utoipa::path(
+    post,
+    path = "/v1/links",
+    tag = "Links",
+    request_body = CreateLinkRequest,
+    responses(
+        (status = 200, description = "Created link", body = ResourceLink),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn create_link(
+    state: State<'_, DbState>,
+    source_type: String,
+    source_id: String,
+    target_type: String,
+    target_id: String,
+    link_text: Option<String>,
+) -> Result<ResourceLink> {
+    // Validate resource types
+    let valid_types = ["entry", "task", "goal", "canvas", "bookmark"];
+    if !valid_types.contains(&source_type.as_str()) {
+        return Err(AppError::BadRequest(format!(
+            "Invalid source_type: {}. Must be one of: {:?}",
+            source_type, valid_types
+        )));
+    }
+    if !valid_types.contains(&target_type.as_str()) {
+        return Err(AppError::BadRequest(format!(
+            "Invalid target_type: {}. Must be one of: {:?}",
+            target_type, valid_types
+        )));
+    }
+
+    let db = connection::get_database(&*state);
+    let repo = LinkRepository::new(db.clone());
+    
+    repo.create(source_type, source_id, target_type, target_id, link_text)
+        .await
+}
+
+/// Get all backlinks to a target resource
+#[utoipa::path(
+    get,
+    path = "/v1/links/backlinks",
+    tag = "Links",
+    params(
+        ("targetType" = String, Query, description = "Target resource type"),
+        ("targetId" = String, Query, description = "Target resource ID")
+    ),
+    responses(
+        (status = 200, description = "List of backlinks", body = Vec<BacklinkResponse>),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_backlinks(
+    state: State<'_, DbState>,
+    target_type: String,
+    target_id: String,
+) -> Result<Vec<BacklinkResponse>> {
+    let db = connection::get_database(&*state);
+    let repo = LinkRepository::new(db.clone());
+    
+    let links = repo.find_by_target(&target_type, &target_id).await?;
+    
+    // Enrich with source titles
+    let mut backlinks = Vec::new();
+    for link in links {
+        let source_title = get_resource_title(&db, &link.source_type, &link.source_id).await?;
+        backlinks.push(BacklinkResponse {
+            link,
+            source_title,
+        });
+    }
+    
+    Ok(backlinks)
+}
+
+/// Get all outgoing links from a source resource
+#[utoipa::path(
+    get,
+    path = "/v1/links/outgoing",
+    tag = "Links",
+    params(
+        ("sourceType" = String, Query, description = "Source resource type"),
+        ("sourceId" = String, Query, description = "Source resource ID")
+    ),
+    responses(
+        (status = 200, description = "List of outgoing links", body = Vec<ResourceLink>),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_outgoing_links(
+    state: State<'_, DbState>,
+    source_type: String,
+    source_id: String,
+) -> Result<Vec<ResourceLink>> {
+    let db = connection::get_database(&*state);
+    let repo = LinkRepository::new(db.clone());
+    
+    repo.find_by_source(&source_type, &source_id).await
+}
+
+/// Delete a link
+#[utoipa::path(
+    delete,
+    path = "/v1/links",
+    tag = "Links",
+    params(
+        ("sourceType" = String, Query, description = "Source resource type"),
+        ("sourceId" = String, Query, description = "Source resource ID"),
+        ("targetType" = String, Query, description = "Target resource type"),
+        ("targetId" = String, Query, description = "Target resource ID")
+    ),
+    responses(
+        (status = 200, description = "Link deleted"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_link(
+    state: State<'_, DbState>,
+    source_type: String,
+    source_id: String,
+    target_type: String,
+    target_id: String,
+) -> Result<()> {
+    let db = connection::get_database(&*state);
+    let repo = LinkRepository::new(db.clone());
+    
+    repo.delete(&source_type, &source_id, &target_type, &target_id)
+        .await
+}
+
+/// Search for resources to link (for autocomplete)
+#[utoipa::path(
+    get,
+    path = "/v1/links/search",
+    tag = "Links",
+    params(
+        ("q" = String, Query, description = "Search query"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types to filter"),
+        ("limit" = Option<u32>, Query, description = "Maximum number of results (default: 20)")
+    ),
+    responses(
+        (status = 200, description = "List of linkable resources", body = Vec<LinkableResource>),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn search_linkable_resources(
+    state: State<'_, DbState>,
+    q: String,
+    types: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<LinkableResource>> {
+    if q.trim().is_empty() {
+        return Err(AppError::BadRequest("Query parameter 'q' is required".to_string()));
+    }
+
+    // Parse resource types
+    let resource_types = if let Some(ref types_str) = types {
+        let type_vec: Vec<ResourceType> = types_str
+            .split(',')
+            .filter_map(|s| ResourceType::from_str(s.trim()))
+            .collect();
+        if type_vec.is_empty() {
+            None
+        } else {
+            Some(type_vec)
+        }
+    } else {
+        None
+    };
+
+    let limit = limit.unwrap_or(20).min(100);
+    let db = connection::get_database(&*state);
+    let search_repo = SearchRepository::new(db.clone());
+    
+    let results = search_repo
+        .search_fuzzy(&q, resource_types, None, Some(limit), Some(0))
+        .await?;
+
+    let linkable_resources: Vec<LinkableResource> = results
+        .into_iter()
+        .map(|result| LinkableResource {
+            id: result.id.clone(),
+            resource_type: result.resource_type.to_string(),
+            title: result.title.clone(),
+            preview: result.preview.clone(),
+        })
+        .collect();
+
+    Ok(linkable_resources)
+}
+
+/// Get all links for graph visualization
+#[utoipa::path(
+    get,
+    path = "/v1/links/graph",
+    tag = "Links",
+    responses(
+        (status = 200, description = "All links for graph", body = Vec<ResourceLink>),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn get_all_links_for_graph(
+    state: State<'_, DbState>,
+) -> Result<Vec<ResourceLink>> {
+    let db = connection::get_database(&*state);
+    let repo = LinkRepository::new(db.clone());
+    
+    repo.find_all_for_graph().await
+}
+
+/// Sync links from content (extract and create/update links)
+#[utoipa::path(
+    post,
+    path = "/v1/links/sync",
+    tag = "Links",
+    request_body = SyncLinksRequest,
+    responses(
+        (status = 200, description = "Links synced"),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command(rename_all = "camelCase")]
+pub async fn sync_links_from_content(
+    state: State<'_, DbState>,
+    source_type: String,
+    source_id: String,
+    content: String,
+) -> Result<serde_json::Value> {
+    let db = connection::get_database(&*state);
+    let link_repo = LinkRepository::new(db.clone());
+    
+    // Extract links from content
+    let extracted_links = extract_links_from_lexical_content(&content)?;
+    
+    // Get existing links
+    let existing_links = link_repo.find_by_source(&source_type, &source_id).await?;
+    
+    // Create a set of existing target IDs for quick lookup
+    let existing_targets: std::collections::HashSet<(String, String)> = existing_links
+        .iter()
+        .map(|l| (l.target_type.clone(), l.target_id.clone()))
+        .collect();
+    
+    // Create a set of new target IDs
+    let new_targets: std::collections::HashSet<(String, String)> = extracted_links
+        .iter()
+        .map(|l| (l.target_type.clone(), l.target_id.clone()))
+        .collect();
+    
+    // Delete links that are no longer in content
+    for existing_link in &existing_links {
+        let target_key = (existing_link.target_type.clone(), existing_link.target_id.clone());
+        if !new_targets.contains(&target_key) {
+            link_repo
+                .delete(
+                    &existing_link.source_type,
+                    &existing_link.source_id,
+                    &existing_link.target_type,
+                    &existing_link.target_id,
+                )
+                .await?;
+        }
+    }
+    
+    // Create new links
+    for extracted_link in extracted_links {
+        let target_key = (extracted_link.target_type.clone(), extracted_link.target_id.clone());
+        if !existing_targets.contains(&target_key) {
+            link_repo
+                .create(
+                    source_type.clone(),
+                    source_id.clone(),
+                    extracted_link.target_type,
+                    extracted_link.target_id,
+                    extracted_link.link_text,
+                )
+                .await?;
+        }
+    }
+    
+    Ok(serde_json::json!({"success": true}))
+}
+
+/// Helper function to get resource title
+async fn get_resource_title(
+    db: &libsql::Database,
+    resource_type: &str,
+    resource_id: &str,
+) -> Result<Option<String>> {
+    use crate::db::repositories::{
+        BookmarkRepository, CanvasRepository, EntryRepository, GoalRepository, TaskRepository,
+    };
+    
+    match resource_type {
+        "entry" => {
+            let repo = EntryRepository::new(db.clone());
+            let entry = repo.find_by_id(resource_id).await?;
+            Ok(entry.and_then(|e| {
+                // Extract first line from document (Lexical JSON)
+                extract_first_line_from_lexical(&e.document)
+            }))
+        }
+        "task" => {
+            let repo = TaskRepository::new(db.clone());
+            let task = repo.find_by_id(resource_id).await?;
+            Ok(task.map(|t| t.title))
+        }
+        "goal" => {
+            let repo = GoalRepository::new(db.clone());
+            let goal = repo.find_by_id(resource_id).await?;
+            Ok(goal.map(|g| g.name))
+        }
+        "canvas" => {
+            let repo = CanvasRepository::new(db.clone());
+            let canvas = repo.find_by_id(resource_id).await?;
+            Ok(canvas.map(|c| c.name))
+        }
+        "bookmark" => {
+            let repo = BookmarkRepository::new(db.clone());
+            let bookmark = repo.find_by_id(resource_id).await?;
+            Ok(bookmark.and_then(|b| b.title))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Extract first line from Lexical JSON content
+fn extract_first_line_from_lexical(content: &str) -> Option<String> {
+    use crate::utils::link_parser::extract_text_from_lexical_content;
+    
+    if let Ok(text) = extract_text_from_lexical_content(content) {
+        text.lines().next().map(|s| s.trim().to_string())
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct SyncLinksRequest {
+    pub source_type: String,
+    pub source_id: String,
+    pub content: String,
+}
