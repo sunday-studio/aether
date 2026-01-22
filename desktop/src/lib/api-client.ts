@@ -88,6 +88,12 @@ const routeToCommand: Record<string, string> = {
 	// Settings
 	"GET /v1/settings": "get_setting",
 	"POST /v1/settings": "set_setting",
+	// Canvas
+	"GET /v1/canvas": "get_canvases",
+	"GET /v1/canvas/:id": "get_canvas_by_id",
+	"POST /v1/canvas": "create_canvas",
+	"PUT /v1/canvas/:id": "update_canvas",
+	"DELETE /v1/canvas/:id": "delete_canvas",
 };
 
 // Extract path parameters from URL

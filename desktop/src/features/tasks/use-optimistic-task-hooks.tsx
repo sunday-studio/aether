@@ -191,7 +191,7 @@ const updateSubtaskInQueryCache = (
 	subtaskId: string,
 	updates: Partial<DbSubTask>,
 ) => {
-	const subtasksQueryKey = getGetSubTasksQueryKey(taskId);
+	const subtasksQueryKey = getGetSubtasksQueryKey(taskId);
 
 	// Update subtasks query directly
 	queryClient.setQueryData<{ data: DbSubTask[] }>(subtasksQueryKey, (old) => {
@@ -218,7 +218,7 @@ export const useOptimisticUpdateSubtask = () => {
 		},
 		options?: { onSuccess?: (data: unknown) => void; onError?: () => void },
 	) => {
-		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
+		const subtasksQueryKey = getGetSubtasksQueryKey(variables.taskId);
 
 		// Store previous state for rollback
 		const previousSubtasks = queryClient.getQueryData(subtasksQueryKey);
@@ -266,7 +266,7 @@ export const useOptimisticCreateSubtask = () => {
 			onError?: () => void;
 		},
 	) => {
-		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
+		const subtasksQueryKey = getGetSubtasksQueryKey(variables.taskId);
 		const previousSubtasks = queryClient.getQueryData(subtasksQueryKey);
 
 		mutation.mutate(variables, {
@@ -311,7 +311,7 @@ export const useOptimisticDeleteSubtask = () => {
 			onError?: () => void;
 		},
 	) => {
-		const subtasksQueryKey = getGetSubTasksQueryKey(variables.taskId);
+		const subtasksQueryKey = getGetSubtasksQueryKey(variables.taskId);
 		const previousSubtasks = queryClient.getQueryData<{ data: DbSubTask[] }>(
 			subtasksQueryKey,
 		);
