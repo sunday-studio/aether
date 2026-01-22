@@ -4,7 +4,7 @@ import { getAllLinksForGraph } from "~/aether-sdk";
 import { GraphVisualization } from "./components/graph-visualization";
 
 export const GraphView = () => {
-	const { data: links, isLoading, error } = useQuery({
+	const { data: response, isLoading, error } = useQuery({
 		queryKey: ["graphLinks"],
 		queryFn: async () => {
 			return getAllLinksForGraph();
@@ -27,13 +27,15 @@ export const GraphView = () => {
 		);
 	}
 
+	const links = response?.status === 200 ? response.data : [];
+
 	return (
 		<div className="h-full flex flex-col">
 			<div className="flex items-center justify-between py-4">
 				<h3 className="font-gt-ultra text-2xl font-medium">Knowledge Graph</h3>
 			</div>
 			<div className="flex-1 overflow-hidden">
-				<GraphVisualization links={links?.data ?? []} />
+				<GraphVisualization links={links} />
 			</div>
 		</div>
 	);
