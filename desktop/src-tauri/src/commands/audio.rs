@@ -46,18 +46,17 @@ pub async fn save_audio_recording(
     ).await?;
 
     // Optionally queue transcription
-    let should_transcribe = auto_transcribe.unwrap_or_else(|| {
+    let should_transcribe = if let Some(should) = auto_transcribe {
+        should
+    } else {
         // Check settings for auto-transcribe
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            settings::get_setting(database.clone(), "transcription.auto_transcribe")
-                .await
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| "false".to_string())
-                == "true"
-        })
-    });
+        settings::get_setting(database.clone(), "transcription.auto_transcribe")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "false".to_string())
+            == "true"
+    };
 
     if should_transcribe {
         // Get default provider

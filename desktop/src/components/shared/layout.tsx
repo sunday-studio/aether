@@ -28,6 +28,7 @@ export const Layout = () => {
 				<NavigationControl />
 				<Outlet />
 			</div>
+
 			<CommandPalette
 				open={commandPaletteOpen}
 				onOpenChange={setCommandPaletteOpen}

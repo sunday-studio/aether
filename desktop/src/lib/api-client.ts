@@ -206,9 +206,20 @@ export const customFetch = async <T>(
 		// Start with path params (these take precedence)
 		const args: Record<string, unknown> = { ...match.params };
 		// Add query parameters (for GET requests with query params)
+		// Convert numeric parameters to numbers
+		const numericParams = new Set(["limit", "offset"]);
 		for (const [key, value] of Object.entries(match.queryParams)) {
 			if (!(key in args)) {
-				args[key] = value;
+				// Convert numeric query parameters to numbers
+				if (numericParams.has(key)) {
+					const numValue = Number(value);
+					// Only set if it's a valid number, otherwise skip (will be undefined/optional)
+					if (!Number.isNaN(numValue) && value.trim() !== "") {
+						args[key] = numValue;
+					}
+				} else {
+					args[key] = value;
+				}
 			}
 		}
 		if (body !== undefined) {

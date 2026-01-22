@@ -57,17 +57,16 @@ pub async fn start_transcription(
     let database = connection::get_database(&*state);
     
     // Get provider name (default or specified)
-    let provider = provider_name.unwrap_or_else(|| {
+    let provider = if let Some(name) = provider_name {
+        name
+    } else {
         // Get from settings
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            settings::get_setting(database.clone(), "transcription.default_provider")
-                .await
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| "openai".to_string())
-        })
-    });
+        settings::get_setting(database.clone(), "transcription.default_provider")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "openai".to_string())
+    };
 
     // Create transcription record
     let repo = TranscriptionRepository::new(database.clone());

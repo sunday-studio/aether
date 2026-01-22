@@ -1,7 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useEffect } from "react";
-import { ResourceLinkNode } from "./resource-link-node";
 import { ResourceLinkAutocomplete } from "./resource-link-autocomplete";
+import { ResourceLinkNode } from "./resource-link-node";
 
 export function ResourceLinkPlugin() {
 	const [editor] = useLexicalComposerContext();

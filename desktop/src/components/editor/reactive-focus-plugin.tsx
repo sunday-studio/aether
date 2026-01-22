@@ -5,8 +5,7 @@ import { useEditorFocusStore } from "~/store/editor-focus-state";
 export function ReactiveFocusPlugin({ id }: { id: string }) {
 	const [editor] = useLexicalComposerContext();
 
-	const focusedId = useEditorFocusStore((s) => s.focusedId);
-	const clearFocus = useEditorFocusStore((s) => s.clearFocus);
+	const { focusedId, clearFocus } = useEditorFocusStore();
 
 	useEffect(() => {
 		if (focusedId !== id) return;

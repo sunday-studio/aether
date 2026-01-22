@@ -1,4 +1,4 @@
-import type { DbTask } from "~/aether-sdk/models";
+import type { Task } from "~/aether-sdk/models";
 import { convertCalendarDateToIsoString } from "~/utils/date";
 import { useOptimisticUpdateTask } from "../../use-optimistic-task-hooks";
 import { SubtaskList } from "../sub-task-item/subtask-list";
@@ -12,7 +12,7 @@ import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
 
 interface TaskItemProps {
-	task: DbTask;
+	task: Task;
 }
 
 const Divider = () => {

@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { proxy, useSnapshot } from "valtio";
 
 type EditorFocusState = {
 	focusedId: string | null;
@@ -6,8 +6,23 @@ type EditorFocusState = {
 	clearFocus: () => void;
 };
 
-export const useEditorFocusStore = create<EditorFocusState>((set) => ({
+const editorFocusState = proxy<{ focusedId: string | null }>({
 	focusedId: null,
-	requestFocus: (id) => set({ focusedId: id }),
-	clearFocus: () => set({ focusedId: null }),
-}));
+});
+
+function requestFocus(id: string) {
+	editorFocusState.focusedId = id;
+}
+
+function clearFocus() {
+	editorFocusState.focusedId = null;
+}
+
+export function useEditorFocusStore(): EditorFocusState {
+	const snap = useSnapshot(editorFocusState);
+	return {
+		focusedId: snap.focusedId,
+		requestFocus,
+		clearFocus,
+	};
+}

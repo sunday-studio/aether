@@ -15,7 +15,9 @@ export const SettingsView = () => {
 	return (
 		<div className="max-w-4xl mx-auto p-8">
 			<div className="mb-8">
-				<h1 className="text-3xl font-semibold text-neutral-900 mb-2">Settings</h1>
+				<h1 className="text-3xl font-semibold text-neutral-900 mb-2">
+					Settings
+				</h1>
 				<p className="text-neutral-600">
 					Customize your app appearance and preferences
 				</p>
@@ -40,7 +42,9 @@ export const SettingsView = () => {
 								label="Theme Mode"
 								description="Choose between light, dark, or system preference"
 								value={interfaceTheme}
-								onChange={(value) => setInterfaceTheme(value as "light" | "dark" | "system")}
+								onChange={(value) =>
+									setInterfaceTheme(value as "light" | "dark" | "system")
+								}
 								isDisabled={isLoading}
 							>
 								<Radio value="light">Light</Radio>
@@ -56,7 +60,9 @@ export const SettingsView = () => {
 									label="Light Theme"
 									description="Choose a light theme variant"
 									value={themeLight}
-									onChange={(value) => setThemeLight(value as "light" | "amber")}
+									onChange={(value) =>
+										setThemeLight(value as "light" | "amber")
+									}
 									isDisabled={isLoading}
 								>
 									<Radio value="light">Light (Neutral & White)</Radio>
@@ -90,7 +96,14 @@ export const SettingsView = () => {
 									Preview
 								</h3>
 								<p className="text-xs text-neutral-600">
-									Current theme: <span className="font-medium">{interfaceTheme === "system" ? "System" : interfaceTheme === "light" ? themeLight : themeDark}</span>
+									Current theme:{" "}
+									<span className="font-medium">
+										{interfaceTheme === "system"
+											? "System"
+											: interfaceTheme === "light"
+												? themeLight
+												: themeDark}
+									</span>
 								</p>
 							</div>
 							<div className="flex gap-2">

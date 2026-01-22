@@ -9,7 +9,7 @@ export const useCreateJournalEntry = () => {
 	const queryClient = useQueryClient();
 	const { mutate } = useCreateEntry();
 	const entriesQueryKey = getGetEntriesQueryKey();
-	const requestFocus = useEditorFocusStore((s) => s.requestFocus);
+	const { requestFocus } = useEditorFocusStore();
 
 	const createEntry = async () => {
 		const now = new Date();

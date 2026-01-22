@@ -173,7 +173,7 @@ export const AudioRecorderModal = ({
 						<button
 							type="button"
 							onClick={handleSave}
-							disabled={chunksRef.current.length === 0 || isRecording}
+							// disabled={chunksRef.current.length === 0 || isRecording}
 							className="flex-1 px-4 py-2 text-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							Save
