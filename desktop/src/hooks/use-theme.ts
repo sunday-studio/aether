@@ -31,7 +31,9 @@ async function fetchSetting(key: string): Promise<string | null> {
 			`/v1/settings?key=${encodeURIComponent(key)}`,
 			{ method: "GET" },
 		);
-		return response.data?.value ?? null;
+		// The Tauri command returns { key, value } directly, which is wrapped in { data: ... }
+		const result = response.data as { key: string; value: string | null };
+		return result?.value ?? null;
 	} catch (error) {
 		console.error(`Failed to fetch setting ${key}:`, error);
 		return null;
@@ -78,19 +80,19 @@ export function useTheme() {
 	const { data: interfaceTheme } = useQuery({
 		queryKey: ["settings", SETTING_KEYS.interfaceTheme],
 		queryFn: () => fetchSetting(SETTING_KEYS.interfaceTheme),
-		placeholderData: () => DEFAULT_SETTINGS.interfaceTheme,
+		placeholderData: DEFAULT_SETTINGS.interfaceTheme,
 	});
 
 	const { data: themeLight } = useQuery({
 		queryKey: ["settings", SETTING_KEYS.themeLight],
 		queryFn: () => fetchSetting(SETTING_KEYS.themeLight),
-		placeholderData: () => DEFAULT_SETTINGS.themeLight,
+		placeholderData: DEFAULT_SETTINGS.themeLight,
 	});
 
 	const { data: themeDark } = useQuery({
 		queryKey: ["settings", SETTING_KEYS.themeDark],
 		queryFn: () => fetchSetting(SETTING_KEYS.themeDark),
-		placeholderData: () => DEFAULT_SETTINGS.themeDark,
+		placeholderData: DEFAULT_SETTINGS.themeDark,
 	});
 
 	// Mutations for updating settings
