@@ -27,7 +27,7 @@
 }
 
 .editor-container {
-	background-color: #f6f8fa;
+	/* background-color: #f6f8fa; */
 	color: #24292e;
 	font-family: monospace;
 	padding: 10px;
@@ -36,13 +36,13 @@
 
 .editor-root {
 	outline: none;
-	color: #374151 !important;
+	color: var(--color-foreground) !important;
 	font-size: 16px;
 }
 
 .editor-text-bold {
 	font-weight: 550;
-	color: var(--color-neutral-700);
+	color: var(--color-foreground);
 	font-family: "GT Ultra", sans-serif;
 }
 
@@ -50,7 +50,7 @@
 	padding-left: 0.25rem;
 	padding-right: 0.25rem;
 	padding-top: 0.125rem;
-	background-color: var(--color-neutral-200);
+	background-color: var(--color-secondary);
 	padding-bottom: 0.125rem;
 	border-radius: 0.225rem;
 }
@@ -59,7 +59,7 @@
 	margin-top: 0;
 	margin-bottom: 0.125rem;
 	line-height: 24px;
-	color: #374151;
+	color: var(--color-foreground);
 }
 
 .editor-input {

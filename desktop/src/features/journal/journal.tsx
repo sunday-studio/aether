@@ -1,11 +1,11 @@
-import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { getGetEntriesQueryKey } from "~/aether-sdk";
-import { JournalTimeline } from "./components/journal-timeline";
-import { JournalGridView } from "./components/journal-grid-view";
 import { LayoutGrid, List } from "lucide-react";
+import { useState } from "react";
+import { getGetEntriesQueryKey } from "~/aether-sdk";
 import { cn } from "~/utils/cn";
+import { JournalGridView } from "./components/journal-grid-view";
+import { JournalTimeline } from "./components/journal-timeline";
 
 // export const appWindow = getCurrentWindow();
 
@@ -24,15 +24,14 @@ export const Journal = () => {
 
 	return (
 		<main className="w-screen h-screen relative">
-			{/* View Toggle */}
-			<div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-white rounded-lg border border-neutral-200 p-1 shadow-sm">
+			<div className="absolute top-4 right-4 z-20 flex items-center gap-1  rounded-lg border border-neutral-200 p-1 shadow-sm">
 				<button
 					type="button"
 					onClick={() => setViewMode("timeline")}
 					className={cn(
 						"p-2 rounded-md transition-colors",
 						viewMode === "timeline"
-							? "bg-neutral-900 text-white"
+							? "bg-(--color-primary) text-white"
 							: "text-neutral-600 hover:bg-neutral-100",
 					)}
 					title="Timeline view"

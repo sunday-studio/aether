@@ -9,7 +9,7 @@ export const Layout = () => {
 	const isDev = import.meta.env.DEV;
 	const { commandPaletteOpen, setCommandPaletteOpen } = useRegisterShortcuts();
 	return (
-		<div className="w-screen h-screen relative overflow-hidden">
+		<div className="w-screen h-screen relative overflow-hidden bg-(--color-background)">
 			<div
 				className="h-12  flex items-center justify-center pl-14 pr-3"
 				data-tauri-drag-region

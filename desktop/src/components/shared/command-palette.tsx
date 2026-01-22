@@ -131,7 +131,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 			/>
 			<CommandList>
 				{isLoading && searchQuery.length > 0 && (
-					<div className="py-6 text-center text-sm text-gray-500">
+					<div className="py-6 text-center text-sm command-palette-loading">
 						Searching...
 					</div>
 				)}
@@ -169,7 +169,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 											<span className="flex-1 truncate">
 												{getTitle(result)}
 											</span>
-											<span className="text-xs text-gray-500 capitalize">
+											<span className="text-xs capitalize command-palette-type-badge">
 												{type.toLowerCase()}
 											</span>
 										</div>

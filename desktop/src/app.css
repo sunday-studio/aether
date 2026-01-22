@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
 
 :root {
 	/* Animations */
@@ -9,114 +10,6 @@
 	--animate-slideUpAndFade: slideUpAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1);
 	--animate-slideRightAndFade: slideRightAndFade 400ms
 		cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Theme System - Tailwind v4 */
-@theme {
-	/* Default theme (light) - neutral & white */
-	--color-neutral-50: #fafafa;
-	--color-neutral-100: #f5f5f5;
-	--color-neutral-200: #e5e5e5;
-	--color-neutral-300: #d4d4d4;
-	--color-neutral-400: #a3a3a3;
-	--color-neutral-500: #737373;
-	--color-neutral-600: #525252;
-	--color-neutral-700: #404040;
-	--color-neutral-800: #262626;
-	--color-neutral-900: #171717;
-	--color-white: #ffffff;
-	--color-black: #000000;
-}
-
-/* Light theme (default) - neutral & white */
-[data-theme="light"] {
-	--color-neutral-50: #fafafa;
-	--color-neutral-100: #f5f5f5;
-	--color-neutral-200: #e5e5e5;
-	--color-neutral-300: #d4d4d4;
-	--color-neutral-400: #a3a3a3;
-	--color-neutral-500: #737373;
-	--color-neutral-600: #525252;
-	--color-neutral-700: #404040;
-	--color-neutral-800: #262626;
-	--color-neutral-900: #171717;
-	--color-white: #ffffff;
-	--color-black: #000000;
-	--color-background: #ffffff;
-	--color-foreground: #171717;
-	--color-surface: #fafafa;
-	--color-border: #e5e5e5;
-}
-
-/* Amber theme - amber & white */
-[data-theme="amber"] {
-	--color-neutral-50: #fffbeb;
-	--color-neutral-100: #fef3c7;
-	--color-neutral-200: #fde68a;
-	--color-neutral-300: #fcd34d;
-	--color-neutral-400: #fbbf24;
-	--color-neutral-500: #f59e0b;
-	--color-neutral-600: #d97706;
-	--color-neutral-700: #b45309;
-	--color-neutral-800: #92400e;
-	--color-neutral-900: #78350f;
-	--color-white: #ffffff;
-	--color-black: #000000;
-	--color-background: #ffffff;
-	--color-foreground: #78350f;
-	--color-surface: #fffbeb;
-	--color-border: #fde68a;
-}
-
-/* Dark theme - neutral & black darker tones */
-[data-theme="dark"] {
-	--color-neutral-50: #171717;
-	--color-neutral-100: #262626;
-	--color-neutral-200: #404040;
-	--color-neutral-300: #525252;
-	--color-neutral-400: #737373;
-	--color-neutral-500: #a3a3a3;
-	--color-neutral-600: #d4d4d4;
-	--color-neutral-700: #e5e5e5;
-	--color-neutral-800: #f5f5f5;
-	--color-neutral-900: #fafafa;
-	--color-white: #ffffff;
-	--color-black: #000000;
-	--color-background: #0a0a0a;
-	--color-foreground: #fafafa;
-	--color-surface: #171717;
-	--color-border: #404040;
-}
-
-/* Lime theme - lime & dark gray darker tones */
-[data-theme="lime"] {
-	--color-neutral-50: #1a1a1a;
-	--color-neutral-100: #2d2d2d;
-	--color-neutral-200: #404040;
-	--color-neutral-300: #525252;
-	--color-neutral-400: #666666;
-	--color-neutral-500: #7a7a7a;
-	--color-neutral-600: #8d8d8d;
-	--color-neutral-700: #a0a0a0;
-	--color-neutral-800: #b3b3b3;
-	--color-neutral-900: #c6c6c6;
-	--color-white: #ffffff;
-	--color-black: #000000;
-	--color-background: #0f0f0f;
-	--color-foreground: #c6c6c6;
-	--color-surface: #1a1a1a;
-	--color-border: #404040;
-	/* Lime accent colors */
-	--color-lime-50: #f7fee7;
-	--color-lime-100: #ecfccb;
-	--color-lime-200: #d9f99d;
-	--color-lime-300: #bef264;
-	--color-lime-400: #a3e635;
-	--color-lime-500: #84cc16;
-	--color-lime-600: #65a30d;
-	--color-lime-700: #4d7c0f;
-	--color-lime-800: #365314;
-	--color-lime-900: #1a2e05;
 }
 
 #root {
@@ -376,9 +269,12 @@ html {
 		"cv03" on,
 		"cv04" on,
 		"cv11" on;
-	background-color: var(--color-background, var(--color-neutral-50));
+	background-color: var(--blue-1);
+	/* var(--color-background, var(--color-neutral-50)); */
 	line-height: 1.5;
-	transition: background-color 0.2s ease, color 0.2s ease;
+	transition:
+		background-color color 0.2s ease,
+		color 0.2s ease;
 }
 
 .debug {
@@ -407,6 +303,227 @@ html {
 	box-shadow:
 		rgba(0, 20, 20, 0.1) 0px 20px 140px 0px,
 		rgba(0, 20, 20, 0.1) 0px 25px 20px 0px,
-		rgb(255, 255, 255) 0px 0px 0px 1px inset,
+		var(--color-ring) 0px 0px 0px 1px inset,
 		rgba(0, 0, 0, 0.04) 0px 0px 0px 1px;
+}
+
+[cmdk-dialog] {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 50;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding: 1rem;
+	background-color: rgba(0, 0, 0, 0.4);
+	backdrop-filter: blur(8px);
+	animation: fade-in 200ms ease-out;
+}
+
+[cmdk-dialog][data-state="closed"] {
+	animation: fade-out 200ms ease-in;
+}
+
+[cmdk-dialog-overlay] {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	background-color: rgba(0, 0, 0, 0.4);
+	backdrop-filter: blur(8px);
+}
+
+[cmdk-dialog-content] {
+	position: relative;
+	z-index: 51;
+	width: 100%;
+	max-width: 640px;
+	margin-top: 10vh;
+	background-color: var(--color-card, var(--color-surface, var(--color-white)));
+	border: 1px solid var(--color-border, var(--color-neutral-200));
+	border-radius: var(--radius, 0.75rem);
+	box-shadow:
+		0 20px 25px -5px rgba(0, 0, 0, 0.1),
+		0 10px 10px -5px rgba(0, 0, 0, 0.04),
+		0 0 0 1px rgba(0, 0, 0, 0.05);
+	overflow: hidden;
+	animation: slideDownAndFade 300ms cubic-bezier(0.16, 1, 0.3, 1);
+	color: var(
+		--color-card-foreground,
+		var(--color-foreground, var(--color-neutral-900))
+	);
+}
+
+[cmdk-dialog-content][data-state="closed"] {
+	animation: slideUpAndFade 200ms ease-in;
+}
+
+[cmdk-input] {
+	width: 100%;
+	padding: 1rem 1.25rem;
+	font-size: 0.9375rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: var(--color-foreground, var(--color-neutral-900));
+	background-color: transparent;
+	border: none;
+	outline: none;
+	border-bottom: 1px solid
+		var(--color-input, var(--color-border, var(--color-neutral-200)));
+	transition: border-color 0.2s ease;
+}
+
+[cmdk-input]::placeholder {
+	color: var(--color-neutral-400, #a3a3a3);
+}
+
+[cmdk-input]:focus {
+	border-bottom-color: var(--color-ring, var(--color-neutral-400));
+}
+
+[cmdk-list] {
+	max-height: 400px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 0.5rem;
+}
+
+[cmdk-list]::-webkit-scrollbar {
+	width: 8px;
+}
+
+[cmdk-list]::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb {
+	background-color: var(--color-neutral-300, var(--color-neutral-300));
+	border-radius: 4px;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb:hover {
+	background-color: var(--color-neutral-400, var(--color-neutral-400));
+}
+
+[cmdk-empty] {
+	padding: 2rem 1rem;
+	text-align: center;
+	font-size: 0.875rem;
+	color: var(--color-neutral-500, var(--color-neutral-500));
+}
+
+[cmdk-group] {
+	padding: 0.5rem 0;
+}
+
+[cmdk-group-heading] {
+	padding: 0.5rem 0.75rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--color-neutral-500, var(--color-neutral-500));
+}
+
+[cmdk-item] {
+	position: relative;
+	display: flex;
+	align-items: center;
+	padding: 0.625rem 0.75rem;
+	margin: 0.125rem 0;
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	color: var(--color-foreground, var(--color-neutral-900));
+	background-color: transparent;
+	border-radius: var(--radius, 0.375rem);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background-color 0.15s ease,
+		color 0.15s ease;
+	outline: none;
+}
+
+[cmdk-item]:hover,
+[cmdk-item][data-selected="true"] {
+	background-color: var(--color-accent, var(--color-neutral-100));
+	color: var(
+		--color-accent-foreground,
+		var(--color-foreground, var(--color-neutral-900))
+	);
+}
+
+[cmdk-item][aria-selected="true"] {
+	background-color: var(--color-secondary, var(--color-neutral-200));
+	color: var(
+		--color-secondary-foreground,
+		var(--color-foreground, var(--color-neutral-900))
+	);
+}
+
+[cmdk-item]:active {
+	background-color: var(--color-secondary, var(--color-neutral-200));
+}
+
+[cmdk-item][data-disabled="true"] {
+	opacity: 0.5;
+	pointer-events: none;
+	cursor: not-allowed;
+}
+
+/* Loading state */
+[cmdk-list] + div[class*="py-6"] {
+	color: var(--color-neutral-500, var(--color-neutral-500));
+}
+
+/* Icon styling within command items */
+[cmdk-item] svg {
+	flex-shrink: 0;
+	color: var(--color-neutral-500, var(--color-neutral-500));
+	transition: color 0.15s ease;
+}
+
+[cmdk-item]:hover svg,
+[cmdk-item][data-selected="true"] svg {
+	color: var(--color-neutral-700, var(--color-neutral-700));
+}
+
+/* Type badge styling */
+[cmdk-item] .command-palette-type-badge {
+	flex-shrink: 0;
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--color-neutral-500, var(--color-neutral-500));
+	transition: color 0.15s ease;
+}
+
+[cmdk-item]:hover .command-palette-type-badge,
+[cmdk-item][data-selected="true"] .command-palette-type-badge {
+	color: var(--color-neutral-600, var(--color-neutral-600));
+}
+
+/* Loading state text */
+.command-palette-loading {
+	color: var(--color-neutral-500, var(--color-neutral-500));
+}
+
+/* Fade animations */
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
 }

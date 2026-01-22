@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useDebounceCallback } from "~/hooks/use-debounce";
 
 interface TaskDescriptionInputProps {
-	value: string | undefined;
+	value: string | null;
 	onChange: (value: string) => void;
 }
 

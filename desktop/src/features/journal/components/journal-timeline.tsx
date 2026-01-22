@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { Mic } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetEntries, getGetEntriesQueryKey } from "~/aether-sdk";
+import { invoke } from "@tauri-apps/api/core";
+import { Mic } from "lucide-react";
+import { useState } from "react";
+import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
 import type { DbEntry } from "~/aether-sdk/models";
+import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
 import { AddNewButton } from "~/components/shared/button";
 import { Timeline } from "~/components/shared/timeline";
-import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
+import { showToast } from "~/components/shared/toast-components";
 import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
-import { invoke } from "@tauri-apps/api/core";
-import { showToast } from "~/components/shared/toast-components";
 
 export const JournalTimeline = () => {
 	const { data: entries } = useGetEntries();
@@ -69,7 +69,7 @@ export const JournalTimeline = () => {
 	};
 
 	return (
-		<div className="h-full overflow-y-scroll bg-neutral-50 relative flex justify-center mt-2 mb-100!">
+		<div className="h-full overflow-y-scroll  relative flex justify-center mt-2 mb-100!">
 			<Timeline>
 				<Timeline.Item
 					className="max-w-5xl w-full bg-red-0 pt-6"
