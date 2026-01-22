@@ -12,6 +12,7 @@ pub mod settings;
 pub mod search;
 pub mod canvas;
 pub mod bookmark;
+pub mod link;
 
 pub use entry::EntryRepository;
 pub use tag::TagRepository;
@@ -23,5 +24,6 @@ pub use transcription::TranscriptionRepository;
 pub use settings::SettingsRepository;
 pub use canvas::CanvasRepository;
 pub use bookmark::BookmarkRepository;
+pub use link::LinkRepository;
 // Search repository exports (commented out until search.rs is fully implemented)
 // pub use search::{SearchRepository, SearchResult, ResourceType};

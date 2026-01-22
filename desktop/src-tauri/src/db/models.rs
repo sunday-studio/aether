@@ -211,3 +211,31 @@ pub struct Bookmark {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
 }
+
+/// ResourceLink model for bidirectional linking between resources
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceLink {
+    pub id: String,
+    pub source_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
+    pub source_id: String,
+    pub target_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
+    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_text: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// ResourceLink model for bidirectional linking between resources
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceLink {
+    pub id: String,
+    pub source_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
+    pub source_id: String,
+    pub target_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
+    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_text: Option<String>,
+    pub created_at: DateTime<Utc>,
+}

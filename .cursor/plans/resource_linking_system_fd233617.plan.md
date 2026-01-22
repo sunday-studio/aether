@@ -4,7 +4,7 @@ overview: Implement an Obsidian-style bidirectional linking system using `[[]]` 
 todos:
   - id: db-schema
     content: Create database migration for resource_links table with indexes
-    status: pending
+    status: in_progress
   - id: backend-models
     content: Add ResourceLink model to db/models.rs
     status: pending
