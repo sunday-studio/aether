@@ -102,7 +102,7 @@ export const ActivityHeatmap = () => {
 	return (
 		<div className="absolute z-10 -bottom-30 -left-30 p-5 duration-300 ease-out hover:bottom-0 hover:left-0 group">
 			<div className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
-				<h3 className="text-xs text-neutral-700">{monthName}</h3>
+				<h3 className="text-xs text-(--color-foreground)">{monthName}</h3>
 				<div className="flex gap-1">
 					<button
 						type="button"
@@ -110,7 +110,10 @@ export const ActivityHeatmap = () => {
 						className="p-1.5 rounded-full hover:bg-neutral-200 transition-colors"
 						aria-label="Previous month"
 					>
-						<ChevronLeft className="w-3 h-3 text-neutral-600" strokeWidth={3} />
+						<ChevronLeft
+							className="w-3 h-3 text-(--color-foreground)"
+							strokeWidth={3}
+						/>
 					</button>
 					<button
 						type="button"
@@ -119,14 +122,14 @@ export const ActivityHeatmap = () => {
 						aria-label="Next month"
 					>
 						<ChevronRight
-							className="w-3 h-3 text-neutral-600"
+							className="w-3 h-3 text-(--color-foreground)"
 							strokeWidth={3}
 						/>
 					</button>
 				</div>
 			</div>
 
-			<div className="w-auto p-3 navigation-control rounded-lg bg-white">
+			<div className="w-auto p-3 navigation-control rounded-lg bg-(--color-card)">
 				<div className="grid grid-cols-7 gap-1">
 					{weeks.map((week) =>
 						week.map((day) => {
@@ -152,7 +155,7 @@ export const ActivityHeatmap = () => {
 												"col-span-1 w-3.5 h-3.5 aspect-square rounded-sm transition-colors",
 												getColorClass(intensity),
 												!isCurrentMonth && "opacity-30",
-												isCurrentDay && "border-2 border-green-500",
+												isCurrentDay && "border-2 border-(--color-ring)",
 											)}
 										/>
 									}
