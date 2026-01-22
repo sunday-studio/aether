@@ -4,6 +4,7 @@ pub mod commands;
 pub mod db;
 pub mod error;
 pub mod handlers;
+pub mod media;
 pub mod settings;
 pub mod transcription;
 pub mod utils;
@@ -58,7 +59,7 @@ pub fn run() {
             .expect("Failed to run migrations");
         
         // Ensure media directory exists
-        audio::ensure_media_directory()
+        media::ensure_media_directory()
             .expect("Failed to create media directory");
         
         state

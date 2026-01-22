@@ -1,6 +1,6 @@
 ---
 name: Resource Linking System
-overview: Implement an Obsidian-style bidirectional linking system using `[[]]` syntax that allows linking between all resources (journal entries, tasks, goals, canvas, bookmarks) with autocomplete search and backlink display in popovers.
+overview: Implement an Obsidian-style bidirectional linking system using `[[]]` syntax that allows linking between all resources (journal entries, tasks, goals, canvas, bookmarks) with autocomplete search, backlink display in popovers, and an interactive knowledge graph visualization.
 todos:
   - id: db-schema
     content: Create database migration for resource_links table with indexes
@@ -47,13 +47,22 @@ todos:
   - id: api-client
     content: Add link API methods to frontend API client
     status: pending
+  - id: graph-backend-api
+    content: Create backend API endpoint to fetch all links for graph visualization
+    status: pending
+  - id: graph-view-component
+    content: Create knowledge graph view component with interactive visualization
+    status: pending
+  - id: graph-routing
+    content: Add graph view route to router and navigation
+    status: pending
 ---
 
 # Resource Linking System Implementation
 
 ## Overview
 
-This plan implements a bidirectional linking system similar to Obsidian's `[[]]` syntax, allowing users to create links between all resource types (journal entries, tasks, goals, canvas nodes, bookmarks) with autocomplete search and backlink visualization.
+This plan implements a bidirectional linking system similar to Obsidian's `[[]]` syntax, allowing users to create links between all resource types (journal entries, tasks, goals, canvas nodes, bookmarks) with autocomplete search, backlink visualization, and an interactive knowledge graph to visualize all connections.
 
 ## Architecture
 
@@ -118,6 +127,7 @@ Commands:
 - `get_outgoing_links()` - Get all links from a source
 - `delete_link()` - Remove a link
 - `search_linkable_resources()` - Search for resources to link (for autocomplete)
+- `get_all_links_for_graph()` - Get all links with resource metadata for graph visualization
 
 #### 5. Update Resource Handlers
 
@@ -184,6 +194,34 @@ Add methods:
 - `getOutgoingLinks()`
 - `deleteLink()`
 - `searchLinkableResources()`
+- `getAllLinksForGraph()`
+
+#### 7. Knowledge Graph View (`desktop/src/features/graph/graph.view.tsx`)
+
+Create interactive knowledge graph visualization:
+
+- **Graph Component**: Use `react-force-graph` or `vis-network` for rendering
+- **Nodes**: Represent resources (entries, tasks, goals, canvas, bookmarks)
+  - Color-coded by resource type
+  - Sized by link count (more links = larger node)
+  - Show resource name/title on hover or click
+- **Edges**: Represent links between resources
+  - Directional arrows showing link direction
+  - Optional edge labels showing link count
+- **Interactions**:
+  - Click node to navigate to resource
+  - Hover to show resource preview
+  - Drag nodes to rearrange layout
+  - Zoom and pan controls
+- **Filters**:
+  - Filter by resource type
+  - Filter by link count (show only highly connected nodes)
+  - Search/focus on specific resource
+- **Layout Options**:
+  - Force-directed layout (default)
+  - Hierarchical layout
+  - Circular layout
+  - Manual positioning (save positions)
 
 ## Implementation Details
 
@@ -244,6 +282,11 @@ Each resource type has:
 - `desktop/src/components/editor/plugins/resource-link-plugin/resource-link-autocomplete.tsx`
 - `desktop/src/components/shared/resource-link.tsx`
 - `desktop/src/components/shared/backlinks-popover.tsx`
+- `desktop/src/features/graph/graph.view.tsx`
+- `desktop/src/features/graph/components/graph-visualization.tsx`
+- `desktop/src/features/graph/components/graph-controls.tsx`
+- `desktop/src/features/graph/components/graph-node.tsx`
+- `desktop/src/features/graph/hooks/use-graph-data.ts`
 
 ### Modified Files
 
@@ -260,6 +303,8 @@ Each resource type has:
 - `desktop/src/features/journal/components/journal-editor.tsx` - Ensure plugin is active
 - `desktop/src/features/tasks/components/task-item/task-item-description.tsx` - Add link support
 - `desktop/src/lib/api-client.ts` - Add link API methods
+- `desktop/src/features/router.tsx` - Add graph view route
+- `desktop/src/components/shared/navigation-control.tsx` - Add graph navigation item
 
 ## Testing Considerations
 
@@ -270,10 +315,171 @@ Each resource type has:
 - Test link rendering in all contexts
 - Test bidirectional link integrity
 
+## Knowledge Graph Implementation Details
+
+### Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph Frontend["Frontend - Graph View"]
+        GraphView[Graph View Component]
+        GraphViz[Graph Visualization]
+        GraphControls[Graph Controls/Filters]
+        GraphNode[Node Component]
+    end
+    
+    subgraph API["API Layer"]
+        GraphAPI[getAllLinksForGraph API]
+        ResourceAPI[Resource APIs]
+    end
+    
+    subgraph Backend["Backend"]
+        LinkRepo[Link Repository]
+        ResourceRepos[Resource Repositories]
+        GraphQuery[Graph Query Builder]
+    end
+    
+    subgraph Database["Database"]
+        LinksTable[resource_links table]
+        EntriesTable[entries table]
+        TasksTable[tasks table]
+        GoalsTable[goals table]
+        CanvasTable[canvases table]
+        BookmarksTable[bookmarks table]
+    end
+    
+    GraphView --> GraphViz
+    GraphView --> GraphControls
+    GraphViz --> GraphNode
+    GraphView --> GraphAPI
+    GraphAPI --> LinkRepo
+    GraphAPI --> ResourceRepos
+    LinkRepo --> GraphQuery
+    GraphQuery --> LinksTable
+    ResourceRepos --> EntriesTable
+    ResourceRepos --> TasksTable
+    ResourceRepos --> GoalsTable
+    ResourceRepos --> CanvasTable
+    ResourceRepos --> BookmarksTable
+    GraphQuery --> EntriesTable
+    GraphQuery --> TasksTable
+    GraphQuery --> GoalsTable
+    GraphQuery --> CanvasTable
+    GraphQuery --> BookmarksTable
+```
+
+### Graph Library Choice
+
+**Recommended: `react-force-graph`**
+
+- Lightweight and performant
+- Built-in force-directed layout
+- Good for interactive graphs
+- Easy to customize node/edge rendering
+
+**Alternative: `vis-network`**
+
+- More features (hierarchical layouts, clustering)
+- Heavier bundle size
+- More configuration options
+
+**Installation:**
+
+```bash
+npm install react-force-graph
+# or
+npm install vis-network react-vis-network
+```
+
+### Graph Data Structure
+
+```typescript
+interface GraphNode {
+  id: string
+  type: 'entry' | 'task' | 'goal' | 'canvas' | 'bookmark'
+  label: string // Resource name/title
+  linkCount: number // Number of connections
+  metadata: {
+    // Resource-specific data for previews
+  }
+}
+
+interface GraphEdge {
+  source: string // Node ID
+  target: string // Node ID
+  count: number // Number of links between these resources
+}
+```
+
+### Backend Graph Query
+
+The `get_all_links_for_graph()` command should:
+
+1. Fetch all links from `resource_links` table
+2. Join with resource tables to get metadata (name, title, etc.)
+3. Aggregate links to count connections between resources
+4. Return nodes and edges with full metadata
+```sql
+-- Example query structure
+SELECT 
+  rl.source_type, rl.source_id, rl.target_type, rl.target_id,
+  -- Join with resource tables to get names/titles
+  source_entry.document as source_entry_title,
+  target_task.title as target_task_title,
+  -- etc.
+FROM resource_links rl
+LEFT JOIN entries source_entry ON rl.source_type = 'entry' AND rl.source_id = source_entry.id
+LEFT JOIN tasks target_task ON rl.target_type = 'task' AND rl.target_id = target_task.id
+-- ... more joins for each resource type
+WHERE rl.source_id IS NOT NULL AND rl.target_id IS NOT NULL
+```
+
+
+### Graph Features
+
+1. **Node Styling**:
+
+   - Different colors for each resource type
+   - Size based on connection count (logarithmic scale)
+   - Icons for resource types
+
+2. **Layout Algorithms**:
+
+   - Force-directed (default) - natural clustering
+   - Hierarchical - tree-like structure
+   - Circular - nodes in a circle
+   - Grid - organized grid layout
+
+3. **Interactions**:
+
+   - Click node → Navigate to resource
+   - Hover node → Show resource preview tooltip
+   - Drag node → Reposition manually
+   - Click edge → Show link details
+   - Double-click node → Focus/expand neighborhood
+
+4. **Filters & Controls**:
+
+   - Resource type filter (show/hide types)
+   - Minimum link count filter
+   - Search to highlight specific resources
+   - Toggle edge labels
+   - Reset layout button
+   - Export graph as image
+
+5. **Performance**:
+
+   - Virtual rendering for large graphs (1000+ nodes)
+   - Debounced layout calculations
+   - Progressive loading (load nodes in batches)
+
 ## Future Enhancements
 
 - Link preview on hover
-- Graph view of all links
 - Link suggestions based on content similarity
 - Link aliases/display names
 - Link context snippets in backlinks
+- Graph clustering algorithms
+- Graph export/import
+- Graph analytics (centrality, communities)
+- Time-based graph (show links created in date range)

@@ -30,13 +30,13 @@ pub async fn create_schema(database: &Database) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS media_items (
             id TEXT PRIMARY KEY,
-            entry_id TEXT NOT NULL,
+            entity_type TEXT NOT NULL CHECK(entity_type IN ('entry', 'canvas', 'bookmark', 'task')),
+            entity_id TEXT NOT NULL,
             media_type TEXT NOT NULL CHECK(media_type IN ('audio', 'image', 'video')),
             file_path TEXT NOT NULL,
             metadata TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            updated_at TEXT NOT NULL
         )",
         libsql::params![],
     )
@@ -44,7 +44,7 @@ pub async fn create_schema(database: &Database) -> Result<()> {
     .map_err(|e| AppError::LibSQL(e))?;
 
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_media_entry_id ON media_items(entry_id)",
+        "CREATE INDEX IF NOT EXISTS idx_media_entity ON media_items(entity_type, entity_id)",
         libsql::params![],
     )
     .await

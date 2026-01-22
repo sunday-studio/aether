@@ -17,7 +17,8 @@ impl MediaRepository {
     /// Create a new media item
     pub async fn create(
         &self,
-        entry_id: String,
+        entity_type: String,
+        entity_id: String,
         media_type: String,
         file_path: String,
         metadata: serde_json::Value,
@@ -32,11 +33,12 @@ impl MediaRepository {
             .map_err(|e| AppError::Serialization(e))?;
 
         conn.execute(
-            "INSERT INTO media_items (id, entry_id, media_type, file_path, metadata, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO media_items (id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             libsql::params![
                 id.clone(),
-                entry_id.clone(),
+                entity_type.clone(),
+                entity_id.clone(),
                 media_type.clone(),
                 file_path.clone(),
                 metadata_str,
@@ -49,7 +51,8 @@ impl MediaRepository {
 
         Ok(MediaItem {
             id,
-            entry_id,
+            entity_type,
+            entity_id,
             media_type,
             file_path,
             metadata,
@@ -64,7 +67,7 @@ impl MediaRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, entry_id, media_type, file_path, metadata, created_at, updated_at 
+                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at 
                  FROM media_items 
                  WHERE id = ?1",
                 libsql::params![id],
@@ -79,17 +82,17 @@ impl MediaRepository {
         }
     }
 
-    /// Get all media items for an entry
-    pub async fn find_by_entry_id(&self, entry_id: &str) -> Result<Vec<MediaItem>> {
+    /// Get all media items for an entity
+    pub async fn find_by_entity(&self, entity_type: &str, entity_id: &str) -> Result<Vec<MediaItem>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         let mut rows = conn
             .query(
-                "SELECT id, entry_id, media_type, file_path, metadata, created_at, updated_at 
+                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at 
                  FROM media_items 
-                 WHERE entry_id = ?1 
+                 WHERE entity_type = ?1 AND entity_id = ?2 
                  ORDER BY created_at ASC",
-                libsql::params![entry_id],
+                libsql::params![entity_type, entity_id],
             )
             .await
             .map_err(|e| AppError::LibSQL(e))?;
@@ -100,6 +103,11 @@ impl MediaRepository {
         }
 
         Ok(items)
+    }
+
+    /// Get all media items for an entry (backward compatibility)
+    pub async fn find_by_entry_id(&self, entry_id: &str) -> Result<Vec<MediaItem>> {
+        self.find_by_entity("entry", entry_id).await
     }
 
     /// Get file path for a media item
@@ -145,12 +153,13 @@ impl MediaRepository {
     /// Helper to convert database row to MediaItem
     fn row_to_media_item(&self, row: libsql::Row) -> Result<MediaItem> {
         let id: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
-        let entry_id: String = row.get(1).map_err(|e| AppError::LibSQL(e))?;
-        let media_type: String = row.get(2).map_err(|e| AppError::LibSQL(e))?;
-        let file_path: String = row.get(3).map_err(|e| AppError::LibSQL(e))?;
-        let metadata_str: String = row.get(4).map_err(|e| AppError::LibSQL(e))?;
-        let created_at_str: String = row.get(5).map_err(|e| AppError::LibSQL(e))?;
-        let updated_at_str: String = row.get(6).map_err(|e| AppError::LibSQL(e))?;
+        let entity_type: String = row.get(1).map_err(|e| AppError::LibSQL(e))?;
+        let entity_id: String = row.get(2).map_err(|e| AppError::LibSQL(e))?;
+        let media_type: String = row.get(3).map_err(|e| AppError::LibSQL(e))?;
+        let file_path: String = row.get(4).map_err(|e| AppError::LibSQL(e))?;
+        let metadata_str: String = row.get(5).map_err(|e| AppError::LibSQL(e))?;
+        let created_at_str: String = row.get(6).map_err(|e| AppError::LibSQL(e))?;
+        let updated_at_str: String = row.get(7).map_err(|e| AppError::LibSQL(e))?;
 
         let metadata = serde_json::from_str(&metadata_str)
             .map_err(|e| AppError::Serialization(e))?;
@@ -163,7 +172,8 @@ impl MediaRepository {
 
         Ok(MediaItem {
             id,
-            entry_id,
+            entity_type,
+            entity_id,
             media_type,
             file_path,
             metadata,

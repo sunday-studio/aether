@@ -4,28 +4,28 @@ overview: Add blurhash generation for all uploaded images using the blurhash cra
 todos:
   - id: add-dependencies
     content: Add blurhash and image crates to Cargo.toml
-    status: pending
+    status: completed
   - id: create-migration
     content: Create database migration to make media_items entity-agnostic (entity_type, entity_id)
-    status: pending
+    status: completed
   - id: update-models
     content: Update MediaItem model to use entity_type and entity_id instead of entry_id
-    status: pending
+    status: completed
   - id: update-repository
     content: Update MediaRepository to support entity_type and entity_id
-    status: pending
+    status: completed
   - id: create-media-module
     content: Create media module with unified storage.rs and mod.rs
-    status: pending
+    status: completed
   - id: implement-blurhash
     content: Implement blurhash generation in save_media_file for image type
-    status: pending
+    status: completed
   - id: refactor-audio-storage
     content: Refactor audio/storage.rs to use unified save_media_file
-    status: pending
+    status: completed
   - id: update-lib-rs
     content: Update lib.rs to include media module and update ensure_media_directory calls
-    status: pending
+    status: completed
 ---
 
 # Blurhash Generation for Photos
@@ -196,12 +196,14 @@ if media_type == "image" {
 ## Entity Types
 
 The media service now supports the following entity types:
+
 - `entry` - Journal entries
 - `canvas` - Canvas items
 - `bookmark` - Bookmarks
 - `task` - Tasks
 
 When uploading media, callers must specify both `entity_type` and `entity_id`:
+
 ```rust
 save_media_file(
     database,

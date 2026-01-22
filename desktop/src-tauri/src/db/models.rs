@@ -26,7 +26,8 @@ pub struct Setting {
 #[serde(rename_all = "camelCase")]
 pub struct MediaItem {
     pub id: String,
-    pub entry_id: String,
+    pub entity_type: String, // "entry" | "canvas" | "bookmark" | "task"
+    pub entity_id: String,
     pub media_type: String, // "audio" | "image" | "video"
     pub file_path: String,
     pub metadata: serde_json::Value,
