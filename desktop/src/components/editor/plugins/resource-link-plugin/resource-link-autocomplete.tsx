@@ -137,18 +137,8 @@ export function ResourceLinkAutocomplete() {
 					resourceType: resource.resourceType,
 					title: resource.title,
 					preview: resource.preview || null,
-					onSelect: (id, resourceType, title) => {
-						editor.update(() => {
-							const selection = $getSelection();
-							if ($isRangeSelection(selection)) {
-								const linkNode = $createResourceLinkNode(
-									resourceType,
-									id,
-									title,
-								);
-								selection.insertNodes([linkNode]);
-							}
-						});
+					onSelect: () => {
+						// This is handled in onSelectOption
 					},
 				}),
 		);
@@ -162,21 +152,26 @@ export function ResourceLinkAutocomplete() {
 			matchingString: string,
 		) => {
 			editor.update(() => {
-				// Remove the trigger text ([[)
+				// Remove the trigger text ([[) and any query text
 				if (nodeToRemove) {
 					const textContent = nodeToRemove.getTextContent();
-					const newText = textContent.replace(/\[\[$/, "");
+					// Remove [[ and everything after it
+					const newText = textContent.replace(/\[\[.*$/, "");
 					if (newText.length > 0) {
 						nodeToRemove.setTextContent(newText);
 					} else {
 						nodeToRemove.remove();
 					}
 				}
-				selectedOption.onSelect(
-					selectedOption.id,
-					selectedOption.resourceType,
-					selectedOption.title,
-				);
+				const selection = $getSelection();
+				if ($isRangeSelection(selection)) {
+					const linkNode = $createResourceLinkNode(
+						selectedOption.resourceType,
+						selectedOption.id,
+						selectedOption.title,
+					);
+					selection.insertNodes([linkNode]);
+				}
 				closeMenu();
 			});
 		},
