@@ -20,5 +20,13 @@
   <body class="h-full w-full dark">
     <div id="root" class="h-full w-full"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (() => {
+        var c = localStorage.getItem("aether-theme");
+        if (c) {
+          document.documentElement.setAttribute("data-theme", c);
+        }
+      })();
+    </script>
   </body>
 </html>

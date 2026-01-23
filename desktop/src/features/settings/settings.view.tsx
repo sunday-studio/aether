@@ -1,13 +1,7 @@
-import {
-	BrainIcon,
-	Palette,
-	SettingsIcon,
-	SparklesIcon,
-	SwatchBook,
-} from "lucide-react";
+import { BrainIcon, Palette, SparklesIcon } from "lucide-react";
 import { useState } from "react";
-import { Radio, RadioGroup } from "~/components/shared/radio";
-import { useThemeContext } from "~/context/theme-context";
+// import { Radio, RadioGroup } from "~/components/shared/radio";
+// import { useThemeContext } from "~/context/theme-context";
 import { cn } from "~/utils/cn";
 import { ModelsSection } from "./components/models.section";
 import { PreferencesSection } from "./components/preferences.section";
@@ -42,7 +36,7 @@ export const SettingsView = () => {
 
 	return (
 		<div className="w-full h-full mx-auto grid grid-cols-24">
-			<div className="col-span-8 py-8 sticky top-0 h-screen flex justify-end pr-15 bg-neutral-50">
+			<div className="col-span-8 py-10 sticky top-0 h-screen flex justify-end pr-15 bg-(--color-background-secondary)">
 				<div className="flex flex-col gap-1 items-start">
 					{Object.entries(sections).map(([section, { label, icon }]) => {
 						const isSelected = selectedSection === section;
@@ -67,7 +61,7 @@ export const SettingsView = () => {
 					})}
 				</div>
 			</div>
-			<div className="col-span-16 bg-transparent p-8">
+			<div className="col-span-16 bg-transparent py-10 px-15">
 				{sections[selectedSection as AvailableSections].component}
 			</div>
 		</div>

@@ -16,7 +16,7 @@ import {
 	useCreateGoal,
 	useUpdateGoal,
 } from "~/aether-sdk";
-import type { DbGoal } from "~/aether-sdk/models";
+import type { Goal } from "~/aether-sdk/models";
 import { Checkbox } from "~/components/shared/checkbox";
 import { DateTimePicker } from "~/components/shared/datepicker";
 import { Label } from "~/components/shared/field";
@@ -84,7 +84,7 @@ const createGoalSchema = z
 	});
 
 interface CreateGoalFormProps {
-	goal?: DbGoal;
+	goal?: Goal;
 	trigger: React.ReactNode;
 }
 

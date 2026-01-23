@@ -2666,16 +2666,8 @@
       },
       "AllSettingsResponse": {
         "type": "object",
-        "required": [
-          "settings"
-        ],
-        "properties": {
-          "settings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SettingResponse"
-            }
-          }
+        "additionalProperties": {
+          "type": "string"
         }
       },
       "AudioTranscription": {

@@ -52,8 +52,9 @@
 	--color-activity-heatmap-index-4: var(--color-green-700);
 } */
 
-[data-theme="light"] {
+[data-theme="light-classic"] {
 	--color-background: oklch(1 0 0);
+	--color-background-secondary: var(--color-neutral-100);
 	--color-foreground: oklch(0.09 0 0);
 	--color-card: var(--color-white);
 	--color-card-foreground: oklch(0.09 0 0);
@@ -97,7 +98,7 @@
 }
 
 /* TODO: update colors to match design */
-[data-theme="amber"] {
+[data-theme="light-amber"] {
 	--color-background: var(--color-orange-50);
 	--color-foreground: var(--color-orange-500);
 	--color-card: var(--color-orange-50);
@@ -133,7 +134,7 @@
 }
 
 /* TODO: update colors to match design  */
-[data-theme="dark"] {
+[data-theme="dark-classic"] {
 	--color-background: oklch(0.04 0 0);
 	--color-foreground: oklch(0.98 0 0);
 	--color-card: oklch(0.09 0 0);
@@ -156,8 +157,9 @@
 	--radius: 0.625rem;
 }
 
-[data-theme="lime"] {
+[data-theme="dark-lime"] {
 	--color-background: var(--green-dark-1);
+	--color-background-secondary: var(--green-dark-2);
 	--color-foreground: var(--green-4);
 	--color-card: var(--green-dark-2);
 	--color-card-foreground: oklch(0.78 0 0);
@@ -177,6 +179,12 @@
 	--color-input: oklch(0.25 0 0);
 	--color-ring: var(--green-dark-4);
 	--radius: 0.625rem;
+
+	/* general-purpose */
+	--color-secondary-text: var(--color-neutral-400);
+	--color-secondary-text-hover: var(--green-2);
+	--color-active-text: var(--green-dark-9);
+	--color-active-text-hover: var(--green-dark-10);
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--green-dark-9);

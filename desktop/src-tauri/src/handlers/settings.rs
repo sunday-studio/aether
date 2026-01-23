@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Json},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -21,9 +22,35 @@ pub struct SettingResponse {
     pub value: Option<String>,
 }
 
-#[derive(Serialize, ToSchema)]
-pub struct AllSettingsResponse {
-    pub settings: Vec<SettingResponse>,
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct AllSettingsResponse(HashMap<String, String>);
+
+impl ToSchema<'_> for AllSettingsResponse {
+    fn schema() -> (&'static str, utoipa::openapi::RefOr<utoipa::openapi::Schema>) {
+        (
+            "AllSettingsResponse",
+            utoipa::openapi::ObjectBuilder::new()
+                .additional_properties(
+                    utoipa::openapi::ObjectBuilder::new()
+                        .schema_type(utoipa::openapi::SchemaType::String)
+                        .into(),
+                )
+                .into(),
+        )
+    }
+}
+
+impl From<HashMap<String, String>> for AllSettingsResponse {
+    fn from(map: HashMap<String, String>) -> Self {
+        AllSettingsResponse(map)
+    }
+}
+
+impl From<AllSettingsResponse> for HashMap<String, String> {
+    fn from(response: AllSettingsResponse) -> Self {
+        response.0
+    }
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -82,19 +109,12 @@ pub async fn get_all_settings(
     let database = connection::get_database(&state);
     let settings = settings::get_all_settings(database).await?;
 
-    let settings_response: Vec<SettingResponse> = settings
-        .into_iter()
-        .map(|(key, value)| SettingResponse {
-            key,
-            value: Some(value),
-        })
-        .collect();
+    let settings_map: HashMap<String, String> = settings.into_iter().collect();
+    let settings_response = AllSettingsResponse(settings_map);
 
     Ok((
         StatusCode::OK,
-        Json(AllSettingsResponse {
-            settings: settings_response,
-        }),
+        Json(settings_response),
     ))
 }
 

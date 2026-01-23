@@ -1,7 +1,8 @@
 use crate::db::connection;
 use crate::error::{AppError, Result};
-use crate::handlers::settings::{AllSettingsResponse, SetSettingRequest, SettingResponse};
+use crate::handlers::settings::{AllSettingsResponse, SettingResponse};
 use crate::settings;
+use std::collections::HashMap;
 use tauri::State;
 
 /// Get a setting value
@@ -50,17 +51,10 @@ pub async fn get_all_settings(
     let database = connection::get_database(&*state);
     let settings = settings::get_all_settings(database).await?;
 
-    let settings_response: Vec<SettingResponse> = settings
-        .into_iter()
-        .map(|(key, value)| SettingResponse {
-            key,
-            value: Some(value),
-        })
-        .collect();
+    let settings_map: HashMap<String, String> = settings.into_iter().collect();
+    let settings_response = AllSettingsResponse::from(settings_map);
 
-    Ok(AllSettingsResponse {
-        settings: settings_response,
-    })
+    Ok(settings_response)
 }
 
 /// Set a setting value

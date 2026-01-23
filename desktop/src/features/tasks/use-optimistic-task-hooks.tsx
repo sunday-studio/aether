@@ -12,11 +12,7 @@ import {
 } from "~/aether-sdk";
 import type { DbGoalInstance } from "~/aether-sdk/models/db-goal-instance";
 import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
-import type { DbTask } from "~/aether-sdk/models/db-task";
 
-/**
- * Optimistic update task
- */
 export const useOptimisticUpdateTask = () => {
 	const queryClient = useQueryClient();
 	const mutation = useUpdateTask();
