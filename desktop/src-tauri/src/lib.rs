@@ -58,6 +58,13 @@ pub fn run() {
         db::migrations::run_migrations(&database).await
             .expect("Failed to run migrations");
         
+        // Restore sync configuration if previously saved
+        db::connection::restore_sync_configuration(&state).await
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to restore sync configuration: {}", e);
+                // Don't fail startup if restore fails
+            });
+        
         // Ensure media directory exists
         media::ensure_media_directory()
             .expect("Failed to create media directory");

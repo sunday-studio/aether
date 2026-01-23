@@ -1,7 +1,7 @@
 services:
-  libsql-server:
+  aether-replica-server:
     image: ghcr.io/tursodatabase/libsql-server:latest
-    container_name: libsql-server
+    container_name: aether-replica-server
     ports:
       - "9090:8080"   # HTTP API (Mac:9090 -> Container:8080)
       - "5001:5001"   # Hrana WebSocket protocol
@@ -40,11 +40,11 @@ services:
       - aether-network
 
   # Weekly backup service
-  backup:
+  aether-replica-backup:
     image: alpine:latest
-    container_name: libsql-backup
+    container_name: aether-replica-backup
     depends_on:
-      - libsql-server  # Just wait for server to start, no health check
+      - aether-replica-server 
     volumes:
       - ./libsql-data:/data:ro
       - ./libsql-backups:/backups

@@ -1,4 +1,5 @@
 use crate::error::{AppError, Result};
+use crate::settings;
 use libsql::{Builder, Database};
 use std::env;
 use std::path::Path;
@@ -125,7 +126,18 @@ pub async fn configure_sync(
         *sync_guard = true;
     }
 
-    tracing::info!("Sync configured successfully");
+    // Persist sync configuration to database
+    let database = get_database(state);
+    settings::set_setting(database.clone(), "sync_url", &sync_url).await?;
+    
+    if let Some(token) = &auth_token {
+        settings::set_setting(database, "sync_auth_token", token).await?;
+    } else {
+        // Delete token if None (user removed token)
+        settings::delete_setting(database, "sync_auth_token").await?;
+    }
+
+    tracing::info!("Sync configured successfully and persisted to database");
     Ok(())
 }
 
@@ -226,4 +238,25 @@ pub async fn sync_now(state: &DbState) -> Result<u64> {
 pub fn get_database(state: &DbState) -> Arc<Database> {
     let db_guard = state.database.lock().unwrap();
     Arc::clone(&*db_guard)
+}
+
+/// Restore sync configuration from database settings
+/// Called after migrations to automatically enable sync if previously configured
+pub async fn restore_sync_configuration(state: &DbState) -> Result<()> {
+    let database = get_database(state);
+    
+    // Load saved settings
+    let sync_url = settings::get_setting(database.clone(), "sync_url").await?;
+    let auth_token = settings::get_setting(database, "sync_auth_token").await?;
+    
+    // If sync_url exists, restore sync configuration
+    if let Some(url) = sync_url {
+        tracing::info!("Restoring sync configuration from saved settings");
+        configure_sync(state, url, auth_token).await?;
+        tracing::info!("Sync configuration restored successfully");
+    } else {
+        tracing::info!("No saved sync configuration found, starting in local-only mode");
+    }
+    
+    Ok(())
 }
