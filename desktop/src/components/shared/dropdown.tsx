@@ -1,6 +1,5 @@
 "use client";
 import { Check } from "lucide-react";
-import React from "react";
 import {
 	ListBox as AriaListBox,
 	ListBoxItem as AriaListBoxItem,
@@ -13,7 +12,7 @@ import {
 	type SectionProps,
 } from "react-aria-components";
 import { tv } from "tailwind-variants";
-import { cn, composeTailwindRenderProps, focusRing } from "~/utils/cn";
+import { cn, composeTailwindRenderProps } from "~/utils/cn";
 
 interface ListBoxProps<T>
 	extends Omit<AriaListBoxProps<T>, "layout" | "orientation"> {}
@@ -25,67 +24,10 @@ export function ListBox<T extends object>({
 	return (
 		<AriaListBox
 			{...props}
-			className={composeTailwindRenderProps(
-				props.className,
-				cn(
-					"outline-0 p-1 w-[200px]",
-					"bg-white",
-					"border border-neutral-300",
-					"rounded-lg font-sans",
-				),
-			)}
+			className={composeTailwindRenderProps(props.className, "")}
 		>
 			{children}
 		</AriaListBox>
-	);
-}
-
-export const itemStyles = tv({
-	extend: focusRing,
-	base: cn(
-		"group relative flex items-center gap-8",
-		"cursor-default select-none py-1.5 px-2.5 rounded-md",
-		"will-change-transform text-sm forced-color-adjust-none",
-	),
-	variants: {
-		isSelected: {
-			false: cn(
-				"text-neutral-700",
-				"hover:bg-neutral-100 pressed:bg-neutral-100",
-				"-outline-offset-2",
-			),
-			true: cn(
-				"bg-blue-600 text-white",
-				"forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]",
-				"[&:has(+[data-selected])]:rounded-b-none [&+[data-selected]]:rounded-t-none",
-				"-outline-offset-4 outline-white forced-colors:outline-[HighlightText]",
-			),
-		},
-		isDisabled: {
-			true: cn("text-neutral-300", "forced-colors:text-[GrayText]"),
-		},
-	},
-});
-
-export function ListBoxItem(props: ListBoxItemProps) {
-	const textValue =
-		props.textValue ||
-		(typeof props.children === "string" ? props.children : undefined);
-	return (
-		<AriaListBoxItem {...props} textValue={textValue} className={itemStyles}>
-			{composeRenderProps(props.children, (children) => (
-				<>
-					{children}
-					<div
-						className={cn(
-							"absolute left-4 right-4 bottom-0 h-px",
-							"bg-white/20 forced-colors:bg-[HighlightText]",
-							"hidden [.group[data-selected]:has(+[data-selected])_&]:block",
-						)}
-					/>
-				</>
-			))}
-		</AriaListBoxItem>
 	);
 }
 
@@ -94,20 +36,19 @@ export const dropdownItemStyles = tv({
 		"group flex items-center gap-4 cursor-default select-none",
 		"py-2 pl-3 pr-3 selected:pr-1 rounded-lg outline outline-0 text-sm",
 		"forced-color-adjust-none no-underline",
-		"[&[href]]:cursor-pointer",
-		"[-webkit-tap-highlight-color:transparent]",
+		"[&[href]]:cursor-pointer hover:bg-(--color-popover-item-hover-background)",
 	),
 	variants: {
 		isDisabled: {
 			false: "text-neutral-900",
-			true: cn("text-neutral-300", "forced-colors:text-[GrayText]"),
+			true: "text-neutral-300 forced-colors:text-[GrayText]",
 		},
 		isPressed: {
 			true: "bg-neutral-100",
 		},
 		isFocused: {
 			true: cn(
-				"bg-green-900 text-white",
+				"bg-(--color-popover-item-hover-background)",
 				"forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]",
 			),
 		},
@@ -135,12 +76,16 @@ export function DropdownItem(props: ListBoxItemProps) {
 				<>
 					<span
 						className={cn(
-							"flex items-center flex-1 gap-2 font-normal truncate group-selected:font-semibold",
+							"flex items-center flex-1 gap-2 text-(--color-secondary-text) truncate group-selected:font-semibold",
 						)}
 					>
 						{children}
 					</span>
-					<span className={cn("flex items-center w-5")}>
+					<span
+						className={cn(
+							"flex items-center w-5 text-(--color-secondary-text)",
+						)}
+					>
 						{isSelected && <Check className="w-4 h-4" />}
 					</span>
 				</>

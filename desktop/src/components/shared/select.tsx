@@ -22,20 +22,19 @@ const styles = tv({
 	extend: focusRing,
 	base: cn(
 		"flex items-center gap-4 w-full min-w-[180px] h-9 pl-3 pr-2 rounded-xl transition",
-		"text-start  bg-neutral-100 cursor-default",
+		"text-start cursor-default",
+		"bg-(--color-select-trigger-background)",
+		"hover:bg-(--color-select-trigger-hover-background)",
 		"[-webkit-tap-highlight-color:transparent]",
 	),
 	variants: {
 		isDisabled: {
 			false: cn(
-				"text-neutral-800 hover:bg-neutral-100 pressed:bg-neutral-200",
+				"text-neutral-800",
 				"group-invalid:outline group-invalid:outline-red-600",
 				"forced-colors:group-invalid:outline-[Mark]",
 			),
-			true: cn(
-				"border-transparent text-neutral-200 bg-neutral-100",
-				"forced-colors:text-[GrayText] opacity-50",
-			),
+			true: cn("hover:bg-(--color-select-trigger-background)"),
 		},
 	},
 });
@@ -67,7 +66,7 @@ export function Select<T extends object>({
 		>
 			{label && <Label>{label}</Label>}
 			<Button className={styles({ isDisabled: props.isDisabled })}>
-				<SelectValue className="flex-1 text-sm font-medium text-neutral-600">
+				<SelectValue className="flex-1 text-sm font-medium text-(--color-secondary-text)">
 					{({ selectedText, defaultChildren }) =>
 						selectedText || defaultChildren
 					}
@@ -75,14 +74,14 @@ export function Select<T extends object>({
 				<ChevronDown
 					aria-hidden
 					className={cn(
-						"w-4 h-4 text-neutral-600 forced-colors:text-[ButtonText]",
+						"w-4 h-4 text-(--color-secondary-text) forced-colors:text-[ButtonText]",
 						"group-disabled:text-neutral-200 forced-colors:group-disabled:text-[GrayText]",
 					)}
 				/>
 			</Button>
 			{description && <Description>{description}</Description>}
 			<FieldError value={errorMessage} />
-			<Popover className="min-w-(--trigger-width) max-h-[200px] overflow-auto bg-white rounded-xl ring ring-neutral-200 shadow-md">
+			<Popover className="min-w-(--trigger-width) max-h-[200px] overflow-auto bg-(--color-popover-background) rounded-xl ring ring-(--color-popover-ring) shadow-md">
 				<ListBox
 					items={items}
 					className="outline-hidden box-border p-1 max-h-[inherit] overflow-auto [clip-path:inset(0_0_0_0_round_.75rem)]"

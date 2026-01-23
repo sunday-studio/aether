@@ -1,7 +1,5 @@
 import { BrainIcon, Palette, SparklesIcon } from "lucide-react";
 import { useState } from "react";
-// import { Radio, RadioGroup } from "~/components/shared/radio";
-// import { useThemeContext } from "~/context/theme-context";
 import { cn } from "~/utils/cn";
 import { ModelsSection } from "./components/models.section";
 import { PreferencesSection } from "./components/preferences.section";

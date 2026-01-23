@@ -5,61 +5,12 @@
   Replace it with :root for base (default) variables.
 */
 
-/* :root {
-	--color-neutral-50: oklch(0.98 0 0);
-	--color-neutral-100: oklch(0.96 0 0);
-	--color-neutral-200: oklch(0.9 0 0);
-	--color-neutral-300: oklch(0.83 0 0);
-	--color-neutral-400: oklch(0.64 0 0);
-	--color-neutral-500: oklch(0.45 0 0);
-	--color-neutral-600: oklch(0.32 0 0);
-	--color-neutral-700: oklch(0.25 0 0);
-	--color-neutral-800: oklch(0.15 0 0);
-	--color-neutral-900: oklch(0.09 0 0);
-	--color-white: oklch(1 0 0);
-	--color-black: oklch(0 0 0);
-
-	--color-background: oklch(1 0 0);
-	--color-foreground: oklch(0.09 0 0);
-	--color-card: oklch(0.98 0 0);
-	--color-card-foreground: oklch(0.09 0 0);
-	--color-popover: oklch(1 0 0);
-	--color-popover-foreground: oklch(0.09 0 0);
-	--color-primary: oklch(0.25 0 0);
-	--color-primary-foreground: oklch(0.98 0 0);
-	--color-secondary: oklch(0.96 0 0);
-	--color-secondary-foreground: oklch(0.25 0 0);
-	--color-muted: oklch(0.96 0 0);
-	--color-muted-foreground: oklch(0.45 0 0);
-	--color-accent: oklch(0.96 0 0);
-	--color-accent-foreground: oklch(0.25 0 0);
-	--color-destructive: oklch(0.577 0.245 27.325);
-	--color-destructive-foreground: oklch(0.98 0 0);
-	--color-border: oklch(0.9 0 0);
-	--color-input: oklch(0.9 0 0);
-	--color-ring: var(--color-red-100);
-	--radius: 0.625rem;
-
-	--color-navigation-control-active: var(--green-dark-1);
-	--color-navigation-control-hover: var(--green-dark-8);
-	--color-navigation-control-foreground: var(--color-neutral-500);
-	--color-navigation-control-active-foreground: var(--color-neutral-100);
-
-	--color-activity-heatmap-index-0: var(--color-neutral-100);
-	--color-activity-heatmap-index-1: var(--color-green-300);
-	--color-activity-heatmap-index-2: var(--color-green-400);
-	--color-activity-heatmap-index-3: var(--color-green-500);
-	--color-activity-heatmap-index-4: var(--color-green-700);
-} */
-
 [data-theme="light-classic"] {
 	--color-background: oklch(1 0 0);
 	--color-background-secondary: var(--color-neutral-100);
 	--color-foreground: oklch(0.09 0 0);
 	--color-card: var(--color-white);
 	--color-card-foreground: oklch(0.09 0 0);
-	--color-popover: oklch(1 0 0);
-	--color-popover-foreground: oklch(0.09 0 0);
 	--color-primary: oklch(0.25 0 0);
 	--color-primary-foreground: oklch(0.98 0 0);
 	--color-secondary: oklch(0.96 0 0);
@@ -74,6 +25,16 @@
 	--color-input: oklch(0.9 0 0);
 	--color-ring: var(--color-neutral-50);
 	--radius: 0.625rem;
+
+	/* popover */
+	--color-popover-background: var(--color-white);
+	--color-popover-ring: var(--color-neutral-200);
+	--color-popover-item-hover-background: var(--color-neutral-100);
+	--color-popover-item-active-background: var(--green-dark-9);
+
+	/* select  */
+	--color-select-trigger-background: var(--color-neutral-100);
+	--color-select-trigger-hover-background: var(--color-neutral-200);
 
 	/* general-purpose */
 	--color-secondary-text: var(--color-neutral-500);
@@ -99,8 +60,9 @@
 
 /* TODO: update colors to match design */
 [data-theme="light-amber"] {
-	--color-background: var(--color-orange-50);
-	--color-foreground: var(--color-orange-500);
+	--color-background: #f7f2ed;
+	/* --color-foreground: var(--color-orange-500); */
+	--color-background-secondary: var(--color-orange-100);
 	--color-card: var(--color-orange-50);
 	--color-card-foreground: oklch(0.47 0.12 70);
 	--color-popover: oklch(1 0 0);
@@ -118,7 +80,6 @@
 	--color-border: oklch(0.95 0.04 70);
 	--color-input: oklch(0.95 0.04 70);
 	--color-ring: oklch(0.6 0.08 70);
-	--radius: 0.625rem;
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--color-orange-900);
@@ -163,8 +124,6 @@
 	--color-foreground: var(--green-4);
 	--color-card: var(--green-dark-2);
 	--color-card-foreground: oklch(0.78 0 0);
-	--color-popover: oklch(0.1 0 0);
-	--color-popover-foreground: oklch(0.78 0 0);
 	--color-primary: oklch(0.78 0 0);
 	--color-primary-foreground: oklch(0.1 0 0);
 	--color-secondary: oklch(0.18 0 0);
@@ -179,6 +138,16 @@
 	--color-input: oklch(0.25 0 0);
 	--color-ring: var(--green-dark-4);
 	--radius: 0.625rem;
+
+	/* popover */
+	--color-popover-background: var(--green-dark-2);
+	--color-popover-ring: var(--color-neutral-700);
+	--color-popover-item-hover-background: var(--green-dark-4);
+	--color-popover-item-active-background: var(--green-dark-8);
+
+	/* select  */
+	--color-select-trigger-background: var(--green-dark-3);
+	--color-select-trigger-hover-background: var(--green-dark-4);
 
 	/* general-purpose */
 	--color-secondary-text: var(--color-neutral-400);
@@ -197,9 +166,4 @@
 	--color-activity-heatmap-index-2: var(--color-green-800);
 	--color-activity-heatmap-index-3: var(--color-green-700);
 	--color-activity-heatmap-index-4: var(--color-green-500);
-
-	/* --color-activity-heatmap-index-2: var(--green-dark-7);
-	--color-activity-heatmap-index-3: var(--green-dark-11);
-	--color-activity-heatmap-index-4: var(--green-12);
-	--color-activity-heatmap-index-5: var(--green-1); */
 }

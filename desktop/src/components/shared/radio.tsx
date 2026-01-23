@@ -35,24 +35,6 @@ export function RadioGroup(props: RadioGroupProps) {
 	);
 }
 
-// const CheckboxItem = ({ isChecked }: { isChecked: boolean }) => {
-// 	return (
-// 		<span
-// 			className={cn(
-// 				"size-4 rounded-md bg-neutral-600 text-neutral-400 flex items-center justify-center bg-linear-to-b inset-shadow-xs",
-// 				{
-// 					" text-green-100 from-green-700 to-green-950  inset-shadow-green-700":
-// 						isChecked,
-// 					" from-neutral-600 to-neutral-700 text-white inset-shadow-neutral-700":
-// 						!isChecked,
-// 				},
-// 			)}
-// 		>
-// 			{isChecked ? <Check className="size-3" /> : null}
-// 		</span>
-// 	);
-// };
-
 const styles = tv({
 	extend: focusRing,
 	base: "w-4 h-4 bg-neutral-600 box-border rounded-full transition-all",
