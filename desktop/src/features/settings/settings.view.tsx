@@ -1,11 +1,12 @@
-import { BrainIcon, Palette, SparklesIcon } from "lucide-react";
+import { BrainIcon, CloudIcon, Palette, SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/utils/cn";
 import { ModelsSection } from "./components/models.section";
 import { PreferencesSection } from "./components/preferences.section";
+import { SyncSection } from "./components/sync.section";
 import { WhatsNewSection } from "./components/whats-new.section";
 
-type AvailableSections = "preferences" | "models" | "whats-new";
+type AvailableSections = "preferences" | "models" | "whats-new" | "sync";
 
 export const SettingsView = () => {
 	const [selectedSection, setSelectedSection] =
@@ -20,6 +21,12 @@ export const SettingsView = () => {
 			icon: <Palette className="size-4" strokeWidth={2.5} />,
 			component: <PreferencesSection />,
 		},
+		sync: {
+			label: "Sync",
+			icon: <CloudIcon className="size-4" strokeWidth={2.5} />,
+			component: <SyncSection />,
+		},
+
 		models: {
 			label: "Models",
 			icon: <BrainIcon className="size-4" strokeWidth={2.5} />,

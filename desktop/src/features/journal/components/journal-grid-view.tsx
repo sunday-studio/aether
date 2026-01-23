@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { Mic } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetEntries, getGetEntriesQueryKey } from "~/aether-sdk";
-import type { DbEntry } from "~/aether-sdk/models";
-import { AddNewButton } from "~/components/shared/button";
+import { invoke } from "@tauri-apps/api/core";
+import { formatDistanceToNow } from "date-fns";
+import { Mic } from "lucide-react";
+import { useState } from "react";
+import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
+import type { Entry } from "~/aether-sdk/models";
 import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
+import { Button } from "~/components/shared/button";
+import { showToast } from "~/components/shared/toast-components";
 import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { groupEntriesByTags, sortEntries } from "../journal.domain.ts";
 import { JournalGridItem } from "./journal-grid-item.tsx";
-import { invoke } from "@tauri-apps/api/core";
-import { showToast } from "~/components/shared/toast-components";
-import { formatDistanceToNow } from "date-fns";
 
 export const JournalGridView = () => {
 	const { data: entries } = useGetEntries();
@@ -20,7 +20,7 @@ export const JournalGridView = () => {
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
 	const sortedEntries = sortEntries(
-		(entries?.data as unknown as DbEntry[]) ?? [],
+		(entries?.data as unknown as Entry[]) ?? [],
 	);
 
 	const groupedByTags = groupEntriesByTags(sortedEntries);
@@ -75,7 +75,7 @@ export const JournalGridView = () => {
 			{/* Header with actions */}
 			<div className="sticky top-0 z-10 bg-neutral-50 border-b border-neutral-200 px-6 py-4">
 				<div className="max-w-7xl mx-auto flex items-center gap-2">
-					<AddNewButton
+					<Button
 						onClick={createEntry}
 						label="Write"
 						shortcuts={["⌘", "N"]}
@@ -99,18 +99,20 @@ export const JournalGridView = () => {
 						<p>No entries yet. Create your first entry to get started.</p>
 					</div>
 				) : (
-					Array.from(groupedByTags.entries()).map(([tagId, { tagName, entries }]) => (
-						<div key={tagId} className="mb-8">
-							<h2 className="text-lg font-semibold text-neutral-900 mb-4 px-2">
-								{tagName}
-							</h2>
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-								{entries.map((entry) => (
-									<JournalGridItem key={entry.id} entry={entry} />
-								))}
+					Array.from(groupedByTags.entries()).map(
+						([tagId, { tagName, entries }]) => (
+							<div key={tagId} className="mb-8">
+								<h2 className="text-lg font-semibold text-neutral-900 mb-4 px-2">
+									{tagName}
+								</h2>
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+									{entries.map((entry) => (
+										<JournalGridItem key={entry.id} entry={entry} />
+									))}
+								</div>
 							</div>
-						</div>
-					))
+						),
+					)
 				)}
 			</div>
 

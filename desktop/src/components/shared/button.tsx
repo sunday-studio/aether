@@ -8,7 +8,7 @@ interface AddNewButtonProps {
 	shortcuts?: string[];
 }
 
-export const AddNewButton = ({
+export const Button = ({
 	onClick,
 	label,
 	tooltipContent,

@@ -5,7 +5,7 @@ import {
 	useCreateTask,
 	useGetInboxTasks,
 } from "~/aether-sdk";
-import { AddNewButton } from "~/components/shared/button";
+import { Button } from "~/components/shared/button";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { groupTaskByCreatedAt } from "./tasks.domain";
 
@@ -57,7 +57,7 @@ export const InboxTasksView = () => {
 		<div className="h-full flex flex-col">
 			<div className="flex items-center justify-between py-4">
 				<h3 className="font-gt-ultra text-2xl font-medium">Inbox</h3>
-				<AddNewButton
+				<Button
 					onClick={handleCreateTask}
 					label="Add task"
 					tooltipContent="Add a new task"

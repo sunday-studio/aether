@@ -41,6 +41,7 @@
 	--color-secondary-text-hover: var(--color-neutral-600);
 	--color-active-text: var(--color-green-700);
 	--color-active-text-hover: var(--color-green-900);
+	--color-link: var(--color-green-700);
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--green-dark-4);
@@ -56,6 +57,12 @@
 	--color-activity-heatmap-index-2: var(--color-green-400);
 	--color-activity-heatmap-index-3: var(--color-green-500);
 	--color-activity-heatmap-index-4: var(--color-green-700);
+
+	/* text field */
+	--color-text-field-background: var(--color-neutral-100);
+	--color-text-field-ring: var(--color-neutral-100);
+	--color-text-field-ring-active: var(--color-red-500);
+	--color-text-field-focus: var(--color-neutral-200);
 }
 
 /* TODO: update colors to match design */
@@ -154,6 +161,7 @@
 	--color-secondary-text-hover: var(--green-2);
 	--color-active-text: var(--green-dark-9);
 	--color-active-text-hover: var(--green-dark-10);
+	--color-link: var(--color-green-400);
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--green-dark-9);
@@ -166,4 +174,10 @@
 	--color-activity-heatmap-index-2: var(--color-green-800);
 	--color-activity-heatmap-index-3: var(--color-green-700);
 	--color-activity-heatmap-index-4: var(--color-green-500);
+
+	/* text field */
+	--color-text-field-background: var(--green-dark-2);
+	--color-text-field-ring: var(--color-neutral-800);
+	--color-text-field-ring-active: var(--green-10);
+	--color-text-field-focus: var(--color-green-800);
 }

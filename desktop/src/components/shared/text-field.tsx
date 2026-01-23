@@ -2,9 +2,8 @@ import {
 	TextField as AriaTextField,
 	type TextFieldProps as AriaTextFieldProps,
 	TextArea,
-	type ValidationResult,
 } from "react-aria-components";
-import { cn, tv } from "tailwind-variants";
+import { tv } from "tailwind-variants";
 import { composeTailwindRenderProps, focusRing } from "~/utils/cn";
 import {
 	Description,
@@ -16,7 +15,7 @@ import {
 
 const inputStyles = tv({
 	extend: focusRing,
-	base: "rounded-xl min-h-9 text-sm box-border transition bg-neutral-100 text-neutral-600",
+	base: "border rounded-xl min-h-9 text-sm box-border transition bg-(--color-text-field-background) text-neutral-600",
 	variants: {
 		isFocused: fieldBorderStyles.variants.isFocusWithin,
 		isInvalid: fieldBorderStyles.variants.isInvalid,

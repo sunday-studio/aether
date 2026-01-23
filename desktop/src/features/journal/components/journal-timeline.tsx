@@ -3,9 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { Mic } from "lucide-react";
 import { useState } from "react";
 import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { Entry } from "~/aether-sdk/models";
 import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
-import { AddNewButton } from "~/components/shared/button";
+import { Button } from "~/components/shared/button";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
 import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
@@ -20,7 +20,7 @@ export const JournalTimeline = () => {
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
 	const sortedEntries = sortEntries(
-		(entries?.data as unknown as DbEntry[]) ?? [],
+		(entries?.data as unknown as Entry[]) ?? [],
 	);
 
 	const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
@@ -31,7 +31,7 @@ export const JournalTimeline = () => {
 			const now = new Date();
 
 			// Create entry first
-			const entry = await invoke<DbEntry>("create_entry", {
+			const entry = await invoke<Entry>("create_entry", {
 				document: placeholder,
 				date: now.toISOString(),
 			});
@@ -78,7 +78,7 @@ export const JournalTimeline = () => {
 					rightContent={
 						<Timeline.RightContent className="pb-10">
 							<div className="flex items-center gap-2">
-								<AddNewButton
+								<Button
 									onClick={createEntry}
 									label="Write"
 									shortcuts={["⌘", "N"]}
