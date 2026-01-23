@@ -2,7 +2,7 @@ import { tv } from "tailwind-variants";
 import { cn } from "~/utils/cn";
 import { Tooltip } from "./tooltip";
 
-type ButtonVariant = "primary" | "secondary" | "destructive";
+type ButtonVariant = "primary" | "destructive";
 
 interface ButtonProps {
 	onClick: () => void;
@@ -51,19 +51,6 @@ export const Button = ({
 					disabled={isDisabled}
 				>
 					<p className="text-sm">{label}</p>
-					{/* <div className="flex items-center justify-center gap-0.5">
-						{shortcuts?.map(
-							(shortcut) =>
-								shortcut && (
-									<kbd
-										key={shortcut}
-										className="px-1 bg-linear-to-b from-neutral-200 to-neutral-300 h-5 w-fit min-w-5 rounded-md text-xs font-medium pointer-events-none  inline-flex items-center justify-center gap-1 text-neutral-700 text-center select-none"
-									>
-										{shortcut}
-									</kbd>
-								),
-						)}
-					</div> */}
 				</button>
 			}
 		/>

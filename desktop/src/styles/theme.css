@@ -64,9 +64,9 @@
 	--color-text-field-focus: var(--color-neutral-200);
 
 	/* button */
-	--color-button-primary-start: var(--color-neutral-300);
-	--color-button-primary-end: var(--color-neutral-300);
-	--color-button-primary-foreground: var(--color-neutral-700);
+	--color-button-primary-start: var(--color-neutral-200);
+	--color-button-primary-end: var(--color-neutral-200);
+	--color-button-primary-foreground: var(--color-neutral-800);
 
 	--color-button-destructive-start: var(--red-dark-4);
 	--color-button-destructive-end: var(--red-dark-5);
