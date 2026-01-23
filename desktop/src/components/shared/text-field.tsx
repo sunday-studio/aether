@@ -15,7 +15,7 @@ import {
 
 const inputStyles = tv({
 	extend: focusRing,
-	base: "border rounded-xl min-h-9 text-sm box-border transition bg-(--color-text-field-background) text-neutral-600",
+	base: "ring transition-outline rounded-xl min-h-9 text-sm box-border transition bg-(--color-text-field-background) text-neutral-600",
 	variants: {
 		isFocused: fieldBorderStyles.variants.isFocusWithin,
 		isInvalid: fieldBorderStyles.variants.isInvalid,

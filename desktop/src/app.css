@@ -16,6 +16,14 @@
 	isolation: isolate;
 }
 
+@layer utilities {
+	.transition-outline {
+		transition-property: outline-color, outline-width, outline-offset;
+		transition-timing-function: var(--tw-ease, ease);
+		transition-duration: var(--tw-duration, 150ms);
+	}
+}
+
 /* Keyframes */
 @keyframes slideDownAndFade {
 	from {

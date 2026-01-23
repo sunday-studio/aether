@@ -47,8 +47,9 @@ export const fieldBorderStyles = tv({
 	base: "transition",
 	variants: {
 		isFocusWithin: {
-			false: "border border-(--color-text-field-ring)",
-			true: "ring-2 ring-(--color-text-field-focus) ring-offset-2 ring-offset-transparent",
+			false:
+				"outline-2 outline-offset-1 outline-transparent ring-(--color-text-field-ring)",
+			true: "outline-2 outline-offset-1 outline-(--color-text-field-focus) ring-transparent",
 		},
 		isInvalid: {
 			true: "ring-rose-600 ring-2 ring-rose-600/20 ring-offset-1",

@@ -36,6 +36,7 @@ export const SyncSection = () => {
 							throw new Error("Function not implemented.");
 						}}
 						label="Remove config"
+						variant="destructive"
 						tooltipContent="Remove the remote database configuration"
 					/>
 

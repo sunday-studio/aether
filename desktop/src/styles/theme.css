@@ -61,8 +61,16 @@
 	/* text field */
 	--color-text-field-background: var(--color-neutral-100);
 	--color-text-field-ring: var(--color-neutral-100);
-	--color-text-field-ring-active: var(--color-red-500);
 	--color-text-field-focus: var(--color-neutral-200);
+
+	/* button */
+	--color-button-primary-start: var(--color-neutral-300);
+	--color-button-primary-end: var(--color-neutral-300);
+	--color-button-primary-foreground: var(--color-neutral-700);
+
+	--color-button-destructive-start: var(--red-dark-4);
+	--color-button-destructive-end: var(--red-dark-5);
+	--color-button-destructive-foreground: var(--color-red-100);
 }
 
 /* TODO: update colors to match design */
@@ -177,7 +185,15 @@
 
 	/* text field */
 	--color-text-field-background: var(--green-dark-2);
-	--color-text-field-ring: var(--color-neutral-800);
-	--color-text-field-ring-active: var(--green-10);
-	--color-text-field-focus: var(--color-green-800);
+	--color-text-field-ring: var(--green-dark-1);
+	--color-text-field-focus: var(--green-dark-3);
+
+	/* button */
+	--color-button-primary-start: var(--green-dark-4);
+	--color-button-primary-end: var(--green-dark-6);
+	--color-button-primary-foreground: var(--green-5);
+
+	--color-button-destructive-start: var(--red-dark-4);
+	--color-button-destructive-end: var(--red-dark-5);
+	--color-button-destructive-foreground: var(--red-dark-12);
 }
