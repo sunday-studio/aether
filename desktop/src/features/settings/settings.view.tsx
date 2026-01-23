@@ -1,140 +1,81 @@
+import {
+	BrainIcon,
+	Palette,
+	SettingsIcon,
+	SparklesIcon,
+	SwatchBook,
+} from "lucide-react";
+import { useState } from "react";
 import { Radio, RadioGroup } from "~/components/shared/radio";
 import { useThemeContext } from "~/context/theme-context";
+import { cn } from "~/utils/cn";
+import { ModelsSection } from "./components/models.section";
+import { PreferencesSection } from "./components/preferences.section";
+import { WhatsNewSection } from "./components/whats-new.section";
+
+type AvailableSections = "preferences" | "models" | "whats-new";
 
 export const SettingsView = () => {
-	const {
-		interfaceTheme,
-		themeLight,
-		themeDark,
-		setInterfaceTheme,
-		setThemeLight,
-		setThemeDark,
-		isLoading,
-	} = useThemeContext();
+	const [selectedSection, setSelectedSection] =
+		useState<AvailableSections>("preferences");
+
+	const sections: Record<
+		AvailableSections,
+		{ label: string; icon: React.ReactNode; component: React.ReactNode }
+	> = {
+		preferences: {
+			label: "Preferences",
+			icon: <Palette className="size-4" strokeWidth={2.5} />,
+			component: <PreferencesSection />,
+		},
+		models: {
+			label: "Models",
+			icon: <BrainIcon className="size-4" strokeWidth={2.5} />,
+			component: <ModelsSection />,
+		},
+		"whats-new": {
+			label: "What's New",
+			icon: <SparklesIcon className="size-4" strokeWidth={2.5} />,
+			component: <WhatsNewSection />,
+		},
+	};
 
 	return (
-		<div className="max-w-4xl mx-auto p-8">
-			<div className="mb-8">
-				<h1 className="text-3xl font-semibold text-neutral-900 mb-2">
-					Settings
-				</h1>
-				<p className="text-neutral-600">
-					Customize your app appearance and preferences
-				</p>
-			</div>
-
-			<div className="space-y-8">
-				{/* Theme Mode Section */}
-				<section className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm">
-					<div className="mb-6">
-						<h2 className="text-xl font-semibold text-neutral-900 mb-1">
-							Appearance
-						</h2>
-						<p className="text-sm text-neutral-600">
-							Choose how the app looks and feels
-						</p>
-					</div>
-
-					<div className="space-y-6">
-						{/* Interface Theme */}
-						<div>
-							<RadioGroup
-								label="Theme Mode"
-								description="Choose between light, dark, or system preference"
-								value={interfaceTheme}
-								onChange={(value) =>
-									setInterfaceTheme(value as "light" | "dark" | "system")
-								}
-								isDisabled={isLoading}
+		<div className="w-full h-full mx-auto grid grid-cols-24">
+			<div className="col-span-8 py-8 sticky top-0 h-screen flex justify-end pr-15 bg-neutral-50">
+				<div className="flex flex-col gap-1 items-start">
+					{Object.entries(sections).map(([section, { label, icon }]) => {
+						const isSelected = selectedSection === section;
+						return (
+							<button
+								key={section}
+								onClick={() => setSelectedSection(section as AvailableSections)}
+								type="button"
+								className={cn(
+									"flex items-center gap-2 cursor-pointer text-sm text-(--color-secondary-text) hover:text-(--color-secondary-text-hover) py-1.5 px-2.5",
+									{
+										"text-(--color-active-text) hover:text-(--color-active-text-hover)":
+											isSelected,
+										"hover:text-(--color-secondary-text-hover)": !isSelected,
+									},
+								)}
 							>
-								<Radio value="light">Light</Radio>
-								<Radio value="dark">Dark</Radio>
-								<Radio value="system">System</Radio>
-							</RadioGroup>
-						</div>
-
-						{/* Light Theme Variant */}
-						{interfaceTheme === "light" || interfaceTheme === "system" ? (
-							<div>
-								<RadioGroup
-									label="Light Theme"
-									description="Choose a light theme variant"
-									value={themeLight}
-									onChange={(value) =>
-										setThemeLight(value as "light" | "amber")
-									}
-									isDisabled={isLoading}
-								>
-									<Radio value="light">Light (Neutral & White)</Radio>
-									<Radio value="amber">Amber (Warm & White)</Radio>
-								</RadioGroup>
-							</div>
-						) : null}
-
-						{/* Dark Theme Variant */}
-						{interfaceTheme === "dark" || interfaceTheme === "system" ? (
-							<div>
-								<RadioGroup
-									label="Dark Theme"
-									description="Choose a dark theme variant"
-									value={themeDark}
-									onChange={(value) => setThemeDark(value as "dark" | "lime")}
-									isDisabled={isLoading}
-								>
-									<Radio value="dark">Dark (Neutral & Black)</Radio>
-									<Radio value="lime">Lime (Lime & Dark Gray)</Radio>
-								</RadioGroup>
-							</div>
-						) : null}
-					</div>
-
-					{/* Theme Preview */}
-					<div className="mt-6 pt-6 border-t border-neutral-200">
-						<div className="flex items-center gap-4">
-							<div className="flex-1">
-								<h3 className="text-sm font-medium text-neutral-900 mb-2">
-									Preview
-								</h3>
-								<p className="text-xs text-neutral-600">
-									Current theme:{" "}
-									<span className="font-medium">
-										{interfaceTheme === "system"
-											? "System"
-											: interfaceTheme === "light"
-												? themeLight
-												: themeDark}
-									</span>
-								</p>
-							</div>
-							<div className="flex gap-2">
-								{/* Preview cards */}
-								<div
-									className="w-16 h-16 rounded-lg border-2 border-neutral-300"
-									style={{
-										backgroundColor:
-											interfaceTheme === "light" || interfaceTheme === "system"
-												? themeLight === "light"
-													? "#fafafa"
-													: "#fffbeb"
-												: themeDark === "dark"
-													? "#0a0a0a"
-													: "#0f0f0f",
-									}}
-								/>
-								<div
-									className="w-16 h-16 rounded-lg border-2 border-neutral-300"
-									style={{
-										backgroundColor:
-											interfaceTheme === "light" || interfaceTheme === "system"
-												? "#ffffff"
-												: "#171717",
-									}}
-								/>
-							</div>
-						</div>
-					</div>
-				</section>
+								{icon}
+								<p className="text-xs">{label}</p>
+							</button>
+						);
+					})}
+				</div>
+			</div>
+			<div className="col-span-16 bg-transparent p-8">
+				{sections[selectedSection as AvailableSections].component}
 			</div>
 		</div>
 	);
 };
+
+// - preferences
+//   - theme
+//   - timezone
+// - models
+// - what's new

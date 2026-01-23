@@ -27,9 +27,9 @@ const NavigationControlItem = ({
 					to={route.route}
 					className={({ isActive }) =>
 						cn(
-							"text-sm flex shrink-0 items-center justify-center w-9.5 h-9.5 rounded-full hover:bg-(--color-navigation-control-hover) transition-all duration-300",
+							"text-sm flex shrink-0 items-center text-(--color-navigation-control-foreground) justify-center w-9.5 h-9.5 rounded-full hover:bg-(--color-navigation-control-hover) transition-all duration-300 hover:text-(--color-navigation-control-active-foreground)",
 							{
-								"bg-(--color-navigation-control-active) text-(--color-foreground) hover:bg-(--color-navigation-control-hover)":
+								"bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:bg-(--color-navigation-control-hover)":
 									isActive && !isSettings,
 								"hover:bg-transparent": isSettings,
 							},
@@ -55,24 +55,24 @@ const routes = [
 		shortcut: ["⌘", "T"],
 		icon: <BadgeCheck className="size-5.5" />,
 	},
-	{
-		label: "Bookmarks",
-		route: "/bookmarks",
-		shortcut: ["⌘", "B"],
-		icon: <Bookmark className="size-5.5" />,
-	},
-	{
-		label: "Canvas",
-		route: "/canvas",
-		shortcut: ["⌘", "C"],
-		icon: <Atom className="size-5.5" />,
-	},
-	{
-		label: "Graph",
-		route: "/graph",
-		shortcut: ["⌘", "G"],
-		icon: <Network className="size-5.5" />,
-	},
+	// {
+	// 	label: "Bookmarks",
+	// 	route: "/bookmarks",
+	// 	shortcut: ["⌘", "B"],
+	// 	icon: <Bookmark className="size-5.5" />,
+	// },
+	// {
+	// 	label: "Canvas",
+	// 	route: "/canvas",
+	// 	shortcut: ["⌘", "C"],
+	// 	icon: <Atom className="size-5.5" />,
+	// },
+	// {
+	// 	label: "Graph",
+	// 	route: "/graph",
+	// 	shortcut: ["⌘", "G"],
+	// 	icon: <Network className="size-5.5" />,
+	// },
 	{
 		label: "Settings",
 		route: "/settings",

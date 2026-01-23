@@ -270,7 +270,6 @@ html {
 		"cv04" on,
 		"cv11" on;
 	background-color: var(--blue-1);
-	/* var(--color-background, var(--color-neutral-50)); */
 	line-height: 1.5;
 	transition:
 		background-color color 0.2s ease,
@@ -303,7 +302,7 @@ html {
 	box-shadow:
 		rgba(0, 20, 20, 0.1) 0px 20px 140px 0px,
 		rgba(0, 20, 20, 0.1) 0px 25px 20px 0px,
-		var(--color-ring) 0px 0px 0px 1px inset,
+		var(--color-navigation-control-inset) 0px 0px 0px 1px inset,
 		rgba(0, 0, 0, 0.04) 0px 0px 0px 1px;
 }
 

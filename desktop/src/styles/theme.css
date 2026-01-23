@@ -5,7 +5,7 @@
   Replace it with :root for base (default) variables.
 */
 
-:root {
+/* :root {
 	--color-neutral-50: oklch(0.98 0 0);
 	--color-neutral-100: oklch(0.96 0 0);
 	--color-neutral-200: oklch(0.9 0 0);
@@ -39,26 +39,23 @@
 	--color-input: oklch(0.9 0 0);
 	--color-ring: var(--color-red-100);
 	--radius: 0.625rem;
-	/* --color
-	rgb(255, 255, 255)  */
 
-	/* navigation-control */
-	--color-navigation-control-active: var(--green-dark-9);
+	--color-navigation-control-active: var(--green-dark-1);
 	--color-navigation-control-hover: var(--green-dark-8);
-	--color-navigation-control-active-background: var(--green-dark-9);
+	--color-navigation-control-foreground: var(--color-neutral-500);
+	--color-navigation-control-active-foreground: var(--color-neutral-100);
 
-	/* activity heatmap */
 	--color-activity-heatmap-index-0: var(--color-neutral-100);
 	--color-activity-heatmap-index-1: var(--color-green-300);
 	--color-activity-heatmap-index-2: var(--color-green-400);
 	--color-activity-heatmap-index-3: var(--color-green-500);
 	--color-activity-heatmap-index-4: var(--color-green-700);
-}
+} */
 
 [data-theme="light"] {
 	--color-background: oklch(1 0 0);
 	--color-foreground: oklch(0.09 0 0);
-	--color-card: oklch(0.98 0 0);
+	--color-card: var(--color-white);
 	--color-card-foreground: oklch(0.09 0 0);
 	--color-popover: oklch(1 0 0);
 	--color-popover-foreground: oklch(0.09 0 0);
@@ -77,10 +74,19 @@
 	--color-ring: var(--color-neutral-50);
 	--radius: 0.625rem;
 
+	/* general-purpose */
+	--color-secondary-text: var(--color-neutral-500);
+	--color-secondary-text-hover: var(--color-neutral-600);
+	--color-active-text: var(--color-green-700);
+	--color-active-text-hover: var(--color-green-900);
+
 	/* navigation-control */
-	--color-navigation-control-active: var(--green-dark-9);
+	--color-navigation-control-active: var(--green-dark-4);
 	--color-navigation-control-hover: var(--green-dark-8);
 	--color-navigation-control-active-background: var(--green-dark-9);
+	--color-navigation-control-foreground: var(--color-neutral-600);
+	--color-navigation-control-active-foreground: var(--color-neutral-100);
+	--color-navigation-control-inset: rgb(255, 255, 255);
 
 	/* activity heatmap */
 	--color-activity-heatmap-index-0: var(--color-neutral-100);
