@@ -388,7 +388,7 @@ impl BookmarkRepository {
         
         let mut rows = conn
             .query(
-                "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at
+                "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at, t._sync_id, t._updated_at, t._deleted, t._extra
                  FROM tags t
                  INNER JOIN bookmark_tags bt ON t.id = bt.tag_id
                  WHERE bt.bookmark_id = ?1 AND t.deleted_at IS NULL
@@ -405,6 +405,10 @@ impl BookmarkRepository {
             let created_at_str: String = row.get(2).map_err(|e| AppError::LibSQL(e))?;
             let updated_at_str: String = row.get(3).map_err(|e| AppError::LibSQL(e))?;
             let deleted_at_str: Option<String> = row.get(4).map_err(|e| AppError::LibSQL(e))?;
+            let _sync_id: Option<String> = row.get(5).ok();
+            let _updated_at: Option<i64> = row.get(6).ok();
+            let _deleted: i64 = row.get(7).unwrap_or(0);
+            let _extra: Option<serde_json::Value> = row.get::<Option<String>>(8).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -423,6 +427,10 @@ impl BookmarkRepository {
                 created_at,
                 updated_at,
                 deleted_at,
+                _sync_id,
+                _updated_at,
+                _deleted: _deleted != 0,
+                _extra,
             });
         }
 
