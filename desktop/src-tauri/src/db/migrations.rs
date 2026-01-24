@@ -56,7 +56,6 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
     
     // Try to create the schema_migrations table
-    // In replica mode, this might fail if the remote doesn't support it, but we'll handle that
     match conn.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +73,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             let error_msg = e.to_string();
             // If CREATE TABLE fails, we'll try to continue anyway
             // The query below will handle the missing table case
-            tracing::warn!("Failed to create schema_migrations table (may not be supported in replica mode): {}", error_msg);
+            tracing::warn!("Failed to create schema_migrations table: {}", error_msg);
         }
     }
 
@@ -120,7 +119,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     migration_files.sort();
 
     // Get applied migrations
-    // Handle the case where the table might not exist yet (e.g., in a new replica)
+    // Handle the case where the table might not exist yet
     let mut applied_versions = std::collections::HashSet::new();
     
     match conn.query("SELECT version FROM schema_migrations ORDER BY version", libsql::params![]).await {
@@ -134,7 +133,6 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         Err(e) => {
             let error_msg = e.to_string();
             // If the table doesn't exist, that's fine - we'll treat it as no migrations applied
-            // This can happen in a new replica database
             if error_msg.contains("no such table") || error_msg.contains("does not exist") {
                 tracing::debug!("schema_migrations table doesn't exist yet, treating as no migrations applied");
             } else {
@@ -399,7 +397,6 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
 
         // Record migration
         // Use INSERT OR IGNORE to handle the case where migration was already applied
-        // (e.g., if remote already has it from a previous sync)
         let applied_at = chrono::Utc::now();
         conn.execute(
             "INSERT OR IGNORE INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",

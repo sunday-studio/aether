@@ -33,7 +33,6 @@ impl SettingsRepository {
     }
 
     /// Set a setting (insert or update)
-    /// Uses a compatible approach for LibSQL replicas (check then insert/update)
     pub async fn set(&self, key: &str, value: &str) -> Result<Setting> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
