@@ -22,7 +22,7 @@ impl GoalRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at 
+                "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE deleted_at IS NULL 
                  ORDER BY created_at DESC",
@@ -45,7 +45,7 @@ impl GoalRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at 
+                "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE id = ?1 AND deleted_at IS NULL",
                 libsql::params![id],
@@ -80,6 +80,7 @@ impl GoalRepository {
 
         let id = generate_id("goal");
         let now = Utc::now();
+        let now_ms = now.timestamp_millis();
         let created_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
         let recurrence_anchor_str = recurrence_anchor.map(|d| d.to_rfc3339());
@@ -87,8 +88,8 @@ impl GoalRepository {
 
         // Insert goal
         conn.execute(
-            "INSERT INTO goals (id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO goals (id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 0, '{}')",
             libsql::params![
                 id.clone(),
                 name.clone(),
@@ -100,7 +101,9 @@ impl GoalRepository {
                 recurrence_meta_str.as_ref().map(|s| s.as_str()),
                 timezone.clone(),
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
@@ -118,15 +121,17 @@ impl GoalRepository {
             let instance_created_at_str_1 = instance_created_at_str.clone();
             let instance_created_at_str_2 = instance_created_at_str.clone();
             conn.execute(
-                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
-                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
+                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, 0, '{}')",
                 libsql::params![
-                    instance_id,
+                    instance_id.clone(),
                     id.clone(),
                     instance_created_at_str,
                     "active",
                     instance_created_at_str_1,
-                    instance_created_at_str_2
+                    instance_created_at_str_2,
+                    instance_id,
+                    now_ms,
                 ],
             )
             .await
@@ -152,16 +157,18 @@ impl GoalRepository {
             let instance_created_at_str_2 = instance_created_at_str.clone();
 
             conn.execute(
-                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
                 libsql::params![
-                    instance_id,
+                    instance_id.clone(),
                     id.clone(),
                     period_start_str,
                     period_end_str,
                     "active",
                     instance_created_at_str_1,
-                    instance_created_at_str_2
+                    instance_created_at_str_2,
+                    instance_id,
+                    now_ms,
                 ],
             )
             .await
@@ -251,6 +258,8 @@ impl GoalRepository {
         }
 
         goal.updated_at = Utc::now();
+        let now_ms = goal.updated_at.timestamp_millis();
+        goal._updated_at = Some(now_ms);
 
         let updated_at_str = goal.updated_at.to_rfc3339();
         let recurrence_anchor_str = goal.recurrence_anchor.map(|d| d.to_rfc3339());
@@ -258,8 +267,8 @@ impl GoalRepository {
 
         conn.execute(
             "UPDATE goals 
-             SET name = ?1, description = ?2, is_non_recurring = ?3, recurrence_type = ?4, recurrence_interval = ?5, recurrence_anchor = ?6, recurrence_meta = ?7, updated_at = ?8 
-             WHERE id = ?9",
+             SET name = ?1, description = ?2, is_non_recurring = ?3, recurrence_type = ?4, recurrence_interval = ?5, recurrence_anchor = ?6, recurrence_meta = ?7, updated_at = ?8, _updated_at = ?9 
+             WHERE id = ?10",
             libsql::params![
                 goal.name.clone(),
                 goal.description.as_ref().map(|s| s.as_str()),
@@ -269,6 +278,7 @@ impl GoalRepository {
                 recurrence_anchor_str.as_ref().map(|s| s.as_str()),
                 recurrence_meta_str.as_ref().map(|s| s.as_str()),
                 updated_at_str,
+                now_ms,
                 id
             ],
         )
@@ -291,6 +301,7 @@ impl GoalRepository {
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
         let deleted_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
 
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
@@ -300,8 +311,8 @@ impl GoalRepository {
         let deleted_at_str_1 = deleted_at_str.clone();
         let updated_at_str_1 = updated_at_str.clone();
         conn.execute(
-            "UPDATE goals SET deleted_at = ?1, updated_at = ?2 WHERE id = ?3",
-            libsql::params![deleted_at_str_1, updated_at_str_1, id],
+            "UPDATE goals SET deleted_at = ?1, updated_at = ?2, _updated_at = ?3, _deleted = 1 WHERE id = ?4",
+            libsql::params![deleted_at_str_1, updated_at_str_1, now_ms, id],
         )
         .await
         .map_err(|e| {
@@ -311,8 +322,8 @@ impl GoalRepository {
 
         // Soft delete instances
         conn.execute(
-            "UPDATE goal_instances SET deleted_at = ?1, updated_at = ?2 WHERE goal_id = ?3",
-            libsql::params![deleted_at_str, updated_at_str, id],
+            "UPDATE goal_instances SET deleted_at = ?1, updated_at = ?2, _updated_at = ?3, _deleted = 1 WHERE goal_id = ?4",
+            libsql::params![deleted_at_str, updated_at_str, now_ms, id],
         )
         .await
         .map_err(|e| {
@@ -339,7 +350,7 @@ impl GoalRepository {
 
         let mut rows = conn
             .query(
-                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at 
+                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 
                  ORDER BY period_start DESC",
@@ -371,7 +382,7 @@ impl GoalRepository {
         // Get last instance
         let mut rows = conn
             .query(
-                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at 
+                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 
                  ORDER BY created_at DESC 
@@ -399,20 +410,23 @@ impl GoalRepository {
             // Create instance for non-recurring goal
             let instance_id = generate_id("goal_instance");
             let now = Utc::now();
+            let now_ms = now.timestamp_millis();
             let created_at_str = now.to_rfc3339();
             let created_at_str_1 = created_at_str.clone();
             let updated_at_str = created_at_str.clone();
 
             conn.execute(
-                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
-                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
+                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, 0, '{}')",
                 libsql::params![
                     instance_id.clone(),
                     goal_id,
                     created_at_str,
                     "active",
                     created_at_str_1,
-                    updated_at_str
+                    updated_at_str,
+                    instance_id.clone(),
+                    now_ms,
                 ],
             )
             .await
@@ -428,7 +442,7 @@ impl GoalRepository {
             // Return created instance
             let mut rows = conn
                 .query(
-                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at 
+                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                      FROM goal_instances 
                      WHERE id = ?1",
                     libsql::params![instance_id],
@@ -464,6 +478,7 @@ impl GoalRepository {
             };
 
             let now = Utc::now();
+            let now_ms = now.timestamp_millis();
             let (period_start, period_end) = calculate_goal_period(recurring_goal, now, tz);
             let period_start_str = period_start.to_rfc3339();
             let period_end_str = period_end.to_rfc3339();
@@ -473,8 +488,8 @@ impl GoalRepository {
             let updated_at_str = created_at_str.clone();
 
             conn.execute(
-                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
                 libsql::params![
                     instance_id.clone(),
                     goal_id,
@@ -482,7 +497,9 @@ impl GoalRepository {
                     period_end_str,
                     "active",
                     created_at_str,
-                    updated_at_str
+                    updated_at_str,
+                    instance_id.clone(),
+                    now_ms,
                 ],
             )
             .await
@@ -492,13 +509,13 @@ impl GoalRepository {
             })?;
 
             conn.execute("COMMIT", libsql::params![])
-                .await
-                .map_err(|e| AppError::LibSQL(e))?;
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
 
             // Return created instance
             let mut rows = conn
                 .query(
-                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at 
+                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                      FROM goal_instances 
                      WHERE id = ?1",
                     libsql::params![instance_id],
@@ -552,14 +569,16 @@ impl GoalRepository {
         }
 
         // Insert tag associations (skip if already exists)
+        let now_ms = Utc::now().timestamp_millis();
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         for tag_id in &tag_ids {
+            let sync_id = format!("{}|{}", goal_id, tag_id);
             conn.execute(
-                "INSERT OR IGNORE INTO goal_tags (goal_id, tag_id) VALUES (?1, ?2)",
-                libsql::params![goal_id, tag_id.as_str()],
+                "INSERT OR IGNORE INTO goal_tags (goal_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, '{}')",
+                libsql::params![goal_id, tag_id.as_str(), sync_id, now_ms],
             )
             .await
             .map_err(|e| {
@@ -645,6 +664,11 @@ impl GoalRepository {
             .map(|s| serde_json::from_str(&s).ok())
             .flatten();
 
+        let _sync_id: Option<String> = row.get(12).ok();
+        let _updated_at: Option<i64> = row.get(13).ok();
+        let _deleted: i64 = row.get(14).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(15).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+
         Ok(Goal {
             id,
             name,
@@ -658,6 +682,10 @@ impl GoalRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 
@@ -669,6 +697,10 @@ impl GoalRepository {
         let period_end_str: Option<String> = row.get(3).map_err(|e| AppError::LibSQL(e))?;
         let status: String = row.get(4).map_err(|e| AppError::LibSQL(e))?;
         let created_at_str: String = row.get(5).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(8).ok();
+        let _updated_at: Option<i64> = row.get(9).ok();
+        let _deleted: i64 = row.get(10).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let period_start = chrono::DateTime::parse_from_rfc3339(&period_start_str)
             .map_err(|e| AppError::Internal(format!("Invalid period_start: {}", e)))?
@@ -688,6 +720,10 @@ impl GoalRepository {
             period_end,
             status,
             created_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }
