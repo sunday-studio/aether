@@ -20,7 +20,7 @@ impl EntryRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at 
+                "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE is_deleted = 0 
                  ORDER BY created_at ASC",
@@ -43,7 +43,7 @@ impl EntryRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at 
+                "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE id = ?1 AND is_deleted = 0",
                 libsql::params![id],
@@ -109,9 +109,10 @@ impl EntryRepository {
         });
         // #endregion
 
+        let now_ms = now.timestamp_millis();
         let execute_result = conn.execute(
-            "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             libsql::params![
                 id.clone(),
                 document.clone(),
@@ -119,7 +120,11 @@ impl EntryRepository {
                 if is_pinned { 1 } else { 0 },
                 if is_archived { 1 } else { 0 },
                 if is_deleted { 1 } else { 0 },
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
+                if is_deleted { 1 } else { 0 },
+                "{}"
             ],
         )
         .await;
@@ -149,7 +154,7 @@ impl EntryRepository {
         execute_result.map_err(|e| AppError::LibSQL(e))?;
 
         Ok(Entry {
-            id,
+            id: id.clone(),
             document,
             created_at,
             is_pinned,
@@ -157,6 +162,10 @@ impl EntryRepository {
             is_deleted,
             updated_at: now,
             deleted_at: None,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: is_deleted,
+            _extra: None,
         })
     }
 
@@ -176,9 +185,10 @@ impl EntryRepository {
             let created_at_str = created_at.to_rfc3339();
             let updated_at_str = now.to_rfc3339();
 
+            let now_ms = now.timestamp_millis();
             conn.execute(
-                "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at) 
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 libsql::params![
                     id.clone(),
                     document.clone(),
@@ -186,7 +196,11 @@ impl EntryRepository {
                     if is_pinned { 1 } else { 0 },
                     if is_archived { 1 } else { 0 },
                     if is_deleted { 1 } else { 0 },
-                    updated_at_str
+                    updated_at_str,
+                    id.clone(),
+                    now_ms,
+                    if is_deleted { 1 } else { 0 },
+                    "{}"
                 ],
             )
             .await
@@ -196,7 +210,7 @@ impl EntryRepository {
             })?;
 
             entries.push(Entry {
-                id,
+                id: id.clone(),
                 document,
                 created_at,
                 is_pinned,
@@ -204,6 +218,10 @@ impl EntryRepository {
                 is_deleted,
                 updated_at: now,
                 deleted_at: None,
+                _sync_id: Some(id),
+                _updated_at: Some(now_ms),
+                _deleted: is_deleted,
+                _extra: None,
             });
         }
 
@@ -246,19 +264,24 @@ impl EntryRepository {
         entry.is_archived = is_archived;
         entry.is_deleted = is_deleted;
         entry.updated_at = Utc::now();
+        let now_ms = entry.updated_at.timestamp_millis();
+        entry._updated_at = Some(now_ms);
+        entry._deleted = is_deleted;
 
         let updated_at_str = entry.updated_at.to_rfc3339();
 
         conn.execute(
             "UPDATE entries 
-             SET document = ?1, is_pinned = ?2, is_archived = ?3, is_deleted = ?4, updated_at = ?5 
-             WHERE id = ?6",
+             SET document = ?1, is_pinned = ?2, is_archived = ?3, is_deleted = ?4, updated_at = ?5, _updated_at = ?6, _deleted = ?7 
+             WHERE id = ?8",
             libsql::params![
                 entry.document.clone(),
                 if entry.is_pinned { 1 } else { 0 },
                 if entry.is_archived { 1 } else { 0 },
                 if entry.is_deleted { 1 } else { 0 },
                 updated_at_str,
+                now_ms,
+                if entry.is_deleted { 1 } else { 0 },
                 id
             ],
         )
@@ -280,10 +303,11 @@ impl EntryRepository {
 
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "UPDATE entries SET is_deleted = 1, updated_at = ?1 WHERE id = ?2",
-            libsql::params![updated_at_str, id],
+            "UPDATE entries SET is_deleted = 1, updated_at = ?1, _updated_at = ?2, _deleted = 1 WHERE id = ?3",
+            libsql::params![updated_at_str, now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -322,10 +346,12 @@ impl EntryRepository {
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
+        let now_ms = Utc::now().timestamp_millis();
         for tag_id in &tag_ids {
+            let sync_id = format!("{}|{}", entry_id, tag_id);
             conn.execute(
-                "INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?1, ?2)",
-                libsql::params![entry_id, tag_id.as_str()],
+                "INSERT OR IGNORE INTO entry_tags (entry_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, '{}')",
+                libsql::params![entry_id, tag_id.as_str(), sync_id, now_ms],
             )
             .await
             .map_err(|e| {
@@ -381,6 +407,10 @@ impl EntryRepository {
         let is_deleted: i64 = row.get(5).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(6).map_err(|e| AppError::LibSQL(e))?;
         let deleted_at_str: Option<String> = row.get(7).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(8).ok();
+        let _updated_at: Option<i64> = row.get(9).ok();
+        let _deleted: i64 = row.get(10).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -402,6 +432,10 @@ impl EntryRepository {
             is_deleted: is_deleted != 0,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }
