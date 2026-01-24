@@ -71,6 +71,38 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
     s
 }
 
+/// Encrypt plaintext for blob storage. Returns 12-byte nonce + raw ciphertext.
+/// Use with PUT /media/{hash}; decrypt_blob on download.
+pub fn encrypt_blob(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>> {
+    let cipher = ChaCha20Poly1305::new_from_slice(key)
+        .map_err(|e| AppError::Sync(format!("ChaCha20: {}", e)))?;
+    let mut nonce = [0u8; NONCE_LEN];
+    OsRng.fill_bytes(&mut nonce);
+    let ciphertext = cipher
+        .encrypt((&nonce).into(), plaintext)
+        .map_err(|e| AppError::Sync(format!("encrypt blob: {}", e)))?;
+    let mut out = nonce.to_vec();
+    out.extend(ciphertext);
+    Ok(out)
+}
+
+/// Decrypt a blob body (12-byte nonce + ciphertext).
+pub fn decrypt_blob(key: &[u8; KEY_LEN], body: &[u8]) -> Result<Vec<u8>> {
+    if body.len() < NONCE_LEN {
+        return Err(AppError::Sync("blob too short".into()));
+    }
+    let (nonce, ct) = body.split_at(NONCE_LEN);
+    let cipher = ChaCha20Poly1305::new_from_slice(key)
+        .map_err(|e| AppError::Sync(format!("ChaCha20: {}", e)))?;
+    let nonce_arr: [u8; NONCE_LEN] = nonce
+        .try_into()
+        .map_err(|_| AppError::Sync("invalid nonce length".into()))?;
+    let plain = cipher
+        .decrypt((&nonce_arr).into(), ct)
+        .map_err(|e| AppError::Sync(format!("decrypt blob: {}", e)))?;
+    Ok(plain)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

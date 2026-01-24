@@ -1,7 +1,9 @@
 //! Push: read _sync_outbox, build ChangeEnvelopes, encrypt, POST /push, clear outbox on success.
 
 use crate::error::{AppError, Result};
+use crate::media::get_media_directory;
 use crate::sync::encryption;
+use crate::sync::media;
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
 use libsql::Database;
@@ -113,8 +115,229 @@ async fn fetch_row_json(
     match entity {
         "entries" => fetch_entries_row(db, entity_id).await,
         "tags" => fetch_tags_row(db, entity_id).await,
+        "tasks" => fetch_tasks_row(db, entity_id).await,
+        "goals" => fetch_goals_row(db, entity_id).await,
+        "canvases" => fetch_canvases_row(db, entity_id).await,
+        "bookmarks" => fetch_bookmarks_row(db, entity_id).await,
+        "media_items" => fetch_media_items_row(db, entity_id).await,
+        "audio_transcriptions" => fetch_audio_transcriptions_row(db, entity_id).await,
+        "entry_tags" => fetch_entry_tags_row(db, entity_id).await,
+        "task_tags" => fetch_task_tags_row(db, entity_id).await,
+        "goal_tags" => fetch_goal_tags_row(db, entity_id).await,
+        "goal_instance_tags" => fetch_goal_instance_tags_row(db, entity_id).await,
+        "bookmark_tags" => fetch_bookmark_tags_row(db, entity_id).await,
+        "goal_instances" => fetch_goal_instances_row(db, entity_id).await,
+        "subtasks" => fetch_subtasks_row(db, entity_id).await,
         _ => Ok(None),
     }
+}
+
+async fn fetch_entry_tags_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT entry_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM entry_tags WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(3).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "entry_id": row.get::<String>(0).ok(),
+        "tag_id": row.get::<String>(1).ok(),
+        "_sync_id": row.get::<Option<String>>(2).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(3).ok().flatten(),
+        "_deleted": row.get::<i64>(4).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(5).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_task_tags_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT task_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM task_tags WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(3).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "task_id": row.get::<String>(0).ok(),
+        "tag_id": row.get::<String>(1).ok(),
+        "_sync_id": row.get::<Option<String>>(2).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(3).ok().flatten(),
+        "_deleted": row.get::<i64>(4).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(5).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_goal_tags_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT goal_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM goal_tags WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(3).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "goal_id": row.get::<String>(0).ok(),
+        "tag_id": row.get::<String>(1).ok(),
+        "_sync_id": row.get::<Option<String>>(2).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(3).ok().flatten(),
+        "_deleted": row.get::<i64>(4).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(5).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_goal_instance_tags_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT goal_instance_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM goal_instance_tags WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(3).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "goal_instance_id": row.get::<String>(0).ok(),
+        "tag_id": row.get::<String>(1).ok(),
+        "_sync_id": row.get::<Option<String>>(2).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(3).ok().flatten(),
+        "_deleted": row.get::<i64>(4).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(5).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_bookmark_tags_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT bookmark_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM bookmark_tags WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(3).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "bookmark_id": row.get::<String>(0).ok(),
+        "tag_id": row.get::<String>(1).ok(),
+        "_sync_id": row.get::<Option<String>>(2).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(3).ok().flatten(),
+        "_deleted": row.get::<i64>(4).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(5).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_goal_instances_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goal_instances WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(9).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "goal_id": row.get::<String>(1).ok(),
+        "period_start": row.get::<String>(2).ok(),
+        "period_end": row.get::<Option<String>>(3).ok().flatten(),
+        "status": row.get::<String>(4).ok(),
+        "created_at": row.get::<String>(5).ok(),
+        "updated_at": row.get::<Option<String>>(6).ok().flatten(),
+        "deleted_at": row.get::<Option<String>>(7).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(8).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(9).ok().flatten(),
+        "_deleted": row.get::<i64>(10).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(11).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_subtasks_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM subtasks WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(9).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "title": row.get::<String>(1).ok(),
+        "is_completed": row.get::<i64>(2).map(|v| v != 0).unwrap_or(false),
+        "task_id": row.get::<String>(3).ok(),
+        "order_index": row.get::<i64>(4).unwrap_or(0),
+        "created_at": row.get::<String>(5).ok(),
+        "updated_at": row.get::<String>(6).ok(),
+        "deleted_at": row.get::<Option<String>>(7).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(8).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(9).ok().flatten(),
+        "_deleted": row.get::<i64>(10).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(11).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
 }
 
 async fn fetch_entries_row(
@@ -201,6 +424,238 @@ async fn fetch_tags_row(
         "_updated_at": _updated_at,
         "_deleted": _deleted != 0,
         "_extra": _extra.unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_tasks_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM tasks WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(11).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "title": row.get::<String>(1).ok(),
+        "description": row.get::<Option<String>>(2).ok().flatten(),
+        "is_completed": row.get::<i64>(3).map(|v| v != 0).unwrap_or(false),
+        "due_date": row.get::<Option<String>>(4).ok().flatten(),
+        "goal_instance_id": row.get::<Option<String>>(5).ok().flatten(),
+        "goal_id": row.get::<Option<String>>(6).ok().flatten(),
+        "created_at": row.get::<String>(7).ok(),
+        "updated_at": row.get::<String>(8).ok(),
+        "deleted_at": row.get::<Option<String>>(9).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(10).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(11).ok().flatten(),
+        "_deleted": row.get::<i64>(12).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(13).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_goals_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goals WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(13).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "name": row.get::<String>(1).ok(),
+        "description": row.get::<Option<String>>(2).ok().flatten(),
+        "is_non_recurring": row.get::<i64>(3).map(|v| v != 0).unwrap_or(true),
+        "recurrence_type": row.get::<Option<String>>(4).ok().flatten(),
+        "recurrence_interval": row.get::<Option<i64>>(5).ok().flatten(),
+        "recurrence_anchor": row.get::<Option<String>>(6).ok().flatten(),
+        "recurrence_meta": row.get::<Option<String>>(7).ok().flatten(),
+        "timezone": row.get::<String>(8).ok(),
+        "created_at": row.get::<String>(9).ok(),
+        "updated_at": row.get::<String>(10).ok(),
+        "deleted_at": row.get::<Option<String>>(11).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(12).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(13).ok().flatten(),
+        "_deleted": row.get::<i64>(14).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(15).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_canvases_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM canvases WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(7).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "name": row.get::<String>(1).ok(),
+        "canvas_data": row.get::<String>(2).ok(),
+        "created_at": row.get::<String>(3).ok(),
+        "updated_at": row.get::<String>(4).ok(),
+        "deleted_at": row.get::<Option<String>>(5).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(6).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(7).ok().flatten(),
+        "_deleted": row.get::<i64>(8).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(9).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_bookmarks_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM bookmarks WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(17).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "url": row.get::<String>(1).ok(),
+        "title": row.get::<Option<String>>(2).ok().flatten(),
+        "description": row.get::<Option<String>>(3).ok().flatten(),
+        "image_url": row.get::<Option<String>>(4).ok().flatten(),
+        "favicon_url": row.get::<Option<String>>(5).ok().flatten(),
+        "site_name": row.get::<Option<String>>(6).ok().flatten(),
+        "author": row.get::<Option<String>>(7).ok().flatten(),
+        "published_at": row.get::<Option<String>>(8).ok().flatten(),
+        "content_type": row.get::<Option<String>>(9).ok().flatten(),
+        "metadata_json": row.get::<Option<String>>(10).ok().flatten(),
+        "is_archived": row.get::<i64>(11).map(|v| v != 0).unwrap_or(false),
+        "is_deleted": row.get::<i64>(12).map(|v| v != 0).unwrap_or(false),
+        "created_at": row.get::<String>(13).ok(),
+        "updated_at": row.get::<String>(14).ok(),
+        "deleted_at": row.get::<Option<String>>(15).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(16).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(17).ok().flatten(),
+        "_deleted": row.get::<i64>(18).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(19).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_media_items_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra FROM media_items WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(9).ok().flatten().unwrap_or(0);
+    let file_path: Option<String> = row.get(4).ok().flatten();
+    let mut data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "entity_type": row.get::<String>(1).ok(),
+        "entity_id": row.get::<String>(2).ok(),
+        "media_type": row.get::<String>(3).ok(),
+        "file_path": row.get::<String>(4).ok(),
+        "metadata": row.get::<String>(5).ok(),
+        "created_at": row.get::<String>(6).ok(),
+        "updated_at": row.get::<String>(7).ok(),
+        "_sync_id": row.get::<Option<String>>(8).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(9).ok().flatten(),
+        "_deleted": row.get::<i64>(10).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(11).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    if let Some(fp) = file_path {
+        if let Ok(media_dir) = get_media_directory() {
+            let full = media_dir.join(&fp);
+            if let Ok(bytes) = std::fs::read(&full) {
+                if let Some(obj) = data.as_object_mut() {
+                    obj.insert(
+                        "content_hash".into(),
+                        serde_json::Value::String(media::media_hash(&bytes)),
+                    );
+                }
+            }
+        }
+    }
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_audio_transcriptions_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra FROM audio_transcriptions WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(11).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "media_id": row.get::<String>(1).ok(),
+        "transcription_text": row.get::<String>(2).ok(),
+        "provider": row.get::<String>(3).ok(),
+        "provider_config": row.get::<Option<String>>(4).ok().flatten(),
+        "confidence_score": row.get::<Option<f64>>(5).ok().flatten(),
+        "status": row.get::<String>(6).ok(),
+        "error_message": row.get::<Option<String>>(7).ok().flatten(),
+        "is_active": row.get::<i64>(8).map(|v| v != 0).unwrap_or(false),
+        "created_at": row.get::<String>(9).ok(),
+        "_sync_id": row.get::<Option<String>>(10).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(11).ok().flatten(),
+        "_deleted": row.get::<i64>(12).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(13).ok().flatten().unwrap_or_else(|| "{}".into()),
     });
     Ok(Some((data, ts)))
 }

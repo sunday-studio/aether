@@ -32,6 +32,17 @@ impl SyncEngine {
         }
     }
 
+    /// Load server_url from persisted metadata into memory. Call after app start so
+    /// status().connected is true when sync was previously configured. Passphrase
+    /// is not stored; user must re-enter to run sync.
+    pub async fn hydrate_from_metadata(&self) -> Result<()> {
+        let db = get_database(&self.db);
+        if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
+            *self.server_url.lock().unwrap() = Some(url);
+        }
+        Ok(())
+    }
+
     /// Configure sync: server URL and passphrase. On first run, derives and stores key_salt/key_check.
     pub async fn configure(&self, server_url: String, passphrase: String) -> Result<()> {
         let db = get_database(&self.db);
@@ -65,7 +76,7 @@ impl SyncEngine {
         // Apply with triggers suppressed
         apply::with_suppress_triggers(&db, async {
             for e in &envelopes {
-                apply::apply_change(&db, e).await?;
+                apply::apply_change(&*db, e).await?;
             }
             Ok(())
         })
@@ -77,6 +88,21 @@ impl SyncEngine {
         let _ = push::push(db, &key, &url).await;
 
         self.status().await
+    }
+
+    /// Push only (no pull). Use on window blur to flush pending changes.
+    pub async fn push_pending(&self) -> Result<()> {
+        let (url, pass) = {
+            let u = self.server_url.lock().unwrap().clone();
+            let p = self.passphrase.lock().unwrap().clone();
+            (u, p)
+        };
+        let Some(url) = url else { return Ok(()); };
+        let Some(pass) = pass else { return Ok(()); };
+        let db = get_database(&self.db);
+        let key = metadata::verify_key(&db, &pass).await?;
+        let _ = push::push(db, &key, &url).await;
+        Ok(())
     }
 
     pub async fn status(&self) -> Result<SyncStatus> {
@@ -108,5 +134,17 @@ impl SyncEngine {
         *self.server_url.lock().unwrap() = None;
         *self.passphrase.lock().unwrap() = None;
         Ok(())
+    }
+
+    /// If sync is configured, returns the server URL. Used for on-demand media fetch.
+    pub fn try_get_url(&self) -> Option<String> {
+        self.server_url.lock().unwrap().clone()
+    }
+
+    /// If passphrase is in memory, verifies and returns the key. Used for on-demand media decrypt.
+    pub async fn try_get_key(&self) -> Option<[u8; 32]> {
+        let pass = self.passphrase.lock().unwrap().clone()?;
+        let db = get_database(&self.db);
+        metadata::verify_key(db.as_ref(), &pass).await.ok()
     }
 }

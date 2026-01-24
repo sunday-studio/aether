@@ -1,6 +1,7 @@
 pub mod apply;
 pub mod encryption;
 pub mod engine;
+pub mod media;
 pub mod metadata;
 pub mod pull;
 pub mod push;
