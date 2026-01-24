@@ -32,6 +32,9 @@ pub enum AppError {
 
     #[error("Provider not configured: {0}")]
     ProviderNotConfigured(String),
+
+    #[error("Sync error: {0}")]
+    Sync(String),
 }
 
 impl Serialize for AppError {

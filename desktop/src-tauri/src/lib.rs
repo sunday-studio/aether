@@ -6,6 +6,7 @@ pub mod error;
 pub mod handlers;
 pub mod media;
 pub mod settings;
+pub mod sync;
 pub mod transcription;
 pub mod utils;
 
@@ -14,6 +15,7 @@ pub use error::{AppError, Result};
 
 use commands::{
     activity, canvas, entry, goal, tag, task, trash, search, bookmark, link,
+    sync as sync_commands,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -65,8 +67,11 @@ pub fn run() {
         state
     });
 
+    let sync_engine = sync::SyncEngine::new(db_state.clone());
+
     builder
         .manage(db_state)
+        .manage(sync_engine)
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             // Tag commands
@@ -164,6 +169,11 @@ pub fn run() {
             commands::embeddings::download_embedding_model,
             commands::embeddings::verify_embedding_model,
             commands::embeddings::delete_embedding_model,
+            // Sync commands
+            sync_commands::configure_sync,
+            sync_commands::sync_now,
+            sync_commands::get_sync_status,
+            sync_commands::disconnect_sync,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

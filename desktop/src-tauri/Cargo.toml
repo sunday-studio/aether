@@ -84,7 +84,12 @@ urlencoding = "2.1"
 
 # Encryption
 aes-gcm = "0.10"
+argon2 = "0.5"
 base64 = "0.21"
+chacha20poly1305 = "0.10"
+hex = "0.4"
+rand = "0.8"
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 
 # Async traits
 async-trait = "0.1"
