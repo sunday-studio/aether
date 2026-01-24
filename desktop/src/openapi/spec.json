@@ -1423,58 +1423,6 @@
         }
       }
     },
-    "/v1/sync": {
-      "post": {
-        "tags": [
-          "Sync"
-        ],
-        "summary": "Manually trigger sync with remote database",
-        "description": "According to Turso's Offline Writes:\n- Pushes local WAL frames (offline writes) to remote\n- Pulls remote WAL frames to local\n- Returns number of frames synced\n\nReference: https://turso.tech/blog/introducing-offline-writes-for-turso",
-        "operationId": "sync",
-        "responses": {
-          "200": {
-            "description": "Sync completed successfully"
-          },
-          "400": {
-            "description": "Sync not available"
-          },
-          "500": {
-            "description": "Sync failed"
-          }
-        }
-      }
-    },
-    "/v1/sync/configure": {
-      "post": {
-        "tags": [
-          "Sync"
-        ],
-        "summary": "Configure sync with remote database",
-        "description": "This enables embedded replica mode with offline writes:\n- Writes go to local WAL first (offline writes)\n- Changes are automatically synced to remote\n- Existing local data is preserved and synced\n\nReference: https://turso.tech/blog/introducing-offline-writes-for-turso",
-        "operationId": "configure_sync",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConfigureSyncRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Sync configured successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "500": {
-            "description": "Failed to configure sync"
-          }
-        }
-      }
-    },
     "/v1/tags": {
       "get": {
         "tags": [
@@ -2735,22 +2683,6 @@
           }
         }
       },
-      "ConfigureSyncRequest": {
-        "type": "object",
-        "description": "Request to configure sync with remote database",
-        "required": [
-          "syncUrl"
-        ],
-        "properties": {
-          "authToken": {
-            "type": "string",
-            "nullable": true
-          },
-          "syncUrl": {
-            "type": "string"
-          }
-        }
-      },
       "CreateEntryRequest": {
         "type": "object",
         "required": [
@@ -3583,10 +3515,6 @@
     {
       "name": "Trash",
       "description": "Trash management endpoints"
-    },
-    {
-      "name": "Sync",
-      "description": "Sync management endpoints"
     },
     {
       "name": "Activities",

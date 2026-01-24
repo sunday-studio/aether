@@ -7,10 +7,19 @@ export type SyncStatus = {
 	connected: boolean;
 	pending_changes: number;
 	last_sync: number | null;
+	needs_passphrase: boolean;
 };
 
 async function getSyncStatus(): Promise<SyncStatus> {
 	return invoke<SyncStatus>("get_sync_status");
+}
+
+async function getSetting(key: string): Promise<{ key: string; value: string | null }> {
+	return invoke("get_setting", { key });
+}
+
+async function setSetting(key: string, value: string): Promise<void> {
+	return invoke("set_setting", { key, value });
 }
 
 async function syncNow(): Promise<SyncStatus> {
@@ -25,6 +34,10 @@ async function disconnectSync(): Promise<void> {
 	return invoke("disconnect_sync");
 }
 
+async function reconnectSync(passphrase: string): Promise<SyncStatus> {
+	return invoke<SyncStatus>("reconnect_sync", { passphrase });
+}
+
 export function useSync() {
 	const qc = useQueryClient();
 	const {
@@ -35,6 +48,11 @@ export function useSync() {
 		queryKey: ["sync", "status"],
 		queryFn: getSyncStatus,
 		refetchInterval: 30_000,
+	});
+
+	const { data: mediaPolicy } = useQuery({
+		queryKey: ["sync", "media_policy"],
+		queryFn: () => getSetting("sync.media_sync_policy").then((r) => r.value ?? "on_demand"),
 	});
 
 	useEffect(() => {
@@ -62,17 +80,37 @@ export function useSync() {
 		onSuccess: () => qc.invalidateQueries({ queryKey: ["sync", "status"] }),
 	});
 
+	const setMediaSyncPolicyMutation = useMutation({
+		mutationFn: (value: "auto" | "on_demand") =>
+			setSetting("sync.media_sync_policy", value),
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["sync", "status"] });
+			qc.invalidateQueries({ queryKey: ["sync", "media_policy"] });
+		},
+	});
+
+	const reconnectMutation = useMutation({
+		mutationFn: reconnectSync,
+		onSuccess: () => qc.invalidateQueries({ queryKey: ["sync", "status"] }),
+	});
+
 	return {
 		status: status ?? null,
+		mediaSyncPolicy: (mediaPolicy as "auto" | "on_demand") ?? "on_demand",
 		isLoading,
 		refetch,
 		syncNow: () => syncNowMutation.mutateAsync(),
 		configure: (serverUrl: string, passphrase: string) =>
 			configureMutation.mutateAsync({ serverUrl, passphrase }),
 		disconnect: () => disconnectMutation.mutateAsync(),
+		setMediaSyncPolicy: (value: "auto" | "on_demand") =>
+			setMediaSyncPolicyMutation.mutateAsync(value),
+		reconnect: (passphrase: string) => reconnectMutation.mutateAsync(passphrase),
 		isSyncing: syncNowMutation.isPending,
 		isConfiguring: configureMutation.isPending,
+		isReconnecting: reconnectMutation.isPending,
 		configureError: configureMutation.error,
 		syncError: syncNowMutation.error,
+		reconnectError: reconnectMutation.error,
 	};
 }

@@ -1,6 +1,9 @@
 use axum::{
     body::Bytes,
-    extract::{Query, State},
+    extract::{
+        ws::{Message, WebSocketUpgrade},
+        Query, State,
+    },
     http::StatusCode,
     response::IntoResponse,
     routing::{get, head, post, put},
@@ -9,6 +12,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::Deserialize;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 
 use crate::models::{EncryptedChange, PullResponse, PushRequest};
 use crate::storage::Storage;
@@ -16,6 +20,7 @@ use crate::storage::Storage;
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<Storage>,
+    pub broadcast: broadcast::Sender<()>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,12 +28,16 @@ pub struct PullQuery {
     pub since: Option<i64>,
 }
 
-pub fn router(storage: Arc<Storage>) -> Router {
-    let state = AppState { storage };
+pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<()>) -> Router {
+    let state = AppState {
+        storage,
+        broadcast: broadcast_tx,
+    };
     Router::new()
         .route("/health", get(health))
         .route("/push", post(push))
         .route("/pull", get(pull))
+        .route("/ws", get(ws_handler))
         .route("/media/:hash", get(get_media).put(put_media).head(head_media))
         .with_state(state)
 }
@@ -52,7 +61,19 @@ async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl 
             return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
         }
     }
+    let _ = s.broadcast.send(());
     (StatusCode::OK, "{}").into_response()
+}
+
+async fn ws_handler(State(s): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
+    let mut rx = s.broadcast.subscribe();
+    ws.on_upgrade(move |mut socket| async move {
+        while let Ok(()) = rx.recv().await {
+            if socket.send(Message::Text("sync".into())).await.is_err() {
+                break;
+            }
+        }
+    })
 }
 
 async fn pull(

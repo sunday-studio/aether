@@ -9,11 +9,40 @@ use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest}
 use libsql::Database;
 use std::sync::Arc;
 
-pub async fn push(db: Arc<Database>, key: &[u8; 32], base_url: &str) -> Result<usize> {
+pub async fn push(
+    db: Arc<Database>,
+    key: &[u8; 32],
+    base_url: &str,
+    media_sync_policy: &str,
+) -> Result<usize> {
     let device_id = metadata::get_device_id(&db).await?;
     let (envelopes, to_delete) = read_outbox_and_build(&db).await?;
     if envelopes.is_empty() {
         return Ok(0);
+    }
+
+    // Upload media blobs when policy is "auto"
+    if media_sync_policy == "auto" {
+        if let Ok(media_dir) = get_media_directory() {
+            for e in &envelopes {
+                if e.entity != "media_items" || e.data.is_none() {
+                    continue;
+                }
+                let data = e.data.as_ref().unwrap();
+                let content_hash = data.get("content_hash").and_then(|v| v.as_str());
+                let file_path = data.get("file_path").and_then(|v| v.as_str());
+                if let (Some(hash), Some(fp)) = (content_hash, file_path) {
+                    let full = media_dir.join(fp);
+                    if let Ok(bytes) = std::fs::read(&full) {
+                        if let Ok(enc) = encryption::encrypt_blob(key, &bytes) {
+                            if media::upload_media(base_url, hash, &enc).await.is_err() {
+                                tracing::warn!("push: failed to upload media blob {}", hash);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     let mut encrypted = Vec::with_capacity(envelopes.len());

@@ -1,12 +1,26 @@
 //! Last-write-wins apply: set _suppress_triggers, compare _updated_at, insert/update/soft-delete.
+//! When ApplyCtx is provided and media_sync_policy is "auto", media blobs are downloaded for
+//! media_items that have content_hash.
 
 use crate::error::{AppError, Result};
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp};
 use libsql::Database;
 
+/// Context for apply when running inside a sync (has base_url, key, media policy).
+pub struct ApplyCtx<'a> {
+    pub base_url: &'a str,
+    pub key: &'a [u8; 32],
+    pub media_sync_policy: &'a str,
+}
+
 /// Apply one decrypted change with LWW. Caller must set _suppress_triggers before batch.
-pub async fn apply_change(db: &Database, change: &ChangeEnvelope) -> Result<()> {
+/// When ctx is Some and entity is media_items with policy "auto", the blob is downloaded.
+pub async fn apply_change(
+    db: &Database,
+    change: &ChangeEnvelope,
+    ctx: Option<&ApplyCtx<'_>>,
+) -> Result<()> {
     let local_ts = get_local_updated_at(db, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
@@ -19,7 +33,7 @@ pub async fn apply_change(db: &Database, change: &ChangeEnvelope) -> Result<()> 
     match &change.op {
         ChangeOp::Upsert => {
             if let Some(data) = &change.data {
-                apply_upsert(db, &change.entity, &change.id, change.updated_at, data).await?;
+                apply_upsert(db, &change.entity, &change.id, change.updated_at, data, ctx).await?;
             }
         }
         ChangeOp::Delete => {
@@ -89,6 +103,7 @@ async fn apply_upsert(
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
+    ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
     let _ = data
         .as_object()
@@ -101,7 +116,7 @@ async fn apply_upsert(
         "goals" => apply_goals_upsert(db, entity_id, updated_at, data).await,
         "canvases" => apply_canvases_upsert(db, entity_id, updated_at, data).await,
         "bookmarks" => apply_bookmarks_upsert(db, entity_id, updated_at, data).await,
-        "media_items" => apply_media_items_upsert(db, entity_id, updated_at, data).await,
+        "media_items" => apply_media_items_upsert(db, entity_id, updated_at, data, ctx).await,
         "audio_transcriptions" => apply_audio_transcriptions_upsert(db, entity_id, updated_at, data).await,
         "entry_tags" => apply_entry_tags_upsert(db, entity_id, updated_at, data).await,
         "task_tags" => apply_task_tags_upsert(db, entity_id, updated_at, data).await,
@@ -408,6 +423,7 @@ async fn apply_media_items_upsert(
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
+    ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data.as_object().ok_or_else(|| AppError::Sync("media_items: object expected".into()))?;
@@ -439,6 +455,22 @@ async fn apply_media_items_upsert(
     .await
     .map_err(AppError::LibSQL)?;
 
+    if let Some(c) = ctx {
+        if c.media_sync_policy == "auto" {
+            let content_hash = obj.get("content_hash").and_then(|v| v.as_str());
+            if let (Some(hash), Some(fp)) = (content_hash, if file_path.is_empty() { None } else { Some(file_path) }) {
+                let media_dir = crate::media::get_media_directory()?;
+                let full = media_dir.join(fp);
+                if !full.exists() {
+                    if let Some(p) = full.parent() {
+                        std::fs::create_dir_all(p).map_err(AppError::Io)?;
+                    }
+                    let bytes = crate::sync::media::download_media_decrypt(c.base_url, hash, c.key).await?;
+                    std::fs::write(&full, &bytes).map_err(AppError::Io)?;
+                }
+            }
+        }
+    }
     Ok(())
 }
 

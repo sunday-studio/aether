@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use aether_sync_server::{handlers, storage::Storage};
+use tokio::sync::broadcast;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -15,8 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let storage = Storage::new(&db_path, &data_root)?;
     let storage = Arc::new(storage);
+    let (broadcast_tx, _) = broadcast::channel(16);
 
-    let app = handlers::router(storage);
+    let app = handlers::router(storage, broadcast_tx);
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], 8080).into();
     tracing::info!("listening on {}", addr);
 

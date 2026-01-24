@@ -3,6 +3,8 @@ use crate::db::connection;
 use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::settings;
+use crate::sync;
+use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 /// Save audio recording to filesystem and database
@@ -91,6 +93,7 @@ pub async fn save_audio_recording(
 #[tauri::command]
 pub async fn get_audio_data(
     state: State<'_, crate::DbState>,
+    engine: State<'_, Arc<sync::SyncEngine>>,
     media_id: String,
 ) -> Result<Vec<u8>> {
     if media_id.is_empty() {
@@ -98,6 +101,21 @@ pub async fn get_audio_data(
     }
 
     let database = connection::get_database(&*state);
+    let url = engine.try_get_url();
+    let key = engine.try_get_key().await;
+    let policy = settings::get_setting(database.clone(), "sync.media_sync_policy")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "on_demand".to_string());
+    let _ = sync::media::ensure_media_blob(
+        database.as_ref(),
+        &media_id,
+        url.as_deref(),
+        key.as_ref(),
+        &policy,
+    )
+    .await;
     read_audio_file(database, &media_id).await
 }
 

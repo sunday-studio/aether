@@ -17,6 +17,21 @@ use commands::{
     activity, canvas, entry, goal, tag, task, trash, search, bookmark, link,
     sync as sync_commands,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tauri::{Manager, WindowEvent};
+
+/// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
+pub struct WindowFocus(pub Arc<AtomicBool>);
+
+impl WindowFocus {
+    pub fn set(&self, focused: bool) {
+        self.0.store(focused, Ordering::Relaxed);
+    }
+    pub fn get(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -67,11 +82,65 @@ pub fn run() {
         state
     });
 
-    let sync_engine = sync::SyncEngine::new(db_state.clone());
+    let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
+    let _ = rt.block_on(sync_engine.hydrate_from_metadata());
+    let window_focus = WindowFocus(Arc::new(AtomicBool::new(true)));
 
     builder
         .manage(db_state)
-        .manage(sync_engine)
+        .manage(sync_engine.clone())
+        .manage(window_focus)
+        .on_window_event(|window, event| {
+            match event {
+                WindowEvent::CloseRequested { .. } => {
+                    if let Some(engine) = window.app_handle().try_state::<Arc<sync::SyncEngine>>() {
+                        let _ = tauri::async_runtime::block_on(engine.sync());
+                    }
+                }
+                WindowEvent::Focused(focused) => {
+                    if let Some(wf) = window.app_handle().try_state::<WindowFocus>() {
+                        wf.set(*focused);
+                    }
+                    if !focused {
+                        let app = window.app_handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
+                                let _ = engine.push_pending().await;
+                            }
+                        });
+                    }
+                }
+                _ => {}
+            }
+        })
+        .setup(|app| {
+            let handle = app.handle().clone();
+            let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();
+            let window_focus = app.state::<WindowFocus>().inner().0.clone();
+
+            // Periodic sync: every 5 min when focused and ready
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5 * 60));
+                loop {
+                    interval.tick().await;
+                    let Some(engine) = handle.try_state::<Arc<sync::SyncEngine>>() else {
+                        continue;
+                    };
+                    if !window_focus.load(Ordering::Relaxed) {
+                        continue;
+                    }
+                    let Ok(status) = engine.status().await else { continue };
+                    if !status.connected || status.needs_passphrase || engine.is_syncing() {
+                        continue;
+                    }
+                    let _ = engine.sync().await;
+                }
+            });
+
+            // WebSocket listener: connect when configured, sync on "sync" message
+            tauri::async_runtime::spawn(sync::ws::run_ws_listener(sync_engine, app.handle().clone()));
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             // Tag commands
@@ -174,6 +243,8 @@ pub fn run() {
             sync_commands::sync_now,
             sync_commands::get_sync_status,
             sync_commands::disconnect_sync,
+            sync_commands::reconnect_sync,
+            sync_commands::ensure_media_blob,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

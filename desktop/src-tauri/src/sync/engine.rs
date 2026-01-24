@@ -3,6 +3,7 @@
 use crate::db::connection::get_database;
 use crate::db::DbState;
 use crate::error::{AppError, Result};
+use crate::settings;
 use crate::sync::apply;
 use crate::sync::metadata;
 use crate::sync::pull;
@@ -15,12 +16,15 @@ pub struct SyncStatus {
     pub connected: bool,
     pub pending_changes: u32,
     pub last_sync: Option<i64>,
+    /// True when server_url is in memory but passphrase is not (e.g. after app restart).
+    pub needs_passphrase: bool,
 }
 
 pub struct SyncEngine {
     db: DbState,
     server_url: Mutex<Option<String>>,
     passphrase: Mutex<Option<String>>,
+    is_syncing: Mutex<bool>,
 }
 
 impl SyncEngine {
@@ -29,6 +33,7 @@ impl SyncEngine {
             db,
             server_url: Mutex::new(None),
             passphrase: Mutex::new(None),
+            is_syncing: Mutex::new(false),
         }
     }
 
@@ -67,26 +72,56 @@ impl SyncEngine {
         let url = url.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
         let pass = pass.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
 
+        let already = {
+            let mut g = self.is_syncing.lock().unwrap();
+            let v = *g;
+            if !v {
+                *g = true;
+            }
+            v
+        };
+        if already {
+            return self.status().await;
+        }
+
         let db = get_database(&self.db);
         let key = metadata::verify_key(&db, &pass).await?;
 
         // Pull
         let (envelopes, ts) = pull::pull(&db, &key, &url).await?;
 
+        let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "on_demand".to_string());
+
+        let ctx = apply::ApplyCtx {
+            base_url: &url,
+            key: &key,
+            media_sync_policy: &media_sync_policy,
+        };
+
         // Apply with triggers suppressed
-        apply::with_suppress_triggers(&db, async {
+        let apply_res = apply::with_suppress_triggers(&db, async {
             for e in &envelopes {
-                apply::apply_change(&*db, e).await?;
+                apply::apply_change(&*db, e, Some(&ctx)).await?;
             }
             Ok(())
         })
-        .await?;
+        .await;
+
+        if let Err(e) = apply_res {
+            *self.is_syncing.lock().unwrap() = false;
+            return Err(e);
+        }
 
         metadata::set_last_sync(&db, ts).await?;
 
         // Push
-        let _ = push::push(db, &key, &url).await;
+        let _ = push::push(db, &key, &url, &media_sync_policy).await;
 
+        *self.is_syncing.lock().unwrap() = false;
         self.status().await
     }
 
@@ -101,7 +136,12 @@ impl SyncEngine {
         let Some(pass) = pass else { return Ok(()); };
         let db = get_database(&self.db);
         let key = metadata::verify_key(&db, &pass).await?;
-        let _ = push::push(db, &key, &url).await;
+        let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "on_demand".to_string());
+        let _ = push::push(db, &key, &url, &media_sync_policy).await;
         Ok(())
     }
 
@@ -110,6 +150,8 @@ impl SyncEngine {
         let conn = db.connect().map_err(AppError::LibSQL)?;
 
         let connected = self.server_url.lock().unwrap().is_some();
+        let needs_passphrase = self.server_url.lock().unwrap().is_some()
+            && self.passphrase.lock().unwrap().is_none();
 
         let mut rows = conn
             .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -127,7 +169,25 @@ impl SyncEngine {
             connected,
             pending_changes: pending as u32,
             last_sync,
+            needs_passphrase,
         })
+    }
+
+    /// Returns true if a sync is currently in progress.
+    pub fn is_syncing(&self) -> bool {
+        *self.is_syncing.lock().unwrap()
+    }
+
+    /// Re-enter passphrase when needs_passphrase is true (e.g. after app restart).
+    pub async fn reconnect(&self, passphrase: String) -> Result<()> {
+        let url = self.server_url.lock().unwrap().clone();
+        let Some(_) = url else {
+            return Err(AppError::Sync("sync not configured".into()));
+        };
+        let db = get_database(&self.db);
+        metadata::verify_key(&db, &passphrase).await?;
+        *self.passphrase.lock().unwrap() = Some(passphrase);
+        Ok(())
     }
 
     pub async fn disconnect(&self) -> Result<()> {

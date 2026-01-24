@@ -7,6 +7,7 @@ pub mod pull;
 pub mod push;
 pub mod scheduler;
 pub mod types;
+pub mod ws;
 
 pub use engine::{SyncEngine, SyncStatus};
 pub use types::{ChangeEnvelope, ChangeOp, EncryptedChange, PullResponse, PushRequest};
