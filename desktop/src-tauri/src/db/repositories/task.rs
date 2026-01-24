@@ -31,9 +31,10 @@ impl TaskRepository {
         let updated_at_str = now.to_rfc3339();
         let due_date_str = due_date.map(|d| d.to_rfc3339());
 
+        let now_ms = now.timestamp_millis();
         conn.execute(
-            "INSERT INTO tasks (id, title, description, is_completed, due_date, goal_id, goal_instance_id, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO tasks (id, title, description, is_completed, due_date, goal_id, goal_instance_id, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0, '{}')",
             libsql::params![
                 id.clone(),
                 title.clone(),
@@ -43,14 +44,16 @@ impl TaskRepository {
                 goal_id.as_ref().map(|s| s.as_str()),
                 goal_instance_id.as_ref().map(|s| s.as_str()),
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(Task {
-            id,
+            id: id.clone(),
             title,
             description,
             is_completed: false,
@@ -60,6 +63,10 @@ impl TaskRepository {
             created_at: now,
             updated_at: now,
             deleted_at: None,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         })
     }
 
@@ -69,7 +76,7 @@ impl TaskRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at 
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE goal_id IS NULL AND deleted_at IS NULL 
                  ORDER BY due_date ASC",
@@ -95,7 +102,7 @@ impl TaskRepository {
 
         let mut rows = conn
             .query(
-                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at 
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
                  ORDER BY due_date ASC",
@@ -118,7 +125,7 @@ impl TaskRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at 
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE id = ?1 AND deleted_at IS NULL",
                 libsql::params![id],
@@ -179,14 +186,16 @@ impl TaskRepository {
             task.goal_instance_id = goal_instance_id.flatten();
         }
         task.updated_at = Utc::now();
+        let now_ms = task.updated_at.timestamp_millis();
+        task._updated_at = Some(now_ms);
 
         let updated_at_str = task.updated_at.to_rfc3339();
         let due_date_str = task.due_date.map(|d| d.to_rfc3339());
 
         conn.execute(
             "UPDATE tasks 
-             SET title = ?1, description = ?2, is_completed = ?3, due_date = ?4, goal_id = ?5, goal_instance_id = ?6, updated_at = ?7 
-             WHERE id = ?8",
+             SET title = ?1, description = ?2, is_completed = ?3, due_date = ?4, goal_id = ?5, goal_instance_id = ?6, updated_at = ?7, _updated_at = ?8 
+             WHERE id = ?9",
             libsql::params![
                 task.title.clone(),
                 task.description.as_ref().map(|s| s.as_str()),
@@ -195,6 +204,7 @@ impl TaskRepository {
                 task.goal_id.as_ref().map(|s| s.as_str()),
                 task.goal_instance_id.as_ref().map(|s| s.as_str()),
                 updated_at_str,
+                now_ms,
                 id
             ],
         )
@@ -217,10 +227,11 @@ impl TaskRepository {
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
         let deleted_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "UPDATE tasks SET deleted_at = ?1, updated_at = ?2 WHERE id = ?3",
-            libsql::params![deleted_at_str, updated_at_str, id],
+            "UPDATE tasks SET deleted_at = ?1, updated_at = ?2, _updated_at = ?3, _deleted = 1 WHERE id = ?4",
+            libsql::params![deleted_at_str, updated_at_str, now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -240,7 +251,7 @@ impl TaskRepository {
 
         let mut rows = conn
             .query(
-                "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at 
+                "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM subtasks 
                  WHERE task_id = ?1 AND deleted_at IS NULL 
                  ORDER BY order_index ASC",
@@ -288,9 +299,10 @@ impl TaskRepository {
         let updated_at_str = now.to_rfc3339();
         let order_index = max_order + 1;
 
+        let now_ms = now.timestamp_millis();
         conn.execute(
-            "INSERT INTO subtasks (id, title, is_completed, task_id, order_index, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO subtasks (id, title, is_completed, task_id, order_index, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
             libsql::params![
                 id.clone(),
                 title.clone(),
@@ -298,14 +310,16 @@ impl TaskRepository {
                 task_id,
                 order_index,
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(SubTask {
-            id,
+            id: id.clone(),
             title,
             is_completed: false,
             task_id: task_id.to_string(),
@@ -313,6 +327,10 @@ impl TaskRepository {
             created_at: now,
             updated_at: now,
             deleted_at: None,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         })
     }
 
@@ -329,7 +347,7 @@ impl TaskRepository {
         // Get current subtask
         let mut rows = conn
             .query(
-                "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at 
+                "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM subtasks 
                  WHERE id = ?1 AND task_id = ?2 AND deleted_at IS NULL",
                 libsql::params![subtask_id, task_id],
@@ -351,15 +369,18 @@ impl TaskRepository {
             subtask.is_completed = ic;
         }
         subtask.updated_at = Utc::now();
+        let now_ms = subtask.updated_at.timestamp_millis();
+        subtask._updated_at = Some(now_ms);
 
         let updated_at_str = subtask.updated_at.to_rfc3339();
 
         conn.execute(
-            "UPDATE subtasks SET title = ?1, is_completed = ?2, updated_at = ?3 WHERE id = ?4",
+            "UPDATE subtasks SET title = ?1, is_completed = ?2, updated_at = ?3, _updated_at = ?4 WHERE id = ?5",
             libsql::params![
                 subtask.title.clone(),
                 if subtask.is_completed { 1 } else { 0 },
                 updated_at_str,
+                now_ms,
                 subtask_id
             ],
         )
@@ -389,10 +410,11 @@ impl TaskRepository {
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
         let deleted_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "UPDATE subtasks SET deleted_at = ?1, updated_at = ?2 WHERE id = ?3",
-            libsql::params![deleted_at_str, updated_at_str, subtask_id],
+            "UPDATE subtasks SET deleted_at = ?1, updated_at = ?2, _updated_at = ?3, _deleted = 1 WHERE id = ?4",
+            libsql::params![deleted_at_str, updated_at_str, now_ms, subtask_id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -410,14 +432,15 @@ impl TaskRepository {
             return Err(AppError::NotFound(format!("Task {} not found", task_id)));
         }
 
+        let now_ms = Utc::now().timestamp_millis();
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         for (index, subtask_id) in subtask_ids.iter().enumerate() {
             conn.execute(
-                "UPDATE subtasks SET order_index = ?1 WHERE id = ?2 AND task_id = ?3",
-                libsql::params![index as i32, subtask_id.as_str(), task_id],
+                "UPDATE subtasks SET order_index = ?1, _updated_at = ?2 WHERE id = ?3 AND task_id = ?4",
+                libsql::params![index as i32, now_ms, subtask_id.as_str(), task_id],
             )
             .await
             .map_err(|e| {
@@ -461,15 +484,16 @@ impl TaskRepository {
         }
 
         // Insert tag associations (skip if already exists)
+        let now_ms = Utc::now().timestamp_millis();
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         for tag_id in tag_ids {
-            // Use INSERT OR IGNORE to skip duplicates
+            let sync_id = format!("{}|{}", task_id, tag_id);
             conn.execute(
-                "INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
-                libsql::params![task_id, tag_id],
+                "INSERT OR IGNORE INTO task_tags (task_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, '{}')",
+                libsql::params![task_id, tag_id, sync_id, now_ms],
             )
             .await
             .map_err(|e| {
@@ -543,10 +567,11 @@ impl TaskRepository {
 
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "UPDATE tasks SET goal_id = NULL, goal_instance_id = NULL, updated_at = ?1 WHERE id = ?2",
-            libsql::params![updated_at_str, task_id],
+            "UPDATE tasks SET goal_id = NULL, goal_instance_id = NULL, updated_at = ?1, _updated_at = ?2 WHERE id = ?3",
+            libsql::params![updated_at_str, now_ms, task_id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -566,6 +591,10 @@ impl TaskRepository {
         let created_at_str: String = row.get(7).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(8).map_err(|e| AppError::LibSQL(e))?;
         let deleted_at_str: Option<String> = row.get(9).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(10).ok();
+        let _updated_at: Option<i64> = row.get(11).ok();
+        let _deleted: i64 = row.get(12).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(13).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -593,6 +622,10 @@ impl TaskRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 
@@ -606,6 +639,10 @@ impl TaskRepository {
         let created_at_str: String = row.get(5).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(6).map_err(|e| AppError::LibSQL(e))?;
         let deleted_at_str: Option<String> = row.get(7).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(8).ok();
+        let _updated_at: Option<i64> = row.get(9).ok();
+        let _deleted: i64 = row.get(10).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -627,6 +664,10 @@ impl TaskRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }

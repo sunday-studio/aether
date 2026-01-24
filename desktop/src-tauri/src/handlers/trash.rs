@@ -72,6 +72,10 @@ pub async fn get_trashed_tasks(State(state): State<DbState>) -> Result<impl Into
             created_at,
             updated_at,
             deleted_at,
+            _sync_id: None,
+            _updated_at: None,
+            _deleted: true,
+            _extra: None,
         });
     }
 

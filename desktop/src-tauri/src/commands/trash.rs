@@ -68,6 +68,10 @@ pub async fn get_trashed_tasks(state: State<'_, DbState>) -> Result<Vec<crate::d
             created_at,
             updated_at,
             deleted_at,
+            _sync_id: None,
+            _updated_at: None,
+            _deleted: true,
+            _extra: None,
         });
     }
 
