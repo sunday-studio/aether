@@ -1,0 +1,7 @@
+services:
+  sync:
+    build: .
+    ports: ["8080:8080"]
+    volumes: ["./data:/data"]
+    environment:
+      DATA_ROOT: /data
