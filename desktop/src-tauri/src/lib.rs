@@ -13,7 +13,7 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, canvas, entry, goal, sync, tag, task, trash, search, bookmark, link,
+    activity, canvas, entry, goal, tag, task, trash, search, bookmark, link,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -117,9 +117,6 @@ pub fn run() {
             // Trash commands
             trash::get_trashed_tasks,
             trash::restore_task,
-            // Sync commands
-            sync::configure_sync,
-            sync::sync,
             // Activity commands
             activity::get_activities,
             // Search commands
