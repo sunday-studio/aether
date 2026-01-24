@@ -4,7 +4,6 @@ use crate::db::models::{Activity, AudioTranscription, Entry, Goal, GoalInstance,
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
-use crate::handlers::sync as sync_handlers;
 use crate::handlers::tag;
 use crate::handlers::task as task_handlers;
 use crate::handlers::trash as trash_handlers;
@@ -59,9 +58,6 @@ use crate::commands::transcription as transcription_commands;
         // Trash endpoints
         trash_handlers::get_trashed_tasks,
         trash_handlers::restore_task,
-        // Sync endpoints
-        sync_handlers::configure_sync,
-        sync_handlers::sync,
         // Activity endpoints
         activity_handlers::get_activities,
         // Search endpoints
@@ -116,7 +112,6 @@ use crate::commands::transcription as transcription_commands;
         task_handlers::AddGoalToTaskRequest,
         goal_handlers::CreateGoalRequest,
         goal_handlers::UpdateGoalRequest,
-        sync_handlers::ConfigureSyncRequest,
         search_handlers::SearchRequest,
         search_handlers::SearchResponse,
         link_commands::CreateLinkRequest,
@@ -137,7 +132,6 @@ use crate::commands::transcription as transcription_commands;
         (name = "Goals", description = "Goal management endpoints"),
         (name = "GoalInstances", description = "Goal instance management endpoints"),
         (name = "Trash", description = "Trash management endpoints"),
-        (name = "Sync", description = "Sync management endpoints"),
         (name = "Activities", description = "Activity tracking endpoints"),
         (name = "Search", description = "Search endpoints"),
         (name = "Links", description = "Resource linking endpoints"),
