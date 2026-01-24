@@ -55,7 +55,9 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     // Ensure schema_migrations table exists
     let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
     
-    conn.execute(
+    // Try to create the schema_migrations table
+    // In replica mode, this might fail if the remote doesn't support it, but we'll handle that
+    match conn.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             version TEXT NOT NULL UNIQUE,
@@ -64,8 +66,17 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         )",
         libsql::params![],
     )
-    .await
-    .map_err(|e| AppError::LibSQL(e))?;
+    .await {
+        Ok(_) => {
+            tracing::debug!("schema_migrations table created or already exists");
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            // If CREATE TABLE fails, we'll try to continue anyway
+            // The query below will handle the missing table case
+            tracing::warn!("Failed to create schema_migrations table (may not be supported in replica mode): {}", error_msg);
+        }
+    }
 
     // Find migrations directory
     // Execution context: app is started from desktop/ directory via `bun tauri dev`
@@ -109,16 +120,27 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     migration_files.sort();
 
     // Get applied migrations
+    // Handle the case where the table might not exist yet (e.g., in a new replica)
     let mut applied_versions = std::collections::HashSet::new();
     
-    let mut rows = conn
-        .query("SELECT version FROM schema_migrations ORDER BY version", libsql::params![])
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
-
-    while let Ok(Some(row)) = rows.next().await {
-        if let Ok(version) = row.get::<String>(0) {
-            applied_versions.insert(version);
+    match conn.query("SELECT version FROM schema_migrations ORDER BY version", libsql::params![]).await {
+        Ok(mut rows) => {
+            while let Ok(Some(row)) = rows.next().await {
+                if let Ok(version) = row.get::<String>(0) {
+                    applied_versions.insert(version);
+                }
+            }
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            // If the table doesn't exist, that's fine - we'll treat it as no migrations applied
+            // This can happen in a new replica database
+            if error_msg.contains("no such table") || error_msg.contains("does not exist") {
+                tracing::debug!("schema_migrations table doesn't exist yet, treating as no migrations applied");
+            } else {
+                // Some other error, propagate it
+                return Err(AppError::LibSQL(e));
+            }
         }
     }
 
@@ -241,9 +263,10 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             }
 
             // Record migration
+            // Use INSERT OR IGNORE to handle the case where migration was already applied
             let applied_at = chrono::Utc::now();
             conn.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
+                "INSERT OR IGNORE INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
                 libsql::params![version.clone(), version.clone(), applied_at.to_rfc3339()],
             )
             .await
@@ -375,9 +398,11 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         }
 
         // Record migration
+        // Use INSERT OR IGNORE to handle the case where migration was already applied
+        // (e.g., if remote already has it from a previous sync)
         let applied_at = chrono::Utc::now();
         conn.execute(
-            "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
+            "INSERT OR IGNORE INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
             libsql::params![version.clone(), version.clone(), applied_at.to_rfc3339()],
         )
         .await

@@ -33,19 +33,56 @@ impl SettingsRepository {
     }
 
     /// Set a setting (insert or update)
+    /// Uses a compatible approach for LibSQL replicas (check then insert/update)
     pub async fn set(&self, key: &str, value: &str) -> Result<Setting> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
 
-        conn.execute(
+        // Try INSERT ... ON CONFLICT first (works in local mode)
+        // If it fails with "unsupported statement", fall back to check-then-insert/update
+        let result = conn.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
              ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
-            libsql::params![key, value, updated_at_str],
+            libsql::params![key, value, updated_at_str.clone()],
         )
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
+        .await;
+
+        match result {
+            Ok(_) => {
+                // Success with UPSERT syntax
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+                // If UPSERT is not supported, use the fallback approach
+                if error_msg.contains("unsupported") || error_msg.contains("ON CONFLICT") {
+                    // Check if setting exists
+                    let existing = self.get(key).await?;
+                    
+                    if existing.is_some() {
+                        // Update existing setting
+                        conn.execute(
+                            "UPDATE settings SET value = ?1, updated_at = ?2 WHERE key = ?3",
+                            libsql::params![value, updated_at_str.clone(), key],
+                        )
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    } else {
+                        // Insert new setting
+                        conn.execute(
+                            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                            libsql::params![key, value, updated_at_str],
+                        )
+                        .await
+                        .map_err(|e| AppError::LibSQL(e))?;
+                    }
+                } else {
+                    // Some other error, propagate it
+                    return Err(AppError::LibSQL(e));
+                }
+            }
+        }
 
         Ok(Setting {
             key: key.to_string(),

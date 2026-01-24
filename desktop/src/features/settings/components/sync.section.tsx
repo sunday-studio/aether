@@ -1,7 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
+import { useConfigureSync } from "~/aether-sdk";
 import { Button } from "~/components/shared/button";
 import { TextField } from "~/components/shared/text-field";
 
 export const SyncSection = () => {
+	const { mutate: configureSync } = useConfigureSync();
+
 	return (
 		<div className="space-y-10 max-w-xl">
 			<div>
@@ -42,7 +46,12 @@ export const SyncSection = () => {
 
 					<Button
 						onClick={(): void => {
-							throw new Error("Function not implemented.");
+							configureSync({
+								data: {
+									syncUrl: "http://192.168.1.128:9090",
+								},
+							});
+							// throw new Error("Function not implemented.");
 						}}
 						label="Save change"
 						tooltipContent="Save the changes to the remote database"

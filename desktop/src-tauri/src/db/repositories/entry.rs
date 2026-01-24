@@ -67,14 +67,49 @@ impl EntryRepository {
         is_archived: bool,
         is_deleted: bool,
     ) -> Result<Entry> {
-        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        // #region agent log
+        let log_path = "/Users/casprine/Desktop/vendor/sunday-studio/aether/.cursor/debug.log";
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+            use std::io::Write;
+            writeln!(f, "{{\"id\":\"log_entry_create_start\",\"timestamp\":{},\"location\":\"entry.rs:70\",\"message\":\"Entry create started\",\"data\":{{}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+        });
+        // #endregion
+        
+        let conn = self.database.connect().map_err(|e| {
+            // #region agent log
+            let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "{{\"id\":\"log_connect_error\",\"timestamp\":{},\"location\":\"entry.rs:75\",\"message\":\"Database connect failed\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                    e)
+            });
+            // #endregion
+            AppError::LibSQL(e)
+        })?;
+        
+        // #region agent log
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+            use std::io::Write;
+            writeln!(f, "{{\"id\":\"log_connect_success\",\"timestamp\":{},\"location\":\"entry.rs:78\",\"message\":\"Database connect succeeded\",\"data\":{{}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+        });
+        // #endregion
         
         let id = generate_id("entry");
         let now = Utc::now();
         let created_at_str = created_at.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
 
-        conn.execute(
+        // #region agent log
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+            use std::io::Write;
+            writeln!(f, "{{\"id\":\"log_execute_before\",\"timestamp\":{},\"location\":\"entry.rs:90\",\"message\":\"About to execute INSERT\",\"data\":{{}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+        });
+        // #endregion
+
+        let execute_result = conn.execute(
             "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             libsql::params![
@@ -87,8 +122,31 @@ impl EntryRepository {
                 updated_at_str
             ],
         )
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
+        .await;
+        
+        match &execute_result {
+            Ok(_) => {
+                // #region agent log
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_execute_success\",\"timestamp\":{},\"location\":\"entry.rs:105\",\"message\":\"INSERT executed successfully\",\"data\":{{}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+                });
+                // #endregion
+            }
+            Err(e) => {
+                // #region agent log
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_execute_error\",\"timestamp\":{},\"location\":\"entry.rs:110\",\"message\":\"INSERT failed\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+                // #endregion
+            }
+        }
+        
+        execute_result.map_err(|e| AppError::LibSQL(e))?;
 
         Ok(Entry {
             id,
