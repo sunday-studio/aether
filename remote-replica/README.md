@@ -1,5 +1,7 @@
 # LibSQL Server Setup
 
+⚠️ **Sync functionality has been removed from the application. This directory is archived and no longer used by the application.**
+
 Self-hosted libSQL database server on Mac Mini with weekly backups and authentication.
 
 ## 🏗️ Architecture

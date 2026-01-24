@@ -167,19 +167,7 @@
 - Model verification
 - Vector similarity search
 
-## 6. Synchronization
-
-### 6.1 Sync
-**Operations:** Configure, Trigger  
-**Features:**
-- LibSQL embedded replica
-- Offline writes (local WAL)
-- Automatic sync
-- Manual sync
-- Multi-device support
-- Configuration (URL, auth token)
-
-## 7. Configuration
+## 6. Configuration
 
 ### 7.1 Settings
 **Operations:** Read, Write  
@@ -203,13 +191,14 @@
 ## 8. Technical Infrastructure
 
 ### 8.1 Database
-**Technology:** LibSQL  
+**Technology:** LibSQL (local-only)  
 **Features:**
 - SQLite compatibility
 - FTS5 full-text search
 - Vector embeddings (cosine similarity)
 - Migration system
 - Transaction support
+- Local database storage
 
 ### 8.2 Backend
 **Technology:** Rust, Tauri  
