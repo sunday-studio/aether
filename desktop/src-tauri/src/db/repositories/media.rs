@@ -32,9 +32,10 @@ impl MediaRepository {
         let metadata_str = serde_json::to_string(&metadata)
             .map_err(|e| AppError::Serialization(e))?;
 
+        let now_ms = now.timestamp_millis();
         conn.execute(
-            "INSERT INTO media_items (id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO media_items (id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0, '{}')",
             libsql::params![
                 id.clone(),
                 entity_type.clone(),
@@ -43,14 +44,16 @@ impl MediaRepository {
                 file_path.clone(),
                 metadata_str,
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(MediaItem {
-            id,
+            id: id.clone(),
             entity_type,
             entity_id,
             media_type,
@@ -58,6 +61,10 @@ impl MediaRepository {
             metadata,
             created_at: now,
             updated_at: now,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         })
     }
 
@@ -67,9 +74,9 @@ impl MediaRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at 
+                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM media_items 
-                 WHERE id = ?1",
+                 WHERE id = ?1 AND (_deleted = 0 OR _deleted IS NULL)",
                 libsql::params![id],
             )
             .await
@@ -88,9 +95,9 @@ impl MediaRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at 
+                "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM media_items 
-                 WHERE entity_type = ?1 AND entity_id = ?2 
+                 WHERE entity_type = ?1 AND entity_id = ?2 AND (_deleted = 0 OR _deleted IS NULL) 
                  ORDER BY created_at ASC",
                 libsql::params![entity_type, entity_id],
             )
@@ -116,7 +123,7 @@ impl MediaRepository {
         
         let mut rows = conn
             .query(
-                "SELECT file_path FROM media_items WHERE id = ?1",
+                "SELECT file_path FROM media_items WHERE id = ?1 AND (_deleted = 0 OR _deleted IS NULL)",
                 libsql::params![id],
             )
             .await
@@ -140,9 +147,10 @@ impl MediaRepository {
             return Err(AppError::NotFound(format!("Media item {} not found", id)));
         }
 
+        let now_ms = Utc::now().timestamp_millis();
         conn.execute(
-            "DELETE FROM media_items WHERE id = ?1",
-            libsql::params![id],
+            "UPDATE media_items SET _deleted = 1, _updated_at = ?1 WHERE id = ?2",
+            libsql::params![now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -160,6 +168,10 @@ impl MediaRepository {
         let metadata_str: String = row.get(5).map_err(|e| AppError::LibSQL(e))?;
         let created_at_str: String = row.get(6).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(7).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(8).ok();
+        let _updated_at: Option<i64> = row.get(9).ok();
+        let _deleted: i64 = row.get(10).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let metadata = serde_json::from_str(&metadata_str)
             .map_err(|e| AppError::Serialization(e))?;
@@ -179,6 +191,10 @@ impl MediaRepository {
             metadata,
             created_at,
             updated_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }

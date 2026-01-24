@@ -32,9 +32,10 @@ impl TranscriptionRepository {
             .transpose()
             .map_err(|e| AppError::Serialization(e))?;
 
+        let now_ms = now.timestamp_millis();
         conn.execute(
-            "INSERT INTO audio_transcriptions (id, media_id, transcription_text, provider, provider_config, status, is_active, created_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO audio_transcriptions (id, media_id, transcription_text, provider, provider_config, status, is_active, created_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0, '{}')",
             libsql::params![
                 id.clone(),
                 media_id.clone(),
@@ -43,14 +44,16 @@ impl TranscriptionRepository {
                 provider_config_str,
                 "pending",
                 0, // Not active initially
-                created_at_str
+                created_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(AudioTranscription {
-            id,
+            id: id.clone(),
             media_id,
             transcription_text: String::new(),
             provider,
@@ -60,6 +63,10 @@ impl TranscriptionRepository {
             error_message: None,
             is_active: false,
             created_at: now,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         })
     }
 
@@ -70,7 +77,7 @@ impl TranscriptionRepository {
         let mut rows = conn
             .query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
-                        status, error_message, is_active, created_at 
+                        status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM audio_transcriptions 
                  WHERE id = ?1",
                 libsql::params![id],
@@ -92,7 +99,7 @@ impl TranscriptionRepository {
         let mut rows = conn
             .query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
-                        status, error_message, is_active, created_at 
+                        status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM audio_transcriptions 
                  WHERE media_id = ?1 
                  ORDER BY created_at ASC",
@@ -113,18 +120,19 @@ impl TranscriptionRepository {
     pub async fn set_active(&self, transcription_id: &str, media_id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
+        let now_ms = Utc::now().timestamp_millis();
         // First, deactivate all transcriptions for this media
         conn.execute(
-            "UPDATE audio_transcriptions SET is_active = 0 WHERE media_id = ?1",
-            libsql::params![media_id],
+            "UPDATE audio_transcriptions SET is_active = 0, _updated_at = ?1 WHERE media_id = ?2",
+            libsql::params![now_ms, media_id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         // Then activate the specified transcription
         conn.execute(
-            "UPDATE audio_transcriptions SET is_active = 1 WHERE id = ?1",
-            libsql::params![transcription_id],
+            "UPDATE audio_transcriptions SET is_active = 1, _updated_at = ?1 WHERE id = ?2",
+            libsql::params![now_ms, transcription_id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -143,22 +151,23 @@ impl TranscriptionRepository {
     ) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
+        let now_ms = Utc::now().timestamp_millis();
         if let Some(text) = transcription_text {
             if let Some(score) = confidence_score {
                 conn.execute(
                     "UPDATE audio_transcriptions 
-                     SET status = ?1, transcription_text = ?2, confidence_score = ?3, error_message = ?4 
-                     WHERE id = ?5",
-                    libsql::params![status, text, score, error_message, id],
+                     SET status = ?1, transcription_text = ?2, confidence_score = ?3, error_message = ?4, _updated_at = ?5 
+                     WHERE id = ?6",
+                    libsql::params![status, text, score, error_message, now_ms, id],
                 )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
             } else {
                 conn.execute(
                     "UPDATE audio_transcriptions 
-                     SET status = ?1, transcription_text = ?2, error_message = ?3 
-                     WHERE id = ?4",
-                    libsql::params![status, text, error_message, id],
+                     SET status = ?1, transcription_text = ?2, error_message = ?3, _updated_at = ?4 
+                     WHERE id = ?5",
+                    libsql::params![status, text, error_message, now_ms, id],
                 )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
@@ -166,9 +175,9 @@ impl TranscriptionRepository {
         } else {
             conn.execute(
                 "UPDATE audio_transcriptions 
-                 SET status = ?1, error_message = ?2 
-                 WHERE id = ?3",
-                libsql::params![status, error_message, id],
+                 SET status = ?1, error_message = ?2, _updated_at = ?3 
+                 WHERE id = ?4",
+                libsql::params![status, error_message, now_ms, id],
             )
             .await
             .map_err(|e| AppError::LibSQL(e))?;
@@ -189,6 +198,10 @@ impl TranscriptionRepository {
         let error_message: Option<String> = row.get(7).map_err(|e| AppError::LibSQL(e))?;
         let is_active: i64 = row.get(8).map_err(|e| AppError::LibSQL(e))?;
         let created_at_str: String = row.get(9).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(10).ok();
+        let _updated_at: Option<i64> = row.get(11).ok();
+        let _deleted: i64 = row.get(12).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(13).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let provider_config = provider_config_str
             .map(|s| serde_json::from_str(&s))
@@ -212,6 +225,10 @@ impl TranscriptionRepository {
             error_message,
             is_active: is_active != 0,
             created_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }

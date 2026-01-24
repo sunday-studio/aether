@@ -20,9 +20,9 @@ impl CanvasRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, name, canvas_data, created_at, updated_at, deleted_at 
+                "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM canvases 
-                 WHERE deleted_at IS NULL 
+                 WHERE (deleted_at IS NULL) AND (_deleted = 0 OR _deleted IS NULL) 
                  ORDER BY updated_at DESC",
                 libsql::params![],
             )
@@ -43,9 +43,9 @@ impl CanvasRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, name, canvas_data, created_at, updated_at, deleted_at 
+                "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM canvases 
-                 WHERE id = ?1 AND deleted_at IS NULL",
+                 WHERE id = ?1 AND deleted_at IS NULL AND (_deleted = 0 OR _deleted IS NULL)",
                 libsql::params![id],
             )
             .await
@@ -72,28 +72,35 @@ impl CanvasRepository {
         let updated_at_str = now.to_rfc3339();
         let canvas_data_str = serde_json::to_string(&canvas_data)
             .map_err(|e| AppError::Serialization(e))?;
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "INSERT INTO canvases (id, name, canvas_data, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO canvases (id, name, canvas_data, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, '{}')",
             libsql::params![
                 id.clone(),
                 name.clone(),
                 canvas_data_str,
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(Canvas {
-            id,
+            id: id.clone(),
             name,
             canvas_data,
             created_at: now,
             updated_at: now,
             deleted_at: None,
+            _sync_id: Some(id),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         })
     }
 
@@ -118,6 +125,7 @@ impl CanvasRepository {
             canvas.canvas_data = new_canvas_data;
         }
         canvas.updated_at = Utc::now();
+        let now_ms = canvas.updated_at.timestamp_millis();
 
         let updated_at_str = canvas.updated_at.to_rfc3339();
         let canvas_data_str = serde_json::to_string(&canvas.canvas_data)
@@ -125,18 +133,20 @@ impl CanvasRepository {
 
         conn.execute(
             "UPDATE canvases 
-             SET name = ?1, canvas_data = ?2, updated_at = ?3 
-             WHERE id = ?4",
+             SET name = ?1, canvas_data = ?2, updated_at = ?3, _updated_at = ?4 
+             WHERE id = ?5",
             libsql::params![
                 canvas.name.clone(),
                 canvas_data_str,
                 updated_at_str,
+                now_ms,
                 id
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
+        canvas._updated_at = Some(now_ms);
         Ok(canvas)
     }
 
@@ -151,12 +161,13 @@ impl CanvasRepository {
         }
 
         let now = Utc::now();
+        let now_ms = now.timestamp_millis();
         let deleted_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
 
         conn.execute(
-            "UPDATE canvases SET deleted_at = ?1, updated_at = ?2 WHERE id = ?3",
-            libsql::params![deleted_at_str, updated_at_str, id],
+            "UPDATE canvases SET deleted_at = ?1, updated_at = ?2, _deleted = 1, _updated_at = ?3 WHERE id = ?4",
+            libsql::params![deleted_at_str, updated_at_str, now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -172,6 +183,10 @@ impl CanvasRepository {
         let created_at_str: String = row.get(3).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(4).map_err(|e| AppError::LibSQL(e))?;
         let deleted_at_str: Option<String> = row.get(5).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(6).ok();
+        let _updated_at: Option<i64> = row.get(7).ok();
+        let _deleted: i64 = row.get(8).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(9).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let canvas_data = serde_json::from_str(&canvas_data_str)
             .map_err(|e| AppError::Serialization(e))?;
@@ -193,6 +208,10 @@ impl CanvasRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }

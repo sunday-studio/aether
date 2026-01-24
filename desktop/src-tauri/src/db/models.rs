@@ -33,6 +33,14 @@ pub struct MediaItem {
     pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(skip)]
+    pub _sync_id: Option<String>,
+    #[serde(skip)]
+    pub _updated_at: Option<i64>,
+    #[serde(skip)]
+    pub _deleted: bool,
+    #[serde(skip)]
+    pub _extra: Option<serde_json::Value>,
 }
 
 /// AudioTranscription model
@@ -52,6 +60,14 @@ pub struct AudioTranscription {
     pub error_message: Option<String>,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
+    #[serde(skip)]
+    pub _sync_id: Option<String>,
+    #[serde(skip)]
+    pub _updated_at: Option<i64>,
+    #[serde(skip)]
+    pub _deleted: bool,
+    #[serde(skip)]
+    pub _extra: Option<serde_json::Value>,
 }
 
 /// Entry model
@@ -226,6 +242,14 @@ pub struct Canvas {
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub _sync_id: Option<String>,
+    #[serde(skip)]
+    pub _updated_at: Option<i64>,
+    #[serde(skip)]
+    pub _deleted: bool,
+    #[serde(skip)]
+    pub _extra: Option<serde_json::Value>,
 }
 
 /// Bookmark model
@@ -258,6 +282,14 @@ pub struct Bookmark {
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub _sync_id: Option<String>,
+    #[serde(skip)]
+    pub _updated_at: Option<i64>,
+    #[serde(skip)]
+    pub _deleted: bool,
+    #[serde(skip)]
+    pub _extra: Option<serde_json::Value>,
 }
 
 /// ResourceLink model for bidirectional linking between resources

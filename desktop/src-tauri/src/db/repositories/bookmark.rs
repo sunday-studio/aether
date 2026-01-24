@@ -23,7 +23,7 @@ impl BookmarkRepository {
     ) -> Result<Vec<Bookmark>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut query = "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at FROM bookmarks WHERE is_deleted = 0".to_string();
+        let mut query = "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM bookmarks WHERE is_deleted = 0 AND (_deleted = 0 OR _deleted IS NULL)".to_string();
 
         // Build query with filters
         if let Some(archived) = is_archived {
@@ -67,9 +67,9 @@ impl BookmarkRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at 
+                "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM bookmarks 
-                 WHERE id = ?1 AND is_deleted = 0",
+                 WHERE id = ?1 AND is_deleted = 0 AND (_deleted = 0 OR _deleted IS NULL)",
                 libsql::params![id],
             )
             .await
@@ -88,9 +88,9 @@ impl BookmarkRepository {
         
         let mut rows = conn
             .query(
-                "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at 
+                "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM bookmarks 
-                 WHERE url = ?1 AND is_deleted = 0",
+                 WHERE url = ?1 AND is_deleted = 0 AND (_deleted = 0 OR _deleted IS NULL)",
                 libsql::params![url],
             )
             .await
@@ -130,10 +130,11 @@ impl BookmarkRepository {
         let updated_at_str = now.to_rfc3339();
         let published_at_str = published_at.map(|d| d.to_rfc3339());
         let metadata_json_str = metadata_json.as_ref().and_then(|v| serde_json::to_string(v).ok());
+        let now_ms = now.timestamp_millis();
 
         conn.execute(
-            "INSERT INTO bookmarks (id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT INTO bookmarks (id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, 0, '{}')",
             libsql::params![
                 id.clone(),
                 url.clone(),
@@ -149,7 +150,9 @@ impl BookmarkRepository {
                 0, // is_archived
                 0, // is_deleted
                 created_at_str,
-                updated_at_str
+                updated_at_str,
+                id.clone(),
+                now_ms,
             ],
         )
         .await
@@ -172,6 +175,10 @@ impl BookmarkRepository {
             created_at: now,
             updated_at: now,
             deleted_at: None,
+            _sync_id: Some(id.clone()),
+            _updated_at: Some(now_ms),
+            _deleted: false,
+            _extra: None,
         };
 
         // Generate embedding for semantic search
@@ -235,6 +242,7 @@ impl BookmarkRepository {
             bookmark.is_archived = archived;
         }
         bookmark.updated_at = Utc::now();
+        let now_ms = bookmark.updated_at.timestamp_millis();
 
         let updated_at_str = bookmark.updated_at.to_rfc3339();
         let published_at_str = bookmark.published_at.map(|d| d.to_rfc3339());
@@ -242,8 +250,8 @@ impl BookmarkRepository {
 
         conn.execute(
             "UPDATE bookmarks 
-             SET title = ?1, description = ?2, image_url = ?3, favicon_url = ?4, site_name = ?5, author = ?6, published_at = ?7, content_type = ?8, metadata_json = ?9, is_archived = ?10, updated_at = ?11 
-             WHERE id = ?12",
+             SET title = ?1, description = ?2, image_url = ?3, favicon_url = ?4, site_name = ?5, author = ?6, published_at = ?7, content_type = ?8, metadata_json = ?9, is_archived = ?10, updated_at = ?11, _updated_at = ?12 
+             WHERE id = ?13",
             libsql::params![
                 bookmark.title.as_ref().map(|s| s.as_str()),
                 bookmark.description.as_ref().map(|s| s.as_str()),
@@ -256,11 +264,14 @@ impl BookmarkRepository {
                 metadata_json_str.as_ref().map(|s| s.as_str()),
                 if bookmark.is_archived { 1 } else { 0 },
                 updated_at_str,
+                now_ms,
                 id
             ],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
+
+        bookmark._updated_at = Some(now_ms);
 
         // Regenerate embedding if content changed
         if let Err(e) = self.generate_embedding(id).await {
@@ -281,12 +292,13 @@ impl BookmarkRepository {
         }
 
         let now = Utc::now();
+        let now_ms = now.timestamp_millis();
         let updated_at_str = now.to_rfc3339();
         let deleted_at_str = now.to_rfc3339();
 
         conn.execute(
-            "UPDATE bookmarks SET is_deleted = 1, updated_at = ?1, deleted_at = ?2 WHERE id = ?3",
-            libsql::params![updated_at_str, deleted_at_str, id],
+            "UPDATE bookmarks SET is_deleted = 1, updated_at = ?1, deleted_at = ?2, _deleted = 1, _updated_at = ?3 WHERE id = ?4",
+            libsql::params![updated_at_str, deleted_at_str, now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -321,14 +333,16 @@ impl BookmarkRepository {
         }
 
         // Insert tag associations (skip if already exists)
+        let now_ms = Utc::now().timestamp_millis();
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         for tag_id in &tag_ids {
+            let sync_id = format!("{}|{}", bookmark_id, tag_id);
             conn.execute(
-                "INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)",
-                libsql::params![bookmark_id, tag_id.as_str()],
+                "INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, '{}')",
+                libsql::params![bookmark_id, tag_id.as_str(), sync_id, now_ms],
             )
             .await
             .map_err(|e| {
@@ -492,6 +506,10 @@ impl BookmarkRepository {
         let created_at_str: String = row.get(13).map_err(|e| AppError::LibSQL(e))?;
         let updated_at_str: String = row.get(14).map_err(|e| AppError::LibSQL(e))?;
         let deleted_at_str: Option<String> = row.get(15).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(16).ok();
+        let _updated_at: Option<i64> = row.get(17).ok();
+        let _deleted: i64 = row.get(18).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(19).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -526,6 +544,10 @@ impl BookmarkRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
         })
     }
 }

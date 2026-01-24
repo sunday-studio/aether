@@ -866,6 +866,7 @@ impl SearchRepository {
         let metadata_json = metadata_json_str
             .and_then(|s| serde_json::from_str(&s).ok());
 
+        // Search queries (FTS, semantic) do not select sync columns; use defaults
         Ok(Bookmark {
             id,
             url,
@@ -883,6 +884,10 @@ impl SearchRepository {
             created_at,
             updated_at,
             deleted_at,
+            _sync_id: None,
+            _updated_at: None,
+            _deleted: false,
+            _extra: None,
         })
     }
 }
