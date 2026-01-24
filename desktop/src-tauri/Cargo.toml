@@ -35,7 +35,7 @@ tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
 
 # Database
-libsql = { version = "0.9", features = ["replication", "remote"] }
+libsql = { version = "0.9" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
