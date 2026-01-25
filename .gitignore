@@ -44,4 +44,4 @@ backend/libsql-replica
 backend/tmp
 todo.md
 desktop/.env.production
-desktop/src-tauri/libsql-replica/local.db
+desktop/src-tauri/libsql-replica/*
