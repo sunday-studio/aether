@@ -1,8 +1,27 @@
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, ExtractMetadataQueryParams, IdPathParams,
+    BookmarkQueryParams,
+};
 use crate::db::{connection, DbState, BookmarkRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::bookmark::{CreateBookmarkRequest, UpdateBookmarkRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::metadata::MetadataExtractor;
+use serde::Deserialize;
 use tauri::State;
+use utoipa::ToSchema;
+
+/// Request to add tags to a bookmark
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct AddTagsToBookmarkRequest {
+    pub tag_ids: Vec<String>,
+}
+
+/// Request to remove tags from a bookmark
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct RemoveTagsFromBookmarkRequest {
+    pub tag_ids: Vec<String>,
+}
 
 /// Get all bookmarks
 #[utoipa::path(
@@ -17,12 +36,13 @@ use tauri::State;
 #[tauri::command]
 pub async fn get_bookmarks(
     state: State<'_, DbState>,
-    is_archived: Option<bool>,
-    tag_ids: Option<Vec<String>>,
-    content_type: Option<String>,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<BookmarkQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<crate::db::models::Bookmark>> {
+    let params = query_params.unwrap_or_default();
     let repo = BookmarkRepository::new(connection::get_database(&*state));
-    repo.find_all(is_archived, tag_ids, content_type).await
+    repo.find_all(params.is_archived, params.tag_ids, params.content_type).await
 }
 
 /// Get bookmark by ID
@@ -42,8 +62,13 @@ pub async fn get_bookmarks(
 #[tauri::command]
 pub async fn get_bookmark_by_id(
     state: State<'_, DbState>,
-    id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -65,24 +90,26 @@ pub async fn get_bookmark_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_bookmark(
     state: State<'_, DbState>,
-    url: String,
-    tag_ids: Option<Vec<String>>,
+    request_data: Option<CreateBookmarkRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
-    if url.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
     }
 
     // Extract metadata
-    let metadata = MetadataExtractor::extract(&url).await?;
+    let metadata = MetadataExtractor::extract(&request.url).await?;
 
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
     
     let bookmark = repo.create(
-        url,
+        request.url,
         metadata.title,
         metadata.description,
         metadata.image_url,
@@ -96,7 +123,7 @@ pub async fn create_bookmark(
     .await?;
 
     // Add tags if provided
-    if let Some(tag_ids) = tag_ids {
+    if let Some(tag_ids) = request.tag_ids {
         if !tag_ids.is_empty() {
             repo.add_tags(&bookmark.id, tag_ids).await?;
         }
@@ -126,39 +153,36 @@ pub async fn create_bookmark(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn update_bookmark(
     state: State<'_, DbState>,
-    id: String,
-    title: Option<String>,
-    description: Option<String>,
-    image_url: Option<String>,
-    favicon_url: Option<String>,
-    site_name: Option<String>,
-    author: Option<String>,
-    published_at: Option<chrono::DateTime<chrono::Utc>>,
-    content_type: Option<String>,
-    metadata_json: Option<serde_json::Value>,
-    is_archived: Option<bool>,
+    request_data: Option<UpdateBookmarkRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
+
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
     let bookmark = repo.update(
         &id,
-        title,
-        description,
-        image_url,
-        favicon_url,
-        site_name,
-        author,
-        published_at,
-        content_type,
-        metadata_json,
-        is_archived,
+        request.title,
+        request.description,
+        request.image_url,
+        request.favicon_url,
+        request.site_name,
+        request.author,
+        request.published_at,
+        request.content_type,
+        request.metadata_json,
+        request.is_archived,
     )
     .await?;
 
@@ -185,7 +209,15 @@ pub async fn update_bookmark(
     )
 )]
 #[tauri::command]
-pub async fn delete_bookmark(state: State<'_, DbState>, id: String) -> Result<()> {
+pub async fn delete_bookmark(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
+) -> Result<()> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -219,15 +251,20 @@ pub async fn delete_bookmark(state: State<'_, DbState>, id: String) -> Result<()
 #[tauri::command]
 pub async fn add_tags_to_bookmark(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<AddTagsToBookmarkRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
-    repo.add_tags(&id, tag_ids).await?;
+    repo.add_tags(&id, request.tag_ids).await?;
 
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "add_tags", "bookmark".to_string(), id.clone()).await {
@@ -258,15 +295,20 @@ pub async fn add_tags_to_bookmark(
 #[tauri::command]
 pub async fn remove_tags_from_bookmark(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<RemoveTagsFromBookmarkRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
-    repo.remove_tags(&id, tag_ids).await?;
+    repo.remove_tags(&id, request.tag_ids).await?;
 
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "bookmark".to_string(), id.clone()).await {
@@ -294,9 +336,14 @@ pub async fn remove_tags_from_bookmark(
     )
 )]
 #[tauri::command]
-pub async fn extract_metadata(url: String) -> Result<crate::utils::metadata::extractor::ExtractedMetadata> {
-    if url.is_empty() {
+pub async fn extract_metadata(
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<ExtractMetadataQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<crate::utils::metadata::extractor::ExtractedMetadata> {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    if params.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
     }
-    MetadataExtractor::extract(&url).await
+    MetadataExtractor::extract(&params.url).await
 }

@@ -100,7 +100,7 @@ pub struct SearchQueryParams {
 }
 
 /// Query parameters for bookmark listing
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct BookmarkQueryParams {
     #[serde(default)]
     pub is_archived: Option<bool>,
