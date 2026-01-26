@@ -6,6 +6,7 @@ pub mod entry;
 pub mod embeddings;
 pub mod goal;
 pub mod link;
+pub mod params;
 pub mod search;
 pub mod settings;
 pub mod sync;

@@ -213,55 +213,45 @@ export const customFetch = async <T>(
 	}
 
 	try {
-		// Prepare command arguments
-		// Start with path params (these take precedence)
-		const args: Record<string, unknown> = { ...match.params };
-		// Add query parameters (for GET requests with query params)
-		// Convert numeric parameters to numbers
-		const numericParams = new Set(["limit", "offset"]);
-		for (const [key, value] of Object.entries(match.queryParams)) {
-			if (!(key in args)) {
-				// Convert numeric query parameters to numbers
-				if (numericParams.has(key)) {
-					const numValue = Number(value);
-					// Only set if it's a valid number, otherwise skip (will be undefined/optional)
-					if (!Number.isNaN(numValue) && value.trim() !== "") {
-						args[key] = numValue;
-					}
-				} else {
-					args[key] = value;
-				}
-			}
-		}
+		// Prepare command arguments using standardized three-parameter pattern:
+		// request_data, query_params, path_params
+		const args: Record<string, unknown> = {};
+
+		// Extract request data from body (unwrap { data: ... } if present)
+		let requestData: unknown = null;
 		if (body !== undefined) {
-			// Standard: SDK sends { data: RequestStruct }, API client unwraps and passes to Tauri
-			// Tauri commands with struct parameters receive the struct as a single object
 			if (typeof body === "object" && !Array.isArray(body) && body !== null) {
-				// If body has a single 'data' key, unwrap it for Tauri commands
+				// If body has a single 'data' key, unwrap it
 				const bodyKeys = Object.keys(body);
 				if (bodyKeys.length === 1 && bodyKeys[0] === "data") {
-					// Unwrap the data - pass it as 'request' parameter for struct requests
-					// This matches the convention: commands with request body structs use 'request' parameter
-					if (typeof body.data === "object" && body.data !== null && !Array.isArray(body.data)) {
-						// For struct requests, pass as single 'request' parameter
-						args.request = body.data;
-					} else {
-						// For non-object data (arrays, primitives), pass as payload
-						args.payload = body.data;
-					}
+					requestData = body.data;
 				} else {
-					// Merge body into args, but preserve path params
-					for (const [key, value] of Object.entries(body)) {
-						// Only add if not already set by path params
-						if (!(key in args)) {
-							args[key] = value;
-						}
-					}
+					// Body is already the request data
+					requestData = body;
 				}
 			} else {
-				// For array bodies or other types, use 'payload' key
-				args.payload = body;
+				// For array bodies or other types, pass as-is
+				requestData = body;
 			}
+		}
+
+		// Prepare query params (convert to object or null)
+		const queryParams: Record<string, unknown> | null =
+			Object.keys(match.queryParams).length > 0 ? match.queryParams : null;
+
+		// Prepare path params (convert to object or null)
+		const pathParams: Record<string, string> | null =
+			Object.keys(match.params).length > 0 ? match.params : null;
+
+		// Add standardized parameters (only if not null)
+		if (requestData !== null) {
+			args.request_data = requestData;
+		}
+		if (queryParams !== null) {
+			args.query_params = queryParams;
+		}
+		if (pathParams !== null) {
+			args.path_params = pathParams;
 		}
 
 		// Invoke Tauri command

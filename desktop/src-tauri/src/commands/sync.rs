@@ -1,3 +1,4 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, MediaIdPathParams};
 use crate::db::connection;
 use crate::error::{AppError, Result};
 use crate::settings;
@@ -34,8 +35,11 @@ pub struct ReconnectSyncRequest {
 pub async fn configure_sync(
     app: AppHandle,
     engine: State<'_, Arc<SyncEngine>>,
-    request: ConfigureSyncRequest,
+    request_data: Option<ConfigureSyncRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.server_url.is_empty() {
         return Err(AppError::BadRequest("Server URL is required".to_string()));
     }
@@ -65,7 +69,13 @@ pub async fn configure_sync(
     )
 )]
 #[tauri::command]
-pub async fn sync_now(app: AppHandle, engine: State<'_, Arc<SyncEngine>>) -> Result<SyncStatus> {
+pub async fn sync_now(
+    app: AppHandle,
+    engine: State<'_, Arc<SyncEngine>>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<SyncStatus> {
     let status = engine.sync().await.map_err(|e| AppError::Sync(e.to_string()))?;
     let _ = app.emit("sync-status", &status);
     Ok(status)
@@ -82,7 +92,12 @@ pub async fn sync_now(app: AppHandle, engine: State<'_, Arc<SyncEngine>>) -> Res
     )
 )]
 #[tauri::command]
-pub async fn get_sync_status(engine: State<'_, Arc<SyncEngine>>) -> Result<SyncStatus> {
+pub async fn get_sync_status(
+    engine: State<'_, Arc<SyncEngine>>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<SyncStatus> {
     engine.status().await.map_err(|e| AppError::Sync(e.to_string()))
 }
 
@@ -97,7 +112,12 @@ pub async fn get_sync_status(engine: State<'_, Arc<SyncEngine>>) -> Result<SyncS
     )
 )]
 #[tauri::command]
-pub async fn disconnect_sync(engine: State<'_, Arc<SyncEngine>>) -> Result<()> {
+pub async fn disconnect_sync(
+    engine: State<'_, Arc<SyncEngine>>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<()> {
     engine.disconnect().await.map_err(|e| AppError::Sync(e.to_string()))
 }
 
@@ -117,8 +137,11 @@ pub async fn disconnect_sync(engine: State<'_, Arc<SyncEngine>>) -> Result<()> {
 pub async fn reconnect_sync(
     app: AppHandle,
     engine: State<'_, Arc<SyncEngine>>,
-    request: ReconnectSyncRequest,
+    request_data: Option<ReconnectSyncRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<SyncStatus> {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.passphrase.len() < 12 {
         return Err(AppError::BadRequest("Passphrase must be at least 12 characters".to_string()));
     }
@@ -148,8 +171,13 @@ pub async fn reconnect_sync(
 pub async fn ensure_media_blob(
     db: State<'_, crate::DbState>,
     engine: State<'_, Arc<SyncEngine>>,
-    media_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<()> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     let database = connection::get_database(&*db);
     let url = engine.try_get_url();
     let key = engine.try_get_key().await;
