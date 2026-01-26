@@ -34,8 +34,10 @@ export const JournalGridView = () => {
 
 			// Create entry first
 			const entry = await invoke<DbEntry>("create_entry", {
-				document: placeholder,
-				date: now.toISOString(),
+				request_data: {
+					document: placeholder,
+					date: now.toISOString(),
+				},
 			});
 
 			// Convert blob to Uint8Array
@@ -44,16 +46,20 @@ export const JournalGridView = () => {
 
 			// Save audio recording
 			const mediaId = await invoke<string>("save_audio_recording", {
-				entryId: entry.id,
-				audioData,
-				duration,
-				format: "webm",
-				autoTranscribe: true,
+				request_data: {
+					entry_id: entry.id,
+					audio_data: audioData,
+					duration,
+					format: "webm",
+					auto_transcribe: true,
+				},
 			});
 
 			// Start transcription
 			await invoke("start_transcription", {
-				mediaId,
+				path_params: {
+					mediaId,
+				},
 			});
 
 			// Refresh entries

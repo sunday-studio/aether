@@ -1,3 +1,6 @@
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, LinkQueryParams,
+};
 use crate::db::{connection, DbState};
 use crate::db::models::ResourceLink;
 use crate::db::repositories::{LinkRepository};
@@ -53,34 +56,33 @@ pub struct BacklinkResponse {
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_link(
     state: State<'_, DbState>,
-    source_type: String,
-    source_id: String,
-    target_type: String,
-    target_id: String,
-    link_text: Option<String>,
+    request_data: Option<CreateLinkRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<ResourceLink> {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     // Validate resource types
     let valid_types = ["entry", "task", "goal", "canvas", "bookmark"];
-    if !valid_types.contains(&source_type.as_str()) {
+    if !valid_types.contains(&request.source_type.as_str()) {
         return Err(AppError::BadRequest(format!(
             "Invalid source_type: {}. Must be one of: {:?}",
-            source_type, valid_types
+            request.source_type, valid_types
         )));
     }
-    if !valid_types.contains(&target_type.as_str()) {
+    if !valid_types.contains(&request.target_type.as_str()) {
         return Err(AppError::BadRequest(format!(
             "Invalid target_type: {}. Must be one of: {:?}",
-            target_type, valid_types
+            request.target_type, valid_types
         )));
     }
 
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
-    repo.create(source_type, source_id, target_type, target_id, link_text)
+    repo.create(request.source_type, request.source_id, request.target_type, request.target_id, request.link_text)
         .await
 }
 
@@ -98,16 +100,18 @@ pub async fn create_link(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn get_backlinks(
     state: State<'_, DbState>,
-    target_type: String,
-    target_id: String,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<LinkQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<BacklinkResponse>> {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
-    let links = repo.find_by_target(&target_type, &target_id).await?;
+    let links = repo.find_by_target(&params.resource_type, &params.resource_id).await?;
     
     // Enrich with source titles
     let mut backlinks = Vec::new();
@@ -136,16 +140,18 @@ pub async fn get_backlinks(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn get_outgoing_links(
     state: State<'_, DbState>,
-    source_type: String,
-    source_id: String,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<LinkQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ResourceLink>> {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
-    repo.find_by_source(&source_type, &source_id).await
+    repo.find_by_source(&params.resource_type, &params.resource_id).await
 }
 
 /// Delete a link
@@ -164,18 +170,18 @@ pub async fn get_outgoing_links(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn delete_link(
     state: State<'_, DbState>,
-    source_type: String,
-    source_id: String,
-    target_type: String,
-    target_id: String,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<DeleteLinkQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
-    repo.delete(&source_type, &source_id, &target_type, &target_id)
+    repo.delete(&params.source_type, &params.source_id, &params.target_type, &params.target_id)
         .await
 }
 
@@ -195,19 +201,20 @@ pub async fn delete_link(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn search_linkable_resources(
     state: State<'_, DbState>,
-    q: String,
-    types: Option<String>,
-    limit: Option<u32>,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<SearchLinkableQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<LinkableResource>> {
-    if q.trim().is_empty() {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    if params.q.trim().is_empty() {
         return Err(AppError::BadRequest("Query parameter 'q' is required".to_string()));
     }
 
     // Parse resource types
-    let resource_types = if let Some(ref types_str) = types {
+    let resource_types = if let Some(ref types_str) = params.types {
         let type_vec: Vec<ResourceType> = types_str
             .split(',')
             .filter_map(|s| ResourceType::from_str(s.trim()))
@@ -221,12 +228,12 @@ pub async fn search_linkable_resources(
         None
     };
 
-    let limit = limit.unwrap_or(20).min(100);
+    let limit = params.limit.unwrap_or(20).min(100);
     let db = connection::get_database(&*state);
     let search_repo = SearchRepository::new(db.clone());
     
     let results: Vec<crate::db::repositories::search::SearchResult> = search_repo
-        .search_fuzzy(&q, resource_types, None, Some(limit), Some(0))
+        .search_fuzzy(&params.q, resource_types, None, Some(limit), Some(0))
         .await?;
 
     let linkable_resources: Vec<LinkableResource> = results
@@ -301,6 +308,9 @@ pub async fn search_linkable_resources(
 #[tauri::command]
 pub async fn get_all_links_for_graph(
     state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ResourceLink>> {
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
@@ -320,21 +330,22 @@ pub async fn get_all_links_for_graph(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn sync_links_from_content(
     state: State<'_, DbState>,
-    source_type: String,
-    source_id: String,
-    content: String,
+    request_data: Option<SyncLinksRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<serde_json::Value> {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let link_repo = LinkRepository::new(db.clone());
     
     // Extract links from content
-    let extracted_links = extract_links_from_lexical_content(&content)?;
+    let extracted_links = extract_links_from_lexical_content(&request.content)?;
     
     // Get existing links
-    let existing_links = link_repo.find_by_source(&source_type, &source_id).await?;
+    let existing_links = link_repo.find_by_source(&request.source_type, &request.source_id).await?;
     
     // Create a set of existing target IDs for quick lookup
     let existing_targets: std::collections::HashSet<(String, String)> = existing_links
@@ -369,8 +380,8 @@ pub async fn sync_links_from_content(
         if !existing_targets.contains(&target_key) {
             link_repo
                 .create(
-                    source_type.clone(),
-                    source_id.clone(),
+                    request.source_type.clone(),
+                    request.source_id.clone(),
                     extracted_link.target_type,
                     extracted_link.target_id,
                     extracted_link.link_text,
@@ -436,10 +447,32 @@ fn extract_first_line_from_lexical(content: &str) -> Option<String> {
     }
 }
 
+/// Request to sync links from content
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct SyncLinksRequest {
+pub struct SyncLinksRequest {
     pub source_type: String,
     pub source_id: String,
     pub content: String,
+}
+
+/// Query parameters for linkable resource search
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchLinkableQueryParams {
+    pub q: String,
+    #[serde(default)]
+    pub types: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+/// Query parameters for deleting a link
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteLinkQueryParams {
+    pub source_type: String,
+    pub source_id: String,
+    pub target_type: String,
+    pub target_id: String,
 }

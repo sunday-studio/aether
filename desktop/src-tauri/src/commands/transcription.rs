@@ -1,3 +1,7 @@
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, MediaIdPathParams, ModelSizePathParams,
+    TranscriptionIdPathParams, TranscriptionStartQueryParams,
+};
 use crate::db::connection;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
@@ -8,6 +12,21 @@ use crate::transcription::provider::TranscriptionProvider;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use utoipa::ToSchema;
+
+/// Request to set active transcription
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetActiveTranscriptionRequest {
+    pub transcription_id: String,
+    pub media_id: String,
+}
+
+/// Request to validate provider
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateProviderRequest {
+    pub provider_name: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ProviderInfo {
@@ -47,9 +66,13 @@ pub struct ModelInfo {
 pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, crate::DbState>,
-    media_id: String,
-    provider_name: Option<String>,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<TranscriptionStartQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<String> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     if media_id.is_empty() {
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
@@ -57,8 +80,17 @@ pub async fn start_transcription(
     let database = connection::get_database(&*state);
     
     // Get provider name (default or specified)
-    let provider = if let Some(name) = provider_name {
-        name
+    let provider = if let Some(ref params) = query_params {
+        if let Some(name) = &params.provider {
+            name.clone()
+        } else {
+            // Get from settings
+            settings::get_setting(database.clone(), "transcription.default_provider")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "openai".to_string())
+        }
     } else {
         // Get from settings
         settings::get_setting(database.clone(), "transcription.default_provider")
@@ -100,8 +132,13 @@ pub async fn start_transcription(
 #[tauri::command]
 pub async fn get_transcriptions(
     state: State<'_, crate::DbState>,
-    media_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<Vec<crate::db::models::AudioTranscription>> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     if media_id.is_empty() {
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
@@ -128,8 +165,13 @@ pub async fn get_transcriptions(
 #[tauri::command]
 pub async fn get_transcription_by_id(
     state: State<'_, crate::DbState>,
-    transcription_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TranscriptionIdPathParams>,
 ) -> Result<Option<crate::db::models::AudioTranscription>> {
+    let transcription_id = path_params
+        .and_then(|p| Some(p.transcription_id))
+        .ok_or_else(|| AppError::BadRequest("Transcription ID is required".to_string()))?;
     if transcription_id.is_empty() {
         return Err(AppError::BadRequest("Transcription ID is required".to_string()));
     }
@@ -157,16 +199,18 @@ pub async fn get_transcription_by_id(
 #[tauri::command]
 pub async fn set_active_transcription(
     state: State<'_, crate::DbState>,
-    transcription_id: String,
-    media_id: String,
+    request_data: Option<SetActiveTranscriptionRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    if transcription_id.is_empty() || media_id.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.transcription_id.is_empty() || request.media_id.is_empty() {
         return Err(AppError::BadRequest("Transcription ID and Media ID are required".to_string()));
     }
 
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
-    repo.set_active(&transcription_id, &media_id).await?;
+    repo.set_active(&request.transcription_id, &request.media_id).await?;
     Ok(())
 }
 
@@ -183,6 +227,9 @@ pub async fn set_active_transcription(
 #[tauri::command]
 pub async fn list_providers(
     state: State<'_, crate::DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ProviderInfo>> {
     let database = connection::get_database(&*state);
     
@@ -284,16 +331,19 @@ pub async fn list_providers(
 #[tauri::command]
 pub async fn validate_provider(
     state: State<'_, crate::DbState>,
-    provider_name: String,
+    request_data: Option<ValidateProviderRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<bool> {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let database = connection::get_database(&*state);
     
-    let provider: Box<dyn TranscriptionProvider> = match provider_name.as_str() {
+    let provider: Box<dyn TranscriptionProvider> = match request.provider_name.as_str() {
         "openai" => Box::new(OpenAIProvider::new(database.clone())),
         "groq" => Box::new(GroqProvider::new(database.clone())),
         "local-whisper" => Box::new(LocalWhisperProvider::new(database.clone())),
         "self-hosted" => Box::new(SelfHostedProvider::new(database.clone())),
-        _ => return Err(AppError::BadRequest(format!("Unknown provider: {}", provider_name))),
+        _ => return Err(AppError::BadRequest(format!("Unknown provider: {}", request.provider_name))),
     };
     
     provider.validate_config().await
@@ -312,7 +362,11 @@ pub async fn validate_provider(
     )
 )]
 #[tauri::command]
-pub async fn list_available_models() -> Result<Vec<ModelInfo>> {
+pub async fn list_available_models(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<ModelInfo>> {
     let models = model_manager::list_available_models();
     let mut result = Vec::new();
     
@@ -350,8 +404,13 @@ pub async fn list_available_models() -> Result<Vec<ModelInfo>> {
 pub async fn download_model(
     _app: AppHandle,
     state: State<'_, crate::DbState>,
-    model_size: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelSizePathParams>,
 ) -> Result<String> {
+    let model_size = path_params
+        .and_then(|p| Some(p.model_size))
+        .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;
     let database = connection::get_database(&*state);
     
     // Download with progress events
@@ -380,7 +439,14 @@ pub async fn download_model(
     )
 )]
 #[tauri::command]
-pub async fn verify_model(model_size: String) -> Result<bool> {
+pub async fn verify_model(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelSizePathParams>,
+) -> Result<bool> {
+    let model_size = path_params
+        .and_then(|p| Some(p.model_size))
+        .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;
     model_manager::verify_model(&model_size)
 }
 
@@ -399,7 +465,14 @@ pub async fn verify_model(model_size: String) -> Result<bool> {
     )
 )]
 #[tauri::command]
-pub async fn delete_model(model_size: String) -> Result<()> {
+pub async fn delete_model(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelSizePathParams>,
+) -> Result<()> {
+    let model_size = path_params
+        .and_then(|p| Some(p.model_size))
+        .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;
     model_manager::delete_model(&model_size)
 }
 

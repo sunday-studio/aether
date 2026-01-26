@@ -112,6 +112,7 @@ pub struct BookmarkQueryParams {
 
 /// Query parameters for backlinks/outgoing links
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LinkQueryParams {
     pub resource_type: String,
     pub resource_id: String,
