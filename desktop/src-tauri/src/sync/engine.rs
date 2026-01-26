@@ -10,8 +10,9 @@ use crate::sync::pull;
 use crate::sync::push;
 use serde::Serialize;
 use std::sync::Mutex;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct SyncStatus {
     pub connected: bool,
     pub pending_changes: u32,

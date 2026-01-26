@@ -45,8 +45,12 @@ const routeToCommand: Record<string, string> = {
 	"GET /v1/trash/tasks": "get_trashed_tasks",
 	"POST /v1/trash/:id/restore": "restore_task",
 	// Sync
+	"GET /v1/sync/status": "get_sync_status",
 	"POST /v1/sync/configure": "configure_sync",
-	"POST /v1/sync": "sync",
+	"POST /v1/sync/now": "sync_now",
+	"POST /v1/sync/disconnect": "disconnect_sync",
+	"POST /v1/sync/reconnect": "reconnect_sync",
+	"POST /v1/sync/media/:mediaId/ensure": "ensure_media_blob",
 	// Activities
 	"GET /v1/activities": "get_activities",
 	// Search
@@ -230,14 +234,28 @@ export const customFetch = async <T>(
 			}
 		}
 		if (body !== undefined) {
-			// If body is an object, merge it into args
-			// But don't overwrite path params - they take precedence
+			// Standard: SDK sends { data: RequestStruct }, API client unwraps and passes to Tauri
+			// Tauri commands with struct parameters receive the struct as a single object
 			if (typeof body === "object" && !Array.isArray(body) && body !== null) {
-				// Merge body into args, but preserve path params
-				for (const [key, value] of Object.entries(body)) {
-					// Only add if not already set by path params
-					if (!(key in args)) {
-						args[key] = value;
+				// If body has a single 'data' key, unwrap it for Tauri commands
+				const bodyKeys = Object.keys(body);
+				if (bodyKeys.length === 1 && bodyKeys[0] === "data") {
+					// Unwrap the data - pass it as 'request' parameter for struct requests
+					// This matches the convention: commands with request body structs use 'request' parameter
+					if (typeof body.data === "object" && body.data !== null && !Array.isArray(body.data)) {
+						// For struct requests, pass as single 'request' parameter
+						args.request = body.data;
+					} else {
+						// For non-object data (arrays, primitives), pass as payload
+						args.payload = body.data;
+					}
+				} else {
+					// Merge body into args, but preserve path params
+					for (const [key, value] of Object.entries(body)) {
+						// Only add if not already set by path params
+						if (!(key in args)) {
+							args[key] = value;
+						}
 					}
 				}
 			} else {

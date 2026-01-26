@@ -12,6 +12,7 @@ use crate::handlers::settings as settings_handlers;
 use crate::commands::link as link_commands;
 use crate::commands::audio as audio_commands;
 use crate::commands::transcription as transcription_commands;
+use crate::commands::sync as sync_commands;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -91,6 +92,13 @@ use crate::commands::transcription as transcription_commands;
         transcription_commands::download_model,
         transcription_commands::verify_model,
         transcription_commands::delete_model,
+        // Sync endpoints
+        sync_commands::configure_sync,
+        sync_commands::sync_now,
+        sync_commands::get_sync_status,
+        sync_commands::disconnect_sync,
+        sync_commands::reconnect_sync,
+        sync_commands::ensure_media_blob,
     ),
     components(schemas(
         Tag,
@@ -124,6 +132,9 @@ use crate::commands::transcription as transcription_commands;
         AudioTranscription,
         transcription_commands::ProviderInfo,
         transcription_commands::ModelInfo,
+        crate::sync::SyncStatus,
+        sync_commands::ConfigureSyncRequest,
+        sync_commands::ReconnectSyncRequest,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
@@ -138,6 +149,7 @@ use crate::commands::transcription as transcription_commands;
         (name = "Settings", description = "Settings management endpoints"),
         (name = "Audio", description = "Audio recording and playback endpoints"),
         (name = "Transcription", description = "Audio transcription endpoints"),
+        (name = "Sync", description = "Sync management endpoints"),
     ),
 )]
 pub struct ApiDoc;

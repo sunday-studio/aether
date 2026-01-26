@@ -1423,6 +1423,173 @@
         }
       }
     },
+    "/v1/sync/configure": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Configure sync with server URL and passphrase",
+        "operationId": "configure_sync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sync configured successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/sync/disconnect": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Disconnect sync (clear configuration)",
+        "operationId": "disconnect_sync",
+        "responses": {
+          "200": {
+            "description": "Sync disconnected successfully"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/sync/media/:mediaId/ensure": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "For on-demand media: ensure the blob is on disk before the frontend reads/plays it.",
+        "description": "No-op when sync.media_sync_policy is \"auto\" or sync is not configured.",
+        "operationId": "ensure_media_blob",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media blob ensured"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/sync/now": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Trigger a sync operation (pull, apply, push)",
+        "operationId": "sync_now",
+        "responses": {
+          "200": {
+            "description": "Sync completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - sync not configured"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/sync/reconnect": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Reconnect sync with passphrase",
+        "operationId": "reconnect_sync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconnectSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sync reconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid passphrase"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/sync/status": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Get current sync status",
+        "operationId": "get_sync_status",
+        "responses": {
+          "200": {
+            "description": "Current sync status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/tags": {
       "get": {
         "tags": [
@@ -2683,6 +2850,21 @@
           }
         }
       },
+      "ConfigureSyncRequest": {
+        "type": "object",
+        "required": [
+          "server_url",
+          "passphrase"
+        ],
+        "properties": {
+          "passphrase": {
+            "type": "string"
+          },
+          "server_url": {
+            "type": "string"
+          }
+        }
+      },
       "CreateEntryRequest": {
         "type": "object",
         "required": [
@@ -3094,6 +3276,17 @@
           }
         }
       },
+      "ReconnectSyncRequest": {
+        "type": "object",
+        "required": [
+          "passphrase"
+        ],
+        "properties": {
+          "passphrase": {
+            "type": "string"
+          }
+        }
+      },
       "ReorderSubTasksRequest": {
         "type": "object",
         "required": [
@@ -3278,6 +3471,33 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SyncStatus": {
+        "type": "object",
+        "required": [
+          "connected",
+          "pending_changes",
+          "needs_passphrase"
+        ],
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "last_sync": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "needs_passphrase": {
+            "type": "boolean",
+            "description": "True when server_url is in memory but passphrase is not (e.g. after app restart)."
+          },
+          "pending_changes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -3539,6 +3759,10 @@
     {
       "name": "Transcription",
       "description": "Audio transcription endpoints"
+    },
+    {
+      "name": "Sync",
+      "description": "Sync management endpoints"
     }
   ]
 }
