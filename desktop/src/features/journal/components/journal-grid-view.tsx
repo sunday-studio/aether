@@ -34,7 +34,7 @@ export const JournalGridView = () => {
 
 			// Create entry first
 			const entry = await invoke<DbEntry>("create_entry", {
-				request_data: {
+				requestData: {
 					document: placeholder,
 					date: now.toISOString(),
 				},
@@ -46,7 +46,7 @@ export const JournalGridView = () => {
 
 			// Save audio recording
 			const mediaId = await invoke<string>("save_audio_recording", {
-				request_data: {
+				requestData: {
 					entryId: entry.id,
 					audioData: audioData,
 					duration,
@@ -57,7 +57,7 @@ export const JournalGridView = () => {
 
 			// Start transcription
 			await invoke("start_transcription", {
-				path_params: {
+				pathParams: {
 					mediaId,
 				},
 			});
