@@ -205,7 +205,7 @@ function findMatchingRoute(
  * - requestData: Request body data (POST/PUT) - Tauri converts to request_data
  * - queryParams: URL query parameters - Tauri converts to query_params
  * - pathParams: URL path parameters (e.g., /:id) - Tauri converts to path_params
- * 
+ *
  * Note: Tauri automatically converts camelCase argument names to snake_case
  * when matching Rust parameter names, so we use camelCase here.
  */
@@ -265,12 +265,8 @@ export const customFetch = async <T>(
 	}
 
 	try {
-		// Invoke Tauri command with arguments
-		// Tauri automatically deserializes JSON arguments to Rust types
-		console.log("args->", args);
 		const result = await invoke(match.command, args);
 
-		// Wrap response in Orval's expected format
 		return {
 			data: result,
 			status: 200,
