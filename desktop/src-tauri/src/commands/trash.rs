@@ -1,3 +1,4 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use crate::utils::log_restore;
@@ -14,7 +15,12 @@ use tauri::State;
     )
 )]
 #[tauri::command]
-pub async fn get_trashed_tasks(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Task>> {
+pub async fn get_trashed_tasks(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Task>> {
     let conn = connection::get_database(&*state).connect().map_err(|e| AppError::LibSQL(e))?;
     
     let mut rows = conn
@@ -93,7 +99,15 @@ pub async fn get_trashed_tasks(state: State<'_, DbState>) -> Result<Vec<crate::d
     )
 )]
 #[tauri::command]
-pub async fn restore_task(state: State<'_, DbState>, id: String) -> Result<()> {
+pub async fn restore_task(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
+) -> Result<()> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     let conn = connection::get_database(&*state).connect().map_err(|e| AppError::LibSQL(e))?;
     
     // Check if task exists and is deleted

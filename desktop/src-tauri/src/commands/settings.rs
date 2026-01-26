@@ -1,6 +1,7 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, SettingQueryParams};
 use crate::db::connection;
 use crate::error::{AppError, Result};
-use crate::handlers::settings::{AllSettingsResponse, SettingResponse};
+use crate::handlers::settings::{AllSettingsResponse, SettingResponse, SetSettingRequest};
 use crate::settings;
 use std::collections::HashMap;
 use tauri::State;
@@ -22,16 +23,19 @@ use tauri::State;
 #[tauri::command]
 pub async fn get_setting(
     state: State<'_, crate::DbState>,
-    key: String,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<SettingQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<SettingResponse> {
-    if key.is_empty() {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    if params.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }
 
     let database = connection::get_database(&*state);
-    let value = settings::get_setting(database, &key).await?;
+    let value = settings::get_setting(database, &params.key).await?;
 
-    Ok(SettingResponse { key, value })
+    Ok(SettingResponse { key: params.key, value })
 }
 
 /// Get all settings
@@ -47,6 +51,9 @@ pub async fn get_setting(
 #[tauri::command]
 pub async fn get_all_settings(
     state: State<'_, crate::DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<AllSettingsResponse> {
     let database = connection::get_database(&*state);
     let settings = settings::get_all_settings(database).await?;
@@ -72,15 +79,17 @@ pub async fn get_all_settings(
 #[tauri::command]
 pub async fn set_setting(
     state: State<'_, crate::DbState>,
-    key: String,
-    value: String,
+    request_data: Option<SetSettingRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    if key.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }
 
     let database = connection::get_database(&*state);
-    settings::set_setting(database, &key, &value).await?;
+    settings::set_setting(database, &request.key, &request.value).await?;
 
     Ok(())
 }
