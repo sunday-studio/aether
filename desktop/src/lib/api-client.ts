@@ -202,9 +202,12 @@ function findMatchingRoute(
 /**
  * Custom fetch implementation that routes HTTP requests to Tauri commands.
  * Converts REST API calls to Tauri's unified parameter pattern:
- * - request_data: Request body data (POST/PUT)
- * - query_params: URL query parameters
- * - path_params: URL path parameters (e.g., /:id)
+ * - requestData: Request body data (POST/PUT) - Tauri converts to request_data
+ * - queryParams: URL query parameters - Tauri converts to query_params
+ * - pathParams: URL path parameters (e.g., /:id) - Tauri converts to path_params
+ * 
+ * Note: Tauri automatically converts camelCase argument names to snake_case
+ * when matching Rust parameter names, so we use camelCase here.
  */
 export const customFetch = async <T>(
 	url: string,
@@ -219,7 +222,7 @@ export const customFetch = async <T>(
 	}
 
 	// Parse request body if present
-	let requestData: unknown = undefined;
+	let requestData: unknown;
 	if (options?.body) {
 		try {
 			const bodyStr = options.body as string;
@@ -244,24 +247,27 @@ export const customFetch = async <T>(
 	}
 
 	// Build Tauri command arguments
-	// Tauri deserializes missing keys as None for Option<T>, so only include keys with values
+	// Tauri automatically converts camelCase to snake_case when deserializing
+	// So we use camelCase: requestData → request_data, queryParams → query_params, etc.
+	// Missing keys deserialize as None for Option<T>
 	const args: Record<string, unknown> = {};
 
 	if (requestData !== undefined && requestData !== null) {
-		args.request_data = requestData;
+		args.requestData = requestData;
 	}
 
 	if (Object.keys(match.queryParams).length > 0) {
-		args.query_params = match.queryParams;
+		args.queryParams = match.queryParams;
 	}
 
 	if (Object.keys(match.params).length > 0) {
-		args.path_params = match.params;
+		args.pathParams = match.params;
 	}
 
 	try {
 		// Invoke Tauri command with arguments
 		// Tauri automatically deserializes JSON arguments to Rust types
+		console.log("args->", args);
 		const result = await invoke(match.command, args);
 
 		// Wrap response in Orval's expected format
