@@ -204,7 +204,18 @@ export const customFetch = async <T>(
 	options?: RequestInit,
 ): Promise<T> => {
 	const method = (options?.method || "GET").toUpperCase();
-	const body = options?.body ? JSON.parse(options.body as string) : undefined;
+	let body: unknown = undefined;
+	if (options?.body) {
+		try {
+			const bodyStr = options.body as string;
+			if (bodyStr.trim() !== "") {
+				body = JSON.parse(bodyStr);
+			}
+		} catch (e) {
+			console.error("[API Client] Failed to parse body:", e, options.body);
+			throw new Error("Invalid JSON in request body");
+		}
+	}
 
 	// Find matching route
 	const match = findMatchingRoute(method, url);
@@ -236,11 +247,12 @@ export const customFetch = async <T>(
 		}
 
 		// Debug logging (remove after fixing)
-		if (method !== "GET" && requestData === undefined) {
-			console.warn(`[API Client] No request data for ${method} ${url}`, {
-				body,
+		if (method !== "GET") {
+			console.log(`[API Client] ${method} ${url}`, {
+				rawBody: options?.body,
+				parsedBody: body,
 				requestData,
-				match,
+				argsKeys: Object.keys(args),
 			});
 		}
 

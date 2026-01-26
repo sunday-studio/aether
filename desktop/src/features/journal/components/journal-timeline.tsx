@@ -12,6 +12,9 @@ import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
 
+const placeholder =
+	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
+
 export const JournalTimeline = () => {
 	const { data: entries } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
@@ -26,8 +29,7 @@ export const JournalTimeline = () => {
 	const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
 		try {
 			// First create an entry
-			const placeholder =
-				'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
+
 			const now = new Date();
 
 			// Create entry first
