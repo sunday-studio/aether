@@ -21,7 +21,7 @@ pub async fn apply_change(
     change: &ChangeEnvelope,
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
-    tracing::debug!("[SYNC-APPLY] Applying change: {} {} ({})", change.entity, change.id, change.op);
+    tracing::debug!("[SYNC-APPLY] Applying change: {} {} ({:?})", change.entity, change.id, change.op);
     let local_ts = get_local_updated_at(db, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
@@ -50,9 +50,21 @@ pub async fn with_suppress_triggers<F, R>(db: &Database, f: F) -> Result<R>
 where
     F: std::future::Future<Output = Result<R>>,
 {
+    tracing::debug!("[SYNC-APPLY] Setting _suppress_triggers to '1'");
     metadata::set_suppress_triggers(db, "1").await?;
     let res = f.await;
-    let _ = metadata::set_suppress_triggers(db, "0").await;
+    tracing::debug!("[SYNC-APPLY] Setting _suppress_triggers back to '0'");
+    if let Err(e) = metadata::set_suppress_triggers(db, "0").await {
+        tracing::error!("[SYNC-APPLY] CRITICAL: Failed to reset _suppress_triggers to '0': {}", e);
+        // This is critical - if we can't reset it, triggers will be permanently disabled
+        // Try one more time after a short delay
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        if let Err(e2) = metadata::set_suppress_triggers(db, "0").await {
+            tracing::error!("[SYNC-APPLY] CRITICAL: Second attempt to reset _suppress_triggers also failed: {}", e2);
+        } else {
+            tracing::info!("[SYNC-APPLY] Successfully reset _suppress_triggers on second attempt");
+        }
+    }
     res
 }
 

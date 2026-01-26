@@ -165,10 +165,10 @@ impl SyncEngine {
                 match apply::apply_change(&*db, e, Some(&ctx)).await {
                     Ok(()) => {
                         applied += 1;
-                        tracing::debug!("[SYNC] Applied change: {} {} ({})", e.entity, e.id, e.op);
+                        tracing::debug!("[SYNC] Applied change: {} {} ({:?})", e.entity, e.id, e.op);
                     }
-                    Err(e) => {
-                        tracing::warn!("[SYNC] Failed to apply change {} {}: {}", e.entity, e.id, e);
+                    Err(err) => {
+                        tracing::warn!("[SYNC] Failed to apply change {} {}: {}", e.entity, e.id, err);
                         skipped += 1;
                     }
                 }

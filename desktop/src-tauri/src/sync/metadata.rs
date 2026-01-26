@@ -59,7 +59,13 @@ pub async fn set_key_check(db: &Database, hash: &str) -> Result<()> {
 }
 
 pub async fn set_suppress_triggers(db: &Database, value: &str) -> Result<()> {
+    tracing::debug!("[SYNC-META] Setting _suppress_triggers to '{}'", value);
     set(db, KEY_SUPPRESS_TRIGGERS, value).await
+}
+
+pub async fn get_suppress_triggers(db: &Database) -> Result<String> {
+    let v = get(db, KEY_SUPPRESS_TRIGGERS).await?;
+    Ok(v.unwrap_or_else(|| "0".to_string()))
 }
 
 /// Configure key material: generate salt, derive key, store salt and key_check.

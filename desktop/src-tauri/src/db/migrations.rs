@@ -384,15 +384,31 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             };
             tracing::debug!("Executing statement {}: {}", idx + 1, stmt_preview);
             
-            // Use execute() for DDL statements (CREATE TABLE, CREATE INDEX, etc.)
-            // These don't return rows, so execute() is appropriate
-            conn.execute(statement, libsql::params![])
-                .await
-                .map_err(|e| {
-                    tracing::error!("Failed to execute statement {}: {}", idx + 1, statement);
-                    let _ = conn.execute("ROLLBACK", libsql::params![]);
-                    AppError::LibSQL(e)
-                })?;
+            // Special handling for vector index creation - these may fail if libsql_vector_idx is not available
+            // Allow them to fail gracefully without rolling back the entire migration
+            let is_vector_index = statement.to_uppercase().contains("LIBSQL_VECTOR_IDX");
+            
+            match conn.execute(statement, libsql::params![]).await {
+                Ok(_) => {
+                    if is_vector_index {
+                        tracing::info!("Vector index created successfully");
+                    }
+                }
+                Err(e) => {
+                    if is_vector_index {
+                        let error_msg = e.to_string();
+                        tracing::warn!(
+                            "Failed to create vector index (libsql_vector_idx may not be available): {}",
+                            error_msg
+                        );
+                        // Continue without the index - vector search will still work, just slower
+                    } else {
+                        tracing::error!("Failed to execute statement {}: {}", idx + 1, statement);
+                        let _ = conn.execute("ROLLBACK", libsql::params![]);
+                        return Err(AppError::LibSQL(e));
+                    }
+                }
+            }
         }
 
         // Record migration

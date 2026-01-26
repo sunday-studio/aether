@@ -73,12 +73,15 @@ CREATE TABLE IF NOT EXISTS bookmark_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
--- Add embedding column for semantic search
-ALTER TABLE bookmarks ADD COLUMN embedding F32_BLOB(384);
-
--- Create vector index
-CREATE INDEX IF NOT EXISTS bookmarks_embedding_idx 
-    ON bookmarks(libsql_vector_idx(embedding, 'metric=cosine'));
+-- TODO: Re-enable vector embeddings when vector support is needed
+-- -- Add embedding column for semantic search
+-- ALTER TABLE bookmarks ADD COLUMN embedding F32_BLOB(384);
+-- 
+-- -- Create vector index
+-- -- Note: This index requires libsql_vector_idx() to be available.
+-- -- If not available (e.g., in local libSQL), the migration will continue without it.
+-- CREATE INDEX IF NOT EXISTS bookmarks_embedding_idx 
+--     ON bookmarks(libsql_vector_idx(embedding, 'metric=cosine'));
 
 -- Backfill existing bookmarks into FTS (if any exist)
 INSERT INTO bookmarks_fts_map(bookmark_id) 

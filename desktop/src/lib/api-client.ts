@@ -51,6 +51,8 @@ const routeToCommand: Record<string, string> = {
 	"POST /v1/sync/disconnect": "disconnect_sync",
 	"POST /v1/sync/reconnect": "reconnect_sync",
 	"POST /v1/sync/media/:mediaId/ensure": "ensure_media_blob",
+	"GET /v1/sync/triggers/check": "check_sync_triggers",
+	"POST /v1/sync/triggers/test": "test_sync_trigger",
 	// Activities
 	"GET /v1/activities": "get_activities",
 	// Search
