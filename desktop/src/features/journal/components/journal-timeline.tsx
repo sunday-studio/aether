@@ -45,11 +45,11 @@ export const JournalTimeline = () => {
 			// Save audio recording
 			const mediaId = await invoke<string>("save_audio_recording", {
 				request_data: {
-					entry_id: entry.id,
-					audio_data: audioData,
+					entryId: entry.id,
+					audioData: audioData,
 					duration,
 					format: "webm",
-					auto_transcribe: true,
+					autoTranscribe: true,
 				},
 			});
 
