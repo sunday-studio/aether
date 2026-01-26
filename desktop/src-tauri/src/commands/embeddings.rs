@@ -1,3 +1,4 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, ModelNamePathParams};
 use crate::error::Result;
 use crate::utils::embeddings::model_manager;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,11 @@ pub struct ModelInfo {
 
 /// List available embedding models
 #[tauri::command]
-pub async fn list_embedding_models() -> Result<Vec<ModelInfo>> {
+pub async fn list_embedding_models(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<ModelInfo>> {
     let models = model_manager::list_available_models();
     let mut result = Vec::new();
     
@@ -40,8 +45,13 @@ pub async fn list_embedding_models() -> Result<Vec<ModelInfo>> {
 #[tauri::command]
 pub async fn download_embedding_model(
     _app: AppHandle,
-    model_name: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelNamePathParams>,
 ) -> Result<String> {
+    let model_name = path_params
+        .and_then(|p| Some(p.model_name))
+        .ok_or_else(|| crate::error::AppError::BadRequest("Model name is required".to_string()))?;
     // Download with progress events
     // TODO: Implement progress events for Tauri 2
     model_manager::download_model(
@@ -54,12 +64,26 @@ pub async fn download_embedding_model(
 
 /// Verify embedding model integrity
 #[tauri::command]
-pub async fn verify_embedding_model(model_name: String) -> Result<bool> {
+pub async fn verify_embedding_model(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelNamePathParams>,
+) -> Result<bool> {
+    let model_name = path_params
+        .and_then(|p| Some(p.model_name))
+        .ok_or_else(|| crate::error::AppError::BadRequest("Model name is required".to_string()))?;
     model_manager::verify_model(&model_name)
 }
 
 /// Delete a downloaded embedding model
 #[tauri::command]
-pub async fn delete_embedding_model(model_name: String) -> Result<()> {
+pub async fn delete_embedding_model(
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<ModelNamePathParams>,
+) -> Result<()> {
+    let model_name = path_params
+        .and_then(|p| Some(p.model_name))
+        .ok_or_else(|| crate::error::AppError::BadRequest("Model name is required".to_string()))?;
     model_manager::delete_model(&model_name)
 }
