@@ -45,3 +45,5 @@ backend/tmp
 todo.md
 desktop/.env.production
 desktop/src-tauri/libsql-replica/local.db
+sync-server/target/debug/
+sync-server/data
