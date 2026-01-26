@@ -5,7 +5,6 @@ use chrono::Utc;
 use libsql::Database;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error, info};
 
 pub struct ActivityRepository {
     database: Arc<Database>,
@@ -24,21 +23,7 @@ impl ActivityRepository {
         entity_id: String,
         metadata: Option<serde_json::Value>,
     ) -> Result<Activity> {
-        debug!(
-            "ActivityRepository::create called: action_type={}, entity_type={}, entity_id={}",
-            action_type, entity_type, entity_id
-        );
-
-        let conn = match self.database.connect() {
-            Ok(conn) => {
-                debug!("Successfully connected to database for activity logging");
-                conn
-            }
-            Err(e) => {
-                error!("Failed to connect to database for activity logging: {}", e);
-                return Err(AppError::LibSQL(e));
-            }
-        };
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
         let id = generate_id("activity");
         let created_at = Utc::now();
@@ -47,12 +32,7 @@ impl ActivityRepository {
             .as_ref()
             .map(|m| serde_json::to_string(m).unwrap_or_default());
 
-        debug!(
-            "Inserting activity into database: id={}, action_type={}, entity_type={}, entity_id={}",
-            id, action_type, entity_type, entity_id
-        );
-
-        match conn.execute(
+        conn.execute(
             "INSERT INTO activities (id, action_type, entity_type, entity_id, created_at, metadata) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             libsql::params![
@@ -64,21 +44,8 @@ impl ActivityRepository {
                 metadata_str
             ],
         )
-        .await {
-            Ok(_) => {
-                info!(
-                    "Successfully inserted activity: id={}, action_type={}, entity_type={}, entity_id={}",
-                    id, action_type, entity_type, entity_id
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Failed to insert activity into database: action_type={}, entity_type={}, entity_id={}, error={}",
-                    action_type, entity_type, entity_id, e
-                );
-                return Err(AppError::LibSQL(e));
-            }
-        }
+        .await
+        .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(Activity {
             id,

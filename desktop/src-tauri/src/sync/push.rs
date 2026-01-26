@@ -15,15 +15,21 @@ pub async fn push(
     base_url: &str,
     media_sync_policy: &str,
 ) -> Result<usize> {
+    tracing::info!("[SYNC-PUSH] Starting push operation to {}", base_url);
     let device_id = metadata::get_device_id(&db).await?;
+    tracing::debug!("[SYNC-PUSH] Device ID: {}", device_id);
     let (envelopes, to_delete) = read_outbox_and_build(&db).await?;
     if envelopes.is_empty() {
+        tracing::info!("[SYNC-PUSH] No changes to push");
         return Ok(0);
     }
+    tracing::info!("[SYNC-PUSH] Prepared {} changes to push", envelopes.len());
 
     // Upload media blobs when policy is "auto"
     if media_sync_policy == "auto" {
+        tracing::debug!("[SYNC-PUSH] Media sync policy is 'auto', uploading media blobs");
         if let Ok(media_dir) = get_media_directory() {
+            let mut uploaded = 0;
             for e in &envelopes {
                 if e.entity != "media_items" || e.data.is_none() {
                     continue;
@@ -35,16 +41,21 @@ pub async fn push(
                     let full = media_dir.join(fp);
                     if let Ok(bytes) = std::fs::read(&full) {
                         if let Ok(enc) = encryption::encrypt_blob(key, &bytes) {
-                            if media::upload_media(base_url, hash, &enc).await.is_err() {
-                                tracing::warn!("push: failed to upload media blob {}", hash);
+                            if media::upload_media(base_url, hash, &enc).await.is_ok() {
+                                uploaded += 1;
+                                tracing::debug!("[SYNC-PUSH] Uploaded media blob: {}", hash);
+                            } else {
+                                tracing::warn!("[SYNC-PUSH] Failed to upload media blob {}", hash);
                             }
                         }
                     }
                 }
             }
+            tracing::info!("[SYNC-PUSH] Uploaded {} media blobs", uploaded);
         }
     }
 
+    tracing::info!("[SYNC-PUSH] Encrypting {} changes", envelopes.len());
     let mut encrypted = Vec::with_capacity(envelopes.len());
     for e in &envelopes {
         let json = serde_json::to_vec(e).map_err(AppError::Serialization)?;
@@ -53,6 +64,7 @@ pub async fn push(
     }
 
     let url = format!("{}/push", base_url.trim_end_matches('/'));
+    tracing::info!("[SYNC-PUSH] Sending POST request to {}", url);
     let body = PushRequest {
         device_id,
         changes: encrypted,
@@ -63,21 +75,28 @@ pub async fn push(
         .json(&body)
         .send()
         .await
-        .map_err(|e| AppError::Sync(format!("push request: {}", e)))?;
+        .map_err(|e| {
+            tracing::error!("[SYNC-PUSH] Network error: {}", e);
+            AppError::Sync(format!("push request: {}", e))
+        })?;
 
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
+        tracing::error!("[SYNC-PUSH] Server returned error {}: {}", status, text);
         return Err(AppError::Sync(format!("push failed {}: {}", status, text)));
     }
 
+    tracing::info!("[SYNC-PUSH] Server accepted changes, deleting {} rows from outbox", to_delete.len());
     delete_outbox_rows(&db, &to_delete).await?;
+    tracing::info!("[SYNC-PUSH] Push completed successfully");
     Ok(to_delete.len())
 }
 
 async fn read_outbox_and_build(
     db: &Database,
 ) -> Result<(Vec<ChangeEnvelope>, Vec<(String, String)>)> {
+    tracing::debug!("[SYNC-PUSH] Reading outbox");
     let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
@@ -89,13 +108,16 @@ async fn read_outbox_and_build(
 
     // Dedupe by (entity, entity_id): keep the latest (last) row.
     let mut seen: std::collections::HashMap<(String, String), (String, i64)> = std::collections::HashMap::new();
+    let mut total_rows = 0;
     while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
         let entity: String = row.get(0).map_err(AppError::LibSQL)?;
         let entity_id: String = row.get(1).map_err(AppError::LibSQL)?;
         let op: String = row.get(2).map_err(AppError::LibSQL)?;
         let queued_at: i64 = row.get(3).map_err(AppError::LibSQL)?;
         seen.insert((entity.clone(), entity_id.clone()), (op, queued_at));
+        total_rows += 1;
     }
+    tracing::debug!("[SYNC-PUSH] Read {} rows from outbox, {} unique entities after deduplication", total_rows, seen.len());
 
     let mut envelopes = Vec::new();
     let mut to_delete = Vec::new();

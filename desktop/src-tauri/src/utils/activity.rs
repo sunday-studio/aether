@@ -2,7 +2,6 @@ use crate::db::ActivityRepository;
 use crate::error::Result;
 use libsql::Database;
 use std::sync::Arc;
-use tracing::{debug, error, info};
 
 /// Log an activity to the database
 pub async fn log_activity(
@@ -12,28 +11,9 @@ pub async fn log_activity(
     entity_id: String,
     metadata: Option<serde_json::Value>,
 ) -> Result<()> {
-    info!(
-        "Logging activity: action_type={}, entity_type={}, entity_id={}",
-        action_type, entity_type, entity_id
-    );
-    
     let repo = ActivityRepository::new(database);
-    match repo.create(action_type.clone(), entity_type.clone(), entity_id.clone(), metadata).await {
-        Ok(activity) => {
-            debug!(
-                "Successfully logged activity: id={}, action_type={}, entity_type={}, entity_id={}",
-                activity.id, activity.action_type, activity.entity_type, activity.entity_id
-            );
-            Ok(())
-        }
-        Err(e) => {
-            error!(
-                "Failed to log activity: action_type={}, entity_type={}, entity_id={}, error={}",
-                action_type, entity_type, entity_id, e
-            );
-            Err(e)
-        }
-    }
+    repo.create(action_type.clone(), entity_type.clone(), entity_id.clone(), metadata).await?;
+    Ok(())
 }
 
 /// Helper to log a create action
@@ -42,7 +22,6 @@ pub async fn log_create(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_create called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "create".to_string(), entity_type, entity_id, None).await
 }
 
@@ -52,7 +31,6 @@ pub async fn log_update(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_update called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "update".to_string(), entity_type, entity_id, None).await
 }
 
@@ -62,7 +40,6 @@ pub async fn log_delete(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_delete called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "delete".to_string(), entity_type, entity_id, None).await
 }
 
@@ -72,7 +49,6 @@ pub async fn log_complete(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_complete called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "complete".to_string(), entity_type, entity_id, None).await
 }
 
@@ -83,7 +59,6 @@ pub async fn log_tag_operation(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_tag_operation called: action={}, entity_type={}, entity_id={}", action, entity_type, entity_id);
     log_activity(
         database,
         action.to_string(),
@@ -101,7 +76,6 @@ pub async fn log_goal_operation(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_goal_operation called: action={}, entity_type={}, entity_id={}", action, entity_type, entity_id);
     log_activity(
         database,
         action.to_string(),
@@ -118,7 +92,6 @@ pub async fn log_reorder(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_reorder called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "reorder".to_string(), entity_type, entity_id, None).await
 }
 
@@ -128,6 +101,5 @@ pub async fn log_restore(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    debug!("log_restore called: entity_type={}, entity_id={}", entity_type, entity_id);
     log_activity(database, "restore".to_string(), entity_type, entity_id, None).await
 }

@@ -21,11 +21,13 @@ pub async fn apply_change(
     change: &ChangeEnvelope,
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
+    tracing::debug!("[SYNC-APPLY] Applying change: {} {} ({})", change.entity, change.id, change.op);
     let local_ts = get_local_updated_at(db, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
     if let Some(ts) = local_ts {
         if change.updated_at <= ts {
+            tracing::debug!("[SYNC-APPLY] Skipping {} {}: local timestamp {} >= remote {}", change.entity, change.id, ts, change.updated_at);
             return Ok(());
         }
     }
