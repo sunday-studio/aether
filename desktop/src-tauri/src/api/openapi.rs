@@ -12,6 +12,9 @@ use crate::handlers::settings as settings_handlers;
 use crate::commands::link as link_commands;
 use crate::commands::audio as audio_commands;
 use crate::commands::transcription as transcription_commands;
+use crate::commands::sync as sync_commands;
+use crate::commands::bookmark as bookmark_commands;
+use crate::commands::canvas as canvas_commands;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -91,6 +94,28 @@ use crate::commands::transcription as transcription_commands;
         transcription_commands::download_model,
         transcription_commands::verify_model,
         transcription_commands::delete_model,
+        // Sync endpoints
+        sync_commands::configure_sync,
+        sync_commands::sync_now,
+        sync_commands::get_sync_status,
+        sync_commands::disconnect_sync,
+        sync_commands::reconnect_sync,
+        sync_commands::ensure_media_blob,
+        // Bookmark endpoints
+        bookmark_commands::get_bookmarks,
+        bookmark_commands::get_bookmark_by_id,
+        bookmark_commands::create_bookmark,
+        bookmark_commands::update_bookmark,
+        bookmark_commands::delete_bookmark,
+        bookmark_commands::add_tags_to_bookmark,
+        bookmark_commands::remove_tags_from_bookmark,
+        bookmark_commands::extract_metadata,
+        // Canvas endpoints
+        canvas_commands::get_canvases,
+        canvas_commands::get_canvas_by_id,
+        canvas_commands::create_canvas,
+        canvas_commands::update_canvas,
+        canvas_commands::delete_canvas,
     ),
     components(schemas(
         Tag,
@@ -117,6 +142,7 @@ use crate::commands::transcription as transcription_commands;
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,
+        link_commands::SyncLinksRequest,
         settings_handlers::SettingResponse,
         settings_handlers::AllSettingsResponse,
         settings_handlers::SetSettingRequest,
@@ -124,6 +150,18 @@ use crate::commands::transcription as transcription_commands;
         AudioTranscription,
         transcription_commands::ProviderInfo,
         transcription_commands::ModelInfo,
+        transcription_commands::SetActiveTranscriptionRequest,
+        transcription_commands::ValidateProviderRequest,
+        crate::sync::SyncStatus,
+        sync_commands::ConfigureSyncRequest,
+        sync_commands::ReconnectSyncRequest,
+        crate::handlers::bookmark::CreateBookmarkRequest,
+        crate::handlers::bookmark::UpdateBookmarkRequest,
+        bookmark_commands::AddTagsToBookmarkRequest,
+        bookmark_commands::RemoveTagsFromBookmarkRequest,
+        canvas_commands::CreateCanvasRequest,
+        canvas_commands::UpdateCanvasRequest,
+        audio_commands::SaveAudioRecordingRequest,
     )),
     tags(
         (name = "Tags", description = "Tag management endpoints"),
@@ -138,6 +176,9 @@ use crate::commands::transcription as transcription_commands;
         (name = "Settings", description = "Settings management endpoints"),
         (name = "Audio", description = "Audio recording and playback endpoints"),
         (name = "Transcription", description = "Audio transcription endpoints"),
+        (name = "Sync", description = "Sync management endpoints"),
+        (name = "Bookmarks", description = "Bookmark management endpoints"),
+        (name = "Canvases", description = "Canvas management endpoints"),
     ),
 )]
 pub struct ApiDoc;

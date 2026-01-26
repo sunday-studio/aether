@@ -1,25 +1,100 @@
-import { useSync } from "~/hooks/use-sync";
+import { listen } from "@tauri-apps/api/event";
+import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { useEffect, useState } from "react";
+import {
+	getGetSyncStatusQueryKey,
+	useGetSyncStatus,
+	useSyncNow,
+	useConfigureSync,
+	useDisconnectSync,
+	useReconnectSync,
+	useGetSetting,
+	useSetSetting,
+} from "~/aether-sdk";
+import type { SyncStatus } from "~/aether-sdk/models";
 import { Button } from "~/components/shared/button";
 import { TextField } from "~/components/shared/text-field";
-import { useState } from "react";
-import { format } from "date-fns";
 
 export const SyncSection = () => {
-	const {
-		status,
-		mediaSyncPolicy,
-		configure,
-		syncNow,
-		disconnect,
-		setMediaSyncPolicy,
-		reconnect,
-		isSyncing,
-		isConfiguring,
-		isReconnecting,
-		configureError,
-		syncError,
-		reconnectError,
-	} = useSync();
+	const queryClient = useQueryClient();
+	const syncStatusQueryKey = getGetSyncStatusQueryKey();
+
+	const { data: statusResponse } = useGetSyncStatus({
+		query: {
+			refetchInterval: 30_000,
+		},
+	});
+
+	const status = statusResponse?.data as SyncStatus | undefined;
+
+	const { data: mediaPolicyResponse } = useGetSetting(
+		{ key: "sync.media_sync_policy" },
+		{
+			query: {
+				queryKey: ["sync", "media_policy"],
+			},
+		},
+	);
+
+	const mediaSyncPolicy = (mediaPolicyResponse?.data?.value as "auto" | "on_demand") ?? "on_demand";
+
+	useEffect(() => {
+		const unlisten = listen<SyncStatus>("sync-status", () => {
+			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, [queryClient, syncStatusQueryKey]);
+
+	const syncNowMutation = useSyncNow({
+		mutation: {
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+			},
+		},
+	});
+
+	const configureMutation = useConfigureSync({
+		mutation: {
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+			},
+		},
+	});
+
+	const disconnectMutation = useDisconnectSync({
+		mutation: {
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+			},
+		},
+	});
+
+	const setMediaSyncPolicyMutation = useSetSetting({
+		mutation: {
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+				queryClient.invalidateQueries({ queryKey: ["sync", "media_policy"] });
+			},
+		},
+	});
+
+	const reconnectMutation = useReconnectSync({
+		mutation: {
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+			},
+		},
+	});
+
+	const isSyncing = syncNowMutation.isPending;
+	const isConfiguring = configureMutation.isPending;
+	const isReconnecting = reconnectMutation.isPending;
+	const configureError = configureMutation.error;
+	const syncError = syncNowMutation.error;
+	const reconnectError = reconnectMutation.error;
 
 	const [serverUrl, setServerUrl] = useState("");
 	const [passphrase, setPassphrase] = useState("");
@@ -78,7 +153,7 @@ export const SyncSection = () => {
 
 			{err && (
 				<div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
-					{String(err)}
+					{err instanceof Error ? err.message : String(err)}
 				</div>
 			)}
 
@@ -95,7 +170,11 @@ export const SyncSection = () => {
 							onChange={(v) => setReconnectPassphrase(v)}
 						/>
 						<Button
-							onClick={() => reconnect(reconnectPassphrase)}
+							onClick={() =>
+								reconnectMutation.mutate({
+									data: { passphrase: reconnectPassphrase },
+								})
+							}
 							label={isReconnecting ? "Reconnecting…" : "Reconnect"}
 							tooltipContent="Reconnect with passphrase"
 							isDisabled={reconnectPassphrase.length < 12 || isReconnecting}
@@ -112,7 +191,11 @@ export const SyncSection = () => {
 							type="radio"
 							name="media_policy"
 							checked={mediaSyncPolicy === "auto"}
-							onChange={() => setMediaSyncPolicy("auto")}
+							onChange={() =>
+								setMediaSyncPolicyMutation.mutate({
+									data: { key: "sync.media_sync_policy", value: "auto" },
+								})
+							}
 						/>
 						<span className="text-sm">Auto sync media</span>
 					</label>
@@ -121,7 +204,11 @@ export const SyncSection = () => {
 							type="radio"
 							name="media_policy"
 							checked={mediaSyncPolicy === "on_demand"}
-							onChange={() => setMediaSyncPolicy("on_demand")}
+							onChange={() =>
+								setMediaSyncPolicyMutation.mutate({
+									data: { key: "sync.media_sync_policy", value: "on_demand" },
+								})
+							}
 						/>
 						<span className="text-sm">Download as needed</span>
 					</label>
@@ -146,14 +233,14 @@ export const SyncSection = () => {
 				<div className="flex items-center justify-end gap-4 mt-4">
 					{status?.connected && !status?.needs_passphrase && (
 						<Button
-							onClick={() => disconnect()}
+							onClick={() => disconnectMutation.mutate(undefined)}
 							label="Disconnect"
 							variant="destructive"
 							tooltipContent="Clear sync configuration"
 						/>
 					)}
 					<Button
-						onClick={() => syncNow()}
+						onClick={() => syncNowMutation.mutate(undefined)}
 						label={isSyncing ? "Syncing…" : "Sync now"}
 						tooltipContent="Run sync now"
 						isDisabled={
@@ -161,10 +248,14 @@ export const SyncSection = () => {
 						}
 					/>
 					<Button
-						onClick={() => configure(serverUrl, passphrase)}
+						onClick={() =>
+							configureMutation.mutate({
+								data: { server_url: serverUrl, passphrase },
+							})
+						}
 						label={isConfiguring ? "Saving…" : "Save"}
 						tooltipContent="Save server URL and passphrase"
-						isDisabled={!serverUrl.trim() || passphrase.length < 12 || isConfiguring}
+						// isDisabled={!serverUrl.trim() || passphrase.length < 12 || isConfiguring}
 					/>
 				</div>
 			</div>

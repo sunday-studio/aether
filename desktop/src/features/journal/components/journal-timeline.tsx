@@ -12,6 +12,9 @@ import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
 
+const placeholder =
+	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
+
 export const JournalTimeline = () => {
 	const { data: entries } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
@@ -26,14 +29,15 @@ export const JournalTimeline = () => {
 	const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
 		try {
 			// First create an entry
-			const placeholder =
-				'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
+
 			const now = new Date();
 
 			// Create entry first
 			const entry = await invoke<Entry>("create_entry", {
-				document: placeholder,
-				date: now.toISOString(),
+				requestData: {
+					document: placeholder,
+					date: now.toISOString(),
+				},
 			});
 
 			// Convert blob to Uint8Array
@@ -42,16 +46,20 @@ export const JournalTimeline = () => {
 
 			// Save audio recording
 			const mediaId = await invoke<string>("save_audio_recording", {
-				entryId: entry.id,
-				audioData,
-				duration,
-				format: "webm",
-				autoTranscribe: true,
+				requestData: {
+					entryId: entry.id,
+					audioData: audioData,
+					duration,
+					format: "webm",
+					autoTranscribe: true,
+				},
 			});
 
 			// Start transcription
 			await invoke("start_transcription", {
-				mediaId,
+				pathParams: {
+					mediaId,
+				},
 			});
 
 			// Refresh entries

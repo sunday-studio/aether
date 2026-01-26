@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useRef } from "react";
 import { useGetSubtasks } from "~/aether-sdk";
-import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
+import type { SubTask } from "~/aether-sdk/models/sub-task";
 import {
 	useOptimisticCreateSubtask,
 	useOptimisticDeleteSubtask,
@@ -19,7 +19,7 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 	const { data: subtasksData, isLoading } = useGetSubtasks(taskId);
 	const { mutate: deleteSubtask } = useOptimisticDeleteSubtask();
 
-	const subtasks: DbSubTask[] = (subtasksData?.data as DbSubTask[]) ?? [];
+	const subtasks: SubTask[] = (subtasksData?.data as SubTask[]) ?? [];
 
 	const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 	const pendingFocusRef = useRef<string | null>(null);
@@ -41,7 +41,7 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 			} else {
 				// Only delete the ref if the subtask no longer exists in the list
 				// This prevents cleanup from running during re-renders when subtasks still exist
-				const currentSubtasks = subtasksData?.data as DbSubTask[] | undefined;
+				const currentSubtasks = subtasksData?.data as SubTask[] | undefined;
 				const subtaskExists = currentSubtasks?.some((s) => s.id === subtaskId);
 				if (!subtaskExists) {
 					inputRefs.current.delete(subtaskId);

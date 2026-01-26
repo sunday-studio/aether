@@ -45,8 +45,14 @@ const routeToCommand: Record<string, string> = {
 	"GET /v1/trash/tasks": "get_trashed_tasks",
 	"POST /v1/trash/:id/restore": "restore_task",
 	// Sync
+	"GET /v1/sync/status": "get_sync_status",
 	"POST /v1/sync/configure": "configure_sync",
-	"POST /v1/sync": "sync",
+	"POST /v1/sync/now": "sync_now",
+	"POST /v1/sync/disconnect": "disconnect_sync",
+	"POST /v1/sync/reconnect": "reconnect_sync",
+	"POST /v1/sync/media/:mediaId/ensure": "ensure_media_blob",
+	"GET /v1/sync/triggers/check": "check_sync_triggers",
+	"POST /v1/sync/triggers/test": "test_sync_trigger",
 	// Activities
 	"GET /v1/activities": "get_activities",
 	// Search
@@ -195,70 +201,81 @@ function findMatchingRoute(
 	return null;
 }
 
+/**
+ * Custom fetch implementation that routes HTTP requests to Tauri commands.
+ * Converts REST API calls to Tauri's unified parameter pattern:
+ * - requestData: Request body data (POST/PUT) - Tauri converts to request_data
+ * - queryParams: URL query parameters - Tauri converts to query_params
+ * - pathParams: URL path parameters (e.g., /:id) - Tauri converts to path_params
+ *
+ * Note: Tauri automatically converts camelCase argument names to snake_case
+ * when matching Rust parameter names, so we use camelCase here.
+ */
 export const customFetch = async <T>(
 	url: string,
 	options?: RequestInit,
 ): Promise<T> => {
 	const method = (options?.method || "GET").toUpperCase();
-	const body = options?.body ? JSON.parse(options.body as string) : undefined;
 
-	// Find matching route
+	// Find the matching Tauri command for this route
 	const match = findMatchingRoute(method, url);
 	if (!match) {
 		throw new Error(`No matching route found for ${method} ${url}`);
 	}
 
-	try {
-		// Prepare command arguments
-		// Start with path params (these take precedence)
-		const args: Record<string, unknown> = { ...match.params };
-		// Add query parameters (for GET requests with query params)
-		// Convert numeric parameters to numbers
-		const numericParams = new Set(["limit", "offset"]);
-		for (const [key, value] of Object.entries(match.queryParams)) {
-			if (!(key in args)) {
-				// Convert numeric query parameters to numbers
-				if (numericParams.has(key)) {
-					const numValue = Number(value);
-					// Only set if it's a valid number, otherwise skip (will be undefined/optional)
-					if (!Number.isNaN(numValue) && value.trim() !== "") {
-						args[key] = numValue;
-					}
+	// Parse request body if present
+	let requestData: unknown;
+	if (options?.body) {
+		try {
+			const bodyStr = options.body as string;
+			if (bodyStr.trim()) {
+				const parsed = JSON.parse(bodyStr);
+				// Orval SDK wraps request bodies in { data: {...} }
+				// Unwrap it if present, otherwise use body as-is
+				if (
+					typeof parsed === "object" &&
+					parsed !== null &&
+					!Array.isArray(parsed) &&
+					"data" in parsed
+				) {
+					requestData = parsed.data;
 				} else {
-					args[key] = value;
+					requestData = parsed;
 				}
 			}
+		} catch (e) {
+			throw new Error(`Invalid JSON in request body: ${e}`);
 		}
-		if (body !== undefined) {
-			// If body is an object, merge it into args
-			// But don't overwrite path params - they take precedence
-			if (typeof body === "object" && !Array.isArray(body) && body !== null) {
-				// Merge body into args, but preserve path params
-				for (const [key, value] of Object.entries(body)) {
-					// Only add if not already set by path params
-					if (!(key in args)) {
-						args[key] = value;
-					}
-				}
-			} else {
-				// For array bodies or other types, use 'payload' key
-				args.payload = body;
-			}
-		}
+	}
 
-		// Invoke Tauri command
+	// Build Tauri command arguments
+	// Tauri automatically converts camelCase to snake_case when deserializing
+	// So we use camelCase: requestData → request_data, queryParams → query_params, etc.
+	// Missing keys deserialize as None for Option<T>
+	const args: Record<string, unknown> = {};
+
+	if (requestData !== undefined && requestData !== null) {
+		args.requestData = requestData;
+	}
+
+	if (Object.keys(match.queryParams).length > 0) {
+		args.queryParams = match.queryParams;
+	}
+
+	if (Object.keys(match.params).length > 0) {
+		args.pathParams = match.params;
+	}
+
+	try {
 		const result = await invoke(match.command, args);
 
-		// Wrap response in Orval's expected format
-		const wrappedResponse = {
+		return {
 			data: result,
 			status: 200,
 			headers: new Headers({ "content-type": "application/json" }),
 		} as T;
-
-		return wrappedResponse;
 	} catch (error) {
-		// Handle Tauri errors
+		// Map Tauri errors to HTTP status codes
 		let status = 500;
 		let errorData: unknown = error;
 
@@ -277,13 +294,11 @@ export const customFetch = async <T>(
 			errorData = { message };
 		}
 
-		const wrappedError = {
+		throw {
 			data: errorData,
 			status,
 			headers: new Headers({ "content-type": "application/json" }),
 		} as T;
-
-		throw wrappedError;
 	}
 };
 

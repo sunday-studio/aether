@@ -1,3 +1,4 @@
+use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
 use crate::db::{connection, DbState};
 use crate::db::repositories::search::{SearchRepository, ResourceType};
 use crate::error::{AppError, Result};
@@ -26,19 +27,17 @@ use tauri::State;
 #[tauri::command]
 pub async fn search_resources(
     state: State<'_, DbState>,
-    q: String,
-    types: Option<String>,
-    tags: Option<String>,
-    limit: Option<u32>,
-    offset: Option<u32>,
-    mode: Option<String>,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<SearchQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<SearchResponse> {
-    if q.trim().is_empty() {
+    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    if params.q.trim().is_empty() {
         return Err(AppError::BadRequest("Query parameter 'q' is required and cannot be empty".to_string()));
     }
 
     // Parse resource types
-    let types = if let Some(ref types_str) = types {
+    let types = if let Some(ref types_str) = params.types {
         let type_vec: Vec<ResourceType> = types_str
             .split(',')
             .filter_map(|s| ResourceType::from_str(s.trim()))
@@ -53,7 +52,7 @@ pub async fn search_resources(
     };
 
     // Parse tag IDs
-    let tag_ids = if let Some(ref tags_str) = tags {
+    let tag_ids = if let Some(ref tags_str) = params.tags {
         let tag_vec: Vec<String> = tags_str
             .split(',')
             .map(|s| s.trim().to_string())
@@ -68,22 +67,22 @@ pub async fn search_resources(
         None
     };
 
-    let mode = mode.as_deref().unwrap_or("fuzzy").to_string();
+    let mode = params.mode.as_deref().unwrap_or("fuzzy").to_string();
 
     let repo = SearchRepository::new(connection::get_database(&*state));
     let results: Vec<crate::db::repositories::search::SearchResult> = repo.search_fuzzy(
-        &q,
+        &params.q,
         types,
         tag_ids,
-        limit,
-        offset,
+        params.limit,
+        params.offset,
     ).await?;
 
     let total = results.len();
     let response = SearchResponse {
         results: results.into_iter().map(SearchResultResponse::from).collect(),
         total,
-        query: q,
+        query: params.q,
         mode,
     };
 

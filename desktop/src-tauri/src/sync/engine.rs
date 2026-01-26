@@ -10,8 +10,9 @@ use crate::sync::pull;
 use crate::sync::push;
 use serde::Serialize;
 use std::sync::Mutex;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct SyncStatus {
     pub connected: bool,
     pub pending_changes: u32,
@@ -41,36 +42,53 @@ impl SyncEngine {
     /// status().connected is true when sync was previously configured. Passphrase
     /// is not stored; user must re-enter to run sync.
     pub async fn hydrate_from_metadata(&self) -> Result<()> {
+        tracing::info!("[SYNC] Hydrating sync configuration from metadata");
         let db = get_database(&self.db);
         if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
-            *self.server_url.lock().unwrap() = Some(url);
+            *self.server_url.lock().unwrap() = Some(url.clone());
+            tracing::info!("[SYNC] Loaded server URL from metadata: {}", url);
+        } else {
+            tracing::info!("[SYNC] No server URL found in metadata");
         }
         Ok(())
     }
 
     /// Configure sync: server URL and passphrase. On first run, derives and stores key_salt/key_check.
     pub async fn configure(&self, server_url: String, passphrase: String) -> Result<()> {
+        tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
         let db = get_database(&self.db);
         if metadata::get_key_salt(&db).await?.is_none() {
+            tracing::info!("[SYNC] First-time setup: generating key material");
             metadata::configure_key(&db, &passphrase).await?;
         } else {
+            tracing::info!("[SYNC] Verifying existing passphrase");
             metadata::verify_key(&db, &passphrase).await?;
         }
         metadata::set_server_url(&db, &server_url).await?;
-        *self.server_url.lock().unwrap() = Some(server_url);
+        *self.server_url.lock().unwrap() = Some(server_url.clone());
         *self.passphrase.lock().unwrap() = Some(passphrase);
+        tracing::info!("[SYNC] Configuration complete. Server URL stored in memory");
         Ok(())
     }
 
     /// Run pull, apply, then push.
     pub async fn sync(&self) -> Result<SyncStatus> {
+        tracing::info!("[SYNC] Starting sync operation");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
             let p = self.passphrase.lock().unwrap().clone();
             (u, p)
         };
-        let url = url.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
-        let pass = pass.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
+        let url = url.ok_or_else(|| {
+            tracing::error!("[SYNC] Sync not configured: server URL missing");
+            AppError::Sync("sync not configured".into())
+        })?;
+        let pass = pass.ok_or_else(|| {
+            tracing::error!("[SYNC] Sync not configured: passphrase missing");
+            AppError::Sync("sync not configured".into())
+        })?;
+
+        tracing::info!("[SYNC] Server URL: {}", url);
 
         let already = {
             let mut g = self.is_syncing.lock().unwrap();
@@ -81,20 +99,56 @@ impl SyncEngine {
             v
         };
         if already {
+            tracing::warn!("[SYNC] Sync already in progress, returning current status");
             return self.status().await;
         }
 
         let db = get_database(&self.db);
-        let key = metadata::verify_key(&db, &pass).await?;
+        let key = match metadata::verify_key(&db, &pass).await {
+            Ok(k) => {
+                tracing::info!("[SYNC] Passphrase verified successfully");
+                k
+            }
+            Err(e) => {
+                tracing::error!("[SYNC] Passphrase verification failed: {}", e);
+                *self.is_syncing.lock().unwrap() = false;
+                return Err(e);
+            }
+        };
+
+        // Check outbox before sync
+        let conn = db.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
+            .await
+            .map_err(AppError::LibSQL)?;
+        let pending_before: i64 = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            row.get(0).unwrap_or(0)
+        } else {
+            0
+        };
+        tracing::info!("[SYNC] Pending changes in outbox before sync: {}", pending_before);
 
         // Pull
-        let (envelopes, ts) = pull::pull(&db, &key, &url).await?;
+        tracing::info!("[SYNC] Starting pull from server");
+        let (envelopes, ts) = match pull::pull(&db, &key, &url).await {
+            Ok((e, t)) => {
+                tracing::info!("[SYNC] Pull successful: received {} changes, timestamp: {}", e.len(), t);
+                (e, t)
+            }
+            Err(e) => {
+                tracing::error!("[SYNC] Pull failed: {}", e);
+                *self.is_syncing.lock().unwrap() = false;
+                return Err(e);
+            }
+        };
 
         let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
             .await
             .ok()
             .flatten()
             .unwrap_or_else(|| "on_demand".to_string());
+        tracing::info!("[SYNC] Media sync policy: {}", media_sync_policy);
 
         let ctx = apply::ApplyCtx {
             base_url: &url,
@@ -103,37 +157,82 @@ impl SyncEngine {
         };
 
         // Apply with triggers suppressed
+        tracing::info!("[SYNC] Applying {} remote changes", envelopes.len());
         let apply_res = apply::with_suppress_triggers(&db, async {
+            let mut applied = 0;
+            let mut skipped = 0;
             for e in &envelopes {
-                apply::apply_change(&*db, e, Some(&ctx)).await?;
+                match apply::apply_change(&*db, e, Some(&ctx)).await {
+                    Ok(()) => {
+                        applied += 1;
+                        tracing::debug!("[SYNC] Applied change: {} {} ({:?})", e.entity, e.id, e.op);
+                    }
+                    Err(err) => {
+                        tracing::warn!("[SYNC] Failed to apply change {} {}: {}", e.entity, e.id, err);
+                        skipped += 1;
+                    }
+                }
             }
+            tracing::info!("[SYNC] Applied {} changes, skipped {} changes", applied, skipped);
             Ok(())
         })
         .await;
 
         if let Err(e) = apply_res {
+            tracing::error!("[SYNC] Apply phase failed: {}", e);
             *self.is_syncing.lock().unwrap() = false;
             return Err(e);
         }
 
         metadata::set_last_sync(&db, ts).await?;
+        tracing::info!("[SYNC] Last sync timestamp updated to: {}", ts);
 
         // Push
-        let _ = push::push(db, &key, &url, &media_sync_policy).await;
+        tracing::info!("[SYNC] Starting push to server");
+        match push::push(db.clone(), &key, &url, &media_sync_policy).await {
+            Ok(count) => {
+                tracing::info!("[SYNC] Push successful: {} changes pushed", count);
+            }
+            Err(e) => {
+                tracing::error!("[SYNC] Push failed: {}", e);
+                // Don't fail the entire sync if push fails, but log it
+            }
+        }
+
+        // Check outbox after sync
+        let conn = db.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
+            .await
+            .map_err(AppError::LibSQL)?;
+        let pending_after: i64 = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            row.get(0).unwrap_or(0)
+        } else {
+            0
+        };
+        tracing::info!("[SYNC] Pending changes in outbox after sync: {}", pending_after);
 
         *self.is_syncing.lock().unwrap() = false;
+        tracing::info!("[SYNC] Sync operation completed");
         self.status().await
     }
 
     /// Push only (no pull). Use on window blur to flush pending changes.
     pub async fn push_pending(&self) -> Result<()> {
+        tracing::info!("[SYNC] Pushing pending changes");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
             let p = self.passphrase.lock().unwrap().clone();
             (u, p)
         };
-        let Some(url) = url else { return Ok(()); };
-        let Some(pass) = pass else { return Ok(()); };
+        let Some(url) = url else {
+            tracing::debug!("[SYNC] No server URL configured, skipping push");
+            return Ok(());
+        };
+        let Some(pass) = pass else {
+            tracing::debug!("[SYNC] No passphrase in memory, skipping push");
+            return Ok(());
+        };
         let db = get_database(&self.db);
         let key = metadata::verify_key(&db, &pass).await?;
         let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
@@ -141,7 +240,14 @@ impl SyncEngine {
             .ok()
             .flatten()
             .unwrap_or_else(|| "on_demand".to_string());
-        let _ = push::push(db, &key, &url, &media_sync_policy).await;
+        match push::push(db, &key, &url, &media_sync_policy).await {
+            Ok(count) => {
+                tracing::info!("[SYNC] Pushed {} pending changes", count);
+            }
+            Err(e) => {
+                tracing::warn!("[SYNC] Failed to push pending changes: {}", e);
+            }
+        }
         Ok(())
     }
 
@@ -165,12 +271,22 @@ impl SyncEngine {
 
         let last_sync = metadata::get_last_sync(&db).await.ok().flatten();
 
-        Ok(SyncStatus {
+        let status = SyncStatus {
             connected,
             pending_changes: pending as u32,
             last_sync,
             needs_passphrase,
-        })
+        };
+
+        tracing::debug!(
+            "[SYNC] Status: connected={}, pending={}, last_sync={:?}, needs_passphrase={}",
+            status.connected,
+            status.pending_changes,
+            status.last_sync,
+            status.needs_passphrase
+        );
+
+        Ok(status)
     }
 
     /// Returns true if a sync is currently in progress.

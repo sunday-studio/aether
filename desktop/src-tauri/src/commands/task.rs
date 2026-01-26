@@ -1,10 +1,32 @@
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, TaskIdPathParams,
+    TaskSubtaskPathParams,
+};
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::task::{
+    AddGoalToTaskRequest, CreateSubTaskRequest, CreateTaskRequest, ReorderSubTasksRequest,
+    UpdateSubTaskRequest, UpdateTaskRequest,
+};
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
 };
+use serde::Deserialize;
 use tauri::State;
+use utoipa::ToSchema;
+
+/// Request to add tags to a task
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct AddTagsToTaskRequest {
+    pub tag_ids: Vec<String>,
+}
+
+/// Request to remove tags from a task
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct RemoveTagsFromTaskRequest {
+    pub tag_ids: Vec<String>,
+}
 
 /// Create a new task
 #[utoipa::path(
@@ -18,16 +40,15 @@ use tauri::State;
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_task(
     state: State<'_, DbState>,
-    title: String,
-    description: Option<String>,
-    due_date: Option<chrono::DateTime<chrono::Utc>>,
-    goal_id: Option<String>,
-    tag_ids: Option<Vec<String>>,
+    request_data: Option<CreateTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Task> {
-    if title.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
@@ -36,18 +57,16 @@ pub async fn create_task(
     
     let task = repo
         .create(
-            title,
-            description,
-            due_date,
-            goal_id.clone(),
+            request.title,
+            request.description,
+            request.due_date,
+            request.goal_id.clone(),
             None, // goal_instance_id - will be set in Milestone 5
         )
         .await?;
 
-    if let Some(tag_ids) = tag_ids {
-        if !tag_ids.is_empty() {
-            repo.add_tags(&task.id, tag_ids).await?;
-        }
+    if !request.tag_ids.is_empty() {
+        repo.add_tags(&task.id, request.tag_ids).await?;
     }
 
     // Log activity
@@ -69,7 +88,12 @@ pub async fn create_task(
     )
 )]
 #[tauri::command]
-pub async fn get_inbox_tasks(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Task>> {
+pub async fn get_inbox_tasks(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Task>> {
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.find_inbox().await
 }
@@ -85,7 +109,12 @@ pub async fn get_inbox_tasks(state: State<'_, DbState>) -> Result<Vec<crate::db:
     )
 )]
 #[tauri::command]
-pub async fn get_overdue_tasks(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Task>> {
+pub async fn get_overdue_tasks(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Task>> {
     let repo = TaskRepository::new(connection::get_database(&*state));
     repo.find_overdue().await
 }
@@ -107,8 +136,13 @@ pub async fn get_overdue_tasks(state: State<'_, DbState>) -> Result<Vec<crate::d
 #[tauri::command]
 pub async fn get_task_by_id(
     state: State<'_, DbState>,
-    id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -135,21 +169,21 @@ pub async fn get_task_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn update_task(
     state: State<'_, DbState>,
-    id: String,
-    title: Option<String>,
-    description: Option<Option<String>>,
-    due_date: Option<Option<chrono::DateTime<chrono::Utc>>>,
-    is_completed: Option<bool>,
-    goal_id: Option<Option<String>>,
-    tag_ids: Option<Vec<String>>,
-    updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    request_data: Option<UpdateTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
+
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
@@ -161,17 +195,17 @@ pub async fn update_task(
     let task = repo
         .update(
             &id,
-            title,
-            description,
-            due_date,
-            is_completed,
-            goal_id,
+            request.title,
+            request.description,
+            request.due_date,
+            request.is_completed,
+            request.goal_id,
             None, // goal_instance_id - will be set in Milestone 5
-            updated_at,
+            request.updated_at,
         )
         .await?;
 
-    if let Some(tag_ids) = tag_ids {
+    if let Some(tag_ids) = request.tag_ids {
         let current_task = repo.find_by_id(&id).await?;
         if current_task.is_some() {
             repo.add_tags(&id, tag_ids).await?;
@@ -179,7 +213,7 @@ pub async fn update_task(
     }
 
     // Log activity - check if completion changed
-    if let Some(new_completed) = is_completed {
+    if let Some(new_completed) = request.is_completed {
         if !was_completed && new_completed {
             // Task was just completed
             if let Err(e) = log_complete(db.clone(), "task".to_string(), task.id.clone()).await {
@@ -216,7 +250,15 @@ pub async fn update_task(
     )
 )]
 #[tauri::command]
-pub async fn delete_task(state: State<'_, DbState>, id: String) -> Result<()> {
+pub async fn delete_task(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
+) -> Result<()> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -249,8 +291,13 @@ pub async fn delete_task(state: State<'_, DbState>, id: String) -> Result<()> {
 #[tauri::command]
 pub async fn get_subtasks(
     state: State<'_, DbState>,
-    task_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TaskIdPathParams>,
 ) -> Result<Vec<crate::db::models::SubTask>> {
+    let task_id = path_params
+        .and_then(|p| Some(p.task_id))
+        .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
     if task_id.is_empty() {
         return Err(AppError::BadRequest("Task ID is required".to_string()));
     }
@@ -274,22 +321,27 @@ pub async fn get_subtasks(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_subtask(
     state: State<'_, DbState>,
-    task_id: String,
-    title: String,
+    request_data: Option<CreateSubTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TaskIdPathParams>,
 ) -> Result<crate::db::models::SubTask> {
+    let task_id = path_params
+        .and_then(|p| Some(p.task_id))
+        .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
     if task_id.is_empty() {
         return Err(AppError::BadRequest("Task ID is required".to_string()));
     }
-    if title.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    let subtask = repo.create_subtask(&task_id, title).await?;
+    let subtask = repo.create_subtask(&task_id, request.title).await?;
     
     // Log activity
     if let Err(e) = log_create(db, "subtask".to_string(), subtask.id.clone()).await {
@@ -316,20 +368,28 @@ pub async fn create_subtask(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn update_subtask(
     state: State<'_, DbState>,
-    task_id: String,
-    subtask_id: String,
-    title: Option<String>,
-    is_completed: Option<bool>,
+    request_data: Option<UpdateSubTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TaskSubtaskPathParams>,
 ) -> Result<crate::db::models::SubTask> {
+    let task_id = path_params
+        .as_ref()
+        .and_then(|p| Some(p.task_id.clone()))
+        .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
+    let subtask_id = path_params
+        .as_ref()
+        .and_then(|p| Some(p.subtask_id.clone()))
+        .ok_or_else(|| AppError::BadRequest("Subtask ID is required".to_string()))?;
     if task_id.is_empty() {
         return Err(AppError::BadRequest("Task ID is required".to_string()));
     }
     if subtask_id.is_empty() {
         return Err(AppError::BadRequest("Subtask ID is required".to_string()));
     }
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
@@ -339,11 +399,11 @@ pub async fn update_subtask(
     let old_subtask = subtasks.iter().find(|s| s.id == subtask_id);
     let was_completed = old_subtask.map(|s| s.is_completed).unwrap_or(false);
     
-    let subtask = repo.update_subtask(&task_id, &subtask_id, title, is_completed)
+    let subtask = repo.update_subtask(&task_id, &subtask_id, request.title, request.is_completed)
         .await?;
     
     // Log activity - check if completion changed
-    if let Some(new_completed) = is_completed {
+    if let Some(new_completed) = request.is_completed {
         if !was_completed && new_completed {
             // Subtask was just completed
             if let Err(e) = log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
@@ -383,9 +443,18 @@ pub async fn update_subtask(
 #[tauri::command]
 pub async fn delete_subtask(
     state: State<'_, DbState>,
-    task_id: String,
-    subtask_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TaskSubtaskPathParams>,
 ) -> Result<()> {
+    let task_id = path_params
+        .as_ref()
+        .and_then(|p| Some(p.task_id.clone()))
+        .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
+    let subtask_id = path_params
+        .as_ref()
+        .and_then(|p| Some(p.subtask_id.clone()))
+        .ok_or_else(|| AppError::BadRequest("Subtask ID is required".to_string()))?;
     if task_id.is_empty() {
         return Err(AppError::BadRequest("Task ID is required".to_string()));
     }
@@ -419,15 +488,20 @@ pub async fn delete_subtask(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn reorder_subtasks(
     state: State<'_, DbState>,
-    task_id: String,
-    sub_task_ids: Vec<String>,
+    request_data: Option<ReorderSubTasksRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<TaskIdPathParams>,
 ) -> Result<serde_json::Value> {
+    let task_id = path_params
+        .and_then(|p| Some(p.task_id))
+        .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    repo.reorder_subtasks(&task_id, sub_task_ids).await?;
+    repo.reorder_subtasks(&task_id, request.sub_task_ids).await?;
     
     // Log activity - reorder is logged for the task
     if let Err(e) = log_reorder(db, "task".to_string(), task_id.clone()).await {
@@ -455,12 +529,17 @@ pub async fn reorder_subtasks(
 #[tauri::command]
 pub async fn add_tags_to_task(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<AddTagsToTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    repo.add_tags(&id, tag_ids).await?;
+    repo.add_tags(&id, request.tag_ids).await?;
     
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await {
@@ -490,12 +569,17 @@ pub async fn add_tags_to_task(
 #[tauri::command]
 pub async fn remove_tags_from_task(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<RemoveTagsFromTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    repo.remove_tags(&id, tag_ids).await?;
+    repo.remove_tags(&id, request.tag_ids).await?;
     
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await {
@@ -522,16 +606,21 @@ pub async fn remove_tags_from_task(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn add_goal_to_task(
     state: State<'_, DbState>,
-    id: String,
-    goal_id: String,
+    request_data: Option<AddGoalToTaskRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     
-    let goal_instance_id = repo.add_goal(&id, &goal_id).await?;
+    let goal_instance_id = repo.add_goal(&id, &request.goal_id).await?;
     
     let task = repo.update(
         &id,
@@ -539,7 +628,7 @@ pub async fn add_goal_to_task(
         None,
         None,
         None,
-        Some(Some(goal_id.clone())),
+        Some(Some(request.goal_id.clone())),
         Some(goal_instance_id),
         None,
     )
@@ -570,8 +659,13 @@ pub async fn add_goal_to_task(
 #[tauri::command]
 pub async fn remove_goal_from_task(
     state: State<'_, DbState>,
-    id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Task> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.remove_goal(&id).await?;

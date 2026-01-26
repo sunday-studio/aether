@@ -110,6 +110,96 @@ impl EntryRepository {
         // #endregion
 
         let now_ms = now.timestamp_millis();
+        
+        // #region agent log - Check triggers exist (Hypothesis A)
+        let log_path = "/Users/casprine/Desktop/vendor/sunday-studio/aether/.cursor/debug.log";
+        let trigger_check = conn.query(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'entries_sync%'",
+            libsql::params![]
+        ).await;
+        match trigger_check {
+            Ok(mut rows) => {
+                let mut trigger_names = Vec::new();
+                while let Ok(Some(row)) = rows.next().await {
+                    if let Ok(name) = row.get::<String>(0) {
+                        trigger_names.push(name);
+                    }
+                }
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_triggers_check\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Triggers found\",\"data\":{{\"triggers\":{:?}}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        trigger_names)
+                });
+            }
+            Err(e) => {
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_triggers_check_error\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Failed to check triggers\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+            }
+        }
+        // #endregion
+        
+        // #region agent log - Check _suppress_triggers value (Hypothesis C)
+        let suppress_check = conn.query(
+            "SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers'",
+            libsql::params![]
+        ).await;
+        match suppress_check {
+            Ok(mut rows) => {
+                let suppress_value: String = if let Ok(Some(row)) = rows.next().await {
+                    row.get::<String>(0).unwrap_or_else(|_| "0".to_string())
+                } else {
+                    "0".to_string()
+                };
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_suppress_value\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"_suppress_triggers value\",\"data\":{{\"value\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        suppress_value)
+                });
+            }
+            Err(e) => {
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_suppress_check_error\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Failed to check _suppress_triggers\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+            }
+        }
+        // #endregion
+        
+        // #region agent log - Check outbox count before INSERT (Hypothesis D)
+        let outbox_before = conn.query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![]).await;
+        match outbox_before {
+            Ok(mut rows) => {
+                let count: i64 = if let Ok(Some(row)) = rows.next().await {
+                    row.get(0).unwrap_or(0)
+                } else {
+                    0
+                };
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_outbox_before\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Outbox count before INSERT\",\"data\":{{\"count\":{},\"entry_id\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        count, id)
+                });
+            }
+            Err(e) => {
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_outbox_before_error\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Failed to check outbox before\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+            }
+        }
+        // #endregion
+        
         let execute_result = conn.execute(
             "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, _sync_id, _updated_at, _deleted, _extra) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
@@ -128,6 +218,70 @@ impl EntryRepository {
             ],
         )
         .await;
+        
+        // #region agent log - Check outbox count after INSERT (Hypothesis D)
+        let outbox_after = conn.query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![]).await;
+        match outbox_after {
+            Ok(mut rows) => {
+                let count: i64 = if let Ok(Some(row)) = rows.next().await {
+                    row.get(0).unwrap_or(0)
+                } else {
+                    0
+                };
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_outbox_after\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Outbox count after INSERT\",\"data\":{{\"count\":{},\"entry_id\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        count, id)
+                });
+            }
+            Err(e) => {
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_outbox_after_error\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Failed to check outbox after\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+            }
+        }
+        // #endregion
+        
+        // #region agent log - Check if entry was added to outbox (Hypothesis E)
+        let outbox_entry = conn.query(
+            "SELECT entity, entity_id, op FROM _sync_outbox WHERE entity='entries' AND entity_id=?1",
+            libsql::params![id.clone()]
+        ).await;
+        match outbox_entry {
+            Ok(mut rows) => {
+                if let Ok(Some(row)) = rows.next().await {
+                    let entity: String = row.get(0).unwrap_or_default();
+                    let entity_id: String = row.get(1).unwrap_or_default();
+                    let op: String = row.get(2).unwrap_or_default();
+                    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                        use std::io::Write;
+                        writeln!(f, "{{\"id\":\"log_outbox_entry_found\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Entry found in outbox\",\"data\":{{\"entity\":\"{}\",\"entity_id\":\"{}\",\"op\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}", 
+                            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                            entity, entity_id, op)
+                    });
+                } else {
+                    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                        use std::io::Write;
+                        writeln!(f, "{{\"id\":\"log_outbox_entry_not_found\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Entry NOT found in outbox\",\"data\":{{\"entry_id\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}", 
+                            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                            id)
+                    });
+                }
+            }
+            Err(e) => {
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "{{\"id\":\"log_outbox_entry_check_error\",\"timestamp\":{},\"location\":\"entry.rs:112\",\"message\":\"Failed to check outbox entry\",\"data\":{{\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}", 
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                        e)
+                });
+            }
+        }
+        // #endregion
         
         match &execute_result {
             Ok(_) => {

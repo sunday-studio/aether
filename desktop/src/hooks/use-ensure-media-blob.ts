@@ -10,6 +10,6 @@ import { useEffect } from "react";
 export function useEnsureMediaBlob(mediaId: string | null) {
 	useEffect(() => {
 		if (!mediaId) return;
-		invoke("ensure_media_blob", { mediaId }).catch(() => {});
+		invoke("ensure_media_blob", { pathParams: { mediaId } }).catch(() => {});
 	}, [mediaId]);
 }

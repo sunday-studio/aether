@@ -1,7 +1,25 @@
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, GoalIdPathParams, IdPathParams,
+};
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::goal::{CreateGoalRequest, UpdateGoalRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
+use serde::Deserialize;
 use tauri::State;
+use utoipa::ToSchema;
+
+/// Request to add tags to a goal
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct AddTagsToGoalRequest {
+    pub tag_ids: Vec<String>,
+}
+
+/// Request to remove tags from a goal
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct RemoveTagsFromGoalRequest {
+    pub tag_ids: Vec<String>,
+}
 
 /// Get all goals
 #[utoipa::path(
@@ -14,7 +32,12 @@ use tauri::State;
     )
 )]
 #[tauri::command]
-pub async fn get_goals(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Goal>> {
+pub async fn get_goals(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Goal>> {
     let repo = GoalRepository::new(connection::get_database(&*state));
     repo.find_all().await
 }
@@ -36,8 +59,13 @@ pub async fn get_goals(state: State<'_, DbState>) -> Result<Vec<crate::db::model
 #[tauri::command]
 pub async fn get_goal_by_id(
     state: State<'_, DbState>,
-    id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Goal> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     let repo = GoalRepository::new(connection::get_database(&*state));
     repo.find_by_id(&id)
         .await?
@@ -56,36 +84,32 @@ pub async fn get_goal_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_goal(
     state: State<'_, DbState>,
-    name: String,
-    description: Option<String>,
-    is_non_recurring: Option<bool>,
-    recurrence_type: Option<String>,
-    recurrence_interval: Option<i32>,
-    recurrence_anchor: Option<chrono::DateTime<chrono::Utc>>,
-    recurrence_meta: Option<serde_json::Value>,
-    tag_ids: Option<Vec<String>>,
+    request_data: Option<CreateGoalRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Goal> {
-    if name.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
     }
 
-    let is_non_recurring = is_non_recurring.unwrap_or(false);
+    let is_non_recurring = request.is_non_recurring.unwrap_or(false);
 
     if !is_non_recurring {
-        if recurrence_type.is_none() || recurrence_type.as_ref().unwrap().is_empty() {
+        if request.recurrence_type.is_none() || request.recurrence_type.as_ref().unwrap().is_empty() {
             return Err(AppError::BadRequest(
                 "recurrenceType is required for recurring goals".to_string(),
             ));
         }
-        if recurrence_interval.is_none() {
+        if request.recurrence_interval.is_none() {
             return Err(AppError::BadRequest(
                 "recurrenceInterval is required for recurring goals".to_string(),
             ));
         }
-        if recurrence_anchor.is_none() {
+        if request.recurrence_anchor.is_none() {
             return Err(AppError::BadRequest(
                 "recurrenceAnchor is required for recurring goals".to_string(),
             ));
@@ -93,9 +117,9 @@ pub async fn create_goal(
     }
 
     if is_non_recurring {
-        if recurrence_type.is_some()
-            || recurrence_interval.is_some()
-            || recurrence_anchor.is_some()
+        if request.recurrence_type.is_some()
+            || request.recurrence_interval.is_some()
+            || request.recurrence_anchor.is_some()
         {
             return Err(AppError::BadRequest(
                 "recurrence fields must be null for non-recurring goals".to_string(),
@@ -109,21 +133,19 @@ pub async fn create_goal(
     let repo = GoalRepository::new(db.clone());
     let goal = repo
         .create(
-            name,
-            description,
+            request.name,
+            request.description,
             is_non_recurring,
-            recurrence_type,
-            recurrence_interval,
-            recurrence_anchor,
-            recurrence_meta,
+            request.recurrence_type,
+            request.recurrence_interval,
+            request.recurrence_anchor,
+            request.recurrence_meta,
             timezone,
         )
         .await?;
 
-    if let Some(tag_ids) = tag_ids {
-        if !tag_ids.is_empty() {
-            repo.add_tags(&goal.id, tag_ids).await?;
-        }
+    if !request.tag_ids.is_empty() {
+        repo.add_tags(&goal.id, request.tag_ids).await?;
     }
 
     // Log activity
@@ -151,41 +173,39 @@ pub async fn create_goal(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn update_goal(
     state: State<'_, DbState>,
-    id: String,
-    name: Option<String>,
-    description: Option<Option<String>>,
-    is_non_recurring: Option<bool>,
-    recurrence_type: Option<Option<String>>,
-    recurrence_interval: Option<Option<i32>>,
-    recurrence_anchor: Option<Option<chrono::DateTime<chrono::Utc>>>,
-    recurrence_meta: Option<Option<serde_json::Value>>,
-    tag_ids: Option<Vec<String>>,
-    updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    request_data: Option<UpdateGoalRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Goal> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
+
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
     let goal = repo
         .update(
             &id,
-            name,
-            description,
-            is_non_recurring,
-            recurrence_type,
-            recurrence_interval,
-            recurrence_anchor,
-            recurrence_meta,
-            updated_at,
+            request.name,
+            request.description,
+            request.is_non_recurring,
+            request.recurrence_type,
+            request.recurrence_interval,
+            request.recurrence_anchor,
+            request.recurrence_meta,
+            request.updated_at,
         )
         .await?;
 
-    if let Some(tag_ids) = tag_ids {
+    if let Some(tag_ids) = request.tag_ids {
         repo.remove_tags(&id, vec![]).await?;
         if !tag_ids.is_empty() {
             repo.add_tags(&id, tag_ids).await?;
@@ -215,7 +235,15 @@ pub async fn update_goal(
     )
 )]
 #[tauri::command]
-pub async fn delete_goal(state: State<'_, DbState>, id: String) -> Result<()> {
+pub async fn delete_goal(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
+) -> Result<()> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -248,8 +276,13 @@ pub async fn delete_goal(state: State<'_, DbState>, id: String) -> Result<()> {
 #[tauri::command]
 pub async fn get_goal_instances(
     state: State<'_, DbState>,
-    goal_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<GoalIdPathParams>,
 ) -> Result<Vec<crate::db::models::GoalInstance>> {
+    let goal_id = path_params
+        .and_then(|p| Some(p.goal_id))
+        .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
     let repo = GoalRepository::new(connection::get_database(&*state));
     repo.find_instances(&goal_id).await
 }
@@ -271,8 +304,13 @@ pub async fn get_goal_instances(
 #[tauri::command]
 pub async fn get_current_goal_instance(
     state: State<'_, DbState>,
-    goal_id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<GoalIdPathParams>,
 ) -> Result<crate::db::models::GoalInstance> {
+    let goal_id = path_params
+        .and_then(|p| Some(p.goal_id))
+        .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
     let repo = GoalRepository::new(connection::get_database(&*state));
     repo.get_or_create_current_instance(&goal_id).await
 }
@@ -295,12 +333,17 @@ pub async fn get_current_goal_instance(
 #[tauri::command]
 pub async fn add_tags_to_goal(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<AddTagsToGoalRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Goal> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
-    repo.add_tags(&id, tag_ids).await?;
+    repo.add_tags(&id, request.tag_ids).await?;
     
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await {
@@ -330,12 +373,17 @@ pub async fn add_tags_to_goal(
 #[tauri::command]
 pub async fn remove_tags_from_goal(
     state: State<'_, DbState>,
-    id: String,
-    tag_ids: Vec<String>,
+    request_data: Option<RemoveTagsFromGoalRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Goal> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
-    repo.remove_tags(&id, tag_ids).await?;
+    repo.remove_tags(&id, request.tag_ids).await?;
     
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await {

@@ -1,3 +1,4 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest};
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
 use crate::handlers::tag::CreateTagRequest;
@@ -15,7 +16,12 @@ use tauri::State;
     )
 )]
 #[tauri::command]
-pub async fn get_all_tags(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Tag>> {
+pub async fn get_all_tags(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Tag>> {
     let repo = TagRepository::new(connection::get_database(&*state));
     repo.find_all().await
 }
@@ -32,18 +38,21 @@ pub async fn get_all_tags(state: State<'_, DbState>) -> Result<Vec<crate::db::mo
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_tag(
     state: State<'_, DbState>,
-    name: String,
+    request_data: Option<CreateTagRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Tag> {
-    if name.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.name.is_empty() {
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
     }
 
     let db = connection::get_database(&*state);
     let repo = TagRepository::new(db.clone());
-    let tag = repo.create(name).await?;
+    let tag = repo.create(request.name).await?;
     
     // Log activity
     if let Err(e) = log_create(db, "tag".to_string(), tag.id.clone()).await {
@@ -68,8 +77,11 @@ pub async fn create_tag(
 #[tauri::command]
 pub async fn bulk_create_tags(
     state: State<'_, DbState>,
-    payload: Vec<CreateTagRequest>,
+    request_data: Option<Vec<CreateTagRequest>>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<crate::db::models::Tag>> {
+    let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TagRepository::new(db.clone());
     let names: Vec<String> = payload.into_iter().map(|t| t.name).collect();

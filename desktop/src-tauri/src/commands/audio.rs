@@ -1,11 +1,28 @@
 use crate::audio::{delete_audio, read_audio_file, save_audio_file};
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EntryIdPathParams, MediaIdPathParams,
+};
 use crate::db::connection;
 use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::settings;
 use crate::sync;
+use serde::Deserialize;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
+use utoipa::ToSchema;
+
+/// Request to save audio recording
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveAudioRecordingRequest {
+    pub entry_id: String,
+    pub audio_data: Vec<u8>,
+    pub duration: f32,
+    pub format: String,
+    #[serde(default)]
+    pub auto_transcribe: Option<bool>,
+}
 
 /// Save audio recording to filesystem and database
 #[utoipa::path(
@@ -22,17 +39,16 @@ use tauri::{AppHandle, State};
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn save_audio_recording(
     _app: AppHandle,
     state: State<'_, crate::DbState>,
-    entry_id: String,
-    audio_data: Vec<u8>,
-    duration: f32,
-    format: String,
-    auto_transcribe: Option<bool>,
+    request_data: Option<SaveAudioRecordingRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<String> {
-    if entry_id.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.entry_id.is_empty() {
         return Err(AppError::BadRequest("Entry ID is required".to_string()));
     }
 
@@ -41,14 +57,14 @@ pub async fn save_audio_recording(
     // Save audio file
     let media_id = save_audio_file(
         database.clone(),
-        entry_id,
-        audio_data,
-        duration,
-        format,
+        request.entry_id,
+        request.audio_data,
+        request.duration,
+        request.format,
     ).await?;
 
     // Optionally queue transcription
-    let should_transcribe = if let Some(should) = auto_transcribe {
+    let should_transcribe = if let Some(should) = request.auto_transcribe {
         should
     } else {
         // Check settings for auto-transcribe
@@ -94,8 +110,13 @@ pub async fn save_audio_recording(
 pub async fn get_audio_data(
     state: State<'_, crate::DbState>,
     engine: State<'_, Arc<sync::SyncEngine>>,
-    media_id: String,
+    _request_data: Option<crate::commands::params::EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<Vec<u8>> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     if media_id.is_empty() {
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
@@ -136,8 +157,13 @@ pub async fn get_audio_data(
 #[tauri::command]
 pub async fn delete_audio_recording(
     state: State<'_, crate::DbState>,
-    media_id: String,
+    _request_data: Option<crate::commands::params::EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<()> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     if media_id.is_empty() {
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
@@ -163,8 +189,13 @@ pub async fn delete_audio_recording(
 #[tauri::command]
 pub async fn get_media_items_for_entry(
     state: State<'_, crate::DbState>,
-    entry_id: String,
+    _request_data: Option<crate::commands::params::EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    path_params: Option<EntryIdPathParams>,
 ) -> Result<Vec<crate::db::models::MediaItem>> {
+    let entry_id = path_params
+        .and_then(|p| Some(p.entry_id))
+        .ok_or_else(|| AppError::BadRequest("Entry ID is required".to_string()))?;
     if entry_id.is_empty() {
         return Err(AppError::BadRequest("Entry ID is required".to_string()));
     }
@@ -191,8 +222,13 @@ pub async fn get_media_items_for_entry(
 #[tauri::command]
 pub async fn get_audio_metadata(
     state: State<'_, crate::DbState>,
-    media_id: String,
+    _request_data: Option<crate::commands::params::EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    path_params: Option<MediaIdPathParams>,
 ) -> Result<Option<crate::db::models::MediaItem>> {
+    let media_id = path_params
+        .and_then(|p| Some(p.media_id))
+        .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
     if media_id.is_empty() {
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }

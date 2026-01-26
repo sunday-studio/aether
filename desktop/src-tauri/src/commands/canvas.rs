@@ -1,7 +1,29 @@
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
 use crate::db::{connection, DbState, CanvasRepository};
 use crate::error::{AppError, Result};
 use crate::utils::{log_create, log_delete, log_update};
+use serde::Deserialize;
 use tauri::State;
+use utoipa::ToSchema;
+
+/// Request to create a canvas
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCanvasRequest {
+    pub name: String,
+    #[serde(default)]
+    pub canvas_data: Option<serde_json::Value>,
+}
+
+/// Request to update a canvas
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCanvasRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub canvas_data: Option<serde_json::Value>,
+}
 
 /// Get all canvases
 #[utoipa::path(
@@ -14,7 +36,12 @@ use tauri::State;
     )
 )]
 #[tauri::command]
-pub async fn get_canvases(state: State<'_, DbState>) -> Result<Vec<crate::db::models::Canvas>> {
+pub async fn get_canvases(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<Vec<crate::db::models::Canvas>> {
     let repo = CanvasRepository::new(connection::get_database(&*state));
     repo.find_all().await
 }
@@ -36,8 +63,13 @@ pub async fn get_canvases(state: State<'_, DbState>) -> Result<Vec<crate::db::mo
 #[tauri::command]
 pub async fn get_canvas_by_id(
     state: State<'_, DbState>,
-    id: String,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Canvas> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
@@ -59,13 +91,15 @@ pub async fn get_canvas_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn create_canvas(
     state: State<'_, DbState>,
-    name: String,
-    canvas_data: Option<serde_json::Value>,
+    request_data: Option<CreateCanvasRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Canvas> {
-    if name.is_empty() {
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
     }
 
@@ -74,11 +108,11 @@ pub async fn create_canvas(
         "nodes": [],
         "edges": []
     });
-    let canvas_data = canvas_data.unwrap_or(default_canvas_data);
+    let canvas_data = request.canvas_data.unwrap_or(default_canvas_data);
 
     let db = connection::get_database(&*state);
     let repo = CanvasRepository::new(db.clone());
-    let canvas = repo.create(name, canvas_data).await?;
+    let canvas = repo.create(request.name, canvas_data).await?;
     
     // Log activity
     if let Err(e) = log_create(db, "canvas".to_string(), canvas.id.clone()).await {
@@ -104,20 +138,25 @@ pub async fn create_canvas(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn update_canvas(
     state: State<'_, DbState>,
-    id: String,
-    name: Option<String>,
-    canvas_data: Option<serde_json::Value>,
+    request_data: Option<UpdateCanvasRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Canvas> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+
     let db = connection::get_database(&*state);
     let repo = CanvasRepository::new(db.clone());
-    let canvas = repo.update(&id, name, canvas_data).await?;
+    let canvas = repo.update(&id, request.name, request.canvas_data).await?;
     
     // Log activity
     if let Err(e) = log_update(db, "canvas".to_string(), canvas.id.clone()).await {
@@ -142,7 +181,15 @@ pub async fn update_canvas(
     )
 )]
 #[tauri::command]
-pub async fn delete_canvas(state: State<'_, DbState>, id: String) -> Result<()> {
+pub async fn delete_canvas(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    path_params: Option<IdPathParams>,
+) -> Result<()> {
+    let id = path_params
+        .and_then(|p| Some(p.id))
+        .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
