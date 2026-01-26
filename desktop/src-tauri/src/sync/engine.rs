@@ -73,6 +73,13 @@ impl SyncEngine {
 
     /// Run pull, apply, then push.
     pub async fn sync(&self) -> Result<SyncStatus> {
+        // #region agent log
+        let thread_id = format!("{:?}", std::thread::current().id());
+        crate::db::connection::debug_log("engine.rs:75", "Sync started", serde_json::json!({
+            "thread_id": thread_id,
+            "hypothesisId": "C"
+        }));
+        // #endregion
         tracing::info!("[SYNC] Starting sync operation");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
@@ -117,15 +124,40 @@ impl SyncEngine {
         };
 
         // Check outbox before sync
-        let conn = db.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
-            .await
-            .map_err(AppError::LibSQL)?;
-        let pending_before: i64 = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            row.get(0).unwrap_or(0)
-        } else {
-            0
+        // #region agent log
+        let thread_id = format!("{:?}", std::thread::current().id());
+        crate::db::connection::debug_log_connect("engine.rs:120", &thread_id);
+        // #endregion
+        let pending_before: i64 = {
+            let conn = db.connect().map_err(|e| {
+                // #region agent log
+                crate::db::connection::debug_log_connect_error("engine.rs:120", &e.to_string(), &thread_id);
+                // #endregion
+                AppError::LibSQL(e)
+            })?;
+            let mut rows = conn
+                .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
+                .await
+                .map_err(|e| {
+                    // #region agent log
+                    let error_str = e.to_string();
+                    let is_locked = error_str.contains("database is locked") || error_str.contains("locked");
+                    crate::db::connection::debug_log("engine.rs:138", "Query error", serde_json::json!({
+                        "error": error_str,
+                        "is_locked": is_locked,
+                        "thread_id": thread_id,
+                        "hypothesisId": if is_locked { "A" } else { "E" }
+                    }));
+                    // #endregion
+                    AppError::LibSQL(e)
+                })?;
+            let result = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+                row.get(0).unwrap_or(0)
+            } else {
+                0
+            };
+            // Connection is dropped here when it goes out of scope
+            result
         };
         tracing::info!("[SYNC] Pending changes in outbox before sync: {}", pending_before);
 
@@ -158,6 +190,13 @@ impl SyncEngine {
 
         // Apply with triggers suppressed
         tracing::info!("[SYNC] Applying {} remote changes", envelopes.len());
+        // #region agent log
+        crate::db::connection::debug_log("engine.rs:161", "Starting apply phase", serde_json::json!({
+            "envelope_count": envelopes.len(),
+            "thread_id": thread_id,
+            "hypothesisId": "D"
+        }));
+        // #endregion
         let apply_res = apply::with_suppress_triggers(&db, async {
             let mut applied = 0;
             let mut skipped = 0;
@@ -179,6 +218,16 @@ impl SyncEngine {
         .await;
 
         if let Err(e) = apply_res {
+            // #region agent log
+            let error_str = e.to_string();
+            let is_locked = error_str.contains("database is locked") || error_str.contains("locked");
+            crate::db::connection::debug_log("engine.rs:204", "Apply phase error", serde_json::json!({
+                "error": error_str,
+                "is_locked": is_locked,
+                "thread_id": thread_id,
+                "hypothesisId": if is_locked { "A" } else { "E" }
+            }));
+            // #endregion
             tracing::error!("[SYNC] Apply phase failed: {}", e);
             *self.is_syncing.lock().unwrap() = false;
             return Err(e);
@@ -194,21 +243,44 @@ impl SyncEngine {
                 tracing::info!("[SYNC] Push successful: {} changes pushed", count);
             }
             Err(e) => {
+                // #region agent log
+                let error_str = e.to_string();
+                let is_locked = error_str.contains("database is locked") || error_str.contains("locked");
+                crate::db::connection::debug_log("engine.rs:219", "Push error", serde_json::json!({
+                    "error": error_str,
+                    "is_locked": is_locked,
+                    "thread_id": thread_id,
+                    "hypothesisId": if is_locked { "A" } else { "E" }
+                }));
+                // #endregion
                 tracing::error!("[SYNC] Push failed: {}", e);
                 // Don't fail the entire sync if push fails, but log it
             }
         }
 
         // Check outbox after sync
-        let conn = db.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
-            .await
-            .map_err(AppError::LibSQL)?;
-        let pending_after: i64 = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            row.get(0).unwrap_or(0)
-        } else {
-            0
+        // #region agent log
+        let thread_id_after = format!("{:?}", std::thread::current().id());
+        crate::db::connection::debug_log_connect("engine.rs:203", &thread_id_after);
+        // #endregion
+        let pending_after: i64 = {
+            let conn = db.connect().map_err(|e| {
+                // #region agent log
+                crate::db::connection::debug_log_connect_error("engine.rs:203", &e.to_string(), &thread_id_after);
+                // #endregion
+                AppError::LibSQL(e)
+            })?;
+            let mut rows = conn
+                .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
+                .await
+                .map_err(AppError::LibSQL)?;
+            let result = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+                row.get(0).unwrap_or(0)
+            } else {
+                0
+            };
+            // Connection is dropped here when it goes out of scope
+            result
         };
         tracing::info!("[SYNC] Pending changes in outbox after sync: {}", pending_after);
 

@@ -2,6 +2,45 @@ use crate::error::{AppError, Result};
 use libsql::{Builder, Database};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
+
+// #region agent log
+pub fn debug_log(location: &str, message: &str, data: serde_json::Value) {
+    let log_path = "/Users/casprine/Desktop/vendor/sunday-studio/aether/.cursor/debug.log";
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+    let entry = serde_json::json!({
+        "id": format!("log_{}_{}", timestamp, Uuid::new_v4().to_string().split('-').next().unwrap()),
+        "timestamp": timestamp,
+        "location": location,
+        "message": message,
+        "data": data,
+        "sessionId": "debug-session",
+        "runId": "run1"
+    });
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+        use std::io::Write;
+        let _ = writeln!(file, "{}", entry);
+    }
+}
+
+pub fn debug_log_connect(location: &str, thread_id: &str) {
+    debug_log(location, "Connection created", serde_json::json!({
+        "thread_id": thread_id,
+        "hypothesisId": "A"
+    }));
+}
+
+pub fn debug_log_connect_error(location: &str, error: &str, thread_id: &str) {
+    let is_locked = error.contains("database is locked") || error.contains("locked");
+    debug_log(location, "Connection error", serde_json::json!({
+        "error": error,
+        "is_locked": is_locked,
+        "thread_id": thread_id,
+        "hypothesisId": if is_locked { "A" } else { "B" }
+    }));
+}
+// #endregion
 
 #[derive(Clone)]
 pub struct DbState {
@@ -35,6 +74,9 @@ pub async fn initialize() -> Result<DbState> {
 
 /// Get current database instance (for use in handlers and repositories)
 pub fn get_database(state: &DbState) -> Arc<Database> {
+    // #region agent log
+    debug_log("connection.rs:37", "get_database called", serde_json::json!({"thread_id": format!("{:?}", std::thread::current().id())}));
+    // #endregion
     let db_guard = state.database.lock().unwrap();
     Arc::clone(&*db_guard)
 }

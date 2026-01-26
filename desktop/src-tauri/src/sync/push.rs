@@ -97,7 +97,16 @@ async fn read_outbox_and_build(
     db: &Database,
 ) -> Result<(Vec<ChangeEnvelope>, Vec<(String, String)>)> {
     tracing::debug!("[SYNC-PUSH] Reading outbox");
-    let conn = db.connect().map_err(AppError::LibSQL)?;
+    // #region agent log
+    let thread_id = format!("{:?}", std::thread::current().id());
+    crate::db::connection::debug_log_connect("push.rs:100", &thread_id);
+    // #endregion
+    let conn = db.connect().map_err(|e| {
+        // #region agent log
+        crate::db::connection::debug_log_connect_error("push.rs:100", &e.to_string(), &thread_id);
+        // #endregion
+        AppError::LibSQL(e)
+    })?;
     let mut rows = conn
         .query(
             "SELECT entity, entity_id, op, queued_at FROM _sync_outbox ORDER BY queued_at",
@@ -751,7 +760,16 @@ async fn delete_outbox_rows(
     if rows.is_empty() {
         return Ok(());
     }
-    let conn = db.connect().map_err(AppError::LibSQL)?;
+    // #region agent log
+    let thread_id = format!("{:?}", std::thread::current().id());
+    crate::db::connection::debug_log_connect("push.rs:754", &thread_id);
+    // #endregion
+    let conn = db.connect().map_err(|e| {
+        // #region agent log
+        crate::db::connection::debug_log_connect_error("push.rs:754", &e.to_string(), &thread_id);
+        // #endregion
+        AppError::LibSQL(e)
+    })?;
     for (entity, entity_id) in rows {
         conn.execute(
             "DELETE FROM _sync_outbox WHERE entity = ?1 AND entity_id = ?2",
