@@ -94,6 +94,18 @@ pub async fn create_entry(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Entry> {
+    if let Some(ref req) = request_data {
+        tracing::info!(
+            "create_entry called with request_data: document len = {}, date = {}, is_pinned = {:?}, is_archived = {:?}, is_deleted = {:?}",
+            req.document.len(),
+            req.date,
+            req.is_pinned,
+            req.is_archived,
+            req.is_deleted
+        );
+    } else {
+        tracing::info!("create_entry called with no request_data");
+    }
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());

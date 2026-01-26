@@ -199,96 +199,79 @@ function findMatchingRoute(
 	return null;
 }
 
+/**
+ * Custom fetch implementation that routes HTTP requests to Tauri commands.
+ * Converts REST API calls to Tauri's unified parameter pattern:
+ * - request_data: Request body data (POST/PUT)
+ * - query_params: URL query parameters
+ * - path_params: URL path parameters (e.g., /:id)
+ */
 export const customFetch = async <T>(
 	url: string,
 	options?: RequestInit,
 ): Promise<T> => {
 	const method = (options?.method || "GET").toUpperCase();
-	let body: unknown = undefined;
-	if (options?.body) {
-		try {
-			const bodyStr = options.body as string;
-			if (bodyStr.trim() !== "") {
-				body = JSON.parse(bodyStr);
-			}
-		} catch (e) {
-			console.error("[API Client] Failed to parse body:", e, options.body);
-			throw new Error("Invalid JSON in request body");
-		}
-	}
 
-	// Find matching route
+	// Find the matching Tauri command for this route
 	const match = findMatchingRoute(method, url);
 	if (!match) {
 		throw new Error(`No matching route found for ${method} ${url}`);
 	}
 
-	try {
-		// Prepare command arguments using standardized three-parameter pattern:
-		// request_data, query_params, path_params
-		const args: Record<string, unknown> = {};
-
-		// Extract request data from body (unwrap { data: ... } if present)
-		// Orval SDK typically sends mutations as { data: {...} }
-		let requestData: unknown = undefined;
-		if (body !== undefined && body !== null) {
-			if (typeof body === "object" && !Array.isArray(body)) {
-				// If body has a 'data' key, unwrap it (Orval SDK format)
-				if ("data" in body) {
-					requestData = (body as { data: unknown }).data;
+	// Parse request body if present
+	let requestData: unknown = undefined;
+	if (options?.body) {
+		try {
+			const bodyStr = options.body as string;
+			if (bodyStr.trim()) {
+				const parsed = JSON.parse(bodyStr);
+				// Orval SDK wraps request bodies in { data: {...} }
+				// Unwrap it if present, otherwise use body as-is
+				if (
+					typeof parsed === "object" &&
+					parsed !== null &&
+					!Array.isArray(parsed) &&
+					"data" in parsed
+				) {
+					requestData = parsed.data;
 				} else {
-					// Body is already the request data
-					requestData = body;
+					requestData = parsed;
 				}
-			} else {
-				// For array bodies or other types, pass as-is
-				requestData = body;
 			}
+		} catch (e) {
+			throw new Error(`Invalid JSON in request body: ${e}`);
 		}
+	}
 
-		// Debug logging (remove after fixing)
-		if (method !== "GET") {
-			console.log(`[API Client] ${method} ${url}`, {
-				rawBody: options?.body,
-				parsedBody: body,
-				requestData,
-				argsKeys: Object.keys(args),
-			});
-		}
+	// Build Tauri command arguments
+	// Tauri deserializes missing keys as None for Option<T>, so only include keys with values
+	const args: Record<string, unknown> = {};
 
-		// Prepare query params (convert to object or null)
-		const queryParams: Record<string, unknown> | null =
-			Object.keys(match.queryParams).length > 0 ? match.queryParams : null;
+	if (requestData !== undefined && requestData !== null) {
+		args.request_data = requestData;
+	}
 
-		// Prepare path params (convert to object or null)
-		const pathParams: Record<string, string> | null =
-			Object.keys(match.params).length > 0 ? match.params : null;
+	if (Object.keys(match.queryParams).length > 0) {
+		args.query_params = match.queryParams;
+	}
 
-		// Add standardized parameters
-		// Only include keys if they have values (Tauri deserializes missing keys as None for Option<T>)
-		if (requestData !== undefined && requestData !== null) {
-			args.request_data = requestData;
-		}
-		if (queryParams !== null) {
-			args.query_params = queryParams;
-		}
-		if (pathParams !== null) {
-			args.path_params = pathParams;
-		}
+	if (Object.keys(match.params).length > 0) {
+		args.path_params = match.params;
+	}
 
-		// Invoke Tauri command
+	try {
+		// Invoke Tauri command with arguments
+		// Tauri automatically deserializes JSON arguments to Rust types
 		const result = await invoke(match.command, args);
 
 		// Wrap response in Orval's expected format
-		const wrappedResponse = {
+		return {
 			data: result,
 			status: 200,
 			headers: new Headers({ "content-type": "application/json" }),
 		} as T;
-
-		return wrappedResponse;
 	} catch (error) {
-		// Handle Tauri errors
+		// Map Tauri errors to HTTP status codes
 		let status = 500;
 		let errorData: unknown = error;
 
@@ -307,13 +290,11 @@ export const customFetch = async <T>(
 			errorData = { message };
 		}
 
-		const wrappedError = {
+		throw {
 			data: errorData,
 			status,
 			headers: new Headers({ "content-type": "application/json" }),
 		} as T;
-
-		throw wrappedError;
 	}
 };
 
