@@ -235,6 +235,15 @@ export const customFetch = async <T>(
 			}
 		}
 
+		// Debug logging (remove after fixing)
+		if (method !== "GET" && requestData === undefined) {
+			console.warn(`[API Client] No request data for ${method} ${url}`, {
+				body,
+				requestData,
+				match,
+			});
+		}
+
 		// Prepare query params (convert to object or null)
 		const queryParams: Record<string, unknown> | null =
 			Object.keys(match.queryParams).length > 0 ? match.queryParams : null;
