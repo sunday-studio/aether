@@ -218,13 +218,16 @@ export const customFetch = async <T>(
 		const args: Record<string, unknown> = {};
 
 		// Extract request data from body (unwrap { data: ... } if present)
-		let requestData: unknown = null;
-		if (body !== undefined) {
-			if (typeof body === "object" && !Array.isArray(body) && body !== null) {
-				// If body has a single 'data' key, unwrap it
-				const bodyKeys = Object.keys(body);
-				if (bodyKeys.length === 1 && bodyKeys[0] === "data") {
-					requestData = body.data;
+		// Orval SDK typically sends mutations as { data: {...} }
+		let requestData: unknown = undefined;
+		if (body !== undefined && body !== null) {
+			if (typeof body === "object" && !Array.isArray(body)) {
+				// If body has a 'data' key, unwrap it (Orval SDK format)
+				if ("data" in body && Object.keys(body).length === 1) {
+					requestData = (body as { data: unknown }).data;
+				} else if ("data" in body) {
+					// Body has 'data' key but also other keys - use data field
+					requestData = (body as { data: unknown }).data;
 				} else {
 					// Body is already the request data
 					requestData = body;
@@ -243,16 +246,12 @@ export const customFetch = async <T>(
 		const pathParams: Record<string, string> | null =
 			Object.keys(match.params).length > 0 ? match.params : null;
 
-		// Add standardized parameters (only if not null)
-		if (requestData !== null) {
-			args.request_data = requestData;
-		}
-		if (queryParams !== null) {
-			args.query_params = queryParams;
-		}
-		if (pathParams !== null) {
-			args.path_params = pathParams;
-		}
+		// Add standardized parameters
+		// Always include request_data, query_params, path_params (even if null/undefined)
+		// The Rust side uses Option<T> so null/undefined is fine
+		args.request_data = requestData ?? null;
+		args.query_params = queryParams;
+		args.path_params = pathParams;
 
 		// Invoke Tauri command
 		const result = await invoke(match.command, args);
