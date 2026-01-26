@@ -147,15 +147,17 @@ pub async fn start_transcription(
 
 The API client (`desktop/src/lib/api-client.ts`) automatically converts HTTP requests to the unified parameter pattern:
 
-- Request body → `request_data`
-- Query string parameters → `query_params`
-- URL path parameters → `path_params`
+- Request body → `requestData` (camelCase)
+- Query string parameters → `queryParams` (camelCase)
+- URL path parameters → `pathParams` (camelCase)
+
+**Important**: Tauri automatically converts camelCase argument names to snake_case when matching Rust parameters. So we use camelCase in JavaScript, and Tauri converts it to match the Rust `request_data`, `query_params`, `path_params` parameters.
 
 No changes needed in frontend code that uses the SDK hooks (they go through the API client).
 
 ## Direct Invoke Calls
 
-When calling Tauri commands directly with `invoke()`, use the unified pattern:
+When calling Tauri commands directly with `invoke()`, use camelCase for the parameter names:
 
 ```typescript
 // Before
@@ -164,9 +166,9 @@ await invoke("create_entry", {
   date: "...",
 });
 
-// After
+// After - use camelCase: requestData (Tauri converts to request_data)
 await invoke("create_entry", {
-  request_data: {
+  requestData: {
     document: "...",
     date: "...",
   },
@@ -177,15 +179,18 @@ await invoke("create_entry", {
 // Before
 await invoke("get_entry_by_id", { id: "123" });
 
-// After
+// After - use camelCase: pathParams (Tauri converts to path_params)
 await invoke("get_entry_by_id", {
-  path_params: { id: "123" },
+  pathParams: { id: "123" },
 });
 ```
 
 ## Naming Conventions
 
-- Path parameter structs use `camelCase` field names (e.g., `media_id` becomes `mediaId` in JSON)
+- **JavaScript/TypeScript**: Use camelCase for argument names (`requestData`, `queryParams`, `pathParams`)
+- **Rust**: Use snake_case for parameter names (`request_data`, `query_params`, `path_params`)
+- **Tauri automatically converts**: camelCase (JS) → snake_case (Rust) when deserializing
+- Path parameter structs use `camelCase` field names in JSON (e.g., `media_id` becomes `mediaId`)
 - Use `#[serde(rename_all = "camelCase")]` on path param structs
 - Request structs should match the API schema naming
 - Query param structs should match URL parameter names
