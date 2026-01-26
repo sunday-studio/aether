@@ -76,16 +76,7 @@ async fn get_local_updated_at(
     let Some(table) = entity_to_table(entity) else {
         return Ok(None);
     };
-    // #region agent log
-    let thread_id = format!("{:?}", std::thread::current().id());
-    crate::db::connection::debug_log_connect("apply.rs:79", &thread_id);
-    // #endregion
-    let conn = db.connect().map_err(|e| {
-        // #region agent log
-        crate::db::connection::debug_log_connect_error("apply.rs:79", &e.to_string(), &thread_id);
-        // #endregion
-        AppError::LibSQL(e)
-    })?;
+    let conn = db.connect().map_err(AppError::LibSQL)?;
     let sql = format!("SELECT _updated_at FROM {} WHERE _sync_id = ?1", table);
     let mut rows = conn
         .query(&sql, libsql::params![entity_id])
@@ -158,16 +149,7 @@ async fn apply_entry_tags_upsert(
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    // #region agent log
-    let thread_id = format!("{:?}", std::thread::current().id());
-    crate::db::connection::debug_log_connect("apply.rs:152", &thread_id);
-    // #endregion
-    let conn = db.connect().map_err(|e| {
-        // #region agent log
-        crate::db::connection::debug_log_connect_error("apply.rs:152", &e.to_string(), &thread_id);
-        // #endregion
-        AppError::LibSQL(e)
-    })?;
+    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data.as_object().ok_or_else(|| AppError::Sync("entry_tags: object expected".into()))?;
     let entry_id = obj.get("entry_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
     let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
@@ -546,16 +528,7 @@ async fn apply_entries_upsert(
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    // #region agent log
-    let thread_id = format!("{:?}", std::thread::current().id());
-    crate::db::connection::debug_log_connect("apply.rs:531", &thread_id);
-    // #endregion
-    let conn = db.connect().map_err(|e| {
-        // #region agent log
-        crate::db::connection::debug_log_connect_error("apply.rs:531", &e.to_string(), &thread_id);
-        // #endregion
-        AppError::LibSQL(e)
-    })?;
+    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data.as_object().ok_or_else(|| AppError::Sync("entries: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let document = obj.get("document").and_then(|v| v.as_str()).unwrap_or("");

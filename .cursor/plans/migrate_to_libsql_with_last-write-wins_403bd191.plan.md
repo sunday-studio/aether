@@ -1,3 +1,10 @@
+---
+name: ""
+overview: ""
+todos: []
+isProject: false
+---
+
 # Migrate to libSQL with Last-Write-Wins Conflict Resolution
 
 ## Status: DEFERRED
@@ -18,8 +25,6 @@ Desktop App → HTTP API → Backend → SQLite file (aether.db)
                               Single instance, no replication
 ```
 
-
-
 ### New Architecture (Phase 1: Backend Only)
 
 ```javascript
@@ -28,8 +33,6 @@ Desktop App → HTTP API → Backend → libSQL Server (self-hosted sqld)
                               Better concurrency, ready for replication
 ```
 
-
-
 ### Future Architecture (Phase 2: Desktop Embedded Replica)
 
 ```javascript
@@ -37,8 +40,6 @@ Desktop App → Embedded libSQL → Syncs with → libSQL Server
      ↓                              ↓
 Local DB (offline)            Backend → libSQL Server
 ```
-
-
 
 ## Implementation Steps
 
@@ -55,9 +56,6 @@ Local DB (offline)            Backend → libSQL Server
                   docker pull ghcr.io/tursodatabase/libsql-server:latest
    ```
 
-
-
-
 2. **Run libSQL server:**
    ```bash
                   # Docker approach
@@ -73,9 +71,6 @@ Local DB (offline)            Backend → libSQL Server
                   # Or run sqld binary directly
                   ./sqld --grpc-listen-addr 0.0.0.0:5001 --http-listen-addr 0.0.0.0:8080
    ```
-
-
-
 
 3. **Configure server:**
 
@@ -180,8 +175,6 @@ func (e *EntryHandler) UpdateEntry(c *fiber.Ctx) error {
 }
 ```
 
-
-
 #### 4.3 Update Task Handler
 
 **File**: `backend/internal/handlers/task/update_task.go`Similar LWW implementation:
@@ -204,8 +197,6 @@ func (h *TaskHandler) UpdateTask(c *fiber.Ctx) error {
     // ... rest of update logic
 }
 ```
-
-
 
 #### 4.4 Update Other Handlers
 
@@ -233,9 +224,6 @@ Update deployment scripts to include these variables.
    ```bash
                      sqlite3 sqlite/aether.db .dump > aether_backup.sql
    ```
-
-
-
 
 2. **Import to libSQL:**
 
@@ -286,9 +274,6 @@ You have **three options** for how the desktop app interfaces with libSQL:
                               npm install @libsql/client
      ```
 
-
-
-
 2. Create libSQL client wrapper:
      ```typescript
                               // desktop/src/lib/libsql-client.ts
@@ -303,9 +288,6 @@ You have **three options** for how the desktop app interfaces with libSQL:
                               // Sync in background
                               await client.sync();
      ```
-
-
-
 
 3. Update React Query to use local replica:
 
