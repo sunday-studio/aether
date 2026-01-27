@@ -1,8 +1,9 @@
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::log_create;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
@@ -24,15 +25,27 @@ pub struct BulkCreateTagsRequest {
     get,
     path = "/v1/tags",
     tag = "Tags",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of tags per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all tags", body = Vec<crate::db::models::Tag>),
+        (status = 200, description = "Paginated list of tags", body = PaginationResponse<crate::db::models::Tag>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_all_tags(State(state): State<DbState>) -> Result<impl IntoResponse> {
+pub async fn get_all_tags(
+    State(state): State<DbState>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
+) -> Result<impl IntoResponse> {
     let repo = TagRepository::new(connection::get_database(&state));
-    let tags = repo.find_all().await?;
-    Ok((StatusCode::OK, Json(tags)))
+    let (tags, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(tags, next_cursor, has_more)),
+    ))
 }
 
 /// Create a new tag

@@ -1,6 +1,7 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest};
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, PaginationQueryParams};
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::handlers::tag::CreateTagRequest;
 use crate::utils::log_create;
 use tauri::State;
@@ -10,8 +11,12 @@ use tauri::State;
     get,
     path = "/v1/tags",
     tag = "Tags",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of tags per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all tags", body = Vec<crate::db::models::Tag>),
+        (status = 200, description = "Paginated list of tags", body = PaginationResponse<crate::db::models::Tag>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -19,11 +24,15 @@ use tauri::State;
 pub async fn get_all_tags(
     state: State<'_, DbState>,
     _request_data: Option<EmptyRequest>,
-    _query_params: Option<EmptyQueryParams>,
+    query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Tag>> {
+) -> Result<PaginationResponse<crate::db::models::Tag>> {
+    let params = query_params.unwrap_or_default();
     let repo = TagRepository::new(connection::get_database(&*state));
-    repo.find_all().await
+    let (tags, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok(PaginationResponse::new(tags, next_cursor, has_more))
 }
 
 /// Create a new tag
