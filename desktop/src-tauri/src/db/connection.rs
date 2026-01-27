@@ -46,11 +46,13 @@ async fn apply_sqlite_optimizations(database: &Database) -> Result<()> {
         .map_err(|e| AppError::LibSQL(e))?;
 
     // PRAGMAs for local database optimization
+    // WAL mode must be first for optimal concurrent read/write performance
     let pragmas = vec![
+        "PRAGMA journal_mode = WAL",
         "PRAGMA synchronous = NORMAL",
-        "PRAGMA cache_size = -32000",
+        "PRAGMA cache_size = -64000",
         "PRAGMA temp_store = MEMORY",
-        "PRAGMA mmap_size = 67108864",
+        "PRAGMA mmap_size = 268435456",
         "PRAGMA busy_timeout = 10000",
         "PRAGMA foreign_keys = ON",
         "PRAGMA locking_mode = NORMAL",
