@@ -1,8 +1,9 @@
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
@@ -58,15 +59,27 @@ pub struct UpdateGoalRequest {
     get,
     path = "/v1/goals",
     tag = "Goals",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of goals per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all goals", body = Vec<crate::db::models::Goal>),
+        (status = 200, description = "Paginated list of goals", body = PaginationResponse<crate::db::models::Goal>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_goals(State(state): State<DbState>) -> Result<impl IntoResponse> {
+pub async fn get_goals(
+    State(state): State<DbState>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
+) -> Result<impl IntoResponse> {
     let repo = GoalRepository::new(connection::get_database(&state));
-    let goals = repo.find_all().await?;
-    Ok((StatusCode::OK, Json(goals)))
+    let (goals, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(goals, next_cursor, has_more)),
+    ))
 }
 
 /// Get goal by ID
@@ -273,10 +286,12 @@ pub async fn delete_goal(
     path = "/v1/goals/{goalId}/instances",
     tag = "GoalInstances",
     params(
-        ("goalId" = String, Path, description = "Goal ID")
+        ("goalId" = String, Path, description = "Goal ID"),
+        ("limit" = Option<u32>, Query, description = "Number of instances per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "List of goal instances", body = Vec<crate::db::models::GoalInstance>),
+        (status = 200, description = "Paginated list of goal instances", body = PaginationResponse<crate::db::models::GoalInstance>),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -284,10 +299,16 @@ pub async fn delete_goal(
 pub async fn get_goal_instances(
     State(state): State<DbState>,
     Path(goal_id): Path<String>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
 ) -> Result<impl IntoResponse> {
     let repo = GoalRepository::new(connection::get_database(&state));
-    let instances = repo.find_instances(&goal_id).await?;
-    Ok((StatusCode::OK, Json(instances)))
+    let (instances, next_cursor, has_more) = repo
+        .find_instances(&goal_id, params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(instances, next_cursor, has_more)),
+    ))
 }
 
 /// Get or create current goal instance
