@@ -145,3 +145,24 @@ pub struct TranscriptionStartQueryParams {
     #[serde(default)]
     pub provider: Option<String>,
 }
+
+/// Query parameters for pagination (cursor-based)
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct PaginationQueryParams {
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
+impl PaginationQueryParams {
+    /// Validate and normalize limit (clamp to max 1000, default to 50 if paginating)
+    pub fn normalize_limit(&self) -> Option<u32> {
+        self.limit.map(|l| l.min(1000))
+    }
+    
+    /// Check if pagination is requested (either limit or cursor is provided)
+    pub fn is_pagination_requested(&self) -> bool {
+        self.limit.is_some() || self.cursor.is_some()
+    }
+}

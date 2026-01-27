@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod common;
 pub mod entry;
 pub mod tag;
 pub mod task;
