@@ -15,26 +15,90 @@ impl CanvasRepository {
     }
 
     /// Get all canvases (non-deleted)
-    pub async fn find_all(&self) -> Result<Vec<Canvas>> {
+    /// If limit and cursor are both None, returns all canvases (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_all(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Canvas>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM canvases 
+                     WHERE (deleted_at IS NULL) AND (_deleted = 0 OR _deleted IS NULL) 
+                     ORDER BY id ASC",
+                    libsql::params![],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut canvases = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                canvases.push(self.row_to_canvas(row)?);
+            }
+
+            return Ok((canvases, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
+                "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM canvases 
+                 WHERE (deleted_at IS NULL) AND (_deleted = 0 OR _deleted IS NULL) AND id > ?1
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![last_id, fetch_limit as i64],
+            )
+        } else {
+            (
                 "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM canvases 
                  WHERE (deleted_at IS NULL) AND (_deleted = 0 OR _deleted IS NULL) 
-                 ORDER BY updated_at DESC",
-                libsql::params![],
+                 ORDER BY id ASC
+                 LIMIT ?1",
+                libsql::params![fetch_limit as i64],
             )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut canvases = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            canvases.push(self.row_to_canvas(row)?);
+            if count < limit_val {
+                canvases.push(self.row_to_canvas(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(canvases)
+        let next_cursor = if has_more && !canvases.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&canvases.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((canvases, next_cursor, has_more))
     }
 
     /// Get canvas by ID

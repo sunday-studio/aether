@@ -1,6 +1,7 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
 use crate::db::{connection, DbState, CanvasRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_update};
 use serde::Deserialize;
 use tauri::State;
@@ -30,8 +31,12 @@ pub struct UpdateCanvasRequest {
     get,
     path = "/v1/canvas",
     tag = "Canvases",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of canvases per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all canvases", body = Vec<crate::db::models::Canvas>),
+        (status = 200, description = "Paginated list of canvases", body = PaginationResponse<crate::db::models::Canvas>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -39,11 +44,15 @@ pub struct UpdateCanvasRequest {
 pub async fn get_canvases(
     state: State<'_, DbState>,
     _request_data: Option<EmptyRequest>,
-    _query_params: Option<EmptyQueryParams>,
+    query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Canvas>> {
+) -> Result<PaginationResponse<crate::db::models::Canvas>> {
+    let params = query_params.unwrap_or_default();
     let repo = CanvasRepository::new(connection::get_database(&*state));
-    repo.find_all().await
+    let (canvases, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok(PaginationResponse::new(canvases, next_cursor, has_more))
 }
 
 /// Get canvas by ID
