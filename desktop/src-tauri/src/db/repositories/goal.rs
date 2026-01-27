@@ -25,7 +25,8 @@ impl GoalRepository {
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE deleted_at IS NULL 
-                 ORDER BY created_at DESC",
+                 ORDER BY created_at DESC
+                 LIMIT 1000",
                 libsql::params![],
             )
             .await
