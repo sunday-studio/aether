@@ -137,25 +137,26 @@ impl ActivityRepository {
     pub async fn get_all(&self, limit: Option<i64>) -> Result<Vec<Activity>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
-        let query = if let Some(limit_val) = limit {
-            format!(
-                "SELECT id, action_type, entity_type, entity_id, created_at, metadata
-                 FROM activities
-                 ORDER BY created_at DESC
-                 LIMIT {}",
-                limit_val
-            )
+        let query = if let Some(_limit_val) = limit {
+            "SELECT id, action_type, entity_type, entity_id, created_at, metadata
+             FROM activities
+             ORDER BY created_at DESC
+             LIMIT ?1"
         } else {
             "SELECT id, action_type, entity_type, entity_id, created_at, metadata
              FROM activities
              ORDER BY created_at DESC"
-                .to_string()
         };
 
-        let mut rows = conn
-            .query(&query, libsql::params![])
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
+        let mut rows = if let Some(limit_val) = limit {
+            conn.query(query, libsql::params![limit_val])
+                .await
+                .map_err(|e| AppError::LibSQL(e))?
+        } else {
+            conn.query(query, libsql::params![])
+                .await
+                .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut activities = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
