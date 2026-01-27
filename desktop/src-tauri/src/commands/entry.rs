@@ -26,8 +26,12 @@ pub struct RemoveTagFromEntryRequest {
     get,
     path = "/v1/entry",
     tag = "Entries",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of entries per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all entries", body = Vec<crate::db::models::Entry>),
+        (status = 200, description = "Paginated list of entries", body = PaginationResponse<crate::db::models::Entry>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -35,11 +39,15 @@ pub struct RemoveTagFromEntryRequest {
 pub async fn get_entries(
     state: State<'_, DbState>,
     _request_data: Option<EmptyRequest>,
-    _query_params: Option<EmptyQueryParams>,
+    query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Entry>> {
+) -> Result<PaginationResponse<crate::db::models::Entry>> {
+    let params = query_params.unwrap_or_default();
     let repo = EntryRepository::new(connection::get_database(&*state));
-    repo.find_all().await
+    let (entries, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok(PaginationResponse::new(entries, next_cursor, has_more))
 }
 
 /// Get entry by ID

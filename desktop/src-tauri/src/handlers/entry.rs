@@ -1,8 +1,9 @@
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::{cursor, PaginationResponse};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
@@ -47,15 +48,27 @@ pub struct UpdateEntryRequest {
     get,
     path = "/v1/entry",
     tag = "Entries",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of entries per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all entries", body = Vec<crate::db::models::Entry>),
+        (status = 200, description = "Paginated list of entries", body = PaginationResponse<crate::db::models::Entry>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_entries(State(state): State<DbState>) -> Result<impl IntoResponse> {
+pub async fn get_entries(
+    State(state): State<DbState>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
+) -> Result<impl IntoResponse> {
     let repo = EntryRepository::new(connection::get_database(&state));
-    let entries = repo.find_all().await?;
-    Ok((StatusCode::OK, Json(entries)))
+    let (entries, next_cursor, has_more) = repo
+        .find_all(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(entries, next_cursor, has_more)),
+    ))
 }
 
 /// Get entry by ID
