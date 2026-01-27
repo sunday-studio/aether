@@ -370,15 +370,15 @@ impl GoalRepository {
 
     /// Get or create current goal instance
     pub async fn get_or_create_current_instance(&self, goal_id: &str) -> Result<GoalInstance> {
+        // Get goal before starting transaction to avoid nested connection issues
+        let goal = self.find_by_id(goal_id).await?;
+        let goal = goal.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", goal_id)))?;
+        
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
-
-        // Get goal
-        let goal = self.find_by_id(goal_id).await?;
-        let goal = goal.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", goal_id)))?;
 
         // Get last instance
         let mut rows = conn
