@@ -15,12 +15,16 @@ impl BookmarkRepository {
     }
 
     /// Get all bookmarks (non-deleted)
+    /// If limit and cursor are both None, returns all bookmarks (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
     pub async fn find_all(
         &self,
         is_archived: Option<bool>,
         tag_ids: Option<Vec<String>>,
         content_type: Option<String>,
-    ) -> Result<Vec<Bookmark>> {
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Bookmark>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         let mut query = "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM bookmarks WHERE is_deleted = 0 AND (_deleted = 0 OR _deleted IS NULL)".to_string();
@@ -46,7 +50,35 @@ impl BookmarkRepository {
             }
         }
 
-        query.push_str(" ORDER BY created_at DESC");
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            query.push_str(" ORDER BY id ASC");
+            let mut rows = conn
+                .query(&query, libsql::params![])
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut bookmarks = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                bookmarks.push(self.row_to_bookmark(row)?);
+            }
+
+            return Ok((bookmarks, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        // Add cursor condition if provided
+        if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            query.push_str(&format!(" AND id > '{}'", last_id.replace("'", "''")));
+        }
+
+        query.push_str(" ORDER BY id ASC");
+        query.push_str(&format!(" LIMIT {}", fetch_limit));
 
         let mut rows = conn
             .query(&query, libsql::params![])
@@ -54,11 +86,27 @@ impl BookmarkRepository {
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut bookmarks = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            bookmarks.push(self.row_to_bookmark(row)?);
+            if count < limit_val {
+                bookmarks.push(self.row_to_bookmark(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(bookmarks)
+        let next_cursor = if has_more && !bookmarks.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&bookmarks.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((bookmarks, next_cursor, has_more))
     }
 
     /// Get bookmark by ID
