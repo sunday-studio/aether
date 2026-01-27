@@ -71,52 +71,200 @@ impl TaskRepository {
     }
 
     /// Get inbox tasks (tasks not attached to any goal)
-    pub async fn find_inbox(&self) -> Result<Vec<Task>> {
+    /// If limit and cursor are both None, returns all inbox tasks (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_inbox(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Task>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM tasks 
+                     WHERE goal_id IS NULL AND deleted_at IS NULL 
+                     ORDER BY COALESCE(due_date, '') ASC, id ASC",
+                    libsql::params![],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut tasks = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                tasks.push(self.row_to_task(row)?);
+            }
+
+            return Ok((tasks, None, false));
+        }
+
+        // Pagination mode - use composite cursor for due_date + id
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let keys = cursor::decode_composite(&cursor_val)?;
+            if keys.len() != 2 {
+                return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
+            }
+            let last_due_date = &keys[0];
+            let last_id = &keys[1];
+            
+            (
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE goal_id IS NULL AND deleted_at IS NULL 
-                 ORDER BY due_date ASC",
-                libsql::params![],
+                 AND (COALESCE(due_date, '') > ?1 OR (COALESCE(due_date, '') = ?1 AND id > ?2))
+                 ORDER BY COALESCE(due_date, '') ASC, id ASC
+                 LIMIT ?3",
+                libsql::params![last_due_date, last_id, fetch_limit as i64],
             )
+        } else {
+            (
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM tasks 
+                 WHERE goal_id IS NULL AND deleted_at IS NULL 
+                 ORDER BY COALESCE(due_date, '') ASC, id ASC
+                 LIMIT ?1",
+                libsql::params![fetch_limit as i64],
+            )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut tasks = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            tasks.push(self.row_to_task(row)?);
+            if count < limit_val {
+                tasks.push(self.row_to_task(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(tasks)
+        let next_cursor = if has_more && !tasks.is_empty() {
+            use crate::handlers::common::cursor;
+            let last_task = tasks.last().unwrap();
+            let due_date_str = last_task.due_date
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| "".to_string());
+            Some(cursor::encode_composite(&[&due_date_str, &last_task.id]))
+        } else {
+            None
+        };
+
+        Ok((tasks, next_cursor, has_more))
     }
 
     /// Get overdue tasks
-    pub async fn find_overdue(&self) -> Result<Vec<Task>> {
+    /// If limit and cursor are both None, returns all overdue tasks (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_overdue(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Task>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM tasks 
+                     WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
+                     ORDER BY COALESCE(due_date, '') ASC, id ASC",
+                    libsql::params![now_str],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut tasks = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                tasks.push(self.row_to_task(row)?);
+            }
+
+            return Ok((tasks, None, false));
+        }
+
+        // Pagination mode - use composite cursor for due_date + id
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let keys = cursor::decode_composite(&cursor_val)?;
+            if keys.len() != 2 {
+                return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
+            }
+            let last_due_date = &keys[0];
+            let last_id = &keys[1];
+            
+            (
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
-                 ORDER BY due_date ASC",
-                libsql::params![now_str],
+                 AND (COALESCE(due_date, '') > ?2 OR (COALESCE(due_date, '') = ?2 AND id > ?3))
+                 ORDER BY COALESCE(due_date, '') ASC, id ASC
+                 LIMIT ?4",
+                libsql::params![now_str, last_due_date, last_id, fetch_limit as i64],
             )
+        } else {
+            (
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM tasks 
+                 WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
+                 ORDER BY COALESCE(due_date, '') ASC, id ASC
+                 LIMIT ?2",
+                libsql::params![now_str, fetch_limit as i64],
+            )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut tasks = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            tasks.push(self.row_to_task(row)?);
+            if count < limit_val {
+                tasks.push(self.row_to_task(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(tasks)
+        let next_cursor = if has_more && !tasks.is_empty() {
+            use crate::handlers::common::cursor;
+            let last_task = tasks.last().unwrap();
+            let due_date_str = last_task.due_date
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| "".to_string());
+            Some(cursor::encode_composite(&[&due_date_str, &last_task.id]))
+        } else {
+            None
+        };
+
+        Ok((tasks, next_cursor, has_more))
     }
 
     /// Get task by ID
