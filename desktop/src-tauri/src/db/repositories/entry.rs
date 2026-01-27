@@ -80,7 +80,6 @@ impl EntryRepository {
 
         let mut entries = Vec::new();
         let mut has_more = false;
-        let mut next_cursor = None;
         
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
@@ -90,20 +89,17 @@ impl EntryRepository {
             } else {
                 // We have one extra row, so there are more results
                 has_more = true;
-                // Get the ID of the last item we're returning for the cursor
-                if let Some(last_entry) = entries.last() {
-                    use crate::handlers::common::cursor;
-                    next_cursor = Some(cursor::encode(&last_entry.id));
-                }
                 break;
             }
         }
 
-        // If we didn't hit the extra row, set cursor from last entry
-        if !has_more && !entries.is_empty() {
+        // Set next_cursor from last entry if we have entries
+        let next_cursor = if has_more && !entries.is_empty() {
             use crate::handlers::common::cursor;
-            next_cursor = Some(cursor::encode(&entries.last().unwrap().id));
-        }
+            Some(cursor::encode(&entries.last().unwrap().id))
+        } else {
+            None
+        };
 
         Ok((entries, next_cursor, has_more))
     }
