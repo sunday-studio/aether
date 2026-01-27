@@ -93,27 +93,94 @@ impl TranscriptionRepository {
     }
 
     /// Get all transcriptions for a media item
-    pub async fn find_by_media_id(&self, media_id: &str) -> Result<Vec<AudioTranscription>> {
+    /// If limit and cursor are both None, returns all transcriptions (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_by_media_id(
+        &self,
+        media_id: &str,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<AudioTranscription>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
+                            status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM audio_transcriptions 
+                     WHERE media_id = ?1 
+                     ORDER BY id ASC",
+                    libsql::params![media_id],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut transcriptions = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                transcriptions.push(self.row_to_transcription(row)?);
+            }
+
+            return Ok((transcriptions, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
+                "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
+                        status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM audio_transcriptions 
+                 WHERE media_id = ?1 AND id > ?2
+                 ORDER BY id ASC
+                 LIMIT ?3",
+                libsql::params![media_id, last_id, fetch_limit as i64],
+            )
+        } else {
+            (
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
                         status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM audio_transcriptions 
                  WHERE media_id = ?1 
-                 ORDER BY created_at ASC",
-                libsql::params![media_id],
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![media_id, fetch_limit as i64],
             )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut transcriptions = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            transcriptions.push(self.row_to_transcription(row)?);
+            if count < limit_val {
+                transcriptions.push(self.row_to_transcription(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(transcriptions)
+        let next_cursor = if has_more && !transcriptions.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&transcriptions.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((transcriptions, next_cursor, has_more))
     }
 
     /// Set a transcription as active (and deactivate others for the same media)

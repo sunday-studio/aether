@@ -1,10 +1,11 @@
 use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, MediaIdPathParams, ModelSizePathParams,
-    TranscriptionIdPathParams, TranscriptionStartQueryParams,
+    PaginationQueryParams, TranscriptionIdPathParams, TranscriptionStartQueryParams,
 };
 use crate::db::connection;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::settings;
 use crate::transcription::model_manager;
 use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider};
@@ -121,10 +122,12 @@ pub async fn start_transcription(
     path = "/v1/transcription/{mediaId}",
     tag = "Transcription",
     params(
-        ("mediaId" = String, Path, description = "Media ID")
+        ("mediaId" = String, Path, description = "Media ID"),
+        ("limit" = Option<u32>, Query, description = "Number of transcriptions per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "List of transcriptions", body = Vec<crate::db::models::AudioTranscription>),
+        (status = 200, description = "Paginated list of transcriptions", body = PaginationResponse<crate::db::models::AudioTranscription>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -133,9 +136,9 @@ pub async fn start_transcription(
 pub async fn get_transcriptions(
     state: State<'_, crate::DbState>,
     _request_data: Option<EmptyRequest>,
-    _query_params: Option<EmptyQueryParams>,
+    query_params: Option<PaginationQueryParams>,
     path_params: Option<MediaIdPathParams>,
-) -> Result<Vec<crate::db::models::AudioTranscription>> {
+) -> Result<PaginationResponse<crate::db::models::AudioTranscription>> {
     let media_id = path_params
         .and_then(|p| Some(p.media_id))
         .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
@@ -143,9 +146,13 @@ pub async fn get_transcriptions(
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
 
+    let params = query_params.unwrap_or_default();
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
-    repo.find_by_media_id(&media_id).await
+    let (transcriptions, next_cursor, has_more) = repo
+        .find_by_media_id(&media_id, params.normalize_limit(), params.cursor)
+        .await?;
+    Ok(PaginationResponse::new(transcriptions, next_cursor, has_more))
 }
 
 /// Get a specific transcription by ID
