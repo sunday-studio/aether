@@ -108,6 +108,10 @@ pub struct BookmarkQueryParams {
     pub tag_ids: Option<Vec<String>>,
     #[serde(default)]
     pub content_type: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 /// Query parameters for backlinks/outgoing links

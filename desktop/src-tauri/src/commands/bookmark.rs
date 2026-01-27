@@ -4,6 +4,7 @@ use crate::commands::params::{
 };
 use crate::db::{connection, DbState, BookmarkRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::handlers::bookmark::{CreateBookmarkRequest, UpdateBookmarkRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::metadata::MetadataExtractor;
@@ -28,8 +29,15 @@ pub struct RemoveTagsFromBookmarkRequest {
     get,
     path = "/v1/bookmarks",
     tag = "Bookmarks",
+    params(
+        ("is_archived" = Option<bool>, Query, description = "Filter by archived status"),
+        ("tag_ids" = Option<Vec<String>>, Query, description = "Filter by tag IDs"),
+        ("content_type" = Option<String>, Query, description = "Filter by content type"),
+        ("limit" = Option<u32>, Query, description = "Number of bookmarks per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of all bookmarks", body = Vec<crate::db::models::Bookmark>),
+        (status = 200, description = "Paginated list of bookmarks", body = PaginationResponse<crate::db::models::Bookmark>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -39,10 +47,19 @@ pub async fn get_bookmarks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<BookmarkQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Bookmark>> {
+) -> Result<PaginationResponse<crate::db::models::Bookmark>> {
     let params = query_params.unwrap_or_default();
     let repo = BookmarkRepository::new(connection::get_database(&*state));
-    repo.find_all(params.is_archived, params.tag_ids, params.content_type).await
+    let (bookmarks, next_cursor, has_more) = repo
+        .find_all(
+            params.is_archived,
+            params.tag_ids,
+            params.content_type,
+            params.limit.map(|l| l.min(1000)),
+            params.cursor,
+        )
+        .await?;
+    Ok(PaginationResponse::new(bookmarks, next_cursor, has_more))
 }
 
 /// Get bookmark by ID
