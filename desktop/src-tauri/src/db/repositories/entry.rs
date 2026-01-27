@@ -483,14 +483,29 @@ impl EntryRepository {
             return Ok(());
         }
 
-        // Verify tags exist
+        // Verify tags exist - use single query with IN clause to avoid N+1
+        let placeholders: Vec<String> = (1..=tag_ids.len()).map(|i| format!("?{}", i)).collect();
+        let query = format!("SELECT id FROM tags WHERE id IN ({})", placeholders.join(", "));
+        let mut params = libsql::Params::new();
         for tag_id in &tag_ids {
-            let mut rows = conn
-                .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
-                .await
-                .map_err(|e| AppError::LibSQL(e))?;
-            
-            if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+            params = params.push(tag_id.as_str());
+        }
+        
+        let mut rows = conn
+            .query(&query, params)
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+        
+        let mut found_tag_ids = std::collections::HashSet::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            if let Ok(tag_id) = row.get::<String>(0) {
+                found_tag_ids.insert(tag_id);
+            }
+        }
+        
+        // Check if all tags were found
+        for tag_id in &tag_ids {
+            if !found_tag_ids.contains(tag_id) {
                 return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
             }
         }
