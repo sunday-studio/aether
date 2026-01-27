@@ -15,27 +15,97 @@ impl EntryRepository {
     }
 
     /// Get all entries (non-deleted)
-    pub async fn find_all(&self) -> Result<Vec<Entry>> {
+    /// If limit and cursor are both None, returns all entries (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_all(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Entry>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM entries 
+                     WHERE is_deleted = 0 
+                     ORDER BY id ASC",
+                    libsql::params![],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut entries = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                entries.push(self.row_to_entry(row)?);
+            }
+
+            return Ok((entries, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1; // Fetch one extra to determine has_more
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            // Decode cursor to get last ID
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
+                "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM entries 
+                 WHERE is_deleted = 0 AND id > ?1
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![last_id, fetch_limit as i64],
+            )
+        } else {
+            (
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE is_deleted = 0 
-                 ORDER BY created_at ASC
-                 LIMIT 1000",
-                libsql::params![],
+                 ORDER BY id ASC
+                 LIMIT ?1",
+                libsql::params![fetch_limit as i64],
             )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut entries = Vec::new();
+        let mut has_more = false;
+        let mut next_cursor = None;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            entries.push(self.row_to_entry(row)?);
+            if count < limit_val {
+                entries.push(self.row_to_entry(row)?);
+                count += 1;
+            } else {
+                // We have one extra row, so there are more results
+                has_more = true;
+                // Get the ID of the last item we're returning for the cursor
+                if let Some(last_entry) = entries.last() {
+                    use crate::handlers::common::cursor;
+                    next_cursor = Some(cursor::encode(&last_entry.id));
+                }
+                break;
+            }
         }
 
-        Ok(entries)
+        // If we didn't hit the extra row, set cursor from last entry
+        if !has_more && !entries.is_empty() {
+            use crate::handlers::common::cursor;
+            next_cursor = Some(cursor::encode(&entries.last().unwrap().id));
+        }
+
+        Ok((entries, next_cursor, has_more))
     }
 
     /// Get entry by ID
