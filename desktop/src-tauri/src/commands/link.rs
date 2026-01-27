@@ -1,11 +1,12 @@
 use crate::commands::params::{
-    EmptyPathParams, EmptyQueryParams, EmptyRequest, LinkQueryParams,
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, LinkQueryParams, PaginationQueryParams,
 };
 use crate::db::{connection, DbState};
 use crate::db::models::ResourceLink;
 use crate::db::repositories::{LinkRepository};
 use crate::db::repositories::search::{SearchRepository, ResourceType};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::link_parser::extract_links_from_lexical_content;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -300,8 +301,12 @@ pub async fn search_linkable_resources(
     get,
     path = "/v1/links/graph",
     tag = "Links",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of links per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "All links for graph", body = Vec<ResourceLink>),
+        (status = 200, description = "Paginated list of links for graph", body = PaginationResponse<ResourceLink>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -309,13 +314,17 @@ pub async fn search_linkable_resources(
 pub async fn get_all_links_for_graph(
     state: State<'_, DbState>,
     _request_data: Option<EmptyRequest>,
-    _query_params: Option<EmptyQueryParams>,
+    query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<ResourceLink>> {
+) -> Result<PaginationResponse<ResourceLink>> {
+    let params = query_params.unwrap_or_default();
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
-    repo.find_all_for_graph().await
+    let (links, next_cursor, has_more) = repo
+        .find_all_for_graph(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok(PaginationResponse::new(links, next_cursor, has_more))
 }
 
 /// Sync links from content (extract and create/update links)

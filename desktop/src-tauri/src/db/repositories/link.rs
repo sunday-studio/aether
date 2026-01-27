@@ -178,25 +178,89 @@ impl LinkRepository {
     }
 
     /// Get all links for graph visualization
-    pub async fn find_all_for_graph(&self) -> Result<Vec<ResourceLink>> {
+    /// Get all links for graph visualization
+    /// If limit and cursor are both None, returns all links (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_all_for_graph(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<ResourceLink>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at 
+                     FROM resource_links 
+                     ORDER BY id ASC",
+                    libsql::params![],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut links = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                links.push(self.row_to_link(row)?);
+            }
+
+            return Ok((links, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
                 "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at 
                  FROM resource_links 
-                 ORDER BY created_at DESC",
-                libsql::params![],
+                 WHERE id > ?1
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![last_id, fetch_limit as i64],
             )
+        } else {
+            (
+                "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at 
+                 FROM resource_links 
+                 ORDER BY id ASC
+                 LIMIT ?1",
+                libsql::params![fetch_limit as i64],
+            )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut links = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            links.push(self.row_to_link(row)?);
+            if count < limit_val {
+                links.push(self.row_to_link(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(links)
+        let next_cursor = if has_more && !links.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&links.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((links, next_cursor, has_more))
     }
 
     /// Helper to convert database row to ResourceLink
