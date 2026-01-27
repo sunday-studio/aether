@@ -556,14 +556,28 @@ impl GoalRepository {
             return Ok(());
         }
 
-        // Verify tags exist
+        // Verify tags exist - use single query with IN clause to avoid N+1
+        let escaped_ids: Vec<String> = tag_ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace("'", "''")))
+            .collect();
+        let query = format!("SELECT id FROM tags WHERE id IN ({})", escaped_ids.join(", "));
+        
+        let mut rows = conn
+            .query(&query, libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+        
+        let mut found_tag_ids = std::collections::HashSet::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            if let Ok(tag_id) = row.get::<String>(0) {
+                found_tag_ids.insert(tag_id);
+            }
+        }
+        
+        // Check if all tags were found
         for tag_id in &tag_ids {
-            let mut rows = conn
-                .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
-                .await
-                .map_err(|e| AppError::LibSQL(e))?;
-            
-            if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+            if !found_tag_ids.contains(tag_id) {
                 return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
             }
         }
