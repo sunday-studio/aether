@@ -17,27 +17,90 @@ impl GoalRepository {
     }
 
     /// Get all goals
-    pub async fn find_all(&self) -> Result<Vec<Goal>> {
+    /// If limit and cursor are both None, returns all goals (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_all(
+        &self,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<Goal>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM goals 
+                     WHERE deleted_at IS NULL 
+                     ORDER BY id ASC",
+                    libsql::params![],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut goals = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                goals.push(self.row_to_goal(row)?);
+            }
+
+            return Ok((goals, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
+                "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM goals 
+                 WHERE deleted_at IS NULL AND id > ?1
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![last_id, fetch_limit as i64],
+            )
+        } else {
+            (
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE deleted_at IS NULL 
-                 ORDER BY created_at DESC
-                 LIMIT 1000",
-                libsql::params![],
+                 ORDER BY id ASC
+                 LIMIT ?1",
+                libsql::params![fetch_limit as i64],
             )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut goals = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            goals.push(self.row_to_goal(row)?);
+            if count < limit_val {
+                goals.push(self.row_to_goal(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(goals)
+        let next_cursor = if has_more && !goals.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&goals.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((goals, next_cursor, has_more))
     }
 
     /// Get goal by ID
@@ -340,7 +403,14 @@ impl GoalRepository {
     }
 
     /// Get goal instances for a goal
-    pub async fn find_instances(&self, goal_id: &str) -> Result<Vec<GoalInstance>> {
+    /// If limit and cursor are both None, returns all instances (bypass pagination)
+    /// Otherwise returns paginated results with cursor-based pagination
+    pub async fn find_instances(
+        &self,
+        goal_id: &str,
+        limit: Option<u32>,
+        cursor: Option<String>,
+    ) -> Result<(Vec<GoalInstance>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         // Verify goal exists
@@ -349,23 +419,81 @@ impl GoalRepository {
             return Err(AppError::NotFound(format!("Goal {} not found", goal_id)));
         }
 
-        let mut rows = conn
-            .query(
+        // Bypass mode: return all results
+        if limit.is_none() && cursor.is_none() {
+            let mut rows = conn
+                .query(
+                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM goal_instances 
+                     WHERE goal_id = ?1 
+                     ORDER BY id ASC",
+                    libsql::params![goal_id],
+                )
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+
+            let mut instances = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                instances.push(self.row_to_goal_instance(row)?);
+            }
+
+            return Ok((instances, None, false));
+        }
+
+        // Pagination mode
+        let limit_val = limit.unwrap_or(50).min(1000);
+        let fetch_limit = limit_val + 1;
+        
+        let (query, params) = if let Some(cursor_val) = cursor {
+            use crate::handlers::common::cursor;
+            let last_id = cursor::decode(&cursor_val)?;
+            
+            (
+                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM goal_instances 
+                 WHERE goal_id = ?1 AND id > ?2
+                 ORDER BY id ASC
+                 LIMIT ?3",
+                libsql::params![goal_id, last_id, fetch_limit as i64],
+            )
+        } else {
+            (
                 "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 
-                 ORDER BY period_start DESC",
-                libsql::params![goal_id],
+                 ORDER BY id ASC
+                 LIMIT ?2",
+                libsql::params![goal_id, fetch_limit as i64],
             )
+        };
+
+        let mut rows = conn
+            .query(query, params)
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut instances = Vec::new();
+        let mut has_more = false;
+        
+        let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            instances.push(self.row_to_goal_instance(row)?);
+            if count < limit_val {
+                instances.push(self.row_to_goal_instance(row)?);
+                count += 1;
+            } else {
+                has_more = true;
+                break;
+            }
         }
 
-        Ok(instances)
+        let next_cursor = if has_more && !instances.is_empty() {
+            use crate::handlers::common::cursor;
+            Some(cursor::encode(&instances.last().unwrap().id))
+        } else {
+            None
+        };
+
+        Ok((instances, next_cursor, has_more))
     }
 
     /// Get or create current goal instance
