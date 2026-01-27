@@ -1,11 +1,12 @@
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
@@ -125,15 +126,27 @@ pub async fn create_task(
     get,
     path = "/v1/tasks/inbox",
     tag = "Tasks",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of tasks per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of inbox tasks", body = Vec<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of inbox tasks", body = PaginationResponse<crate::db::models::Task>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_inbox_tasks(State(state): State<DbState>) -> Result<impl IntoResponse> {
+pub async fn get_inbox_tasks(
+    State(state): State<DbState>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
+) -> Result<impl IntoResponse> {
     let repo = TaskRepository::new(connection::get_database(&state));
-    let tasks = repo.find_inbox().await?;
-    Ok((StatusCode::OK, Json(tasks)))
+    let (tasks, next_cursor, has_more) = repo
+        .find_inbox(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(tasks, next_cursor, has_more)),
+    ))
 }
 
 /// Get overdue tasks
@@ -141,15 +154,27 @@ pub async fn get_inbox_tasks(State(state): State<DbState>) -> Result<impl IntoRe
     get,
     path = "/v1/tasks/overdue",
     tag = "Tasks",
+    params(
+        ("limit" = Option<u32>, Query, description = "Number of tasks per page (max 1000)"),
+        ("cursor" = Option<String>, Query, description = "Cursor for pagination")
+    ),
     responses(
-        (status = 200, description = "List of overdue tasks", body = Vec<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of overdue tasks", body = PaginationResponse<crate::db::models::Task>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_overdue_tasks(State(state): State<DbState>) -> Result<impl IntoResponse> {
+pub async fn get_overdue_tasks(
+    State(state): State<DbState>,
+    Query(params): Query<crate::commands::params::PaginationQueryParams>,
+) -> Result<impl IntoResponse> {
     let repo = TaskRepository::new(connection::get_database(&state));
-    let tasks = repo.find_overdue().await?;
-    Ok((StatusCode::OK, Json(tasks)))
+    let (tasks, next_cursor, has_more) = repo
+        .find_overdue(params.normalize_limit(), params.cursor)
+        .await?;
+    Ok((
+        StatusCode::OK,
+        Json(PaginationResponse::new(tasks, next_cursor, has_more)),
+    ))
 }
 
 /// Get task by ID
