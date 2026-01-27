@@ -19,7 +19,7 @@ impl TagRepository {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         let mut rows = conn
-            .query("SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM tags WHERE deleted_at IS NULL ORDER BY name ASC", libsql::params![])
+            .query("SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM tags WHERE deleted_at IS NULL ORDER BY name ASC LIMIT 1000", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
