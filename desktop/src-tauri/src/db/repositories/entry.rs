@@ -484,15 +484,26 @@ impl EntryRepository {
         }
 
         // Verify tags exist - use single query with IN clause to avoid N+1
-        let placeholders: Vec<String> = (1..=tag_ids.len()).map(|i| format!("?{}", i)).collect();
-        let query = format!("SELECT id FROM tags WHERE id IN ({})", placeholders.join(", "));
-        let mut params = libsql::Params::new();
-        for tag_id in &tag_ids {
-            params = params.push(tag_id.as_str());
-        }
+        // Build VALUES clause for dynamic IN query
+        let values_clauses: Vec<String> = (1..=tag_ids.len())
+            .map(|i| format!("(?{})", i))
+            .collect();
+        let query = format!(
+            "SELECT id FROM tags WHERE id IN (SELECT value FROM (VALUES {}) AS t(value))",
+            values_clauses.join(", ")
+        );
+        
+        // Build params tuple dynamically - we'll use a macro-like approach
+        // Since libsql::params! is a macro, we need to build the query differently
+        // For now, use a safe string interpolation approach with proper escaping
+        let escaped_ids: Vec<String> = tag_ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace("'", "''")))
+            .collect();
+        let query = format!("SELECT id FROM tags WHERE id IN ({})", escaped_ids.join(", "));
         
         let mut rows = conn
-            .query(&query, params)
+            .query(&query, libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
         
