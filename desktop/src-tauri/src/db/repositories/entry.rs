@@ -23,7 +23,8 @@ impl EntryRepository {
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE is_deleted = 0 
-                 ORDER BY created_at ASC",
+                 ORDER BY created_at ASC
+                 LIMIT 1000",
                 libsql::params![],
             )
             .await
