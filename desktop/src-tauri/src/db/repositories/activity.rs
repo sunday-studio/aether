@@ -119,7 +119,8 @@ impl ActivityRepository {
                 "SELECT id, action_type, entity_type, entity_id, created_at, metadata
                  FROM activities
                  WHERE entity_type = ?1 AND entity_id = ?2
-                 ORDER BY created_at DESC",
+                 ORDER BY created_at DESC
+                 LIMIT 1000",
                 libsql::params![entity_type, entity_id],
             )
             .await
