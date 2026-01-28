@@ -17,8 +17,9 @@ pub async fn push(
 ) -> Result<usize> {
     tracing::info!("[SYNC-PUSH] Starting push operation to {}", base_url);
     let device_id = metadata::get_device_id(&db).await?;
-    tracing::debug!("[SYNC-PUSH] Device ID: {}", device_id);
-    let (envelopes, to_delete) = read_outbox_and_build(&db).await?;
+    let device_hostname = metadata::get_device_hostname(&db).await?;
+    tracing::debug!("[SYNC-PUSH] Device ID: {}, Hostname: {}", device_id, device_hostname);
+    let (envelopes, to_delete) = read_outbox_and_build(&db, &device_id, &device_hostname).await?;
     if envelopes.is_empty() {
         tracing::info!("[SYNC-PUSH] No changes to push");
         return Ok(0);
@@ -67,6 +68,7 @@ pub async fn push(
     tracing::info!("[SYNC-PUSH] Sending POST request to {}", url);
     let body = PushRequest {
         device_id,
+        device_hostname,
         changes: encrypted,
     };
     let client = reqwest::Client::new();
@@ -95,6 +97,8 @@ pub async fn push(
 
 async fn read_outbox_and_build(
     db: &Database,
+    device_id: &str,
+    device_hostname: &str,
 ) -> Result<(Vec<ChangeEnvelope>, Vec<(String, String)>)> {
     tracing::debug!("[SYNC-PUSH] Reading outbox");
     let conn = db.connect().map_err(AppError::LibSQL)?;
@@ -150,6 +154,8 @@ async fn read_outbox_and_build(
             op: change_op,
             data,
             updated_at,
+            device_id: device_id.to_string(),
+            device_hostname: device_hostname.to_string(),
         };
         envelopes.push(envelope);
         to_delete.push((entity, entity_id));
