@@ -18,12 +18,18 @@ impl Storage {
             "CREATE TABLE IF NOT EXISTS changes (
                 id INTEGER PRIMARY KEY,
                 device_id TEXT NOT NULL,
+                device_hostname TEXT,
                 nonce BLOB NOT NULL,
                 ciphertext BLOB NOT NULL,
                 received_at INTEGER NOT NULL
             )",
             [],
         )?;
+        // Migrate existing changes table to add device_hostname
+        conn.execute(
+            "ALTER TABLE changes ADD COLUMN device_hostname TEXT",
+            [],
+        ).ok(); // Ignore error if column already exists
         conn.execute("CREATE INDEX IF NOT EXISTS idx_changes_time ON changes(received_at)", [])?;
 
         conn.execute(
@@ -44,15 +50,15 @@ impl Storage {
         })
     }
 
-    pub fn push(&self, device_id: &str, nonce: &[u8], ciphertext: &[u8]) -> Result<(), rusqlite::Error> {
+    pub fn push(&self, device_id: &str, device_hostname: Option<&str>, nonce: &[u8], ciphertext: &[u8]) -> Result<(), rusqlite::Error> {
         let received_at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as i64;
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO changes (device_id, nonce, ciphertext, received_at) VALUES (?1, ?2, ?3, ?4)",
-            params![device_id, nonce, ciphertext, received_at],
+            "INSERT INTO changes (device_id, device_hostname, nonce, ciphertext, received_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![device_id, device_hostname, nonce, ciphertext, received_at],
         )?;
         Ok(())
     }
