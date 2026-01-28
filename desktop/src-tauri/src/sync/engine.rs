@@ -120,7 +120,7 @@ impl SyncEngine {
     }
 
     /// Configure sync: server URL and passphrase. On first run, derives and stores key_salt/key_check.
-    pub async fn configure(&self, server_url: String, passphrase: String) -> Result<()> {
+    pub async fn configure(&self, app: &AppHandle, server_url: String, passphrase: String) -> Result<()> {
         tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
         let db = get_database(&self.db);
         if metadata::get_key_salt(&db).await?.is_none() {
@@ -132,8 +132,10 @@ impl SyncEngine {
         }
         metadata::set_server_url(&db, &server_url).await?;
         *self.server_url.lock().unwrap() = Some(server_url.clone());
-        *self.passphrase.lock().unwrap() = Some(passphrase);
-        tracing::info!("[SYNC] Configuration complete. Server URL stored in memory");
+        *self.passphrase.lock().unwrap() = Some(passphrase.clone());
+        // Store passphrase in keychain
+        self.store_passphrase(app, &passphrase).await?;
+        tracing::info!("[SYNC] Configuration complete. Server URL and passphrase stored");
         Ok(())
     }
 
@@ -380,9 +382,12 @@ impl SyncEngine {
         Ok(())
     }
 
-    pub async fn disconnect(&self) -> Result<()> {
+    pub async fn disconnect(&self, app: &AppHandle) -> Result<()> {
+        // Clear passphrase from keychain
+        let _ = self.clear_passphrase(app).await;
         *self.server_url.lock().unwrap() = None;
         *self.passphrase.lock().unwrap() = None;
+        tracing::info!("[SYNC] Disconnected: cleared keychain and in-memory state");
         Ok(())
     }
 
