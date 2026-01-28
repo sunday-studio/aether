@@ -60,6 +60,8 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_macos_haptics::init());
     }
 
+    builder = builder.plugin(tauri_plugin_keyring::init());
+
     // Initialize database and run migrations
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     let db_state = rt.block_on(async {
