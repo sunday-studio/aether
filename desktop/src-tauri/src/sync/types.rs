@@ -9,6 +9,8 @@ pub struct ChangeEnvelope {
     pub op: ChangeOp,
     pub data: Option<serde_json::Value>,
     pub updated_at: i64,
+    pub device_id: String,
+    pub device_hostname: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +23,7 @@ pub enum ChangeOp {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushRequest {
     pub device_id: String,
+    pub device_hostname: String,
     pub changes: Vec<EncryptedChange>,
 }
 
