@@ -56,7 +56,7 @@ async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl 
             Ok(v) => v,
             Err(_) => return (StatusCode::BAD_REQUEST, "invalid ciphertext base64").into_response(),
         };
-        if let Err(e) = s.storage.push(&body.device_id, &nonce, &ct) {
+        if let Err(e) = s.storage.push(&body.device_id, Some(&body.device_hostname), &nonce, &ct) {
             tracing::error!("push db: {}", e);
             return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
         }

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize)]
 pub struct PushRequest {
     pub device_id: String,
+    pub device_hostname: String,
     pub changes: Vec<EncryptedChange>,
 }
 
