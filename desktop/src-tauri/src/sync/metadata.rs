@@ -6,6 +6,7 @@ use libsql::Database;
 use uuid::Uuid;
 
 const KEY_DEVICE_ID: &str = "device_id";
+const KEY_DEVICE_HOSTNAME: &str = "device_hostname";
 const KEY_SERVER_URL: &str = "server_url";
 const KEY_LAST_SYNC: &str = "last_sync";
 const KEY_SALT: &str = "key_salt";
@@ -22,6 +23,22 @@ pub async fn get_device_id(db: &Database) -> Result<String> {
             Ok(id)
         }
     }
+}
+
+pub async fn get_device_hostname(db: &Database) -> Result<String> {
+    let v = get(db, KEY_DEVICE_HOSTNAME).await?;
+    match v {
+        Some(s) => Ok(s),
+        None => {
+            let hostname = gethostname::gethostname().to_string_lossy().to_string();
+            set(db, KEY_DEVICE_HOSTNAME, &hostname).await?;
+            Ok(hostname)
+        }
+    }
+}
+
+pub async fn set_device_hostname(db: &Database, hostname: &str) -> Result<()> {
+    set(db, KEY_DEVICE_HOSTNAME, hostname).await
 }
 
 pub async fn get_server_url(db: &Database) -> Result<Option<String>> {

@@ -91,6 +91,9 @@ hex = "0.4"
 rand = "0.8"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 
+# System
+gethostname = "0.4"
+
 # Async traits
 async-trait = "0.1"
 
