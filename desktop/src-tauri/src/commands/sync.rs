@@ -50,7 +50,7 @@ pub async fn configure_sync(
     
     tracing::info!("[SYNC-CMD] Configuring sync via command");
     engine
-        .configure(request.server_url, request.passphrase)
+        .configure(&app, request.server_url, request.passphrase)
         .await
         .map_err(|e| {
             tracing::error!("[SYNC-CMD] Configuration failed: {}", e);
@@ -124,12 +124,13 @@ pub async fn get_sync_status(
 )]
 #[tauri::command]
 pub async fn disconnect_sync(
+    app: AppHandle,
     engine: State<'_, Arc<SyncEngine>>,
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    engine.disconnect().await.map_err(|e| AppError::Sync(e.to_string()))
+    engine.disconnect(&app).await.map_err(|e| AppError::Sync(e.to_string()))
 }
 
 /// Reconnect sync with passphrase

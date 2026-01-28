@@ -85,7 +85,6 @@ pub fn run() {
     });
 
     let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
-    let _ = rt.block_on(sync_engine.hydrate_from_metadata());
     
     // Ensure _suppress_triggers is reset to '0' on startup (in case it was stuck)
     let db = db::connection::get_database(&db_state);
@@ -154,6 +153,15 @@ pub fn run() {
             let handle = app.handle().clone();
             let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();
             let window_focus = app.state::<WindowFocus>().inner().0.clone();
+
+            // Hydrate sync engine from metadata and keychain
+            let app_handle = app.handle().clone();
+            let engine_clone = sync_engine.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = engine_clone.hydrate(&app_handle).await {
+                    tracing::warn!("[SYNC] Failed to hydrate sync engine: {}", e);
+                }
+            });
 
             // Periodic sync: every 5 min when focused and ready
             tauri::async_runtime::spawn(async move {
