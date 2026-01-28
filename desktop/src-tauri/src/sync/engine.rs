@@ -10,6 +10,7 @@ use crate::sync::pull;
 use crate::sync::push;
 use serde::Serialize;
 use std::sync::Mutex;
+use tauri::AppHandle;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -28,6 +29,9 @@ pub struct SyncEngine {
     is_syncing: Mutex<bool>,
 }
 
+const SERVICE_NAME: &str = "com.aether.sync";
+const PASSPHRASE_KEY: &str = "encryption_passphrase";
+
 impl SyncEngine {
     pub fn new(db: DbState) -> Self {
         Self {
@@ -35,6 +39,51 @@ impl SyncEngine {
             server_url: Mutex::new(None),
             passphrase: Mutex::new(None),
             is_syncing: Mutex::new(false),
+        }
+    }
+
+    /// Store passphrase in OS keychain
+    async fn store_passphrase(&self, app: &AppHandle, passphrase: &str) -> Result<()> {
+        tauri_plugin_keyring::set_password(app, SERVICE_NAME, PASSPHRASE_KEY, passphrase)
+            .await
+            .map_err(|e| AppError::Sync(format!("failed to store passphrase in keychain: {}", e)))?;
+        tracing::info!("[SYNC] Passphrase stored in keychain");
+        Ok(())
+    }
+
+    /// Retrieve passphrase from OS keychain
+    async fn get_passphrase(&self, app: &AppHandle) -> Result<Option<String>> {
+        match tauri_plugin_keyring::get_password(app, SERVICE_NAME, PASSPHRASE_KEY).await {
+            Ok(pass) => {
+                tracing::info!("[SYNC] Passphrase retrieved from keychain");
+                Ok(Some(pass))
+            }
+            Err(tauri_plugin_keyring::Error::NoEntry) => {
+                tracing::debug!("[SYNC] No passphrase found in keychain");
+                Ok(None)
+            }
+            Err(e) => {
+                tracing::warn!("[SYNC] Failed to retrieve passphrase from keychain: {}", e);
+                Ok(None)
+            }
+        }
+    }
+
+    /// Clear passphrase from OS keychain
+    async fn clear_passphrase(&self, app: &AppHandle) -> Result<()> {
+        match tauri_plugin_keyring::delete_password(app, SERVICE_NAME, PASSPHRASE_KEY).await {
+            Ok(()) => {
+                tracing::info!("[SYNC] Passphrase cleared from keychain");
+                Ok(())
+            }
+            Err(tauri_plugin_keyring::Error::NoEntry) => {
+                tracing::debug!("[SYNC] No passphrase to clear from keychain");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::warn!("[SYNC] Failed to clear passphrase from keychain: {}", e);
+                Ok(()) // Don't fail on clear errors
+            }
         }
     }
 
