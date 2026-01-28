@@ -87,15 +87,32 @@ impl SyncEngine {
         }
     }
 
-    /// Load server_url from persisted metadata into memory. Call after app start so
-    /// status().connected is true when sync was previously configured. Passphrase
-    /// is not stored; user must re-enter to run sync.
-    pub async fn hydrate_from_metadata(&self) -> Result<()> {
+    /// Load server_url from persisted metadata into memory and attempt to load passphrase from keychain.
+    /// Call after app start so status().connected is true when sync was previously configured.
+    pub async fn hydrate(&self, app: &AppHandle) -> Result<()> {
         tracing::info!("[SYNC] Hydrating sync configuration from metadata");
         let db = get_database(&self.db);
         if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
             *self.server_url.lock().unwrap() = Some(url.clone());
             tracing::info!("[SYNC] Loaded server URL from metadata: {}", url);
+
+            // Attempt to load passphrase from keychain
+            if let Some(passphrase) = self.get_passphrase(app).await? {
+                // Verify passphrase against stored key_check
+                match metadata::verify_key(db.as_ref(), &passphrase).await {
+                    Ok(_) => {
+                        *self.passphrase.lock().unwrap() = Some(passphrase);
+                        tracing::info!("[SYNC] Passphrase loaded from keychain and verified");
+                    }
+                    Err(e) => {
+                        tracing::warn!("[SYNC] Passphrase from keychain failed verification: {}", e);
+                        // Clear invalid passphrase from keychain
+                        let _ = self.clear_passphrase(app).await;
+                    }
+                }
+            } else {
+                tracing::info!("[SYNC] No passphrase found in keychain");
+            }
         } else {
             tracing::info!("[SYNC] No server URL found in metadata");
         }
