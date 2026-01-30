@@ -38,7 +38,7 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 	const { mutate: addGoalToTask } = useAddGoalToTask();
 	const [searchValue, setSearchValue] = useState("");
 
-	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
+	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
 
 	// SDK now returns properly typed PaginatedGoals
 	const goalsData: Goal[] = goalsResponse?.data?.items ?? [];
@@ -54,6 +54,18 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 	}, [goalsData, searchValue]);
 
 	const handleOnSelectGoal = (goalId: string) => {
+		// Store previous state for rollback
+		const previousData = getPreviousData();
+
+		// Optimistically update the goal
+		updateLocalInstance({
+			id: taskId,
+			data: {
+				goalId,
+				goalInstanceId: `temp-${Date.now()}`, // Temporary until server confirms
+			},
+		});
+
 		addGoalToTask(
 			{
 				id: taskId,
@@ -63,12 +75,22 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 			},
 			{
 				onSuccess: ({ data }) => {
+					// Replace with real server response
 					updateLocalInstance({
 						id: taskId,
 						data: {
 							goalInstanceId: data?.goalInstanceId ?? "",
 						},
 					});
+				},
+				onError: () => {
+					// Rollback on error
+					if (previousData.inbox) {
+						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
+					}
+					if (previousData.overdue) {
+						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
+					}
 				},
 			},
 		);
