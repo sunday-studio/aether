@@ -11,7 +11,7 @@ export const Layout = () => {
 	return (
 		<div className="w-screen h-screen relative overflow-hidden bg-(--color-background)">
 			<div
-				className="h-12 flex bg-transparent items-center justify-center pl-14 pr-3"
+				className="h-12 flex bg-transparent items-center justify-center pl-14 pr-3 select-none"
 				data-tauri-drag-region
 			>
 				{isDev && <div className="text-sm">{location.pathname}</div>}

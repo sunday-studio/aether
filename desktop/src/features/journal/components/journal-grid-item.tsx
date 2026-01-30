@@ -1,18 +1,18 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import type { EntryWithTags } from "~/types/models";
-import { extractFirstSentence } from "../journal.domain.ts";
-import { JournalEditor } from "./journal-editor";
-import { JournalActionsDropdown } from "./journal-actions-dropdown";
+import { useState } from "react";
 import {
 	getGetEntriesQueryKey,
 	useDeleteEntry,
 	useUpdateEntry,
 } from "~/aether-sdk";
-import { useQueryClient } from "@tanstack/react-query";
 import { showToast } from "~/components/shared/toast-components";
+import type { EntryWithTags } from "~/types/models";
+import { extractFirstSentence } from "../journal.domain.ts";
 import { EntryAudio } from "./entry-audio";
+import { JournalActionsDropdown } from "./journal-actions-dropdown";
+import { JournalEditor } from "./journal-editor";
 
 interface JournalGridItemProps {
 	entry: EntryWithTags;
@@ -101,7 +101,11 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 
 			{/* Metadata */}
 			<div className="flex items-center gap-2 text-xs text-neutral-500">
-				<span>{formatDistanceToNow(new Date(entry.createdAt ?? ""), { addSuffix: true })}</span>
+				<span>
+					{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
+						addSuffix: true,
+					})}
+				</span>
 			</div>
 
 			{/* Audio if available */}

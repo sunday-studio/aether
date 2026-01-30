@@ -77,7 +77,10 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					<Divider />
 					<TaskSubtasksTrigger taskId={task.id as string} />
 					<Divider />
-					<TaskItemDelete taskId={task.id as string} goalId={task.goalId ?? undefined} />
+					<TaskItemDelete
+						taskId={task.id as string}
+						goalId={task.goalId ?? undefined}
+					/>
 				</div>
 			</div>
 		</div>

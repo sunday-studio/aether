@@ -1,5 +1,5 @@
-import type { EntryWithTags } from "~/types/models";
 import { Editor } from "~/components/editor/editor";
+import type { EntryWithTags } from "~/types/models";
 import { cn } from "~/utils/cn";
 
 interface JournalEditorProps {

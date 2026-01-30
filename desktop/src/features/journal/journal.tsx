@@ -1,20 +1,20 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { LayoutGrid, List } from "lucide-react";
-import { useState } from "react";
-import { getGetEntriesQueryKey } from "~/aether-sdk";
-import { cn } from "~/utils/cn";
-import { JournalGridView } from "./components/journal-grid-view";
+// import { useQueryClient } from "@tanstack/react-query";
+// import { getCurrentWindow } from "@tauri-apps/api/window";
+// import { LayoutGrid, List } from "lucide-react";
+// import { useState } from "react";
+// import { getGetEntriesQueryKey } from "~/aether-sdk";
+// import { cn } from "~/utils/cn";
+// import { JournalGridView } from "./components/journal-grid-view";
 import { JournalTimeline } from "./components/journal-timeline";
 
 // export const appWindow = getCurrentWindow();
 
-type ViewMode = "timeline" | "grid";
+// type ViewMode = "timeline" | "grid";
 
 export const Journal = () => {
-	const queryClient = useQueryClient();
-	const entriesQueryKey = getGetEntriesQueryKey();
-	const [viewMode, setViewMode] = useState<ViewMode>("timeline");
+	// const queryClient = useQueryClient();
+	// const entriesQueryKey = getGetEntriesQueryKey();
+	// const [viewMode, setViewMode] = useState<ViewMode>("timeline");
 
 	// appWindow.onFocusChanged(({ payload }) => {
 	// 	if (payload) {
@@ -24,7 +24,7 @@ export const Journal = () => {
 
 	return (
 		<main className="w-screen h-screen relative">
-			<div className="absolute top-4 right-4 z-20 flex items-center gap-1  rounded-lg border border-neutral-200 p-1 shadow-sm">
+			{/* <div className="absolute top-4 right-4 z-20 flex items-center gap-1  rounded-lg border border-neutral-200 p-1 shadow-sm">
 				<button
 					type="button"
 					onClick={() => setViewMode("timeline")}
@@ -51,9 +51,9 @@ export const Journal = () => {
 				>
 					<LayoutGrid className="w-4 h-4" />
 				</button>
-			</div>
-
-			{viewMode === "timeline" ? <JournalTimeline /> : <JournalGridView />}
+			</div> */}
+			<JournalTimeline />
+			{/* {viewMode === "timeline" ?: <JournalGridView />} */}
 		</main>
 	);
 };

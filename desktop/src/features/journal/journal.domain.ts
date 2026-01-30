@@ -53,7 +53,9 @@ export const extractFirstSentence = (document: string): string => {
 	// Fallback to first line or first 100 characters
 	const firstLine = text.split("\n")[0].trim();
 	if (firstLine) {
-		return firstLine.length > 100 ? firstLine.substring(0, 100) + "..." : firstLine;
+		return firstLine.length > 100
+			? firstLine.substring(0, 100) + "..."
+			: firstLine;
 	}
 
 	return text.substring(0, 100) || "Untitled Entry";
@@ -68,7 +70,10 @@ export const extractFirstSentence = (document: string): string => {
 export const groupEntriesByTags = (
 	entries: EntryWithTags[],
 ): Map<string, { tagName: string; entries: EntryWithTags[] }> => {
-	const grouped = new Map<string, { tagName: string; entries: EntryWithTags[] }>();
+	const grouped = new Map<
+		string,
+		{ tagName: string; entries: EntryWithTags[] }
+	>();
 
 	// Add untagged group
 	const untaggedGroup = { tagName: "Untagged", entries: [] as EntryWithTags[] };

@@ -82,11 +82,11 @@ export const PreferencesSection = () => {
 						isDisabled={isDarkMode}
 						items={[
 							{ label: "Classic", value: "classic" },
-							{ label: "Amber", value: "amber" },
+							// { label: "Amber", value: "amber" },
 						]}
 					>
 						<SelectItem id="classic">Classic</SelectItem>
-						<SelectItem id="amber">Amber</SelectItem>
+						{/* <SelectItem id="amber">Amber</SelectItem> */}
 					</Select>
 				</div>
 			</div>
@@ -106,11 +106,11 @@ export const PreferencesSection = () => {
 						onChange={(value) => updateColorScheme("dark", value as DarkTheme)}
 						isDisabled={isLightMode}
 						items={[
-							{ label: "Classic", value: "classic" },
+							// { label: "Classic", value: "classic" },
 							{ label: "Lime", value: "lime" },
 						]}
 					>
-						<SelectItem id="classic">Classic</SelectItem>
+						{/* <SelectItem id="classic">Classic</SelectItem> */}
 						<SelectItem id="lime">Lime</SelectItem>
 					</Select>
 				</div>

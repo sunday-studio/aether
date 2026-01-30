@@ -6,13 +6,13 @@ import {
 	useDeleteEntry,
 	useUpdateEntry,
 } from "~/aether-sdk";
-import type { EntryWithTags } from "~/types/models";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
+import type { EntryWithTags } from "~/types/models";
+// import { EntryAudio } from "./entry-audio";
 import { JournalActionsDropdown } from "./journal-actions-dropdown";
 import { JournalEditor } from "./journal-editor";
-import { EntryAudio } from "./entry-audio";
 
 // import { EntryTags } from "./journal-tags";
 
@@ -116,7 +116,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 			rightContent={
 				<Timeline.RightContent className="mb-5 flex flex-col gap-1 ">
 					{/* {shouldShowTags && <EntryTags entry={entry} />} */}
-					<EntryAudio entryId={entry.id ?? ""} />
+					{/* <EntryAudio entryId={entry.id ?? ""} /> */}
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
 						document={entry.document ?? ""}
@@ -130,6 +130,3 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 		></Timeline.Item>
 	);
 };
-
-// TODOs:
-// - add infinite scrolling; fetch first 200 entries

@@ -1,21 +1,49 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { isBefore, startOfDay } from "date-fns";
-import { useMemo, useRef } from "react";
+import { Loader } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
 import type { TaskWithSubtasks } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
 import { TaskItem } from "./task-item/task-item";
 import { TaskListDivider } from "./task-list-divider";
 
 type VirtualItem =
-	| { type: "divider"; date: string; tasks: TaskWithSubtasks[]; isPast: boolean }
-	| { type: "task"; task: TaskWithSubtasks; isPast: boolean; isLastInGroup: boolean };
+	| {
+			type: "divider";
+			date: string;
+			tasks: TaskWithSubtasks[];
+			isPast: boolean;
+	  }
+	| {
+			type: "task";
+			task: TaskWithSubtasks;
+			isPast: boolean;
+			isLastInGroup: boolean;
+	  }
+	| { type: "loader" };
+
+interface InfiniteScrollProps {
+	/** Whether there are more items to fetch */
+	hasMore: boolean;
+	/** Whether we're currently fetching more items */
+	isFetchingMore: boolean;
+	/** Function to fetch more items */
+	fetchMore: () => void;
+	/** Number of items from the end to trigger fetch (default: 5) */
+	threshold?: number;
+}
 
 interface VirtualizedTaskListProps {
 	groupedTasks: Record<string, TaskWithSubtasks[]>;
-	getDividerTitle?: (date: string, tasks: TaskWithSubtasks[]) => string | undefined;
+	getDividerTitle?: (
+		date: string,
+		tasks: TaskWithSubtasks[],
+	) => string | undefined;
 	showPastDateEffects?: boolean;
 	className?: string;
 	emptyState?: React.ReactNode;
+	/** Optional infinite scroll configuration */
+	infiniteScroll?: InfiniteScrollProps;
 }
 
 export const VirtualizedTaskList = ({
@@ -24,6 +52,7 @@ export const VirtualizedTaskList = ({
 	showPastDateEffects = true,
 	className,
 	emptyState,
+	infiniteScroll,
 }: VirtualizedTaskListProps) => {
 	const parentRef = useRef<HTMLDivElement>(null);
 
@@ -50,14 +79,22 @@ export const VirtualizedTaskList = ({
 			});
 		});
 
+		// Add loader item at the end if infinite scroll is enabled and has more
+		if (infiniteScroll?.hasMore) {
+			items.push({ type: "loader" });
+		}
+
 		return items;
-	}, [groupedTasks, showPastDateEffects]);
+	}, [groupedTasks, showPastDateEffects, infiniteScroll?.hasMore]);
 
 	const virtualizer = useVirtualizer({
 		count: virtualItems.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: (index) => {
 			const item = virtualItems[index];
+			if (item.type === "loader") {
+				return 48; // Loader height
+			}
 			// Divider has my-6 (24px top + 24px bottom) + content (~28px) = ~76px
 			// Task items are roughly 60px with space-y-4 (16px) gap
 			if (item.type === "divider") {
@@ -68,6 +105,29 @@ export const VirtualizedTaskList = ({
 		},
 		overscan: 5,
 	});
+
+	// Trigger fetch when scrolling near the end
+	useEffect(() => {
+		if (!infiniteScroll) return;
+
+		const {
+			hasMore,
+			isFetchingMore,
+			fetchMore,
+			threshold = 5,
+		} = infiniteScroll;
+		const virtualItems_visible = virtualizer.getVirtualItems();
+		const lastItem = virtualItems_visible[virtualItems_visible.length - 1];
+
+		if (!lastItem) return;
+
+		// Check if we're near the end (within threshold items)
+		const isNearEnd = lastItem.index >= virtualItems.length - threshold - 1;
+
+		if (isNearEnd && hasMore && !isFetchingMore) {
+			fetchMore();
+		}
+	}, [virtualizer.getVirtualItems(), virtualItems.length, infiniteScroll]);
 
 	const isEmpty = Object.keys(groupedTasks).length === 0;
 
@@ -86,6 +146,28 @@ export const VirtualizedTaskList = ({
 			>
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const item = virtualItems[virtualRow.index];
+
+					if (item.type === "loader") {
+						return (
+							<li
+								key="loader"
+								data-index={virtualRow.index}
+								ref={virtualizer.measureElement}
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									width: "100%",
+									transform: `translateY(${virtualRow.start}px)`,
+								}}
+								className="flex justify-center py-4"
+							>
+								{infiniteScroll?.isFetchingMore && (
+									<Loader className="w-4 h-4 animate-spin text-neutral-400" />
+								)}
+							</li>
+						);
+					}
 
 					if (item.type === "divider") {
 						const dividerTitle = getDividerTitle?.(item.date, item.tasks);

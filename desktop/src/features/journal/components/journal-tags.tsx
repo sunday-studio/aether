@@ -4,8 +4,8 @@ import {
 	useAddTagsToEntry,
 	useRemoveTagsFromEntry,
 } from "~/aether-sdk";
-import type { EntryWithTags } from "~/types/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
+import type { EntryWithTags } from "~/types/models";
 import { cn } from "~/utils/cn";
 
 export const popoverContentStyles = cn(

@@ -6,7 +6,7 @@ import { PreferencesSection } from "./components/preferences.section";
 import { SyncSection } from "./components/sync.section";
 import { WhatsNewSection } from "./components/whats-new.section";
 
-type AvailableSections = "preferences" | "models" | "whats-new" | "sync";
+type AvailableSections = "preferences" | "whats-new" | "sync";
 
 export const SettingsView = () => {
 	const [selectedSection, setSelectedSection] =
@@ -26,12 +26,11 @@ export const SettingsView = () => {
 			icon: <CloudIcon className="size-4" strokeWidth={2.5} />,
 			component: <SyncSection />,
 		},
-
-		models: {
-			label: "Models",
-			icon: <BrainIcon className="size-4" strokeWidth={2.5} />,
-			component: <ModelsSection />,
-		},
+		// models: {
+		// 	label: "Models",
+		// 	icon: <BrainIcon className="size-4" strokeWidth={2.5} />,
+		// 	component: <ModelsSection />,
+		// },
 		"whats-new": {
 			label: "What's New",
 			icon: <SparklesIcon className="size-4" strokeWidth={2.5} />,
@@ -72,9 +71,3 @@ export const SettingsView = () => {
 		</div>
 	);
 };
-
-// - preferences
-//   - theme
-//   - timezone
-// - models
-// - what's new
