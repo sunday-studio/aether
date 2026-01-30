@@ -49,12 +49,12 @@ impl EntryRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1; // Fetch one extra to determine has_more
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             // Decode cursor to get last ID
             use crate::handlers::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
-            (
+            conn.query(
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE is_deleted = 0 AND id > ?1
@@ -62,8 +62,10 @@ impl EntryRepository {
                  LIMIT ?2",
                 libsql::params![last_id, fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
                  WHERE is_deleted = 0 
@@ -71,12 +73,9 @@ impl EntryRepository {
                  LIMIT ?1",
                 libsql::params![fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut entries = Vec::new();
         let mut has_more = false;

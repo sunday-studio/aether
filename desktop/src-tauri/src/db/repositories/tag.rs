@@ -74,7 +74,7 @@ impl TagRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
@@ -83,16 +83,18 @@ impl TagRepository {
             let last_name = &keys[0];
             let last_id = &keys[1];
             
-            (
+            conn.query(
                 "SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tags 
                  WHERE deleted_at IS NULL AND (name > ?1 OR (name = ?1 AND id > ?2))
                  ORDER BY name ASC, id ASC
                  LIMIT ?3",
-                libsql::params![last_name, last_id, fetch_limit as i64],
+                libsql::params![last_name.clone(), last_id.clone(), fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tags 
                  WHERE deleted_at IS NULL 
@@ -100,12 +102,9 @@ impl TagRepository {
                  LIMIT ?1",
                 libsql::params![fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut tags = Vec::new();
         let mut has_more = false;

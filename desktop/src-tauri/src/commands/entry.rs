@@ -1,7 +1,8 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
+use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
 use crate::db::{connection, DbState, EntryRepository};
 use crate::db::repositories::LinkRepository;
 use crate::error::{AppError, Result};
+use crate::handlers::common::PaginationResponse;
 use crate::handlers::entry::{CreateEntryRequest, UpdateEntryRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::link_parser::extract_links_from_lexical_content;

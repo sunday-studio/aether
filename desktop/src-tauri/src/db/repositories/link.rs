@@ -212,11 +212,11 @@ impl LinkRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
-            (
+            conn.query(
                 "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at 
                  FROM resource_links 
                  WHERE id > ?1
@@ -224,20 +224,19 @@ impl LinkRepository {
                  LIMIT ?2",
                 libsql::params![last_id, fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at 
                  FROM resource_links 
                  ORDER BY id ASC
                  LIMIT ?1",
                 libsql::params![fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut links = Vec::new();
         let mut has_more = false;

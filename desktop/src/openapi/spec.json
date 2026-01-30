@@ -215,6 +215,575 @@
         }
       }
     },
+    "/v1/bookmarks": {
+      "get": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Get all bookmarks",
+        "operationId": "get_bookmarks",
+        "parameters": [
+          {
+            "name": "is_archived",
+            "in": "query",
+            "description": "Filter by archived status",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "nullable": true
+            }
+          },
+          {
+            "name": "tag_ids",
+            "in": "query",
+            "description": "Filter by tag IDs",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "nullable": true
+            }
+          },
+          {
+            "name": "content_type",
+            "in": "query",
+            "description": "Filter by content type",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of bookmarks per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of bookmarks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Create a new bookmark",
+        "operationId": "create_bookmark",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created bookmark",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/bookmarks/extract-metadata": {
+      "get": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Extract metadata from a URL without saving",
+        "operationId": "extract_metadata",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "description": "URL to extract metadata from",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Extracted metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.utils.metadata.extractor.ExtractedMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/bookmarks/{id}": {
+      "get": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Get bookmark by ID",
+        "operationId": "get_bookmark_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Bookmark ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bookmark found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bookmark not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Update a bookmark",
+        "operationId": "update_bookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Bookmark ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated bookmark",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Bookmark not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Delete a bookmark",
+        "operationId": "delete_bookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Bookmark ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Bookmark deleted"
+          },
+          "404": {
+            "description": "Bookmark not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/bookmarks/{id}/tags": {
+      "post": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Add tags to a bookmark",
+        "operationId": "add_tags_to_bookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Bookmark ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tags added to bookmark",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bookmark or tag not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "summary": "Remove tags from a bookmark",
+        "operationId": "remove_tags_from_bookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Bookmark ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tags removed from bookmark",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bookmark or tag not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/canvas": {
+      "get": {
+        "tags": [
+          "Canvases"
+        ],
+        "summary": "Get all canvases",
+        "operationId": "get_canvases",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of canvases per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of canvases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Canvases"
+        ],
+        "summary": "Create a new canvas",
+        "operationId": "create_canvas",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCanvasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created canvas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/canvas/{id}": {
+      "get": {
+        "tags": [
+          "Canvases"
+        ],
+        "summary": "Get canvas by ID",
+        "operationId": "get_canvas_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Canvas ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canvas found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Canvas not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Canvases"
+        ],
+        "summary": "Update a canvas",
+        "operationId": "update_canvas",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Canvas ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCanvasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated canvas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Canvas not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Canvases"
+        ],
+        "summary": "Delete a canvas",
+        "operationId": "delete_canvas",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Canvas ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Canvas deleted"
+          },
+          "404": {
+            "description": "Canvas not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/entry": {
       "get": {
         "tags": [
@@ -222,16 +791,37 @@
         ],
         "summary": "Get all entries",
         "operationId": "get_entries",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of entries per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of all entries",
+            "description": "Paginated list of entries",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Entry"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -584,16 +1174,37 @@
         ],
         "summary": "Get all goals",
         "operationId": "get_goals",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of goals per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of all goals",
+            "description": "Paginated list of goals",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Goal"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -655,18 +1266,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of instances per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "List of goal instances",
+            "description": "Paginated list of goal instances",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.GoalInstance"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -1081,16 +1711,37 @@
         ],
         "summary": "Get all links for graph visualization",
         "operationId": "get_all_links_for_graph",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of links per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "All links for graph",
+            "description": "Paginated list of links for graph",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResourceLink"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -1597,16 +2248,37 @@
         ],
         "summary": "Get all tags",
         "operationId": "get_all_tags",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of tags per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of all tags",
+            "description": "Paginated list of tags",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Tag"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -1739,16 +2411,37 @@
         ],
         "summary": "Get inbox tasks",
         "operationId": "get_inbox_tasks",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of tasks per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of inbox tasks",
+            "description": "Paginated list of inbox tasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Task"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -1766,16 +2459,37 @@
         ],
         "summary": "Get overdue tasks",
         "operationId": "get_overdue_tasks",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of tasks per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of overdue tasks",
+            "description": "Paginated list of overdue tasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Task"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -2650,18 +3364,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of transcriptions per page (max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "List of transcriptions",
+            "description": "Paginated list of transcriptions",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/crate.db.models.AudioTranscription"
-                  }
+                  "$ref": "#/components/schemas/PaginationResponse"
                 }
               }
             }
@@ -2779,6 +3512,21 @@
           }
         }
       },
+      "AddTagsToBookmarkRequest": {
+        "type": "object",
+        "description": "Request to add tags to a bookmark",
+        "required": [
+          "tag_ids"
+        ],
+        "properties": {
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "AllSettingsResponse": {
         "type": "object",
         "additionalProperties": {
@@ -2850,6 +3598,114 @@
           }
         }
       },
+      "Bookmark": {
+        "type": "object",
+        "description": "Bookmark model",
+        "required": [
+          "id",
+          "url",
+          "isArchived",
+          "isDeleted",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "faviconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "isDeleted": {
+            "type": "boolean"
+          },
+          "metadataJson": {
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "siteName": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "Canvas": {
+        "type": "object",
+        "description": "Canvas model for storing JSON Canvas-compliant canvas data",
+        "required": [
+          "id",
+          "name",
+          "canvasData",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "canvasData": {},
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ConfigureSyncRequest": {
         "type": "object",
         "required": [
@@ -2861,6 +3717,39 @@
             "type": "string"
           },
           "server_url": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateBookmarkRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateCanvasRequest": {
+        "type": "object",
+        "description": "Request to create a canvas",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "canvasData": {
+            "nullable": true
+          },
+          "name": {
             "type": "string"
           }
         }
@@ -3245,6 +4134,31 @@
           }
         }
       },
+      "PaginationResponse": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
       "ProviderInfo": {
         "type": "object",
         "required": [
@@ -3284,6 +4198,21 @@
         "properties": {
           "passphrase": {
             "type": "string"
+          }
+        }
+      },
+      "RemoveTagsFromBookmarkRequest": {
+        "type": "object",
+        "description": "Request to remove tags from a bookmark",
+        "required": [
+          "tag_ids"
+        ],
+        "properties": {
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3334,6 +4263,36 @@
             "type": "string"
           },
           "targetType": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveAudioRecordingRequest": {
+        "type": "object",
+        "description": "Request to save audio recording",
+        "required": [
+          "entryId",
+          "audioData",
+          "duration",
+          "format"
+        ],
+        "properties": {
+          "audioData": {
+            "type": "string",
+            "format": "binary"
+          },
+          "autoTranscribe": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "duration": {
+            "type": "number",
+            "format": "float"
+          },
+          "entryId": {
+            "type": "string"
+          },
+          "format": {
             "type": "string"
           }
         }
@@ -3397,6 +4356,22 @@
           "total": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "SetActiveTranscriptionRequest": {
+        "type": "object",
+        "description": "Request to set active transcription",
+        "required": [
+          "transcriptionId",
+          "mediaId"
+        ],
+        "properties": {
+          "mediaId": {
+            "type": "string"
+          },
+          "transcriptionId": {
+            "type": "string"
           }
         }
       },
@@ -3471,6 +4446,26 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SyncLinksRequest": {
+        "type": "object",
+        "description": "Request to sync links from content",
+        "required": [
+          "sourceType",
+          "sourceId",
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
           }
         }
       },
@@ -3581,6 +4576,64 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "UpdateBookmarkRequest": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "faviconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "isArchived": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "metadataJson": {
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "siteName": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateCanvasRequest": {
+        "type": "object",
+        "description": "Request to update a canvas",
+        "properties": {
+          "canvasData": {
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -3708,6 +4761,18 @@
             "nullable": true
           }
         }
+      },
+      "ValidateProviderRequest": {
+        "type": "object",
+        "description": "Request to validate provider",
+        "required": [
+          "providerName"
+        ],
+        "properties": {
+          "providerName": {
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -3763,6 +4828,14 @@
     {
       "name": "Sync",
       "description": "Sync management endpoints"
+    },
+    {
+      "name": "Bookmarks",
+      "description": "Bookmark management endpoints"
+    },
+    {
+      "name": "Canvases",
+      "description": "Canvas management endpoints"
     }
   ]
 }

@@ -129,11 +129,11 @@ impl TranscriptionRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
-            (
+            conn.query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
                         status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM audio_transcriptions 
@@ -142,8 +142,10 @@ impl TranscriptionRepository {
                  LIMIT ?3",
                 libsql::params![media_id, last_id, fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
                         status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM audio_transcriptions 
@@ -152,12 +154,9 @@ impl TranscriptionRepository {
                  LIMIT ?2",
                 libsql::params![media_id, fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut transcriptions = Vec::new();
         let mut has_more = false;

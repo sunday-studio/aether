@@ -51,11 +51,11 @@ impl GoalRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
-            (
+            conn.query(
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE deleted_at IS NULL AND id > ?1
@@ -63,8 +63,10 @@ impl GoalRepository {
                  LIMIT ?2",
                 libsql::params![last_id, fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
                  WHERE deleted_at IS NULL 
@@ -72,12 +74,9 @@ impl GoalRepository {
                  LIMIT ?1",
                 libsql::params![fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut goals = Vec::new();
         let mut has_more = false;
@@ -444,11 +443,11 @@ impl GoalRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
-            (
+            conn.query(
                 "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 AND id > ?2
@@ -456,8 +455,10 @@ impl GoalRepository {
                  LIMIT ?3",
                 libsql::params![goal_id, last_id, fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 
@@ -465,12 +466,9 @@ impl GoalRepository {
                  LIMIT ?2",
                 libsql::params![goal_id, fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut instances = Vec::new();
         let mut has_more = false;

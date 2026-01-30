@@ -43,22 +43,24 @@ impl SyncEngine {
     }
 
     /// Store passphrase in OS keychain
-    async fn store_passphrase(&self, app: &AppHandle, passphrase: &str) -> Result<()> {
-        tauri_plugin_keyring::set_password(app, SERVICE_NAME, PASSPHRASE_KEY, passphrase)
-            .await
+    fn store_passphrase(&self, app: &AppHandle, passphrase: &str) -> Result<()> {
+        use tauri_plugin_keyring::KeyringExt;
+        app.keyring()
+            .set_password(SERVICE_NAME, PASSPHRASE_KEY, passphrase)
             .map_err(|e| AppError::Sync(format!("failed to store passphrase in keychain: {}", e)))?;
         tracing::info!("[SYNC] Passphrase stored in keychain");
         Ok(())
     }
 
     /// Retrieve passphrase from OS keychain
-    async fn get_passphrase(&self, app: &AppHandle) -> Result<Option<String>> {
-        match tauri_plugin_keyring::get_password(app, SERVICE_NAME, PASSPHRASE_KEY).await {
-            Ok(pass) => {
+    fn get_passphrase(&self, app: &AppHandle) -> Result<Option<String>> {
+        use tauri_plugin_keyring::KeyringExt;
+        match app.keyring().get_password(SERVICE_NAME, PASSPHRASE_KEY) {
+            Ok(Some(pass)) => {
                 tracing::info!("[SYNC] Passphrase retrieved from keychain");
                 Ok(Some(pass))
             }
-            Err(tauri_plugin_keyring::Error::NoEntry) => {
+            Ok(None) => {
                 tracing::debug!("[SYNC] No passphrase found in keychain");
                 Ok(None)
             }
@@ -70,19 +72,22 @@ impl SyncEngine {
     }
 
     /// Clear passphrase from OS keychain
-    async fn clear_passphrase(&self, app: &AppHandle) -> Result<()> {
-        match tauri_plugin_keyring::delete_password(app, SERVICE_NAME, PASSPHRASE_KEY).await {
+    fn clear_passphrase(&self, app: &AppHandle) -> Result<()> {
+        use tauri_plugin_keyring::KeyringExt;
+        match app.keyring().delete_password(SERVICE_NAME, PASSPHRASE_KEY) {
             Ok(()) => {
                 tracing::info!("[SYNC] Passphrase cleared from keychain");
                 Ok(())
             }
-            Err(tauri_plugin_keyring::Error::NoEntry) => {
-                tracing::debug!("[SYNC] No passphrase to clear from keychain");
-                Ok(())
-            }
             Err(e) => {
-                tracing::warn!("[SYNC] Failed to clear passphrase from keychain: {}", e);
-                Ok(()) // Don't fail on clear errors
+                let err_str = e.to_string();
+                if err_str.contains("No matching entry") || err_str.contains("not found") {
+                    tracing::debug!("[SYNC] No passphrase to clear from keychain");
+                    Ok(())
+                } else {
+                    tracing::warn!("[SYNC] Failed to clear passphrase from keychain: {}", e);
+                    Ok(()) // Don't fail on clear errors
+                }
             }
         }
     }
@@ -97,7 +102,7 @@ impl SyncEngine {
             tracing::info!("[SYNC] Loaded server URL from metadata: {}", url);
 
             // Attempt to load passphrase from keychain
-            if let Some(passphrase) = self.get_passphrase(app).await? {
+            if let Some(passphrase) = self.get_passphrase(app)? {
                 // Verify passphrase against stored key_check
                 match metadata::verify_key(db.as_ref(), &passphrase).await {
                     Ok(_) => {
@@ -107,7 +112,7 @@ impl SyncEngine {
                     Err(e) => {
                         tracing::warn!("[SYNC] Passphrase from keychain failed verification: {}", e);
                         // Clear invalid passphrase from keychain
-                        let _ = self.clear_passphrase(app).await;
+                        let _ = self.clear_passphrase(app);
                     }
                 }
             } else {
@@ -134,7 +139,7 @@ impl SyncEngine {
         *self.server_url.lock().unwrap() = Some(server_url.clone());
         *self.passphrase.lock().unwrap() = Some(passphrase.clone());
         // Store passphrase in keychain
-        self.store_passphrase(app, &passphrase).await?;
+        self.store_passphrase(app, &passphrase)?;
         tracing::info!("[SYNC] Configuration complete. Server URL and passphrase stored");
         Ok(())
     }
@@ -384,7 +389,7 @@ impl SyncEngine {
 
     pub async fn disconnect(&self, app: &AppHandle) -> Result<()> {
         // Clear passphrase from keychain
-        let _ = self.clear_passphrase(app).await;
+        let _ = self.clear_passphrase(app);
         *self.server_url.lock().unwrap() = None;
         *self.passphrase.lock().unwrap() = None;
         tracing::info!("[SYNC] Disconnected: cleared keychain and in-memory state");

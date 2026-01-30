@@ -105,7 +105,7 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
@@ -114,17 +114,19 @@ impl TaskRepository {
             let last_due_date = &keys[0];
             let last_id = &keys[1];
             
-            (
+            conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE goal_id IS NULL AND deleted_at IS NULL 
                  AND (COALESCE(due_date, '') > ?1 OR (COALESCE(due_date, '') = ?1 AND id > ?2))
                  ORDER BY COALESCE(due_date, '') ASC, id ASC
                  LIMIT ?3",
-                libsql::params![last_due_date, last_id, fetch_limit as i64],
+                libsql::params![last_due_date.clone(), last_id.clone(), fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE goal_id IS NULL AND deleted_at IS NULL 
@@ -132,12 +134,9 @@ impl TaskRepository {
                  LIMIT ?1",
                 libsql::params![fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut tasks = Vec::new();
         let mut has_more = false;
@@ -205,7 +204,7 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
         
-        let (query, params) = if let Some(cursor_val) = cursor {
+        let mut rows = if let Some(cursor_val) = cursor {
             use crate::handlers::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
@@ -214,17 +213,19 @@ impl TaskRepository {
             let last_due_date = &keys[0];
             let last_id = &keys[1];
             
-            (
+            conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
                  AND (COALESCE(due_date, '') > ?2 OR (COALESCE(due_date, '') = ?2 AND id > ?3))
                  ORDER BY COALESCE(due_date, '') ASC, id ASC
                  LIMIT ?4",
-                libsql::params![now_str, last_due_date, last_id, fetch_limit as i64],
+                libsql::params![now_str, last_due_date.clone(), last_id.clone(), fetch_limit as i64],
             )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
         } else {
-            (
+            conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
                  WHERE due_date < ?1 AND is_completed = 0 AND deleted_at IS NULL 
@@ -232,12 +233,9 @@ impl TaskRepository {
                  LIMIT ?2",
                 libsql::params![now_str, fetch_limit as i64],
             )
-        };
-
-        let mut rows = conn
-            .query(query, params)
             .await
-            .map_err(|e| AppError::LibSQL(e))?;
+            .map_err(|e| AppError::LibSQL(e))?
+        };
 
         let mut tasks = Vec::new();
         let mut has_more = false;

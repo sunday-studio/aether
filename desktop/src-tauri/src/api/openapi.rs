@@ -1,6 +1,7 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Activity, AudioTranscription, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task};
+use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task};
+use crate::handlers::common::PaginationResponse;
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
@@ -118,6 +119,7 @@ use crate::commands::canvas as canvas_commands;
         canvas_commands::delete_canvas,
     ),
     components(schemas(
+        // Base models
         Tag,
         Entry,
         Task,
@@ -126,6 +128,21 @@ use crate::commands::canvas as canvas_commands;
         GoalInstance,
         Activity,
         ResourceLink,
+        Canvas,
+        Bookmark,
+        MediaItem,
+        AudioTranscription,
+        // Pagination response types
+        PaginationResponse<Entry>,
+        PaginationResponse<Tag>,
+        PaginationResponse<Task>,
+        PaginationResponse<Goal>,
+        PaginationResponse<GoalInstance>,
+        PaginationResponse<ResourceLink>,
+        PaginationResponse<Canvas>,
+        PaginationResponse<Bookmark>,
+        PaginationResponse<AudioTranscription>,
+        // Request/Response schemas
         tag::CreateTagRequest,
         entry::CreateEntryRequest,
         entry::UpdateEntryRequest,
@@ -146,8 +163,6 @@ use crate::commands::canvas as canvas_commands;
         settings_handlers::SettingResponse,
         settings_handlers::AllSettingsResponse,
         settings_handlers::SetSettingRequest,
-        MediaItem,
-        AudioTranscription,
         transcription_commands::ProviderInfo,
         transcription_commands::ModelInfo,
         transcription_commands::SetActiveTranscriptionRequest,
