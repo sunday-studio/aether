@@ -1,7 +1,7 @@
-use crate::db::models::{SubTask, Task};
+use crate::db::models::TaskWithSubtasks;
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::{PaginatedTasks, PaginationResponse};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
@@ -82,7 +82,7 @@ pub struct AddGoalToTaskRequest {
     tag = "Tasks",
     request_body = CreateTaskRequest,
     responses(
-        (status = 200, description = "Created task", body = Task),
+        (status = 200, description = "Created task with subtasks", body = TaskWithSubtasks),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -119,7 +119,8 @@ pub async fn create_task(
         tracing::warn!("Failed to log task creation activity: {}", e);
     }
 
-    Ok((StatusCode::OK, Json(task)))
+    // New task has no subtasks yet
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks: vec![] })))
 }
 
 /// Get inbox tasks
@@ -132,7 +133,7 @@ pub async fn create_task(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of inbox tasks", body = PaginatedTasks),
+        (status = 200, description = "Paginated list of inbox tasks with subtasks", body = PaginatedTasksWithSubtasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -144,9 +145,10 @@ pub async fn get_inbox_tasks(
     let (tasks, next_cursor, has_more) = repo
         .find_inbox(params.normalize_limit(), params.cursor)
         .await?;
+    let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
     Ok((
         StatusCode::OK,
-        Json(PaginationResponse::new(tasks, next_cursor, has_more)),
+        Json(PaginationResponse::new(tasks_with_subtasks, next_cursor, has_more)),
     ))
 }
 
@@ -160,7 +162,7 @@ pub async fn get_inbox_tasks(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of overdue tasks", body = PaginatedTasks),
+        (status = 200, description = "Paginated list of overdue tasks with subtasks", body = PaginatedTasksWithSubtasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -172,9 +174,10 @@ pub async fn get_overdue_tasks(
     let (tasks, next_cursor, has_more) = repo
         .find_overdue(params.normalize_limit(), params.cursor)
         .await?;
+    let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
     Ok((
         StatusCode::OK,
-        Json(PaginationResponse::new(tasks, next_cursor, has_more)),
+        Json(PaginationResponse::new(tasks_with_subtasks, next_cursor, has_more)),
     ))
 }
 
@@ -187,7 +190,7 @@ pub async fn get_overdue_tasks(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Task found", body = Task),
+        (status = 200, description = "Task found with subtasks", body = TaskWithSubtasks),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -198,7 +201,10 @@ pub async fn get_task_by_id(
 ) -> Result<impl IntoResponse> {
     let repo = TaskRepository::new(connection::get_database(&state));
     match repo.find_by_id(&id).await? {
-        Some(task) => Ok((StatusCode::OK, Json(task))),
+        Some(task) => {
+            let subtasks = repo.find_subtasks(&id).await?;
+            Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+        }
         None => Err(AppError::NotFound(format!("Task {} not found", id))),
     }
 }
@@ -213,7 +219,7 @@ pub async fn get_task_by_id(
     ),
     request_body = UpdateTaskRequest,
     responses(
-        (status = 200, description = "Updated task", body = Task),
+        (status = 200, description = "Updated task with subtasks", body = TaskWithSubtasks),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Task not found"),
         (status = 409, description = "Conflict: Task was modified by another device"),
@@ -280,7 +286,9 @@ pub async fn update_task(
         }
     }
 
-    Ok((StatusCode::OK, Json(task)))
+    // Get subtasks for the updated task
+    let subtasks = repo.find_subtasks(&id).await?;
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
 }
 
 /// Delete a task
@@ -505,7 +513,7 @@ pub async fn reorder_subtasks(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to task"),
+        (status = 200, description = "Tags added to task", body = TaskWithSubtasks),
         (status = 404, description = "Task or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -524,10 +532,11 @@ pub async fn add_tags_to_task(
         tracing::warn!("Failed to log add_tags activity for task {}: {}", id, e);
     }
     
-    // Return updated task
+    // Return updated task with subtasks
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    Ok((StatusCode::OK, Json(task)))
+    let subtasks = repo.find_subtasks(&id).await?;
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
 }
 
 /// Remove tags from a task
@@ -540,7 +549,7 @@ pub async fn add_tags_to_task(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags removed from task"),
+        (status = 200, description = "Tags removed from task", body = TaskWithSubtasks),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -559,10 +568,11 @@ pub async fn remove_tags_from_task(
         tracing::warn!("Failed to log remove_tags activity for task {}: {}", id, e);
     }
     
-    // Return updated task
+    // Return updated task with subtasks
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    Ok((StatusCode::OK, Json(task)))
+    let subtasks = repo.find_subtasks(&id).await?;
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
 }
 
 /// Add goal to a task
@@ -575,7 +585,7 @@ pub async fn remove_tags_from_task(
     ),
     request_body = AddGoalToTaskRequest,
     responses(
-        (status = 200, description = "Goal added to task", body = Task),
+        (status = 200, description = "Goal added to task", body = TaskWithSubtasks),
         (status = 404, description = "Task or goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -610,7 +620,9 @@ pub async fn add_goal_to_task(
         tracing::warn!("Failed to log add_goal activity for task {}: {}", task.id, e);
     }
     
-    Ok((StatusCode::OK, Json(task)))
+    // Get subtasks for the updated task
+    let subtasks = repo.find_subtasks(&id).await?;
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
 }
 
 /// Remove goal from a task
@@ -622,7 +634,7 @@ pub async fn add_goal_to_task(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Goal removed from task", body = Task),
+        (status = 200, description = "Goal removed from task", body = TaskWithSubtasks),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -640,8 +652,9 @@ pub async fn remove_goal_from_task(
         tracing::warn!("Failed to log remove_goal activity for task {}: {}", id, e);
     }
     
-    // Return updated task
+    // Return updated task with subtasks
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    Ok((StatusCode::OK, Json(task)))
+    let subtasks = repo.find_subtasks(&id).await?;
+    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
 }

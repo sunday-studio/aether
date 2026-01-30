@@ -1,12 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
+import { useMemo } from "react";
 import { Button } from "react-aria-components";
 import { useParams } from "react-router";
 import {
 	getGetGoalInstancesQueryKey,
 	useCreateTask,
 	useGetGoalById,
-	useGetGoalInstances,
+	useGetGoalInstancesInfinite,
 } from "~/aether-sdk";
 import { GoalFormDialog } from "./components/goals/goal-form-dialog";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
@@ -20,16 +21,31 @@ export const GoalView = () => {
 	const queryClient = useQueryClient();
 	const goalInstancesQueryKey = getGetGoalInstancesQueryKey(goalId ?? "");
 
-	const { data: goalInstancesResponse, isLoading: isLoadingGoalInstances } =
-		useGetGoalInstances(goalId ?? "");
+	const {
+		data: goalInstancesData,
+		isLoading: isLoadingGoalInstances,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useGetGoalInstancesInfinite(
+		goalId ?? "",
+		{},
+		{
+			query: {
+				getNextPageParam: (lastPage) => lastPage.data?.nextCursor ?? undefined,
+			},
+		},
+	);
 	const { mutate: createTask } = useCreateTask();
 
 	const isLoading = isLoadingGoal || isLoadingGoalInstances;
 
-	// SDK now returns properly typed PaginatedGoalInstances
-	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(
-		goalInstancesResponse?.data?.items ?? [],
-	);
+	// Flatten all pages into a single array of goal instances
+	const allGoalInstances = useMemo(() => {
+		return goalInstancesData?.pages?.flatMap((page) => page.data?.items ?? []) ?? [];
+	}, [goalInstancesData]);
+
+	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(allGoalInstances);
 
 	const handleCreateTask = () => {
 		createTask(
@@ -90,6 +106,22 @@ export const GoalView = () => {
 				</div>
 			</div>
 			<VirtualizedTaskList groupedTasks={groupedGoalInstances} />
+			{hasNextPage && (
+				<div className="py-4 flex justify-center">
+					<button
+						type="button"
+						onClick={() => fetchNextPage()}
+						disabled={isFetchingNextPage}
+						className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50 flex items-center gap-2"
+					>
+						{isFetchingNextPage ? (
+							<Loader className="w-4 h-4 animate-spin" />
+						) : (
+							"Load more"
+						)}
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };

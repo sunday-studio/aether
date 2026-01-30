@@ -1,4 +1,5 @@
-use crate::db::models::{SubTask, Task};
+use crate::db::models::{SubTask, Task, TaskWithSubtasks};
+use std::collections::HashMap;
 use crate::error::{AppError, Result};
 use crate::utils::generate_id;
 use chrono::Utc;
@@ -412,6 +413,69 @@ impl TaskRepository {
         }
 
         Ok(subtasks)
+    }
+
+    /// Get subtasks for multiple tasks efficiently (batch query)
+    pub async fn find_subtasks_for_tasks(&self, task_ids: &[String]) -> Result<HashMap<String, Vec<SubTask>>> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        
+        // Build IN clause with escaped IDs
+        let escaped_ids: Vec<String> = task_ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace("'", "''")))
+            .collect();
+        let query = format!(
+            "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+             FROM subtasks 
+             WHERE task_id IN ({}) AND deleted_at IS NULL 
+             ORDER BY task_id, order_index ASC",
+            escaped_ids.join(", ")
+        );
+
+        let mut rows = conn
+            .query(&query, libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut subtasks_map: HashMap<String, Vec<SubTask>> = HashMap::new();
+        
+        // Initialize all task_ids with empty vectors
+        for task_id in task_ids {
+            subtasks_map.insert(task_id.clone(), Vec::new());
+        }
+
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let subtask = self.row_to_subtask(row)?;
+            subtasks_map
+                .entry(subtask.task_id.clone())
+                .or_insert_with(Vec::new)
+                .push(subtask);
+        }
+
+        Ok(subtasks_map)
+    }
+
+    /// Convert tasks to tasks with subtasks
+    pub async fn with_subtasks(&self, tasks: Vec<Task>) -> Result<Vec<TaskWithSubtasks>> {
+        let task_ids: Vec<String> = tasks.iter().map(|t| t.id.clone()).collect();
+        let subtasks_map = self.find_subtasks_for_tasks(&task_ids).await?;
+
+        let tasks_with_subtasks = tasks
+            .into_iter()
+            .map(|task| {
+                let subtasks = subtasks_map
+                    .get(&task.id)
+                    .cloned()
+                    .unwrap_or_default();
+                TaskWithSubtasks { task, subtasks }
+            })
+            .collect();
+
+        Ok(tasks_with_subtasks)
     }
 
     /// Create a subtask

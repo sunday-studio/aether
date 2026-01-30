@@ -3,6 +3,7 @@ use utoipa::ToSchema;
 
 use crate::db::models::{
     AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, ResourceLink, Tag, Task,
+    TaskWithSubtasks,
 };
 
 /// Pagination response wrapper optimized for infinite scroll
@@ -12,6 +13,7 @@ use crate::db::models::{
     PaginatedEntries = PaginationResponse<Entry>,
     PaginatedTags = PaginationResponse<Tag>,
     PaginatedTasks = PaginationResponse<Task>,
+    PaginatedTasksWithSubtasks = PaginationResponse<TaskWithSubtasks>,
     PaginatedGoals = PaginationResponse<Goal>,
     PaginatedGoalInstances = PaginationResponse<GoalInstance>,
     PaginatedLinks = PaginationResponse<ResourceLink>,

@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
+import { useMemo } from "react";
 import {
 	getGetInboxTasksQueryKey,
 	useCreateTask,
-	useGetInboxTasks,
+	useGetInboxTasksInfinite,
 } from "~/aether-sdk";
 import { Button } from "~/components/shared/button";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
@@ -13,12 +14,27 @@ export const InboxTasksView = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const {
-		data: inboxTasksResponse,
+		data: inboxTasksData,
 		isLoading: isLoadingInboxTasks,
 		error: errorInboxTasks,
-	} = useGetInboxTasks();
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useGetInboxTasksInfinite(
+		{},
+		{
+			query: {
+				getNextPageParam: (lastPage) => lastPage.data?.nextCursor ?? undefined,
+			},
+		},
+	);
 
 	const { mutate: createTask } = useCreateTask();
+
+	// Flatten all pages into a single array of tasks
+	const allTasks = useMemo(() => {
+		return inboxTasksData?.pages?.flatMap((page) => page.data?.items ?? []) ?? [];
+	}, [inboxTasksData]);
 
 	if (errorInboxTasks) {
 		return (
@@ -36,8 +52,7 @@ export const InboxTasksView = () => {
 		);
 	}
 
-	// SDK now returns properly typed PaginatedTasks
-	const groupedTasks = groupTaskByCreatedAt(inboxTasksResponse?.data?.items ?? []);
+	const groupedTasks = groupTaskByCreatedAt(allTasks);
 
 	const handleCreateTask = () => {
 		createTask(
@@ -66,6 +81,22 @@ export const InboxTasksView = () => {
 				/>
 			</div>
 			<VirtualizedTaskList groupedTasks={groupedTasks} />
+			{hasNextPage && (
+				<div className="py-4 flex justify-center">
+					<button
+						type="button"
+						onClick={() => fetchNextPage()}
+						disabled={isFetchingNextPage}
+						className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50 flex items-center gap-2"
+					>
+						{isFetchingNextPage ? (
+							<Loader className="w-4 h-4 animate-spin" />
+						) : (
+							"Load more"
+						)}
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };

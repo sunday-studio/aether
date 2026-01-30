@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { Mic } from "lucide-react";
-import { useState } from "react";
-import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
+import { Loader, Mic } from "lucide-react";
+import { useMemo, useState } from "react";
+import { getGetEntriesQueryKey, useGetEntriesInfinite } from "~/aether-sdk";
 import type { Entry } from "~/aether-sdk/models";
 import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
 import { Button } from "~/components/shared/button";
@@ -16,14 +16,30 @@ const placeholder =
 	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
 export const JournalTimeline = () => {
-	const { data: entriesResponse } = useGetEntries();
+	const {
+		data: entriesData,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useGetEntriesInfinite(
+		{},
+		{
+			query: {
+				getNextPageParam: (lastPage) => lastPage.data?.nextCursor ?? undefined,
+			},
+		},
+	);
 	const { createEntry } = useCreateJournalEntry();
 	const queryClient = useQueryClient();
 	const entriesQueryKey = getGetEntriesQueryKey();
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
-	// SDK now returns properly typed PaginatedEntries
-	const sortedEntries = sortEntries(entriesResponse?.data?.items ?? []);
+	// Flatten all pages into a single array of entries
+	const allEntries = useMemo(() => {
+		return entriesData?.pages?.flatMap((page) => page.data?.items ?? []) ?? [];
+	}, [entriesData]);
+
+	const sortedEntries = sortEntries(allEntries);
 
 	const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
 		try {
@@ -106,6 +122,22 @@ export const JournalTimeline = () => {
 				{sortedEntries?.map((entry) => {
 					return <JournalTimelineItem key={entry.id} entry={entry} />;
 				})}
+				{hasNextPage && (
+					<div className="py-8 flex justify-center">
+						<button
+							type="button"
+							onClick={() => fetchNextPage()}
+							disabled={isFetchingNextPage}
+							className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50 flex items-center gap-2"
+						>
+							{isFetchingNextPage ? (
+								<Loader className="w-4 h-4 animate-spin" />
+							) : (
+								"Load more"
+							)}
+						</button>
+					</div>
+				)}
 			</Timeline>
 			<AudioRecorderModal
 				isOpen={isRecorderOpen}

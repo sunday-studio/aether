@@ -165,6 +165,15 @@ pub struct SubTask {
     pub _extra: Option<serde_json::Value>,
 }
 
+/// Task with subtasks included
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskWithSubtasks {
+    #[serde(flatten)]
+    pub task: Task,
+    pub subtasks: Vec<SubTask>,
+}
+
 /// Goal model
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
