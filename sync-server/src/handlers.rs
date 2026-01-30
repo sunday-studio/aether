@@ -10,7 +10,7 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -35,6 +35,7 @@ pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<()>) -> Rou
     };
     Router::new()
         .route("/health", get(health))
+        .route("/salt", get(get_salt))
         .route("/push", post(push))
         .route("/pull", get(pull))
         .route("/ws", get(ws_handler))
@@ -44,6 +45,21 @@ pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<()>) -> Rou
 
 async fn health() -> &'static str {
     "ok"
+}
+
+#[derive(Serialize)]
+struct SaltResponse {
+    salt: String,
+}
+
+async fn get_salt(State(s): State<AppState>) -> impl IntoResponse {
+    match s.storage.get_salt() {
+        Ok(salt) => (StatusCode::OK, Json(SaltResponse { salt })).into_response(),
+        Err(e) => {
+            tracing::error!("get_salt: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "salt not configured").into_response()
+        }
+    }
 }
 
 async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl IntoResponse {

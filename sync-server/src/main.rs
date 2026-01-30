@@ -15,6 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let db_path = data_root.join("sync.db");
 
     let storage = Storage::new(&db_path, &data_root)?;
+    storage.initialize_salt()?;
     let storage = Arc::new(storage);
     let (broadcast_tx, _) = broadcast::channel(16);
 

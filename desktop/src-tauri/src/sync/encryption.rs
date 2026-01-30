@@ -8,9 +8,10 @@ use chacha20poly1305::ChaCha20Poly1305;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 
-const SALT_LEN: usize = 16;
 const NONCE_LEN: usize = 12;
 const KEY_LEN: usize = 32;
+#[cfg(test)]
+const SALT_LEN: usize = 16;
 
 /// Derive a 32-byte key from passphrase and salt using Argon2id.
 pub fn derive_key(passphrase: &str, salt: &[u8]) -> Result<[u8; KEY_LEN]> {
@@ -64,7 +65,8 @@ pub fn key_check_hash(key: &[u8; KEY_LEN]) -> String {
     hex::encode(Sha256::digest(key))
 }
 
-/// Generate a random salt for key derivation.
+/// Generate a random salt for key derivation (test only - production uses server salt).
+#[cfg(test)]
 pub fn generate_salt() -> [u8; SALT_LEN] {
     let mut s = [0u8; SALT_LEN];
     OsRng.fill_bytes(&mut s);

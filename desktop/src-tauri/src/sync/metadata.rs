@@ -3,7 +3,7 @@
 use crate::error::{AppError, Result};
 use crate::sync::encryption;
 use libsql::Database;
-use uuid::Uuid;
+use sha2::{Digest, Sha256};
 
 const KEY_DEVICE_ID: &str = "device_id";
 const KEY_DEVICE_HOSTNAME: &str = "device_hostname";
@@ -18,11 +18,94 @@ pub async fn get_device_id(db: &Database) -> Result<String> {
     match v {
         Some(s) => Ok(s),
         None => {
-            let id = Uuid::new_v4().to_string();
+            // Generate deterministic ID from machine data
+            let id = generate_device_id();
             set(db, KEY_DEVICE_ID, &id).await?;
             Ok(id)
         }
     }
+}
+
+/// Generate a deterministic device ID from static machine data.
+/// Uses machine-specific identifiers that won't change across reinstalls.
+fn generate_device_id() -> String {
+    let machine_id = get_machine_id();
+
+    // Hash the machine ID with an app-specific prefix
+    let mut hasher = Sha256::new();
+    hasher.update(b"aether-sync-device-v1:");
+    hasher.update(machine_id.as_bytes());
+    let hash = hasher.finalize();
+
+    // Use first 16 bytes as UUID-like format
+    format!(
+        "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+        u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]),
+        u16::from_be_bytes([hash[4], hash[5]]),
+        u16::from_be_bytes([hash[6], hash[7]]),
+        u16::from_be_bytes([hash[8], hash[9]]),
+        u64::from_be_bytes([0, 0, hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]])
+            & 0xffffffffffff
+    )
+}
+
+/// Get platform-specific machine identifier.
+fn get_machine_id() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: Use IOPlatformUUID from IOKit
+        if let Ok(output) = std::process::Command::new("ioreg")
+            .args(["-rd1", "-c", "IOPlatformExpertDevice"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if line.contains("IOPlatformUUID") {
+                    if let Some(uuid) = line.split('"').nth(3) {
+                        return uuid.to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: Use /etc/machine-id
+        if let Ok(id) = std::fs::read_to_string("/etc/machine-id") {
+            return id.trim().to_string();
+        }
+        // Fallback to /var/lib/dbus/machine-id
+        if let Ok(id) = std::fs::read_to_string("/var/lib/dbus/machine-id") {
+            return id.trim().to_string();
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: Use MachineGuid from registry
+        if let Ok(output) = std::process::Command::new("reg")
+            .args([
+                "query",
+                "HKLM\\SOFTWARE\\Microsoft\\Cryptography",
+                "/v",
+                "MachineGuid",
+            ])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if line.contains("MachineGuid") {
+                    if let Some(guid) = line.split_whitespace().last() {
+                        return guid.to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: use hostname (less ideal but still deterministic)
+    gethostname::gethostname().to_string_lossy().to_string()
 }
 
 pub async fn get_device_hostname(db: &Database) -> Result<String> {
@@ -85,14 +168,70 @@ pub async fn get_suppress_triggers(db: &Database) -> Result<String> {
     Ok(v.unwrap_or_else(|| "0".to_string()))
 }
 
-/// Configure key material: generate salt, derive key, store salt and key_check.
+/// Fetch encryption salt from sync server.
+pub async fn fetch_server_salt(server_url: &str) -> Result<[u8; 16]> {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+
+    let url = format!("{}/salt", server_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Sync(format!("http client: {}", e)))?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| AppError::Sync(format!("failed to connect to sync server: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(AppError::Sync(format!(
+            "server returned error: {}",
+            response.status()
+        )));
+    }
+
+    #[derive(serde::Deserialize)]
+    struct SaltResponse {
+        salt: String,
+    }
+
+    let salt_response: SaltResponse = response
+        .json()
+        .await
+        .map_err(|e| AppError::Sync(format!("invalid response: {}", e)))?;
+
+    let salt_bytes = BASE64
+        .decode(&salt_response.salt)
+        .map_err(|e| AppError::Sync(format!("invalid base64 salt: {}", e)))?;
+
+    let salt: [u8; 16] = salt_bytes
+        .try_into()
+        .map_err(|_| AppError::Sync("invalid salt length from server".into()))?;
+
+    Ok(salt)
+}
+
+/// Configure key material: store server-fetched salt, derive key, store key_check.
 /// Returns the derived key for immediate use; key is not stored.
-pub async fn configure_key(db: &Database, passphrase: &str) -> Result<[u8; 32]> {
-    let salt = encryption::generate_salt();
-    let key = encryption::derive_key(passphrase, &salt)?;
-    set_key_salt(db, &salt).await?;
+pub async fn configure_key(db: &Database, passphrase: &str, salt: &[u8; 16]) -> Result<[u8; 32]> {
+    let key = encryption::derive_key(passphrase, salt)?;
+    set_key_salt(db, salt).await?;
     set_key_check(db, &encryption::key_check_hash(&key)).await?;
     Ok(key)
+}
+
+/// Clear key_salt and key_check (called on disconnect).
+pub async fn clear_key_material(db: &Database) -> Result<()> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    conn.execute(
+        "DELETE FROM _sync_meta WHERE key IN ('key_salt', 'key_check')",
+        libsql::params![],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
 }
 
 /// Verify passphrase: derive key from passphrase and stored salt, compare to key_check.

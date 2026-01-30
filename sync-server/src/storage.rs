@@ -1,6 +1,8 @@
 //! SQLite storage for encrypted changes and blob metadata. Blob files in {data}/blobs/{hash}.
 
-use rusqlite::{params, Connection};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use rand::RngCore;
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -41,6 +43,15 @@ impl Storage {
             [],
         )?;
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS server_config (
+                key TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL,
+                created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            )",
+            [],
+        )?;
+
         let blob_dir = data_root.join("blobs");
         std::fs::create_dir_all(&blob_dir).ok();
 
@@ -48,6 +59,53 @@ impl Storage {
             conn: Mutex::new(conn),
             blob_dir,
         })
+    }
+
+    /// Initialize encryption salt on first startup. Generates a 16-byte random salt if none exists.
+    pub fn initialize_salt(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+
+        // Check if salt already exists
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT value FROM server_config WHERE key = 'encryption_salt'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+
+        if existing.is_none() {
+            // Generate 16-byte random salt
+            let mut salt = [0u8; 16];
+            rand::thread_rng().fill_bytes(&mut salt);
+            let salt_b64 = BASE64.encode(&salt);
+
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            conn.execute(
+                "INSERT INTO server_config (key, value, created_at) VALUES ('encryption_salt', ?1, ?2)",
+                params![salt_b64, now],
+            )?;
+
+            tracing::info!("Generated new encryption salt (16 bytes)");
+        } else {
+            tracing::info!("Using existing encryption salt");
+        }
+
+        Ok(())
+    }
+
+    /// Get the encryption salt (base64-encoded).
+    pub fn get_salt(&self) -> Result<String, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT value FROM server_config WHERE key = 'encryption_salt'",
+            [],
+            |r| r.get(0),
+        )
     }
 
     pub fn push(&self, device_id: &str, device_hostname: Option<&str>, nonce: &[u8], ciphertext: &[u8]) -> Result<(), rusqlite::Error> {

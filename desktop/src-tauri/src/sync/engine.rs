@@ -124,23 +124,30 @@ impl SyncEngine {
         Ok(())
     }
 
-    /// Configure sync: server URL and passphrase. On first run, derives and stores key_salt/key_check.
+    /// Configure sync: server URL and passphrase. On first run, fetches salt from server.
     pub async fn configure(&self, app: &AppHandle, server_url: String, passphrase: String) -> Result<()> {
         tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
         let db = get_database(&self.db);
+
+        // Check if we have a cached salt locally
         if metadata::get_key_salt(&db).await?.is_none() {
-            tracing::info!("[SYNC] First-time setup: generating key material");
-            metadata::configure_key(&db, &passphrase).await?;
+            // No local salt - fetch from server (first connect or after disconnect)
+            tracing::info!("[SYNC] No local salt found, fetching from server");
+            let salt = metadata::fetch_server_salt(&server_url).await?;
+            tracing::info!("[SYNC] Salt fetched from server, configuring key");
+            metadata::configure_key(&db, &passphrase, &salt).await?;
         } else {
-            tracing::info!("[SYNC] Verifying existing passphrase");
+            // Local salt exists - verify passphrase against it
+            tracing::info!("[SYNC] Verifying passphrase against cached salt");
             metadata::verify_key(&db, &passphrase).await?;
         }
+
         metadata::set_server_url(&db, &server_url).await?;
         *self.server_url.lock().unwrap() = Some(server_url.clone());
         *self.passphrase.lock().unwrap() = Some(passphrase.clone());
         // Store passphrase in keychain
         self.store_passphrase(app, &passphrase)?;
-        tracing::info!("[SYNC] Configuration complete. Server URL and passphrase stored");
+        tracing::info!("[SYNC] Configuration complete");
         Ok(())
     }
 
@@ -207,10 +214,10 @@ impl SyncEngine {
         tracing::info!("[SYNC] Pending changes in outbox before sync: {}", pending_before);
 
         // Pull
-        tracing::info!("[SYNC] Starting pull from server");
+        tracing::info!("[SYNC-PULL] Starting pull from server");
         let (envelopes, ts) = match pull::pull(&db, &key, &url).await {
             Ok((e, t)) => {
-                tracing::info!("[SYNC] Pull successful: received {} changes, timestamp: {}", e.len(), t);
+                tracing::info!("[SYNC-PULL] Pull successful: received {} changes, timestamp: {}", e.len(), t);
                 (e, t)
             }
             Err(e) => {
@@ -225,7 +232,7 @@ impl SyncEngine {
             .ok()
             .flatten()
             .unwrap_or_else(|| "on_demand".to_string());
-        tracing::info!("[SYNC] Media sync policy: {}", media_sync_policy);
+        tracing::info!("[SYNC-PULL] Media sync policy: {}", media_sync_policy);
 
         let ctx = apply::ApplyCtx {
             base_url: &url,
@@ -234,7 +241,7 @@ impl SyncEngine {
         };
 
         // Apply with triggers suppressed
-        tracing::info!("[SYNC] Applying {} remote changes", envelopes.len());
+        tracing::info!("[SYNC-PULL] Applying {} remote changes", envelopes.len());
         let apply_res = apply::with_suppress_triggers(&db, async {
             let mut applied = 0;
             let mut skipped = 0;
@@ -392,7 +399,12 @@ impl SyncEngine {
         let _ = self.clear_passphrase(app);
         *self.server_url.lock().unwrap() = None;
         *self.passphrase.lock().unwrap() = None;
-        tracing::info!("[SYNC] Disconnected: cleared keychain and in-memory state");
+
+        // Clear salt and key_check so next connect fetches fresh from server
+        let db = get_database(&self.db);
+        metadata::clear_key_material(&db).await?;
+
+        tracing::info!("[SYNC] Disconnected: cleared keychain, salt, and in-memory state");
         Ok(())
     }
 

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.7", features = ["json", "ws"] }
 base64 = "0.21"
+rand = "0.8"
 bytes = "1"
 tokio = { version = "1", features = ["full"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
