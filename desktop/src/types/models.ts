@@ -6,7 +6,7 @@
  * defined in the OpenAPI spec as they're joined dynamically.
  */
 
-import type { Entry, Tag, Task, SubTask, GoalInstance } from "~/aether-sdk/models";
+import type { Entry, Tag, Task, SubTask, GoalInstance, TaskWithSubtasks } from "~/aether-sdk/models";
 
 /**
  * Entry with tags relationship (loaded at runtime)
@@ -27,5 +27,5 @@ export interface TaskWithRelations extends Task {
  * Goal instance with tasks relationship (loaded at runtime)
  */
 export interface GoalInstanceWithTasks extends GoalInstance {
-  tasks?: Task[];
+  tasks?: TaskWithSubtasks[];
 }

@@ -1,4 +1,4 @@
-import type { Task } from "~/aether-sdk/models";
+import type { TaskWithSubtasks } from "~/aether-sdk/models";
 import { convertCalendarDateToIsoString } from "~/utils/date";
 import { useOptimisticUpdateTask } from "../../use-optimistic-task-hooks";
 import { SubtaskList } from "../sub-task-item/subtask-list";
@@ -12,7 +12,7 @@ import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
 
 interface TaskItemProps {
-	task: Task;
+	task: TaskWithSubtasks;
 }
 
 const Divider = () => {
@@ -52,7 +52,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					}}
 				/>
 				<TaskDescriptionInput
-					value={task.description}
+					value={task.description ?? null}
 					onChange={(value) => {
 						handleOnUpdateTask("description", value);
 					}}
@@ -60,7 +60,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 				<SubtaskList taskId={task.id as string} />
 				<div className="flex gap-1 items-center">
 					<TaskDueDateInput
-						value={task.dueDate}
+						value={task.dueDate ?? undefined}
 						onChange={(value) => {
 							if (value) {
 								handleOnUpdateTask(
@@ -71,13 +71,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						}}
 					/>
 					<Divider />
-					<TaskTagsInput taskId={task.id as string} value={task.tags ?? []} />
+					<TaskTagsInput taskId={task.id as string} value={[]} />
 					<Divider />
 					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
 					<Divider />
 					<TaskSubtasksTrigger taskId={task.id as string} />
 					<Divider />
-					<TaskItemDelete taskId={task.id as string} goalId={task.goalId} />
+					<TaskItemDelete taskId={task.id as string} goalId={task.goalId ?? undefined} />
 				</div>
 			</div>
 		</div>

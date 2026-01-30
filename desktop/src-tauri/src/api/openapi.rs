@@ -1,10 +1,10 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task};
+use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task, TaskWithSubtasks};
 use crate::utils::metadata::extractor::ExtractedMetadata;
 use crate::handlers::common::{
     PaginatedBookmarks, PaginatedCanvases, PaginatedEntries, PaginatedGoalInstances,
-    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTranscriptions,
+    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTasksWithSubtasks, PaginatedTranscriptions,
 };
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
@@ -141,12 +141,15 @@ use crate::commands::canvas as canvas_commands;
         PaginatedEntries,
         PaginatedTags,
         PaginatedTasks,
+        PaginatedTasksWithSubtasks,
         PaginatedGoals,
         PaginatedGoalInstances,
         PaginatedLinks,
         PaginatedCanvases,
         PaginatedBookmarks,
         PaginatedTranscriptions,
+        // Composite types
+        TaskWithSubtasks,
         // Request/Response schemas
         tag::CreateTagRequest,
         entry::CreateEntryRequest,

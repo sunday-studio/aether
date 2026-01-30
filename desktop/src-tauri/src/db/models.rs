@@ -169,8 +169,28 @@ pub struct SubTask {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskWithSubtasks {
-    #[serde(flatten)]
-    pub task: Task,
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "isCompleted")]
+    pub is_completed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "dueDate")]
+    pub due_date: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "goalInstanceId")]
+    pub goal_instance_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "goalId")]
+    pub goal_id: Option<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: DateTime<Utc>,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "deletedAt")]
+    pub deleted_at: Option<DateTime<Utc>>,
     pub subtasks: Vec<SubTask>,
 }
 

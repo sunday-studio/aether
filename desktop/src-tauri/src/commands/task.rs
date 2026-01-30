@@ -77,7 +77,7 @@ pub async fn create_task(
     }
 
     // New task has no subtasks yet
-    Ok(TaskWithSubtasks { task, subtasks: vec![] })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, vec![]))
 }
 
 /// Get inbox tasks
@@ -172,7 +172,7 @@ pub async fn get_task_by_id(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }
 
 /// Update a task
@@ -257,7 +257,7 @@ pub async fn update_task(
 
     // Get subtasks for the updated task
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }
 
 /// Delete a task
@@ -575,7 +575,7 @@ pub async fn add_tags_to_task(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }
 
 /// Remove tags from a task
@@ -617,7 +617,7 @@ pub async fn remove_tags_from_task(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }
 
 /// Add goal to a task
@@ -670,7 +670,7 @@ pub async fn add_goal_to_task(
     
     // Get subtasks for the updated task
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }
 
 /// Remove goal from a task
@@ -710,5 +710,5 @@ pub async fn remove_goal_from_task(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskWithSubtasks { task, subtasks })
+    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
 }

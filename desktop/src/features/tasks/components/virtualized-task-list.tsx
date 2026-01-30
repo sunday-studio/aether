@@ -1,18 +1,18 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { isBefore, startOfDay } from "date-fns";
 import { useMemo, useRef } from "react";
-import type { Task } from "~/aether-sdk/models";
+import type { TaskWithSubtasks } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
 import { TaskItem } from "./task-item/task-item";
 import { TaskListDivider } from "./task-list-divider";
 
 type VirtualItem =
-	| { type: "divider"; date: string; tasks: Task[]; isPast: boolean }
-	| { type: "task"; task: Task; isPast: boolean; isLastInGroup: boolean };
+	| { type: "divider"; date: string; tasks: TaskWithSubtasks[]; isPast: boolean }
+	| { type: "task"; task: TaskWithSubtasks; isPast: boolean; isLastInGroup: boolean };
 
 interface VirtualizedTaskListProps {
-	groupedTasks: Record<string, Task[]>;
-	getDividerTitle?: (date: string, tasks: Task[]) => string | undefined;
+	groupedTasks: Record<string, TaskWithSubtasks[]>;
+	getDividerTitle?: (date: string, tasks: TaskWithSubtasks[]) => string | undefined;
 	showPastDateEffects?: boolean;
 	className?: string;
 	emptyState?: React.ReactNode;

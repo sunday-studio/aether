@@ -1,11 +1,11 @@
-import type { Task } from "~/aether-sdk/models";
+import type { TaskWithSubtasks } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
 import { TaskListDivider } from "../task-list-divider";
 import { TaskItem } from "./task-item";
 
 interface TasksContainerProps {
 	date: string;
-	tasks: Task[];
+	tasks: TaskWithSubtasks[];
 	isPast?: boolean;
 	dividerTitle?: string;
 }

@@ -2386,11 +2386,11 @@
         },
         "responses": {
           "200": {
-            "description": "Created task",
+            "description": "Created task with subtasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
                 }
               }
             }
@@ -2437,11 +2437,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of inbox tasks",
+            "description": "Paginated list of inbox tasks with subtasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedTasks"
+                  "$ref": "#/components/schemas/PaginatedTasksWithSubtasks"
                 }
               }
             }
@@ -2485,11 +2485,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of overdue tasks",
+            "description": "Paginated list of overdue tasks with subtasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedTasks"
+                  "$ref": "#/components/schemas/PaginatedTasksWithSubtasks"
                 }
               }
             }
@@ -2520,11 +2520,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Task found",
+            "description": "Task found with subtasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
                 }
               }
             }
@@ -2566,11 +2566,11 @@
         },
         "responses": {
           "200": {
-            "description": "Updated task",
+            "description": "Updated task with subtasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
                 }
               }
             }
@@ -2653,7 +2653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
                 }
               }
             }
@@ -2689,7 +2689,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
                 }
               }
             }
@@ -2736,7 +2736,14 @@
         },
         "responses": {
           "200": {
-            "description": "Tags added to task"
+            "description": "Tags added to task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
+                }
+              }
+            }
           },
           "404": {
             "description": "Task or tag not found"
@@ -2778,7 +2785,14 @@
         },
         "responses": {
           "200": {
-            "description": "Tags removed from task"
+            "description": "Tags removed from task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskWithSubtasks"
+                }
+              }
+            }
           },
           "404": {
             "description": "Task not found"
@@ -4376,6 +4390,31 @@
           }
         }
       },
+      "PaginatedTasksWithSubtasks": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskWithSubtasks"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
       "PaginatedTranscriptions": {
         "type": "object",
         "description": "Pagination response wrapper optimized for infinite scroll",
@@ -4811,6 +4850,65 @@
           },
           "isCompleted": {
             "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TaskWithSubtasks": {
+        "type": "object",
+        "description": "Task with subtasks included",
+        "required": [
+          "id",
+          "title",
+          "isCompleted",
+          "createdAt",
+          "updatedAt",
+          "subtasks"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "goalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "goalInstanceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "isCompleted": {
+            "type": "boolean"
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubTask"
+            }
           },
           "title": {
             "type": "string"

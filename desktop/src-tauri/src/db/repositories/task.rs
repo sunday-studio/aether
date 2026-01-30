@@ -471,11 +471,28 @@ impl TaskRepository {
                     .get(&task.id)
                     .cloned()
                     .unwrap_or_default();
-                TaskWithSubtasks { task, subtasks }
+                Self::task_to_task_with_subtasks(task, subtasks)
             })
             .collect();
 
         Ok(tasks_with_subtasks)
+    }
+
+    /// Helper to convert Task + subtasks to TaskWithSubtasks
+    pub fn task_to_task_with_subtasks(task: Task, subtasks: Vec<SubTask>) -> TaskWithSubtasks {
+        TaskWithSubtasks {
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            is_completed: task.is_completed,
+            due_date: task.due_date,
+            goal_instance_id: task.goal_instance_id,
+            goal_id: task.goal_id,
+            created_at: task.created_at,
+            updated_at: task.updated_at,
+            deleted_at: task.deleted_at,
+            subtasks,
+        }
     }
 
     /// Create a subtask

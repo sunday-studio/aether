@@ -1,4 +1,3 @@
-use crate::db::models::TaskWithSubtasks;
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::handlers::common::PaginationResponse;
@@ -120,7 +119,7 @@ pub async fn create_task(
     }
 
     // New task has no subtasks yet
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks: vec![] })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, vec![]))))
 }
 
 /// Get inbox tasks
@@ -203,7 +202,7 @@ pub async fn get_task_by_id(
     match repo.find_by_id(&id).await? {
         Some(task) => {
             let subtasks = repo.find_subtasks(&id).await?;
-            Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+            Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
         }
         None => Err(AppError::NotFound(format!("Task {} not found", id))),
     }
@@ -288,7 +287,7 @@ pub async fn update_task(
 
     // Get subtasks for the updated task
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
 }
 
 /// Delete a task
@@ -536,7 +535,7 @@ pub async fn add_tags_to_task(
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
 }
 
 /// Remove tags from a task
@@ -572,7 +571,7 @@ pub async fn remove_tags_from_task(
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
 }
 
 /// Add goal to a task
@@ -622,7 +621,7 @@ pub async fn add_goal_to_task(
     
     // Get subtasks for the updated task
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
 }
 
 /// Remove goal from a task
@@ -656,5 +655,5 @@ pub async fn remove_goal_from_task(
     let task = repo.find_by_id(&id).await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let subtasks = repo.find_subtasks(&id).await?;
-    Ok((StatusCode::OK, Json(TaskWithSubtasks { task, subtasks })))
+    Ok((StatusCode::OK, Json(TaskRepository::task_to_task_with_subtasks(task, subtasks))))
 }
