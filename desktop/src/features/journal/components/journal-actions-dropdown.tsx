@@ -2,11 +2,11 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Archive, Pin, Tag, Trash } from "lucide-react";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 import { cn } from "~/utils/cn";
 
 interface JournalActionsDropdownProps {
-	entry: DbEntry;
+	entry: EntryWithTags;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 	children: React.ReactNode;

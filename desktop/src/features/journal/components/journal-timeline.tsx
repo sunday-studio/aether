@@ -16,15 +16,14 @@ const placeholder =
 	'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
 export const JournalTimeline = () => {
-	const { data: entries } = useGetEntries();
+	const { data: entriesResponse } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
 	const queryClient = useQueryClient();
 	const entriesQueryKey = getGetEntriesQueryKey();
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
-	const sortedEntries = sortEntries(
-		(entries?.data as unknown as Entry[]) ?? [],
-	);
+	// SDK now returns properly typed PaginatedEntries
+	const sortedEntries = sortEntries(entriesResponse?.data?.items ?? []);
 
 	const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
 		try {

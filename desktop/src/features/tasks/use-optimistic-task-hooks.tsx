@@ -10,8 +10,7 @@ import {
 	useUpdateSubtask,
 	useUpdateTask,
 } from "~/aether-sdk";
-import type { DbGoalInstance } from "~/aether-sdk/models/db-goal-instance";
-import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
+import type { GoalInstance, PaginatedGoalInstances, PaginatedTasks, SubTask, Task } from "~/aether-sdk/models";
 
 export const useOptimisticUpdateTask = () => {
 	const queryClient = useQueryClient();
@@ -42,7 +41,7 @@ export const useOptimisticUpdateTask = () => {
 export const useOptimisticUpdateTaskQuery = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const previousTasks = queryClient.getQueryData<{ data: DbTask[] }>(
+	const previousTasks = queryClient.getQueryData<{ data: PaginatedTasks }>(
 		inboxTasksQueryKey,
 	);
 
@@ -50,17 +49,20 @@ export const useOptimisticUpdateTaskQuery = () => {
 		id: string;
 		data: Record<string, unknown>;
 	}) => {
-		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
-			const oldData = old?.data || [];
+		queryClient.setQueryData<{ data: PaginatedTasks }>(inboxTasksQueryKey, (old) => {
+			const oldItems = old?.data?.items || [];
 
-			const updatedData = oldData.map((task) =>
+			const updatedItems = oldItems.map((task) =>
 				task.id === variables.id ? { ...task, ...variables.data } : task,
 			);
 
 			return {
 				...old,
-				data: updatedData,
-			};
+				data: {
+					...old?.data,
+					items: updatedItems,
+				},
+			} as { data: PaginatedTasks };
 		});
 	};
 
@@ -89,25 +91,31 @@ export const useOptimisticDeleteTask = () => {
 			: null;
 
 		// Optimistically update inbox tasks
-		queryClient.setQueryData<{ data: DbTask[] }>(inboxTasksQueryKey, (old) => {
+		queryClient.setQueryData<{ data: PaginatedTasks }>(inboxTasksQueryKey, (old) => {
 			if (!old) return old;
-			const oldData = old.data || [];
+			const oldItems = old.data?.items || [];
 			return {
 				...old,
-				data: oldData.filter((task) => task.id !== variables.id),
-			};
+				data: {
+					...old.data,
+					items: oldItems.filter((task) => task.id !== variables.id),
+				},
+			} as { data: PaginatedTasks };
 		});
 
 		// Optimistically update overdue tasks
-		queryClient.setQueryData<{ data: DbTask[] }>(
+		queryClient.setQueryData<{ data: PaginatedTasks }>(
 			overdueTasksQueryKey,
 			(old) => {
 				if (!old) return old;
-				const oldData = old.data || [];
+				const oldItems = old.data?.items || [];
 				return {
 					...old,
-					data: oldData.filter((task) => task.id !== variables.id),
-				};
+					data: {
+						...old.data,
+						items: oldItems.filter((task) => task.id !== variables.id),
+					},
+				} as { data: PaginatedTasks };
 			},
 		);
 
@@ -116,20 +124,23 @@ export const useOptimisticDeleteTask = () => {
 			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(
 				variables.goalId,
 			);
-			queryClient.setQueryData<{ data: DbGoalInstance[] }>(
+			queryClient.setQueryData<{ data: PaginatedGoalInstances }>(
 				goalInstancesQueryKey,
 				(old) => {
 					if (!old) return old;
-					const oldData = old.data || [];
+					const oldItems = old.data?.items || [];
 					return {
 						...old,
-						data: oldData.map((goalInstance) => ({
-							...goalInstance,
-							tasks: (goalInstance.tasks || []).filter(
-								(task) => task.id !== variables.id,
-							),
-						})),
-					};
+						data: {
+							...old.data,
+							items: oldItems.map((goalInstance) => ({
+								...goalInstance,
+								tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).filter(
+									(task) => task.id !== variables.id,
+								),
+							})),
+						},
+					} as { data: PaginatedGoalInstances };
 				},
 			);
 		}
@@ -185,12 +196,12 @@ const updateSubtaskInQueryCache = (
 	queryClient: ReturnType<typeof useQueryClient>,
 	taskId: string,
 	subtaskId: string,
-	updates: Partial<DbSubTask>,
+	updates: Partial<SubTask>,
 ) => {
 	const subtasksQueryKey = getGetSubtasksQueryKey(taskId);
 
 	// Update subtasks query directly
-	queryClient.setQueryData<{ data: DbSubTask[] }>(subtasksQueryKey, (old) => {
+	queryClient.setQueryData<{ data: SubTask[] }>(subtasksQueryKey, (old) => {
 		if (!old) return old;
 		const updatedSubtasks = (old.data || []).map((subtask) =>
 			subtask.id === subtaskId ? { ...subtask, ...updates } : subtask,
@@ -258,7 +269,7 @@ export const useOptimisticCreateSubtask = () => {
 	const mutate = (
 		variables: { taskId: string; data: { title: string } },
 		options?: {
-			onSuccess?: (data: { data: DbSubTask }) => void;
+			onSuccess?: (data: { data: SubTask }) => void;
 			onError?: () => void;
 		},
 	) => {
@@ -267,8 +278,8 @@ export const useOptimisticCreateSubtask = () => {
 
 		mutation.mutate(variables, {
 			onSuccess: (response) => {
-				const newSubtask = response as { data: DbSubTask };
-				queryClient.setQueryData<{ data: DbSubTask[] }>(
+				const newSubtask = response as { data: SubTask };
+				queryClient.setQueryData<{ data: SubTask[] }>(
 					subtasksQueryKey,
 					(old) => {
 						if (!old) return { data: [newSubtask.data] };
@@ -308,12 +319,12 @@ export const useOptimisticDeleteSubtask = () => {
 		},
 	) => {
 		const subtasksQueryKey = getGetSubtasksQueryKey(variables.taskId);
-		const previousSubtasks = queryClient.getQueryData<{ data: DbSubTask[] }>(
+		const previousSubtasks = queryClient.getQueryData<{ data: SubTask[] }>(
 			subtasksQueryKey,
 		);
 
 		// Optimistically update local cache
-		queryClient.setQueryData<{ data: DbSubTask[] }>(subtasksQueryKey, (old) => {
+		queryClient.setQueryData<{ data: SubTask[] }>(subtasksQueryKey, (old) => {
 			if (!old) return old;
 			return {
 				...old,

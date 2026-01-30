@@ -2,9 +2,10 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, GoalIdPathParams, IdPathParams,
     PaginationQueryParams,
 };
+use crate::db::models::{Goal, GoalInstance};
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedGoalInstances, PaginatedGoals, PaginationResponse};
 use crate::handlers::goal::{CreateGoalRequest, UpdateGoalRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use serde::Deserialize;
@@ -33,7 +34,7 @@ pub struct RemoveTagsFromGoalRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of goals", body = PaginationResponse<crate::db::models::Goal>),
+        (status = 200, description = "Paginated list of goals", body = PaginatedGoals),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -43,7 +44,7 @@ pub async fn get_goals(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Goal>> {
+) -> Result<PaginationResponse<Goal>> {
     let params = query_params.unwrap_or_default();
     let repo = GoalRepository::new(connection::get_database(&*state));
     let (goals, next_cursor, has_more) = repo
@@ -61,7 +62,7 @@ pub async fn get_goals(
         ("id" = String, Path, description = "Goal ID")
     ),
     responses(
-        (status = 200, description = "Goal found", body = crate::db::models::Goal),
+        (status = 200, description = "Goal found", body = Goal),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -72,7 +73,7 @@ pub async fn get_goal_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Goal> {
+) -> Result<Goal> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -89,7 +90,7 @@ pub async fn get_goal_by_id(
     tag = "Goals",
     request_body = CreateGoalRequest,
     responses(
-        (status = 200, description = "Created goal", body = crate::db::models::Goal),
+        (status = 200, description = "Created goal", body = Goal),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -100,7 +101,7 @@ pub async fn create_goal(
     request_data: Option<CreateGoalRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::models::Goal> {
+) -> Result<Goal> {
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
@@ -176,7 +177,7 @@ pub async fn create_goal(
     ),
     request_body = UpdateGoalRequest,
     responses(
-        (status = 200, description = "Updated goal", body = crate::db::models::Goal),
+        (status = 200, description = "Updated goal", body = Goal),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Goal not found"),
         (status = 409, description = "Conflict: Goal was modified by another device"),
@@ -189,7 +190,7 @@ pub async fn update_goal(
     request_data: Option<UpdateGoalRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Goal> {
+) -> Result<Goal> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -280,7 +281,7 @@ pub async fn delete_goal(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of goal instances", body = PaginationResponse<crate::db::models::GoalInstance>),
+        (status = 200, description = "Paginated list of goal instances", body = PaginatedGoalInstances),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -291,7 +292,7 @@ pub async fn get_goal_instances(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     path_params: Option<GoalIdPathParams>,
-) -> Result<PaginationResponse<crate::db::models::GoalInstance>> {
+) -> Result<PaginationResponse<GoalInstance>> {
     let goal_id = path_params
         .and_then(|p| Some(p.goal_id))
         .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
@@ -312,7 +313,7 @@ pub async fn get_goal_instances(
         ("goalId" = String, Path, description = "Goal ID")
     ),
     responses(
-        (status = 200, description = "Current goal instance", body = crate::db::models::GoalInstance),
+        (status = 200, description = "Current goal instance", body = GoalInstance),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -323,7 +324,7 @@ pub async fn get_current_goal_instance(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<GoalIdPathParams>,
-) -> Result<crate::db::models::GoalInstance> {
+) -> Result<GoalInstance> {
     let goal_id = path_params
         .and_then(|p| Some(p.goal_id))
         .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
@@ -341,7 +342,7 @@ pub async fn get_current_goal_instance(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to goal", body = crate::db::models::Goal),
+        (status = 200, description = "Tags added to goal", body = Goal),
         (status = 404, description = "Goal or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -352,7 +353,7 @@ pub async fn add_tags_to_goal(
     request_data: Option<AddTagsToGoalRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Goal> {
+) -> Result<Goal> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -381,7 +382,7 @@ pub async fn add_tags_to_goal(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags removed from goal", body = crate::db::models::Goal),
+        (status = 200, description = "Tags removed from goal", body = Goal),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -392,7 +393,7 @@ pub async fn remove_tags_from_goal(
     request_data: Option<RemoveTagsFromGoalRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Goal> {
+) -> Result<Goal> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

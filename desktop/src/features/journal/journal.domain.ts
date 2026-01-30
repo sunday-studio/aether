@@ -1,5 +1,5 @@
 import { eachDayOfInterval, format, subMonths } from "date-fns";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 
 /**
  * Recursively extract text from a Lexical node
@@ -66,12 +66,12 @@ export const extractFirstSentence = (document: string): string => {
  * Entries are sorted within each group by creation date (newest first)
  */
 export const groupEntriesByTags = (
-	entries: DbEntry[],
-): Map<string, { tagName: string; entries: DbEntry[] }> => {
-	const grouped = new Map<string, { tagName: string; entries: DbEntry[] }>();
+	entries: EntryWithTags[],
+): Map<string, { tagName: string; entries: EntryWithTags[] }> => {
+	const grouped = new Map<string, { tagName: string; entries: EntryWithTags[] }>();
 
 	// Add untagged group
-	const untaggedGroup = { tagName: "Untagged", entries: [] as DbEntry[] };
+	const untaggedGroup = { tagName: "Untagged", entries: [] as EntryWithTags[] };
 
 	for (const entry of entries) {
 		if (!entry.tags || entry.tags.length === 0) {
@@ -106,7 +106,7 @@ export const groupEntriesByTags = (
 	return grouped;
 };
 
-export const sortEntries = (entries: DbEntry[]) => {
+export const sortEntries = (entries: EntryWithTags[]) => {
 	return entries?.sort((a, b) => {
 		return (
 			new Date(b.createdAt ?? "").getTime() -
@@ -115,8 +115,8 @@ export const sortEntries = (entries: DbEntry[]) => {
 	});
 };
 
-export const normalizeEntries = (entries: DbEntry[]) => {
-	const groupedEntries: Record<string, DbEntry[]> = {};
+export const normalizeEntries = (entries: EntryWithTags[]) => {
+	const groupedEntries: Record<string, EntryWithTags[]> = {};
 
 	entries.forEach((entry) => {
 		const dateKey = entry.createdAt
@@ -150,8 +150,8 @@ export const getDateKey = (date: Date) => {
 	return format(date, "yyyy-MM-dd");
 };
 
-export const normalizeEntriesToMap = (entries: DbEntry[]) => {
-	const map = new Map<string, DbEntry[]>();
+export const normalizeEntriesToMap = (entries: EntryWithTags[]) => {
+	const map = new Map<string, EntryWithTags[]>();
 	for (const entry of entries) {
 		const dateKey = entry.createdAt
 			? new Date(entry.createdAt).toISOString()

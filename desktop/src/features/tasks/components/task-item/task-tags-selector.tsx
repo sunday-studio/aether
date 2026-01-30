@@ -4,14 +4,14 @@ import { Tag } from "lucide-react";
 import { forwardRef, useMemo } from "react";
 import { cn } from "tailwind-variants";
 import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
-import type { DbTag } from "~/aether-sdk/models";
+import type { Tag as TagModel } from "~/aether-sdk/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 import { Tooltip } from "~/components/shared/tooltip";
 import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-task-hooks";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskTagsInputProps {
-	value: DbTag[] | undefined;
+	value: TagModel[] | undefined;
 	taskId: string;
 }
 
@@ -43,11 +43,13 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 				data: [tag],
 			},
 			{
-				onSuccess: ({ data }) => {
+				onSuccess: (response) => {
+					// Cast to access runtime response properties not in SDK types
+					const taskData = response.data as unknown as { tags?: TagModel[] };
 					updateLocalInstance({
 						id: taskId,
 						data: {
-							tags: (data?.tags as DbTag[]) ?? [],
+							tags: taskData?.tags ?? [],
 						},
 					});
 				},
@@ -62,11 +64,13 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 				data: [tag],
 			},
 			{
-				onSuccess: ({ data }) => {
+				onSuccess: (response) => {
+					// Cast to access runtime response properties not in SDK types
+					const taskData = response.data as unknown as { tags?: TagModel[] };
 					updateLocalInstance({
 						id: taskId,
 						data: {
-							tags: (data?.tags as DbTag[]) ?? [],
+							tags: taskData?.tags ?? [],
 						},
 					});
 				},

@@ -3,6 +3,7 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EntryIdPathParams, MediaIdPathParams,
 };
 use crate::db::connection;
+use crate::db::models::MediaItem;
 use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::settings;
@@ -181,7 +182,7 @@ pub async fn delete_audio_recording(
         ("entryId" = String, Path, description = "Entry ID")
     ),
     responses(
-        (status = 200, description = "List of media items", body = Vec<crate::db::models::MediaItem>),
+        (status = 200, description = "List of media items", body = Vec<MediaItem>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -214,7 +215,7 @@ pub async fn get_media_items_for_entry(
         ("mediaId" = String, Path, description = "Media ID")
     ),
     responses(
-        (status = 200, description = "Audio metadata", body = Option<crate::db::models::MediaItem>),
+        (status = 200, description = "Audio metadata", body = Option<MediaItem>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )

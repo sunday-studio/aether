@@ -20,14 +20,15 @@ export const GoalView = () => {
 	const queryClient = useQueryClient();
 	const goalInstancesQueryKey = getGetGoalInstancesQueryKey(goalId ?? "");
 
-	const { data: goalInstances, isLoading: isLoadingGoalInstances } =
+	const { data: goalInstancesResponse, isLoading: isLoadingGoalInstances } =
 		useGetGoalInstances(goalId ?? "");
 	const { mutate: createTask } = useCreateTask();
 
 	const isLoading = isLoadingGoal || isLoadingGoalInstances;
 
+	// SDK now returns properly typed PaginatedGoalInstances
 	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(
-		goalInstances?.data ?? [],
+		goalInstancesResponse?.data?.items ?? [],
 	);
 
 	const handleCreateTask = () => {

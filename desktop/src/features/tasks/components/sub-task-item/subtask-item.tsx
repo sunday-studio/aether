@@ -1,11 +1,11 @@
 import { Circle, CircleDashed, GripHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { DbSubTask } from "~/aether-sdk/models/db-sub-task";
+import type { SubTask } from "~/aether-sdk/models";
 import { Tooltip } from "~/components/shared/tooltip";
 import { useDebounceCallback } from "~/hooks/use-debounce";
 
 interface TaskSubtaskItemProps {
-	subtask: DbSubTask;
+	subtask: SubTask;
 	onChangeTitleChange: (value: string) => void;
 	onChangeIsCompletedChange: (value: boolean) => void;
 	onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;

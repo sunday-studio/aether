@@ -198,7 +198,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/crate.db.models.MediaItem"
+                      "$ref": "#/components/schemas/MediaItem"
                     }
                   ],
                   "nullable": true
@@ -285,7 +285,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedBookmarks"
                 }
               }
             }
@@ -317,7 +317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                  "$ref": "#/components/schemas/Bookmark"
                 }
               }
             }
@@ -355,7 +355,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.utils.metadata.extractor.ExtractedMetadata"
+                  "$ref": "#/components/schemas/ExtractedMetadata"
                 }
               }
             }
@@ -393,7 +393,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                  "$ref": "#/components/schemas/Bookmark"
                 }
               }
             }
@@ -439,7 +439,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                  "$ref": "#/components/schemas/Bookmark"
                 }
               }
             }
@@ -522,7 +522,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                  "$ref": "#/components/schemas/Bookmark"
                 }
               }
             }
@@ -571,7 +571,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Bookmark"
+                  "$ref": "#/components/schemas/Bookmark"
                 }
               }
             }
@@ -622,7 +622,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedCanvases"
                 }
               }
             }
@@ -654,7 +654,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                  "$ref": "#/components/schemas/Canvas"
                 }
               }
             }
@@ -692,7 +692,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                  "$ref": "#/components/schemas/Canvas"
                 }
               }
             }
@@ -738,7 +738,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Canvas"
+                  "$ref": "#/components/schemas/Canvas"
                 }
               }
             }
@@ -821,7 +821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedEntries"
                 }
               }
             }
@@ -853,7 +853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Entry"
+                  "$ref": "#/components/schemas/Entry"
                 }
               }
             }
@@ -895,7 +895,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Entry"
+                    "$ref": "#/components/schemas/Entry"
                   }
                 }
               }
@@ -936,7 +936,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.MediaItem"
+                    "$ref": "#/components/schemas/MediaItem"
                   }
                 }
               }
@@ -975,7 +975,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Entry"
+                  "$ref": "#/components/schemas/Entry"
                 }
               }
             }
@@ -1021,7 +1021,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Entry"
+                  "$ref": "#/components/schemas/Entry"
                 }
               }
             }
@@ -1107,7 +1107,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Entry"
+                  "$ref": "#/components/schemas/Entry"
                 }
               }
             }
@@ -1153,7 +1153,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Entry"
+                  "$ref": "#/components/schemas/Entry"
                 }
               }
             }
@@ -1204,7 +1204,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedGoals"
                 }
               }
             }
@@ -1236,7 +1236,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Goal"
+                  "$ref": "#/components/schemas/Goal"
                 }
               }
             }
@@ -1296,7 +1296,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedGoalInstances"
                 }
               }
             }
@@ -1334,7 +1334,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.GoalInstance"
+                  "$ref": "#/components/schemas/GoalInstance"
                 }
               }
             }
@@ -1372,7 +1372,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Goal"
+                  "$ref": "#/components/schemas/Goal"
                 }
               }
             }
@@ -1418,7 +1418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Goal"
+                  "$ref": "#/components/schemas/Goal"
                 }
               }
             }
@@ -1504,7 +1504,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Goal"
+                  "$ref": "#/components/schemas/Goal"
                 }
               }
             }
@@ -1553,7 +1553,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Goal"
+                  "$ref": "#/components/schemas/Goal"
                 }
               }
             }
@@ -1741,7 +1741,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedLinks"
                 }
               }
             }
@@ -2278,7 +2278,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedTags"
                 }
               }
             }
@@ -2310,7 +2310,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Tag"
+                  "$ref": "#/components/schemas/Tag"
                 }
               }
             }
@@ -2352,7 +2352,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Tag"
+                    "$ref": "#/components/schemas/Tag"
                   }
                 }
               }
@@ -2390,7 +2390,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Task"
+                  "$ref": "#/components/schemas/Task"
                 }
               }
             }
@@ -2441,7 +2441,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedTasks"
                 }
               }
             }
@@ -2489,7 +2489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedTasks"
                 }
               }
             }
@@ -2524,7 +2524,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Task"
+                  "$ref": "#/components/schemas/Task"
                 }
               }
             }
@@ -2570,7 +2570,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Task"
+                  "$ref": "#/components/schemas/Task"
                 }
               }
             }
@@ -2653,7 +2653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Task"
+                  "$ref": "#/components/schemas/Task"
                 }
               }
             }
@@ -2689,7 +2689,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.Task"
+                  "$ref": "#/components/schemas/Task"
                 }
               }
             }
@@ -2815,7 +2815,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.SubTask"
+                    "$ref": "#/components/schemas/SubTask"
                   }
                 }
               }
@@ -2862,7 +2862,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.SubTask"
+                  "$ref": "#/components/schemas/SubTask"
                 }
               }
             }
@@ -2963,7 +2963,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.models.SubTask"
+                  "$ref": "#/components/schemas/SubTask"
                 }
               }
             }
@@ -3092,7 +3092,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "$ref": "#/components/schemas/crate.db.models.AudioTranscription"
+                      "$ref": "#/components/schemas/AudioTranscription"
                     }
                   ],
                   "nullable": true
@@ -3394,7 +3394,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginationResponse"
+                  "$ref": "#/components/schemas/PaginatedTranscriptions"
                 }
               }
             }
@@ -3423,7 +3423,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Task"
+                    "$ref": "#/components/schemas/Task"
                   }
                 }
               }
@@ -3946,6 +3946,48 @@
           }
         }
       },
+      "ExtractedMetadata": {
+        "type": "object",
+        "description": "Extracted metadata from a URL",
+        "properties": {
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "faviconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "metadataJson": {
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "siteName": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "Goal": {
         "type": "object",
         "description": "Goal model",
@@ -4134,7 +4176,7 @@
           }
         }
       },
-      "PaginationResponse": {
+      "PaginatedBookmarks": {
         "type": "object",
         "description": "Pagination response wrapper optimized for infinite scroll",
         "required": [
@@ -4149,7 +4191,207 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/T"
+              "$ref": "#/components/schemas/Bookmark"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedCanvases": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Canvas"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedEntries": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedGoalInstances": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalInstance"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedGoals": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Goal"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedLinks": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceLink"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedTags": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedTasks": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedTranscriptions": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioTranscription"
             }
           },
           "nextCursor": {

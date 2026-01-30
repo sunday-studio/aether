@@ -1,7 +1,8 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, PaginationQueryParams};
+use crate::db::models::Tag;
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedTags, PaginationResponse};
 use crate::handlers::tag::CreateTagRequest;
 use crate::utils::log_create;
 use tauri::State;
@@ -16,7 +17,7 @@ use tauri::State;
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of tags", body = PaginationResponse<crate::db::models::Tag>),
+        (status = 200, description = "Paginated list of tags", body = PaginatedTags),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -26,7 +27,7 @@ pub async fn get_all_tags(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Tag>> {
+) -> Result<PaginationResponse<Tag>> {
     let params = query_params.unwrap_or_default();
     let repo = TagRepository::new(connection::get_database(&*state));
     let (tags, next_cursor, has_more) = repo
@@ -42,7 +43,7 @@ pub async fn get_all_tags(
     tag = "Tags",
     request_body = CreateTagRequest,
     responses(
-        (status = 200, description = "Created tag", body = crate::db::models::Tag),
+        (status = 200, description = "Created tag", body = Tag),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -53,7 +54,7 @@ pub async fn create_tag(
     request_data: Option<CreateTagRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::models::Tag> {
+) -> Result<Tag> {
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
@@ -78,7 +79,7 @@ pub async fn create_tag(
     tag = "Tags",
     request_body = Vec<CreateTagRequest>,
     responses(
-        (status = 200, description = "Created tags", body = Vec<crate::db::models::Tag>),
+        (status = 200, description = "Created tags", body = Vec<Tag>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -89,7 +90,7 @@ pub async fn bulk_create_tags(
     request_data: Option<Vec<CreateTagRequest>>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Tag>> {
+) -> Result<Vec<Tag>> {
     let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TagRepository::new(db.clone());

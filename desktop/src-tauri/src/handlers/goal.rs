@@ -1,6 +1,7 @@
+use crate::db::models::{Goal, GoalInstance};
 use crate::db::{connection, DbState, GoalRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedGoalInstances, PaginatedGoals, PaginationResponse};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
     extract::{Path, Query, State},
@@ -64,7 +65,7 @@ pub struct UpdateGoalRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of goals", body = PaginationResponse<crate::db::models::Goal>),
+        (status = 200, description = "Paginated list of goals", body = PaginatedGoals),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -91,7 +92,7 @@ pub async fn get_goals(
         ("id" = String, Path, description = "Goal ID")
     ),
     responses(
-        (status = 200, description = "Goal found", body = crate::db::models::Goal),
+        (status = 200, description = "Goal found", body = Goal),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -114,7 +115,7 @@ pub async fn get_goal_by_id(
     tag = "Goals",
     request_body = CreateGoalRequest,
     responses(
-        (status = 200, description = "Created goal", body = crate::db::models::Goal),
+        (status = 200, description = "Created goal", body = Goal),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -203,7 +204,7 @@ pub async fn create_goal(
     ),
     request_body = UpdateGoalRequest,
     responses(
-        (status = 200, description = "Updated goal", body = crate::db::models::Goal),
+        (status = 200, description = "Updated goal", body = Goal),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Goal not found"),
         (status = 409, description = "Conflict: Goal was modified by another device"),
@@ -291,7 +292,7 @@ pub async fn delete_goal(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of goal instances", body = PaginationResponse<crate::db::models::GoalInstance>),
+        (status = 200, description = "Paginated list of goal instances", body = PaginatedGoalInstances),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -320,7 +321,7 @@ pub async fn get_goal_instances(
         ("goalId" = String, Path, description = "Goal ID")
     ),
     responses(
-        (status = 200, description = "Current goal instance", body = crate::db::models::GoalInstance),
+        (status = 200, description = "Current goal instance", body = GoalInstance),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -344,7 +345,7 @@ pub async fn get_current_goal_instance(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to goal", body = crate::db::models::Goal),
+        (status = 200, description = "Tags added to goal", body = Goal),
         (status = 404, description = "Goal or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -379,7 +380,7 @@ pub async fn add_tags_to_goal(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags removed from goal", body = crate::db::models::Goal),
+        (status = 200, description = "Tags removed from goal", body = Goal),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )

@@ -1,7 +1,11 @@
 use utoipa::OpenApi;
 
 use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task};
-use crate::handlers::common::PaginationResponse;
+use crate::utils::metadata::extractor::ExtractedMetadata;
+use crate::handlers::common::{
+    PaginatedBookmarks, PaginatedCanvases, PaginatedEntries, PaginatedGoalInstances,
+    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTranscriptions,
+};
 use crate::handlers::activity as activity_handlers;
 use crate::handlers::entry;
 use crate::handlers::goal as goal_handlers;
@@ -132,16 +136,17 @@ use crate::commands::canvas as canvas_commands;
         Bookmark,
         MediaItem,
         AudioTranscription,
-        // Pagination response types
-        PaginationResponse<Entry>,
-        PaginationResponse<Tag>,
-        PaginationResponse<Task>,
-        PaginationResponse<Goal>,
-        PaginationResponse<GoalInstance>,
-        PaginationResponse<ResourceLink>,
-        PaginationResponse<Canvas>,
-        PaginationResponse<Bookmark>,
-        PaginationResponse<AudioTranscription>,
+        ExtractedMetadata,
+        // Pagination response types (concrete aliases for proper OpenAPI generation)
+        PaginatedEntries,
+        PaginatedTags,
+        PaginatedTasks,
+        PaginatedGoals,
+        PaginatedGoalInstances,
+        PaginatedLinks,
+        PaginatedCanvases,
+        PaginatedBookmarks,
+        PaginatedTranscriptions,
         // Request/Response schemas
         tag::CreateTagRequest,
         entry::CreateEntryRequest,
@@ -156,6 +161,7 @@ use crate::commands::canvas as canvas_commands;
         goal_handlers::UpdateGoalRequest,
         search_handlers::SearchRequest,
         search_handlers::SearchResponse,
+        // Note: SearchResultResponse uses serde(flatten) which isn't supported by ToSchema
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,

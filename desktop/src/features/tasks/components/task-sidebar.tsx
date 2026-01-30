@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "tailwind-variants";
 import { useGetGoals } from "~/aether-sdk";
+import type { Goal } from "~/aether-sdk/models";
 import { Tooltip } from "~/components/shared/tooltip";
 import { GoalFormDialog } from "./goals/goal-form-dialog";
 import { TaskActionButton } from "./task-item/task-shared-components";
@@ -27,7 +28,10 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 };
 
 const GoalsList = () => {
-	const { data: goals } = useGetGoals();
+	const { data: goalsResponse } = useGetGoals();
+
+	// SDK now returns properly typed PaginatedGoals
+	const goals: Goal[] = goalsResponse?.data?.items ?? [];
 
 	return (
 		<div className="w-full">
@@ -49,7 +53,7 @@ const GoalsList = () => {
 				/>
 			</div>
 			<ul className="flex flex-col gap-1 items-start">
-				{goals?.data?.map((goal) => (
+				{goals.map((goal) => (
 					<NavigationItem
 						key={goal.id}
 						route={`/tasks/goal/${goal.id}`}

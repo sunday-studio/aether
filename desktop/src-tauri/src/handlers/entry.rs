@@ -1,6 +1,7 @@
+use crate::db::models::Entry;
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedEntries, PaginationResponse};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
     extract::{Path, Query, State},
@@ -53,7 +54,7 @@ pub struct UpdateEntryRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of entries", body = PaginationResponse<crate::db::models::Entry>),
+        (status = 200, description = "Paginated list of entries", body = PaginatedEntries),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -80,7 +81,7 @@ pub async fn get_entries(
         ("id" = String, Path, description = "Entry ID")
     ),
     responses(
-        (status = 200, description = "Entry found", body = crate::db::models::Entry),
+        (status = 200, description = "Entry found", body = Entry),
         (status = 404, description = "Entry not found"),
         (status = 500, description = "Internal server error")
     )
@@ -103,7 +104,7 @@ pub async fn get_entry_by_id(
     tag = "Entries",
     request_body = CreateEntryRequest,
     responses(
-        (status = 200, description = "Created entry", body = crate::db::models::Entry),
+        (status = 200, description = "Created entry", body = Entry),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -139,7 +140,7 @@ pub async fn create_entry(
     tag = "Entries",
     request_body = Vec<CreateEntryRequest>,
     responses(
-        (status = 200, description = "Created entries", body = Vec<crate::db::models::Entry>),
+        (status = 200, description = "Created entries", body = Vec<Entry>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -184,7 +185,7 @@ pub async fn bulk_create_entries(
     ),
     request_body = UpdateEntryRequest,
     responses(
-        (status = 200, description = "Updated entry", body = crate::db::models::Entry),
+        (status = 200, description = "Updated entry", body = Entry),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Entry not found"),
         (status = 409, description = "Conflict: Record was modified by another device"),
@@ -257,7 +258,7 @@ pub async fn delete_entry(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to entry", body = crate::db::models::Entry),
+        (status = 200, description = "Tags added to entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -292,7 +293,7 @@ pub async fn add_tags_to_entry(
     ),
     request_body = String,
     responses(
-        (status = 200, description = "Tag removed from entry", body = crate::db::models::Entry),
+        (status = 200, description = "Tag removed from entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )

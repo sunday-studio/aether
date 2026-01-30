@@ -1,7 +1,8 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
+use crate::db::models::Canvas;
 use crate::db::{connection, DbState, CanvasRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedCanvases, PaginationResponse};
 use crate::utils::{log_create, log_delete, log_update};
 use serde::Deserialize;
 use tauri::State;
@@ -36,7 +37,7 @@ pub struct UpdateCanvasRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of canvases", body = PaginationResponse<crate::db::models::Canvas>),
+        (status = 200, description = "Paginated list of canvases", body = PaginatedCanvases),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -46,7 +47,7 @@ pub async fn get_canvases(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Canvas>> {
+) -> Result<PaginationResponse<Canvas>> {
     let params = query_params.unwrap_or_default();
     let repo = CanvasRepository::new(connection::get_database(&*state));
     let (canvases, next_cursor, has_more) = repo
@@ -64,7 +65,7 @@ pub async fn get_canvases(
         ("id" = String, Path, description = "Canvas ID")
     ),
     responses(
-        (status = 200, description = "Canvas found", body = crate::db::models::Canvas),
+        (status = 200, description = "Canvas found", body = Canvas),
         (status = 404, description = "Canvas not found"),
         (status = 500, description = "Internal server error")
     )
@@ -75,7 +76,7 @@ pub async fn get_canvas_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Canvas> {
+) -> Result<Canvas> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -95,7 +96,7 @@ pub async fn get_canvas_by_id(
     tag = "Canvases",
     request_body = CreateCanvasRequest,
     responses(
-        (status = 200, description = "Created canvas", body = crate::db::models::Canvas),
+        (status = 200, description = "Created canvas", body = Canvas),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -106,7 +107,7 @@ pub async fn create_canvas(
     request_data: Option<CreateCanvasRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::models::Canvas> {
+) -> Result<Canvas> {
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
@@ -141,7 +142,7 @@ pub async fn create_canvas(
     ),
     request_body = UpdateCanvasRequest,
     responses(
-        (status = 200, description = "Updated canvas", body = crate::db::models::Canvas),
+        (status = 200, description = "Updated canvas", body = Canvas),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Canvas not found"),
         (status = 500, description = "Internal server error")
@@ -153,7 +154,7 @@ pub async fn update_canvas(
     request_data: Option<UpdateCanvasRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Canvas> {
+) -> Result<Canvas> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

@@ -13,7 +13,7 @@ export const InboxTasksView = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const {
-		data: inboxTasks,
+		data: inboxTasksResponse,
 		isLoading: isLoadingInboxTasks,
 		error: errorInboxTasks,
 	} = useGetInboxTasks();
@@ -36,7 +36,8 @@ export const InboxTasksView = () => {
 		);
 	}
 
-	const groupedTasks = groupTaskByCreatedAt(inboxTasks?.data ?? []);
+	// SDK now returns properly typed PaginatedTasks
+	const groupedTasks = groupTaskByCreatedAt(inboxTasksResponse?.data?.items ?? []);
 
 	const handleCreateTask = () => {
 		createTask(

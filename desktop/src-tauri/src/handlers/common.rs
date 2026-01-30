@@ -1,9 +1,24 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use crate::db::models::{
+    AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, ResourceLink, Tag, Task,
+};
+
 /// Pagination response wrapper optimized for infinite scroll
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+#[aliases(
+    PaginatedEntries = PaginationResponse<Entry>,
+    PaginatedTags = PaginationResponse<Tag>,
+    PaginatedTasks = PaginationResponse<Task>,
+    PaginatedGoals = PaginationResponse<Goal>,
+    PaginatedGoalInstances = PaginationResponse<GoalInstance>,
+    PaginatedLinks = PaginationResponse<ResourceLink>,
+    PaginatedBookmarks = PaginationResponse<Bookmark>,
+    PaginatedCanvases = PaginationResponse<Canvas>,
+    PaginatedTranscriptions = PaginationResponse<AudioTranscription>
+)]
 pub struct PaginationResponse<T> {
     pub items: Vec<T>,
     /// Next page cursor (null when no more pages)

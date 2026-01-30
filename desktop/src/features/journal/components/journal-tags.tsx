@@ -4,7 +4,7 @@ import {
 	useAddTagsToEntry,
 	useRemoveTagsFromEntry,
 } from "~/aether-sdk";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 import { cn } from "~/utils/cn";
 
@@ -29,7 +29,7 @@ export const popoverItemStyles = cn(
 );
 
 interface EntryTagsProps {
-	entry: DbEntry;
+	entry: EntryWithTags;
 }
 
 export const EntryTags = ({ entry }: EntryTagsProps) => {

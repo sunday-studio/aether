@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { formatDistanceToNow } from "date-fns";
 import { Mic } from "lucide-react";
 import { useState } from "react";
 import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
@@ -13,15 +12,14 @@ import { groupEntriesByTags, sortEntries } from "../journal.domain.ts";
 import { JournalGridItem } from "./journal-grid-item.tsx";
 
 export const JournalGridView = () => {
-	const { data: entries } = useGetEntries();
+	const { data: entriesResponse } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
 	const queryClient = useQueryClient();
 	const entriesQueryKey = getGetEntriesQueryKey();
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
-	const sortedEntries = sortEntries(
-		(entries?.data as unknown as Entry[]) ?? [],
-	);
+	// SDK now returns properly typed PaginatedEntries
+	const sortedEntries = sortEntries(entriesResponse?.data?.items ?? []);
 
 	const groupedByTags = groupEntriesByTags(sortedEntries);
 
@@ -33,7 +31,7 @@ export const JournalGridView = () => {
 			const now = new Date();
 
 			// Create entry first
-			const entry = await invoke<DbEntry>("create_entry", {
+			const entry = await invoke<Entry>("create_entry", {
 				requestData: {
 					document: placeholder,
 					date: now.toISOString(),

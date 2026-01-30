@@ -2,11 +2,13 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, ExtractMetadataQueryParams, IdPathParams,
     BookmarkQueryParams,
 };
+use crate::db::models::Bookmark;
 use crate::db::{connection, DbState, BookmarkRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::PaginatedBookmarks;
 use crate::handlers::bookmark::{CreateBookmarkRequest, UpdateBookmarkRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
+use crate::utils::metadata::extractor::ExtractedMetadata;
 use crate::utils::metadata::MetadataExtractor;
 use serde::Deserialize;
 use tauri::State;
@@ -37,7 +39,7 @@ pub struct RemoveTagsFromBookmarkRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of bookmarks", body = PaginationResponse<crate::db::models::Bookmark>),
+        (status = 200, description = "Paginated list of bookmarks", body = PaginatedBookmarks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -47,7 +49,7 @@ pub async fn get_bookmarks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<BookmarkQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Bookmark>> {
+) -> Result<crate::handlers::common::PaginationResponse<Bookmark>> {
     let params = query_params.unwrap_or_default();
     let repo = BookmarkRepository::new(connection::get_database(&*state));
     let (bookmarks, next_cursor, has_more) = repo
@@ -59,7 +61,7 @@ pub async fn get_bookmarks(
             params.cursor,
         )
         .await?;
-    Ok(PaginationResponse::new(bookmarks, next_cursor, has_more))
+    Ok(crate::handlers::common::PaginationResponse::new(bookmarks, next_cursor, has_more))
 }
 
 /// Get bookmark by ID
@@ -71,7 +73,7 @@ pub async fn get_bookmarks(
         ("id" = String, Path, description = "Bookmark ID")
     ),
     responses(
-        (status = 200, description = "Bookmark found", body = crate::db::models::Bookmark),
+        (status = 200, description = "Bookmark found", body = Bookmark),
         (status = 404, description = "Bookmark not found"),
         (status = 500, description = "Internal server error")
     )
@@ -102,7 +104,7 @@ pub async fn get_bookmark_by_id(
     tag = "Bookmarks",
     request_body = CreateBookmarkRequest,
     responses(
-        (status = 200, description = "Created bookmark", body = crate::db::models::Bookmark),
+        (status = 200, description = "Created bookmark", body = Bookmark),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -164,7 +166,7 @@ pub async fn create_bookmark(
     ),
     request_body = UpdateBookmarkRequest,
     responses(
-        (status = 200, description = "Updated bookmark", body = crate::db::models::Bookmark),
+        (status = 200, description = "Updated bookmark", body = Bookmark),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Bookmark not found"),
         (status = 500, description = "Internal server error")
@@ -260,7 +262,7 @@ pub async fn delete_bookmark(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to bookmark", body = crate::db::models::Bookmark),
+        (status = 200, description = "Tags added to bookmark", body = Bookmark),
         (status = 404, description = "Bookmark or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -304,7 +306,7 @@ pub async fn add_tags_to_bookmark(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags removed from bookmark", body = crate::db::models::Bookmark),
+        (status = 200, description = "Tags removed from bookmark", body = Bookmark),
         (status = 404, description = "Bookmark or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -347,7 +349,7 @@ pub async fn remove_tags_from_bookmark(
         ("url" = String, Query, description = "URL to extract metadata from")
     ),
     responses(
-        (status = 200, description = "Extracted metadata", body = crate::utils::metadata::extractor::ExtractedMetadata),
+        (status = 200, description = "Extracted metadata", body = ExtractedMetadata),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -357,7 +359,7 @@ pub async fn extract_metadata(
     _request_data: Option<EmptyRequest>,
     query_params: Option<ExtractMetadataQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::utils::metadata::extractor::ExtractedMetadata> {
+) -> Result<ExtractedMetadata> {
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));

@@ -1,4 +1,5 @@
-import type { DbGoal, DbGoalInstance, DbTask } from "~/aether-sdk/models";
+import type { Goal, Task } from "~/aether-sdk/models";
+import type { GoalInstanceWithTasks } from "~/types/models";
 
 export enum RecurrenceType {
 	DAILY = "daily",
@@ -9,10 +10,10 @@ export enum RecurrenceType {
 	CUSTOM = "custom",
 }
 
-export const groupTaskByCreatedAt = (tasks: DbTask[] = []) => {
+export const groupTaskByCreatedAt = (tasks: Task[] = []) => {
 	if (tasks.length === 0) return {};
 
-	const groupedTasks: Record<string, DbTask[]> = {};
+	const groupedTasks: Record<string, Task[]> = {};
 
 	tasks?.forEach((task) => {
 		const dateKey = task?.createdAt
@@ -26,7 +27,7 @@ export const groupTaskByCreatedAt = (tasks: DbTask[] = []) => {
 	});
 
 	// Sort the grouped keys and the arrays of tasks in each key
-	const sortedGroupedTasks: Record<string, DbTask[]> = {};
+	const sortedGroupedTasks: Record<string, Task[]> = {};
 	Object.keys(groupedTasks)
 		.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
 		.forEach((key) => {
@@ -42,9 +43,9 @@ export const groupTaskByCreatedAt = (tasks: DbTask[] = []) => {
 };
 
 export const transformGoalInstancesToGroupedTasks = (
-	goalInstances: DbGoalInstance[],
+	goalInstances: GoalInstanceWithTasks[],
 ) => {
-	const groupedTasks: Record<string, DbTask[]> = {};
+	const groupedTasks: Record<string, Task[]> = {};
 
 	goalInstances.forEach((goalInstance) => {
 		const dateKey = goalInstance.periodStart
@@ -61,8 +62,8 @@ export const transformGoalInstancesToGroupedTasks = (
 
 // TODO: relook into this
 export const generateGoalInstanceTitle = (
-	goalInstance: DbGoalInstance | null,
-	goal: DbGoal | null,
+	goalInstance: GoalInstanceWithTasks | null,
+	goal: Goal | null,
 ) => {
 	if (!goalInstance || !goal) return "";
 

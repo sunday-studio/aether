@@ -3,9 +3,11 @@ use chrono::{DateTime, Utc};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use url::Url;
+use utoipa::ToSchema;
 
 /// Extracted metadata from a URL
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtractedMetadata {
     pub title: Option<String>,
     pub description: Option<String>,

@@ -2,7 +2,7 @@ import { Disc } from "lucide-react";
 import { forwardRef, useMemo, useState } from "react";
 import { Button, DialogTrigger, Popover } from "react-aria-components";
 import { useAddGoalToTask, useGetGoals } from "~/aether-sdk";
-import type { DbTask } from "~/aether-sdk/models";
+import type { Goal, Task } from "~/aether-sdk/models";
 import { Radio, RadioGroup } from "~/components/shared/radio";
 import {
 	popoverContentStyles,
@@ -14,7 +14,7 @@ import { TaskActionButton } from "./task-shared-components";
 
 interface TaskGoalSelectorProps {
 	taskId: string;
-	value: DbTask["goalInstanceId"] | undefined;
+	value: Task["goalInstanceId"] | undefined;
 }
 
 const CustomTrigger = forwardRef<
@@ -34,21 +34,24 @@ const CustomTrigger = forwardRef<
 });
 
 export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
-	const { data: goals } = useGetGoals();
+	const { data: goalsResponse } = useGetGoals();
 	const { mutate: addGoalToTask } = useAddGoalToTask();
 	const [searchValue, setSearchValue] = useState("");
 
 	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
 
+	// SDK now returns properly typed PaginatedGoals
+	const goalsData: Goal[] = goalsResponse?.data?.items ?? [];
+
 	const selectedGoal = useMemo(() => {
-		return goals?.data.find((goal) => goal.id === value);
-	}, [goals, value]);
+		return goalsData.find((goal) => goal.id === value);
+	}, [goalsData, value]);
 
 	const filteredGoals = useMemo(() => {
-		return goals?.data.filter((goal) =>
+		return goalsData.filter((goal) =>
 			goal.name?.toLowerCase().includes(searchValue.toLowerCase()),
 		);
-	}, [goals, searchValue]);
+	}, [goalsData, searchValue]);
 
 	const handleOnSelectGoal = (goalId: string) => {
 		addGoalToTask(

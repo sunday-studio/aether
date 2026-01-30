@@ -7,7 +7,6 @@ import {
 	useCreateTag,
 	useGetAllTags,
 } from "~/aether-sdk";
-import type { DbTag } from "~/aether-sdk/models/db-tag";
 import { cn } from "~/utils/cn";
 import { Popover } from "./popover";
 
@@ -72,9 +71,10 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 
 	const [searchValue, setSearchValue] = useState("");
 
-	const allTags: Tag[] = (
-		tagsResponse?.status === 200 ? tagsResponse.data : []
-	) as Tag[];
+	// SDK now returns properly typed PaginatedTags
+	const allTags: Tag[] = (tagsResponse?.status === 200 
+		? tagsResponse.data?.items ?? [] 
+		: []) as Tag[];
 
 	// Filtering & creation logic
 	const filteredTags = allTags.filter((tag: Tag) => {
@@ -199,7 +199,7 @@ export function TagsPopoverSelector(props: TagsPopoverSelectorProps) {
 								)}
 
 								<ul>
-									{filteredTags.map((tag: DbTag) => {
+									{filteredTags.map((tag: Tag) => {
 										const isAlreadyAdded = selectedTags.some(
 											(t) => t.id === tag.id,
 										);

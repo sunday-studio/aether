@@ -6,7 +6,7 @@ import {
 	useDeleteEntry,
 	useUpdateEntry,
 } from "~/aether-sdk";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
@@ -17,7 +17,7 @@ import { EntryAudio } from "./entry-audio";
 // import { EntryTags } from "./journal-tags";
 
 interface JournalTimelineItemProps {
-	entry: DbEntry;
+	entry: EntryWithTags;
 }
 
 const isEntryDocumentDifferent = (oldDocument: string, newDocument: string) => {

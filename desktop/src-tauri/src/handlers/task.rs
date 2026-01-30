@@ -1,6 +1,7 @@
+use crate::db::models::{SubTask, Task};
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedTasks, PaginationResponse};
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
@@ -81,7 +82,7 @@ pub struct AddGoalToTaskRequest {
     tag = "Tasks",
     request_body = CreateTaskRequest,
     responses(
-        (status = 200, description = "Created task", body = crate::db::models::Task),
+        (status = 200, description = "Created task", body = Task),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -131,7 +132,7 @@ pub async fn create_task(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of inbox tasks", body = PaginationResponse<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of inbox tasks", body = PaginatedTasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -159,7 +160,7 @@ pub async fn get_inbox_tasks(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of overdue tasks", body = PaginationResponse<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of overdue tasks", body = PaginatedTasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -186,7 +187,7 @@ pub async fn get_overdue_tasks(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Task found", body = crate::db::models::Task),
+        (status = 200, description = "Task found", body = Task),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -212,7 +213,7 @@ pub async fn get_task_by_id(
     ),
     request_body = UpdateTaskRequest,
     responses(
-        (status = 200, description = "Updated task", body = crate::db::models::Task),
+        (status = 200, description = "Updated task", body = Task),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Task not found"),
         (status = 409, description = "Conflict: Task was modified by another device"),
@@ -321,7 +322,7 @@ pub async fn delete_task(
         ("taskId" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "List of subtasks", body = Vec<crate::db::models::SubTask>),
+        (status = 200, description = "List of subtasks", body = Vec<SubTask>),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -345,7 +346,7 @@ pub async fn get_subtasks(
     ),
     request_body = CreateSubTaskRequest,
     responses(
-        (status = 200, description = "Created subtask", body = crate::db::models::SubTask),
+        (status = 200, description = "Created subtask", body = SubTask),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
@@ -383,7 +384,7 @@ pub async fn create_subtask(
     ),
     request_body = UpdateSubTaskRequest,
     responses(
-        (status = 200, description = "Updated subtask", body = crate::db::models::SubTask),
+        (status = 200, description = "Updated subtask", body = SubTask),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Subtask not found"),
         (status = 500, description = "Internal server error")
@@ -574,7 +575,7 @@ pub async fn remove_tags_from_task(
     ),
     request_body = AddGoalToTaskRequest,
     responses(
-        (status = 200, description = "Goal added to task", body = crate::db::models::Task),
+        (status = 200, description = "Goal added to task", body = Task),
         (status = 404, description = "Task or goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -621,7 +622,7 @@ pub async fn add_goal_to_task(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Goal removed from task", body = crate::db::models::Task),
+        (status = 200, description = "Goal removed from task", body = Task),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )

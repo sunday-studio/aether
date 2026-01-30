@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 import { extractFirstSentence } from "../journal.domain.ts";
 import { JournalEditor } from "./journal-editor";
 import { JournalActionsDropdown } from "./journal-actions-dropdown";
@@ -15,7 +15,7 @@ import { showToast } from "~/components/shared/toast-components";
 import { EntryAudio } from "./entry-audio";
 
 interface JournalGridItemProps {
-	entry: DbEntry;
+	entry: EntryWithTags;
 }
 
 const isEntryDocumentDifferent = (oldDocument: string, newDocument: string) => {

@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { getAllLinksForGraph, useGetAllLinksForGraph } from "~/aether-sdk";
+import { useGetAllLinksForGraph } from "~/aether-sdk";
 import { GraphVisualization } from "./components/graph-visualization";
 
 export const GraphView = () => {
@@ -22,7 +21,8 @@ export const GraphView = () => {
 		);
 	}
 
-	const links = response?.status === 200 ? response.data : [];
+	// SDK now returns properly typed PaginatedLinks
+	const links = response?.status === 200 ? response.data?.items ?? [] : [];
 
 	return (
 		<div className="h-full flex flex-col">

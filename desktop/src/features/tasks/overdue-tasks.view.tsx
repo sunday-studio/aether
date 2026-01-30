@@ -3,9 +3,10 @@ import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { groupTaskByCreatedAt } from "./tasks.domain";
 
 export const OverdueTasksView = () => {
-	const { data: overdueTasks } = useGetOverdueTasks();
+	const { data: overdueTasksResponse } = useGetOverdueTasks();
 
-	const groupedTasks = groupTaskByCreatedAt(overdueTasks?.data ?? []);
+	// SDK now returns properly typed PaginatedTasks
+	const groupedTasks = groupTaskByCreatedAt(overdueTasksResponse?.data?.items ?? []);
 
 	return (
 		<div>

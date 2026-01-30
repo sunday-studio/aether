@@ -1,8 +1,9 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
+use crate::db::models::Entry;
 use crate::db::{connection, DbState, EntryRepository};
 use crate::db::repositories::LinkRepository;
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedEntries, PaginationResponse};
 use crate::handlers::entry::{CreateEntryRequest, UpdateEntryRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::link_parser::extract_links_from_lexical_content;
@@ -32,7 +33,7 @@ pub struct RemoveTagFromEntryRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of entries", body = PaginationResponse<crate::db::models::Entry>),
+        (status = 200, description = "Paginated list of entries", body = PaginatedEntries),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -42,7 +43,7 @@ pub async fn get_entries(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Entry>> {
+) -> Result<PaginationResponse<Entry>> {
     let params = query_params.unwrap_or_default();
     let repo = EntryRepository::new(connection::get_database(&*state));
     let (entries, next_cursor, has_more) = repo
@@ -60,7 +61,7 @@ pub async fn get_entries(
         ("id" = String, Path, description = "Entry ID")
     ),
     responses(
-        (status = 200, description = "Entry found", body = crate::db::models::Entry),
+        (status = 200, description = "Entry found", body = Entry),
         (status = 404, description = "Entry not found"),
         (status = 500, description = "Internal server error")
     )
@@ -71,7 +72,7 @@ pub async fn get_entry_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Entry> {
+) -> Result<Entry> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -91,7 +92,7 @@ pub async fn get_entry_by_id(
     tag = "Entries",
     request_body = CreateEntryRequest,
     responses(
-        (status = 200, description = "Created entry", body = crate::db::models::Entry),
+        (status = 200, description = "Created entry", body = Entry),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -102,7 +103,7 @@ pub async fn create_entry(
     request_data: Option<CreateEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::models::Entry> {
+) -> Result<Entry> {
     if let Some(ref req) = request_data {
         tracing::info!(
             "create_entry called with request_data: document len = {}, date = {}, is_pinned = {:?}, is_archived = {:?}, is_deleted = {:?}",
@@ -157,7 +158,7 @@ pub async fn create_entry(
     tag = "Entries",
     request_body = Vec<CreateEntryRequest>,
     responses(
-        (status = 200, description = "Created entries", body = Vec<crate::db::models::Entry>),
+        (status = 200, description = "Created entries", body = Vec<Entry>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -168,7 +169,7 @@ pub async fn bulk_create_entries(
     request_data: Option<Vec<CreateEntryRequest>>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Entry>> {
+) -> Result<Vec<Entry>> {
     let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
@@ -206,7 +207,7 @@ pub async fn bulk_create_entries(
     ),
     request_body = UpdateEntryRequest,
     responses(
-        (status = 200, description = "Updated entry", body = crate::db::models::Entry),
+        (status = 200, description = "Updated entry", body = Entry),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Entry not found"),
         (status = 409, description = "Conflict: Record was modified by another device"),
@@ -219,7 +220,7 @@ pub async fn update_entry(
     request_data: Option<UpdateEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Entry> {
+) -> Result<Entry> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -346,7 +347,7 @@ pub async fn delete_entry(
     ),
     request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tags added to entry", body = crate::db::models::Entry),
+        (status = 200, description = "Tags added to entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -357,7 +358,7 @@ pub async fn add_tags_to_entry(
     request_data: Option<AddTagsToEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Entry> {
+) -> Result<Entry> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -390,7 +391,7 @@ pub async fn add_tags_to_entry(
     ),
     request_body = String,
     responses(
-        (status = 200, description = "Tag removed from entry", body = crate::db::models::Entry),
+        (status = 200, description = "Tag removed from entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -401,7 +402,7 @@ pub async fn remove_tags_from_entry(
     request_data: Option<RemoveTagFromEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Entry> {
+) -> Result<Entry> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

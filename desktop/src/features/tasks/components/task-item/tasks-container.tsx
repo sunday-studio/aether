@@ -1,12 +1,11 @@
-import { isBefore, startOfDay } from "date-fns";
-import type { DbTask } from "~/aether-sdk/models";
+import type { Task } from "~/aether-sdk/models";
 import { cn } from "~/utils/cn";
 import { TaskListDivider } from "../task-list-divider";
 import { TaskItem } from "./task-item";
 
 interface TasksContainerProps {
 	date: string;
-	tasks: DbTask[];
+	tasks: Task[];
 	isPast?: boolean;
 	dividerTitle?: string;
 }

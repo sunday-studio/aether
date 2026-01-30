@@ -1,6 +1,7 @@
+use crate::db::models::Tag;
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedTags, PaginationResponse};
 use crate::utils::log_create;
 use axum::{
     extract::{Query, State},
@@ -30,7 +31,7 @@ pub struct BulkCreateTagsRequest {
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of tags", body = PaginationResponse<crate::db::models::Tag>),
+        (status = 200, description = "Paginated list of tags", body = PaginatedTags),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -55,7 +56,7 @@ pub async fn get_all_tags(
     tag = "Tags",
     request_body = CreateTagRequest,
     responses(
-        (status = 200, description = "Created tag", body = crate::db::models::Tag),
+        (status = 200, description = "Created tag", body = Tag),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -87,7 +88,7 @@ pub async fn create_tag(
     tag = "Tags",
     request_body = Vec<CreateTagRequest>,
     responses(
-        (status = 200, description = "Created tags", body = Vec<crate::db::models::Tag>),
+        (status = 200, description = "Created tags", body = Vec<Tag>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )

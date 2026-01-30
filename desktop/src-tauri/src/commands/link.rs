@@ -6,7 +6,7 @@ use crate::db::models::ResourceLink;
 use crate::db::repositories::{LinkRepository};
 use crate::db::repositories::search::{SearchRepository, ResourceType};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedLinks, PaginationResponse};
 use crate::utils::link_parser::extract_links_from_lexical_content;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -306,7 +306,7 @@ pub async fn search_linkable_resources(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of links for graph", body = PaginationResponse<ResourceLink>),
+        (status = 200, description = "Paginated list of links for graph", body = PaginatedLinks),
         (status = 500, description = "Internal server error")
     )
 )]

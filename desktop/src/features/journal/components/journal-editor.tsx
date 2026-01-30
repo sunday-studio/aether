@@ -1,9 +1,9 @@
-import type { DbEntry } from "~/aether-sdk/models";
+import type { EntryWithTags } from "~/types/models";
 import { Editor } from "~/components/editor/editor";
 import { cn } from "~/utils/cn";
 
 interface JournalEditorProps {
-	document: DbEntry["document"];
+	document: EntryWithTags["document"];
 	id: string;
 	onChange: (document: string) => void;
 	isSelected?: boolean;

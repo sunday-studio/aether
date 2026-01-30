@@ -3,9 +3,10 @@ use crate::commands::params::{
     PaginationQueryParams, TranscriptionIdPathParams, TranscriptionStartQueryParams,
 };
 use crate::db::connection;
+use crate::db::models::AudioTranscription;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedTranscriptions, PaginationResponse};
 use crate::settings;
 use crate::transcription::model_manager;
 use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider};
@@ -127,7 +128,7 @@ pub async fn start_transcription(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of transcriptions", body = PaginationResponse<crate::db::models::AudioTranscription>),
+        (status = 200, description = "Paginated list of transcriptions", body = PaginatedTranscriptions),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -164,7 +165,7 @@ pub async fn get_transcriptions(
         ("transcriptionId" = String, Path, description = "Transcription ID")
     ),
     responses(
-        (status = 200, description = "Transcription", body = Option<crate::db::models::AudioTranscription>),
+        (status = 200, description = "Transcription", body = Option<AudioTranscription>),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )

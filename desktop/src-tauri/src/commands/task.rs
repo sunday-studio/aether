@@ -2,9 +2,10 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams,
     TaskIdPathParams, TaskSubtaskPathParams,
 };
+use crate::db::models::{SubTask, Task};
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::handlers::common::{PaginatedTasks, PaginationResponse};
 use crate::handlers::task::{
     AddGoalToTaskRequest, CreateSubTaskRequest, CreateTaskRequest, ReorderSubTasksRequest,
     UpdateSubTaskRequest, UpdateTaskRequest,
@@ -36,7 +37,7 @@ pub struct RemoveTagsFromTaskRequest {
     tag = "Tasks",
     request_body = CreateTaskRequest,
     responses(
-        (status = 200, description = "Created task", body = crate::db::models::Task),
+        (status = 200, description = "Created task", body = Task),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -47,7 +48,7 @@ pub async fn create_task(
     request_data: Option<CreateTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
@@ -88,7 +89,7 @@ pub async fn create_task(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of inbox tasks", body = PaginationResponse<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of inbox tasks", body = PaginatedTasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -98,7 +99,7 @@ pub async fn get_inbox_tasks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Task>> {
+) -> Result<PaginationResponse<Task>> {
     let params = query_params.unwrap_or_default();
     let repo = TaskRepository::new(connection::get_database(&*state));
     let (tasks, next_cursor, has_more) = repo
@@ -117,7 +118,7 @@ pub async fn get_inbox_tasks(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of overdue tasks", body = PaginationResponse<crate::db::models::Task>),
+        (status = 200, description = "Paginated list of overdue tasks", body = PaginatedTasks),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -127,7 +128,7 @@ pub async fn get_overdue_tasks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<PaginationResponse<crate::db::models::Task>> {
+) -> Result<PaginationResponse<Task>> {
     let params = query_params.unwrap_or_default();
     let repo = TaskRepository::new(connection::get_database(&*state));
     let (tasks, next_cursor, has_more) = repo
@@ -145,7 +146,7 @@ pub async fn get_overdue_tasks(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Task found", body = crate::db::models::Task),
+        (status = 200, description = "Task found", body = Task),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -156,7 +157,7 @@ pub async fn get_task_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -179,7 +180,7 @@ pub async fn get_task_by_id(
     ),
     request_body = UpdateTaskRequest,
     responses(
-        (status = 200, description = "Updated task", body = crate::db::models::Task),
+        (status = 200, description = "Updated task", body = Task),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Task not found"),
         (status = 409, description = "Conflict: Task was modified by another device"),
@@ -192,7 +193,7 @@ pub async fn update_task(
     request_data: Option<UpdateTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -300,7 +301,7 @@ pub async fn delete_task(
         ("taskId" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "List of subtasks", body = Vec<crate::db::models::SubTask>),
+        (status = 200, description = "List of subtasks", body = Vec<SubTask>),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -311,7 +312,7 @@ pub async fn get_subtasks(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskIdPathParams>,
-) -> Result<Vec<crate::db::models::SubTask>> {
+) -> Result<Vec<SubTask>> {
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
@@ -332,7 +333,7 @@ pub async fn get_subtasks(
     ),
     request_body = CreateSubTaskRequest,
     responses(
-        (status = 200, description = "Created subtask", body = crate::db::models::SubTask),
+        (status = 200, description = "Created subtask", body = SubTask),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
@@ -344,7 +345,7 @@ pub async fn create_subtask(
     request_data: Option<CreateSubTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskIdPathParams>,
-) -> Result<crate::db::models::SubTask> {
+) -> Result<SubTask> {
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
@@ -379,7 +380,7 @@ pub async fn create_subtask(
     ),
     request_body = UpdateSubTaskRequest,
     responses(
-        (status = 200, description = "Updated subtask", body = crate::db::models::SubTask),
+        (status = 200, description = "Updated subtask", body = SubTask),
         (status = 400, description = "Bad request"),
         (status = 404, description = "Subtask not found"),
         (status = 500, description = "Internal server error")
@@ -391,7 +392,7 @@ pub async fn update_subtask(
     request_data: Option<UpdateSubTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskSubtaskPathParams>,
-) -> Result<crate::db::models::SubTask> {
+) -> Result<SubTask> {
     let task_id = path_params
         .as_ref()
         .and_then(|p| Some(p.task_id.clone()))
@@ -549,7 +550,7 @@ pub async fn add_tags_to_task(
     request_data: Option<AddTagsToTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -589,7 +590,7 @@ pub async fn remove_tags_from_task(
     request_data: Option<RemoveTagsFromTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -618,7 +619,7 @@ pub async fn remove_tags_from_task(
     ),
     request_body = AddGoalToTaskRequest,
     responses(
-        (status = 200, description = "Goal added to task", body = crate::db::models::Task),
+        (status = 200, description = "Goal added to task", body = Task),
         (status = 404, description = "Task or goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -629,7 +630,7 @@ pub async fn add_goal_to_task(
     request_data: Option<AddGoalToTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -668,7 +669,7 @@ pub async fn add_goal_to_task(
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Goal removed from task", body = crate::db::models::Task),
+        (status = 200, description = "Goal removed from task", body = Task),
         (status = 404, description = "Task not found"),
         (status = 500, description = "Internal server error")
     )
@@ -679,7 +680,7 @@ pub async fn remove_goal_from_task(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
-) -> Result<crate::db::models::Task> {
+) -> Result<Task> {
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
