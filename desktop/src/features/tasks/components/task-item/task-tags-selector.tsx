@@ -34,9 +34,26 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	const { mutate: addTagsToTask } = useAddTagsToTask();
 
 	const tags = value ?? [];
-	const { updateLocalInstance } = useOptimisticUpdateTaskQuery();
+	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
 
 	const handleAddTag = (tag: string) => {
+		// Store previous state for rollback
+		const previousData = getPreviousData();
+
+		// Create optimistic tag
+		const optimisticTag: TagModel = {
+			id: `temp-${Date.now()}`,
+			name: tag,
+		};
+
+		// Optimistically add the tag
+		updateLocalInstance({
+			id: taskId,
+			data: {
+				tags: [...tags, optimisticTag],
+			},
+		});
+
 		addTagsToTask(
 			{
 				id: taskId,
@@ -44,7 +61,7 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			},
 			{
 				onSuccess: (response) => {
-					// Cast to access runtime response properties not in SDK types
+					// Replace optimistic data with real server response
 					const taskData = response.data as unknown as { tags?: TagModel[] };
 					updateLocalInstance({
 						id: taskId,
@@ -53,11 +70,31 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 						},
 					});
 				},
+				onError: () => {
+					// Rollback on error
+					if (previousData.inbox) {
+						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
+					}
+					if (previousData.overdue) {
+						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
+					}
+				},
 			},
 		);
 	};
 
 	const handleRemoveTag = (tag: string) => {
+		// Store previous state for rollback
+		const previousData = getPreviousData();
+
+		// Optimistically remove the tag
+		updateLocalInstance({
+			id: taskId,
+			data: {
+				tags: tags.filter((t) => t.name !== tag),
+			},
+		});
+
 		removeTagsFromTask(
 			{
 				id: taskId,
@@ -65,7 +102,7 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 			},
 			{
 				onSuccess: (response) => {
-					// Cast to access runtime response properties not in SDK types
+					// Confirm with real server response
 					const taskData = response.data as unknown as { tags?: TagModel[] };
 					updateLocalInstance({
 						id: taskId,
@@ -73,6 +110,15 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 							tags: taskData?.tags ?? [],
 						},
 					});
+				},
+				onError: () => {
+					// Rollback on error
+					if (previousData.inbox) {
+						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
+					}
+					if (previousData.overdue) {
+						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
+					}
 				},
 			},
 		);
