@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import {
+	getGetEntriesInfiniteQueryKey,
 	getGetEntriesQueryKey,
 	useDeleteEntry,
 	useUpdateEntry,
@@ -29,7 +30,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	const { mutate: deleteEntry } = useDeleteEntry();
 
 	const queryClient = useQueryClient();
-	const entriesQueryKey = getGetEntriesQueryKey();
+	const entriesQueryKey = getGetEntriesInfiniteQueryKey();
 
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isTagsShown, setIsTagsShown] = useState(false);
@@ -75,7 +76,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	return (
 		<Timeline.Item
 			key={entry.id}
-			className="max-w-4xl bg-red-0"
+			className="w-3xl bg-red-0"
 			indicatorContainerClassName="w-10"
 			leftContainerClassName="w-40"
 			indicator={
