@@ -1,25 +1,17 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { useMemo } from "react";
 import { Button } from "react-aria-components";
 import { useParams } from "react-router";
-import {
-	getGetGoalInstancesQueryKey,
-	useCreateTask,
-	useGetGoalById,
-	useGetGoalInstancesInfinite,
-} from "~/aether-sdk";
+import { useGetGoalById, useGetGoalInstancesInfinite } from "~/aether-sdk";
+import { useInfiniteScroll } from "~/hooks/use-infinite-scroll";
 import { GoalFormDialog } from "./components/goals/goal-form-dialog";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
+import { useOptimisticCreateTask } from "./use-optimistic-task-hooks";
 
 export const GoalView = () => {
 	const { goalId } = useParams();
 	const { data: goal, isLoading: isLoadingGoal } = useGetGoalById(goalId ?? "");
-
-	const queryClient = useQueryClient();
-	const goalInstancesQueryKey = getGetGoalInstancesQueryKey(goalId ?? "");
 
 	const {
 		data: goalInstancesData,
@@ -36,33 +28,27 @@ export const GoalView = () => {
 			},
 		},
 	);
-	const { mutate: createTask } = useCreateTask();
+	const { mutate: createTask } = useOptimisticCreateTask();
 
 	const isLoading = isLoadingGoal || isLoadingGoalInstances;
 
-	// Flatten all pages into a single array of goal instances
-	const allGoalInstances = useMemo(() => {
-		return goalInstancesData?.pages?.flatMap((page) => page.data?.items ?? []) ?? [];
-	}, [goalInstancesData]);
+	const { items: allGoalInstances, hasMore, isFetchingMore, fetchMore } = useInfiniteScroll({
+		pages: goalInstancesData?.pages,
+		getItems: (page) => page.data?.items ?? [],
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	});
 
 	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(allGoalInstances);
 
 	const handleCreateTask = () => {
-		createTask(
-			{
-				data: {
-					title: "New Task",
-					goalId: goalId ?? "",
-				},
+		createTask({
+			data: {
+				title: "New Task",
+				goalId: goalId ?? "",
 			},
-			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({
-						queryKey: goalInstancesQueryKey,
-					});
-				},
-			},
-		);
+		});
 	};
 
 	if (isLoading) {
@@ -105,23 +91,14 @@ export const GoalView = () => {
 					/>
 				</div>
 			</div>
-			<VirtualizedTaskList groupedTasks={groupedGoalInstances} />
-			{hasNextPage && (
-				<div className="py-4 flex justify-center">
-					<button
-						type="button"
-						onClick={() => fetchNextPage()}
-						disabled={isFetchingNextPage}
-						className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50 flex items-center gap-2"
-					>
-						{isFetchingNextPage ? (
-							<Loader className="w-4 h-4 animate-spin" />
-						) : (
-							"Load more"
-						)}
-					</button>
-				</div>
-			)}
+			<VirtualizedTaskList
+				groupedTasks={groupedGoalInstances}
+				infiniteScroll={{
+					hasMore,
+					isFetchingMore,
+					fetchMore,
+				}}
+			/>
 		</div>
 	);
 };
