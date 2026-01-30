@@ -12,27 +12,61 @@ import {
 } from "~/aether-sdk";
 import type { GoalInstance, PaginatedGoalInstances, PaginatedTasks, SubTask, Task } from "~/aether-sdk/models";
 
-export const useOptimisticUpdateTask = () => {
-	const queryClient = useQueryClient();
-	const mutation = useUpdateTask();
+/**
+ * Type for infinite query data structure
+ */
+type InfiniteQueryData<T> = {
+	pages: Array<{ data: T }>;
+	pageParams: unknown[];
+};
 
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const { updateLocalInstance, previousTasks } = useOptimisticUpdateTaskQuery();
+/**
+ * Helper to update a task in infinite query cache
+ */
+const updateTaskInInfiniteCache = <T extends { items?: Task[] }>(
+	queryClient: ReturnType<typeof useQueryClient>,
+	queryKey: unknown[],
+	taskId: string,
+	updates: Record<string, unknown>,
+) => {
+	queryClient.setQueryData<InfiniteQueryData<T>>(queryKey, (old) => {
+		if (!old?.pages) return old;
+		return {
+			...old,
+			pages: old.pages.map((page) => ({
+				...page,
+				data: {
+					...page.data,
+					items: (page.data?.items || []).map((task) =>
+						task.id === taskId ? { ...task, ...updates } : task,
+					),
+				},
+			})),
+		};
+	});
+};
 
-	const mutate = (variables: { id: string; data: Record<string, unknown> }) => {
-		updateLocalInstance(variables);
-
-		mutation.mutate(variables, {
-			onError: () => {
-				queryClient.setQueryData(inboxTasksQueryKey, previousTasks);
-			},
-		});
-	};
-
-	return {
-		...mutation,
-		mutate,
-	};
+/**
+ * Helper to remove a task from infinite query cache
+ */
+const removeTaskFromInfiniteCache = <T extends { items?: Task[] }>(
+	queryClient: ReturnType<typeof useQueryClient>,
+	queryKey: unknown[],
+	taskId: string,
+) => {
+	queryClient.setQueryData<InfiniteQueryData<T>>(queryKey, (old) => {
+		if (!old?.pages) return old;
+		return {
+			...old,
+			pages: old.pages.map((page) => ({
+				...page,
+				data: {
+					...page.data,
+					items: (page.data?.items || []).filter((task) => task.id !== taskId),
+				},
+			})),
+		};
+	});
 };
 
 /**
@@ -41,34 +75,102 @@ export const useOptimisticUpdateTask = () => {
 export const useOptimisticUpdateTaskQuery = () => {
 	const queryClient = useQueryClient();
 	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const previousTasks = queryClient.getQueryData<{ data: PaginatedTasks }>(
-		inboxTasksQueryKey,
-	);
+	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
+
+	const getPreviousData = () => ({
+		inbox: queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(inboxTasksQueryKey),
+		overdue: queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(overdueTasksQueryKey),
+	});
 
 	const updateLocalInstance = (variables: {
 		id: string;
 		data: Record<string, unknown>;
 	}) => {
-		queryClient.setQueryData<{ data: PaginatedTasks }>(inboxTasksQueryKey, (old) => {
-			const oldItems = old?.data?.items || [];
+		// Update inbox tasks
+		updateTaskInInfiniteCache<PaginatedTasks>(
+			queryClient,
+			inboxTasksQueryKey,
+			variables.id,
+			variables.data,
+		);
 
-			const updatedItems = oldItems.map((task) =>
-				task.id === variables.id ? { ...task, ...variables.data } : task,
-			);
-
-			return {
-				...old,
-				data: {
-					...old?.data,
-					items: updatedItems,
-				},
-			} as { data: PaginatedTasks };
-		});
+		// Update overdue tasks
+		updateTaskInInfiniteCache<PaginatedTasks>(
+			queryClient,
+			overdueTasksQueryKey,
+			variables.id,
+			variables.data,
+		);
 	};
 
 	return {
 		updateLocalInstance,
-		previousTasks,
+		getPreviousData,
+		queryClient,
+		inboxTasksQueryKey,
+		overdueTasksQueryKey,
+	};
+};
+
+export const useOptimisticUpdateTask = () => {
+	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
+	const mutation = useUpdateTask();
+
+	const mutate = (variables: { id: string; data: Record<string, unknown>; goalId?: string }) => {
+		// Store previous state for rollback
+		const previousData = getPreviousData();
+		const previousGoalInstances = variables.goalId
+			? queryClient.getQueryData(getGetGoalInstancesQueryKey(variables.goalId))
+			: null;
+
+		// Optimistically update inbox and overdue
+		updateLocalInstance(variables);
+
+		// Optimistically update goal instances if goalId is provided
+		if (variables.goalId) {
+			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.goalId);
+			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
+				goalInstancesQueryKey,
+				(old) => {
+					if (!old?.pages) return old;
+					return {
+						...old,
+						pages: old.pages.map((page) => ({
+							...page,
+							data: {
+								...page.data,
+								items: (page.data?.items || []).map((goalInstance) => ({
+									...goalInstance,
+									tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).map(
+										(task) => task.id === variables.id ? { ...task, ...variables.data } : task,
+									),
+								})),
+							},
+						})),
+					};
+				},
+			);
+		}
+
+		mutation.mutate(variables, {
+			onError: () => {
+				// Rollback all caches
+				if (previousData.inbox) {
+					queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
+				}
+				if (previousData.overdue) {
+					queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
+				}
+				if (previousGoalInstances && variables.goalId) {
+					queryClient.setQueryData(getGetGoalInstancesQueryKey(variables.goalId), previousGoalInstances);
+				}
+			},
+		});
+	};
+
+	return {
+		...mutation,
+		mutate,
 	};
 };
 
@@ -91,56 +193,33 @@ export const useOptimisticDeleteTask = () => {
 			: null;
 
 		// Optimistically update inbox tasks
-		queryClient.setQueryData<{ data: PaginatedTasks }>(inboxTasksQueryKey, (old) => {
-			if (!old) return old;
-			const oldItems = old.data?.items || [];
-			return {
-				...old,
-				data: {
-					...old.data,
-					items: oldItems.filter((task) => task.id !== variables.id),
-				},
-			} as { data: PaginatedTasks };
-		});
+		removeTaskFromInfiniteCache<PaginatedTasks>(queryClient, inboxTasksQueryKey, variables.id);
 
 		// Optimistically update overdue tasks
-		queryClient.setQueryData<{ data: PaginatedTasks }>(
-			overdueTasksQueryKey,
-			(old) => {
-				if (!old) return old;
-				const oldItems = old.data?.items || [];
-				return {
-					...old,
-					data: {
-						...old.data,
-						items: oldItems.filter((task) => task.id !== variables.id),
-					},
-				} as { data: PaginatedTasks };
-			},
-		);
+		removeTaskFromInfiniteCache<PaginatedTasks>(queryClient, overdueTasksQueryKey, variables.id);
 
 		// Optimistically update goal instances if goalId is provided
 		if (variables.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(
-				variables.goalId,
-			);
-			queryClient.setQueryData<{ data: PaginatedGoalInstances }>(
+			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.goalId);
+			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
-					if (!old) return old;
-					const oldItems = old.data?.items || [];
+					if (!old?.pages) return old;
 					return {
 						...old,
-						data: {
-							...old.data,
-							items: oldItems.map((goalInstance) => ({
-								...goalInstance,
-								tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).filter(
-									(task) => task.id !== variables.id,
-								),
-							})),
-						},
-					} as { data: PaginatedGoalInstances };
+						pages: old.pages.map((page) => ({
+							...page,
+							data: {
+								...page.data,
+								items: (page.data?.items || []).map((goalInstance) => ({
+									...goalInstance,
+									tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).filter(
+										(task) => task.id !== variables.id,
+									),
+								})),
+							},
+						})),
+					};
 				},
 			);
 		}
@@ -154,17 +233,11 @@ export const useOptimisticDeleteTask = () => {
 						queryClient.setQueryData(inboxTasksQueryKey, previousInboxTasks);
 					}
 					if (previousOverdueTasks) {
-						queryClient.setQueryData(
-							overdueTasksQueryKey,
-							previousOverdueTasks,
-						);
+						queryClient.setQueryData(overdueTasksQueryKey, previousOverdueTasks);
 					}
 					if (previousGoalInstances && variables.goalId) {
-						const goalInstancesQueryKey = getGetGoalInstancesQueryKey(
-							variables.goalId,
-						);
 						queryClient.setQueryData(
-							goalInstancesQueryKey,
+							getGetGoalInstancesQueryKey(variables.goalId),
 							previousGoalInstances,
 						);
 					}
@@ -260,7 +333,7 @@ export const useOptimisticUpdateSubtask = () => {
 };
 
 /**
- * Wait for create subtask success, then update local cache
+ * Optimistic create subtask - adds temporary subtask immediately
  */
 export const useOptimisticCreateSubtask = () => {
 	const queryClient = useQueryClient();
@@ -276,14 +349,37 @@ export const useOptimisticCreateSubtask = () => {
 		const subtasksQueryKey = getGetSubtasksQueryKey(variables.taskId);
 		const previousSubtasks = queryClient.getQueryData(subtasksQueryKey);
 
+		// Create a temporary subtask with optimistic ID
+		const tempId = `temp-${Date.now()}`;
+		const optimisticSubtask: SubTask = {
+			id: tempId,
+			title: variables.data.title,
+			isCompleted: false,
+			taskId: variables.taskId,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		// Optimistically add the subtask
+		queryClient.setQueryData<{ data: SubTask[] }>(subtasksQueryKey, (old) => {
+			if (!old) return { data: [optimisticSubtask] };
+			return { ...old, data: [...(old.data || []), optimisticSubtask] };
+		});
+
 		mutation.mutate(variables, {
 			onSuccess: (response) => {
 				const newSubtask = response as { data: SubTask };
+				// Replace the optimistic subtask with the real one
 				queryClient.setQueryData<{ data: SubTask[] }>(
 					subtasksQueryKey,
 					(old) => {
 						if (!old) return { data: [newSubtask.data] };
-						return { ...old, data: [...(old.data || []), newSubtask.data] };
+						return {
+							...old,
+							data: old.data.map((subtask) =>
+								subtask.id === tempId ? newSubtask.data : subtask,
+							),
+						};
 					},
 				);
 				options?.onSuccess?.(newSubtask);
