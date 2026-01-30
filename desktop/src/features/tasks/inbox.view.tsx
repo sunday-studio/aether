@@ -1,18 +1,12 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { useMemo } from "react";
-import {
-	getGetInboxTasksQueryKey,
-	useCreateTask,
-	useGetInboxTasksInfinite,
-} from "~/aether-sdk";
+import { useGetInboxTasksInfinite } from "~/aether-sdk";
 import { Button } from "~/components/shared/button";
+import { useInfiniteScroll } from "~/hooks/use-infinite-scroll";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { groupTaskByCreatedAt } from "./tasks.domain";
+import { useOptimisticCreateTask } from "./use-optimistic-task-hooks";
 
 export const InboxTasksView = () => {
-	const queryClient = useQueryClient();
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
 	const {
 		data: inboxTasksData,
 		isLoading: isLoadingInboxTasks,
@@ -29,12 +23,16 @@ export const InboxTasksView = () => {
 		},
 	);
 
-	const { mutate: createTask } = useCreateTask();
+	const { mutate: createTask } = useOptimisticCreateTask();
 
-	// Flatten all pages into a single array of tasks
-	const allTasks = useMemo(() => {
-		return inboxTasksData?.pages?.flatMap((page) => page.data?.items ?? []) ?? [];
-	}, [inboxTasksData]);
+	// Use the infinite scroll hook to flatten pages and get scroll helpers
+	const { items: allTasks, hasMore, isFetchingMore, fetchMore } = useInfiniteScroll({
+		pages: inboxTasksData?.pages,
+		getItems: (page) => page.data?.items ?? [],
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	});
 
 	if (errorInboxTasks) {
 		return (
@@ -55,18 +53,11 @@ export const InboxTasksView = () => {
 	const groupedTasks = groupTaskByCreatedAt(allTasks);
 
 	const handleCreateTask = () => {
-		createTask(
-			{
-				data: {
-					title: "New Task",
-				},
+		createTask({
+			data: {
+				title: "New Task",
 			},
-			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
-				},
-			},
-		);
+		});
 	};
 
 	return (
@@ -80,23 +71,14 @@ export const InboxTasksView = () => {
 					shortcuts={["⌘", "N"]}
 				/>
 			</div>
-			<VirtualizedTaskList groupedTasks={groupedTasks} />
-			{hasNextPage && (
-				<div className="py-4 flex justify-center">
-					<button
-						type="button"
-						onClick={() => fetchNextPage()}
-						disabled={isFetchingNextPage}
-						className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50 flex items-center gap-2"
-					>
-						{isFetchingNextPage ? (
-							<Loader className="w-4 h-4 animate-spin" />
-						) : (
-							"Load more"
-						)}
-					</button>
-				</div>
-			)}
+			<VirtualizedTaskList
+				groupedTasks={groupedTasks}
+				infiniteScroll={{
+					hasMore,
+					isFetchingMore,
+					fetchMore,
+				}}
+			/>
 		</div>
 	);
 };

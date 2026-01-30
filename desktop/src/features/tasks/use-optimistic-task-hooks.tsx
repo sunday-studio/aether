@@ -5,6 +5,7 @@ import {
 	getGetOverdueTasksQueryKey,
 	getGetSubtasksQueryKey,
 	useCreateSubtask,
+	useCreateTask,
 	useDeleteSubtask,
 	useDeleteTask,
 	useUpdateSubtask,
@@ -254,6 +255,183 @@ export const useOptimisticDeleteTask = () => {
 				},
 			},
 		);
+	};
+
+	return {
+		...mutation,
+		mutate,
+	};
+};
+
+/**
+ * Helper to add a task to infinite query cache
+ */
+const addTaskToInfiniteCache = <T extends { items?: Task[] }>(
+	queryClient: ReturnType<typeof useQueryClient>,
+	queryKey: unknown[],
+	task: Task,
+) => {
+	queryClient.setQueryData<InfiniteQueryData<T>>(queryKey, (old) => {
+		if (!old?.pages || old.pages.length === 0) {
+			return {
+				pages: [{ data: { items: [task] } as T }],
+				pageParams: [undefined],
+			};
+		}
+		// Add to first page
+		return {
+			...old,
+			pages: old.pages.map((page, index) => {
+				if (index === 0) {
+					return {
+						...page,
+						data: {
+							...page.data,
+							items: [task, ...(page.data?.items || [])],
+						},
+					};
+				}
+				return page;
+			}),
+		};
+	});
+};
+
+/**
+ * Optimistic create task - adds temporary task immediately
+ */
+export const useOptimisticCreateTask = () => {
+	const queryClient = useQueryClient();
+	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
+	const mutation = useCreateTask();
+
+	const mutate = (
+		variables: { data: { title: string; goalId?: string } },
+		options?: {
+			onSuccess?: (data: { data: Task }) => void;
+			onError?: () => void;
+		},
+	) => {
+		// Store previous state for rollback
+		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
+		const previousGoalInstances = variables.data.goalId
+			? queryClient.getQueryData(getGetGoalInstancesQueryKey(variables.data.goalId))
+			: null;
+
+		// Create a temporary task with optimistic ID
+		const tempId = `temp-${Date.now()}`;
+		const optimisticTask: Task = {
+			id: tempId,
+			title: variables.data.title,
+			isCompleted: false,
+			goalId: variables.data.goalId,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		// Optimistically add to inbox
+		addTaskToInfiniteCache<PaginatedTasks>(queryClient, inboxTasksQueryKey, optimisticTask);
+
+		// Optimistically add to goal instances if goalId is provided
+		if (variables.data.goalId) {
+			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.data.goalId);
+			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
+				goalInstancesQueryKey,
+				(old) => {
+					if (!old?.pages || old.pages.length === 0) return old;
+					// Add task to the first goal instance in the first page
+					return {
+						...old,
+						pages: old.pages.map((page, pageIndex) => {
+							if (pageIndex === 0 && page.data?.items?.length > 0) {
+								return {
+									...page,
+									data: {
+										...page.data,
+										items: page.data.items.map((goalInstance, instanceIndex) => {
+											if (instanceIndex === 0) {
+												return {
+													...goalInstance,
+													tasks: [optimisticTask, ...((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || [])],
+												};
+											}
+											return goalInstance;
+										}),
+									},
+								};
+							}
+							return page;
+						}),
+					};
+				},
+			);
+		}
+
+		mutation.mutate(variables, {
+			onSuccess: (response) => {
+				const newTask = response as { data: Task };
+				// Replace the optimistic task with the real one in inbox
+				queryClient.setQueryData<InfiniteQueryData<PaginatedTasks>>(
+					inboxTasksQueryKey,
+					(old) => {
+						if (!old?.pages) return old;
+						return {
+							...old,
+							pages: old.pages.map((page) => ({
+								...page,
+								data: {
+									...page.data,
+									items: (page.data?.items || []).map((task) =>
+										task.id === tempId ? newTask.data : task,
+									),
+								},
+							})),
+						};
+					},
+				);
+
+				// Replace in goal instances if applicable
+				if (variables.data.goalId) {
+					const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.data.goalId);
+					queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
+						goalInstancesQueryKey,
+						(old) => {
+							if (!old?.pages) return old;
+							return {
+								...old,
+								pages: old.pages.map((page) => ({
+									...page,
+									data: {
+										...page.data,
+										items: (page.data?.items || []).map((goalInstance) => ({
+											...goalInstance,
+											tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).map(
+												(task) => task.id === tempId ? newTask.data : task,
+											),
+										})),
+									},
+								})),
+							};
+						},
+					);
+				}
+
+				options?.onSuccess?.(newTask);
+			},
+			onError: () => {
+				// Rollback on error
+				if (previousInboxTasks) {
+					queryClient.setQueryData(inboxTasksQueryKey, previousInboxTasks);
+				}
+				if (previousGoalInstances && variables.data.goalId) {
+					queryClient.setQueryData(
+						getGetGoalInstancesQueryKey(variables.data.goalId),
+						previousGoalInstances,
+					);
+				}
+				options?.onError?.();
+			},
+		});
 	};
 
 	return {
