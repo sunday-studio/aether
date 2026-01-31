@@ -83,7 +83,7 @@ const Indicator = forwardRef<
 				>
 					{children}
 				</button>
-				<div className="my-1 w-[2px] flex-1 shrink-0 bg-neutral-200 group-last:hidden &:last-child:hidden" />
+				<div className="my-1 w-[2px] flex-1 shrink-0 bg-neutral-200 group-last:hidden" />
 			</div>
 		</div>
 	);

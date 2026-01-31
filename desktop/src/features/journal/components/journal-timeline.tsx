@@ -7,7 +7,7 @@ import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
 
 export const JournalTimeline = () => {
-	const { items, sentinelRef, isFetchingMore, hasMore } = useEntriesInfinite();
+	const { items, sentinelRef, isFetchingMore } = useEntriesInfinite();
 	const { createEntry } = useCreateJournalEntry();
 
 	const sortedEntries = sortEntries(items);
@@ -35,15 +35,12 @@ export const JournalTimeline = () => {
 				{sortedEntries?.map((entry) => {
 					return <JournalTimelineItem key={entry.id} entry={entry} />;
 				})}
-				<div ref={sentinelRef} className="py-8 flex justify-center">
-					{isFetchingMore && (
-						<Loader className="w-4 h-4 animate-spin text-neutral-400" />
-					)}
-					{/* {!hasMore && sortedEntries.length > 0 && (
-						<span className="text-sm text-neutral-400">No more entries</span>
-					)} */}
-				</div>
 			</Timeline>
+			<div ref={sentinelRef} className="py-8 flex justify-center">
+				{isFetchingMore && (
+					<Loader className="w-4 h-4 animate-spin text-neutral-400" />
+				)}
+			</div>
 		</div>
 	);
 };

@@ -48,6 +48,6 @@ desktop/src-tauri/libsql-replica/**
 
 # Sync server
 sync-server/target/debug/
-sync-server/data
+sync-server/data/**
 sync-server/target/debug/
 sync-server/target/flycheck0/

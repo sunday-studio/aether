@@ -40,7 +40,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 
 	const onUpdateEntry = async (entryId: string, document: string) => {
 		if (isEntryDocumentDifferent(entry.document ?? "", document)) {
-			console.log("onUpdateEntry", entryId, document);
 			updateEntry(
 				{
 					id: entryId,
