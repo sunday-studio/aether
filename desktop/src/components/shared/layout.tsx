@@ -3,6 +3,7 @@ import { useRegisterShortcuts } from "~/hooks/use-register-shortcuts";
 import { ActivityHeatmap } from "./activity-heatmap";
 import { CommandPalette } from "./command-palette";
 import { NavigationControl } from "./navigation-control";
+import { UpdateNotificationListener } from "./update-notification";
 
 export const Layout = () => {
 	const location = useLocation();
@@ -33,6 +34,8 @@ export const Layout = () => {
 				open={commandPaletteOpen}
 				onOpenChange={setCommandPaletteOpen}
 			/>
+
+			<UpdateNotificationListener />
 		</div>
 	);
 };
