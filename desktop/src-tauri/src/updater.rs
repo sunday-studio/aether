@@ -124,7 +124,7 @@ pub async fn check_for_updates(app: &AppHandle) -> Result<Option<UpdateInfo>, St
                 current_version,
                 latest_version: update.version.clone(),
                 changelog: update.body.clone().unwrap_or_default(),
-                published_at: update.date.clone(),
+                published_at: update.date.as_ref().map(|d| d.to_string()),
             };
             Ok(Some(info))
         }

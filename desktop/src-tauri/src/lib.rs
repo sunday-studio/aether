@@ -8,6 +8,7 @@ pub mod media;
 pub mod settings;
 pub mod sync;
 pub mod transcription;
+pub mod updater;
 pub mod utils;
 
 pub use db::DbState;
@@ -16,6 +17,7 @@ pub use error::{AppError, Result};
 use commands::{
     activity, canvas, entry, goal, tag, task, trash, search, bookmark, link,
     sync as sync_commands,
+    updater as updater_commands,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -61,6 +63,7 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_keyring::init());
+    builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     // Initialize database and run migrations
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
@@ -106,11 +109,13 @@ pub fn run() {
     });
     
     let window_focus = WindowFocus(Arc::new(AtomicBool::new(true)));
+    let update_manager = updater::UpdateManager::new();
 
     builder
         .manage(db_state)
         .manage(sync_engine.clone())
         .manage(window_focus)
+        .manage(update_manager)
         .on_window_event(|window, event| {
             match event {
                 WindowEvent::CloseRequested { .. } => {
@@ -163,6 +168,28 @@ pub fn run() {
                                             Err(e) => tracing::warn!("[SYNC] Focus sync failed: {}", e),
                                         }
                                     }
+                                }
+                            }
+
+                            // Check for updates (with cooldown)
+                            if let Some(manager) = app.try_state::<updater::UpdateManager>() {
+                                if manager.should_check().await {
+                                    tracing::debug!("[UPDATER] Checking for updates on focus");
+                                    match updater::check_for_updates(&app).await {
+                                        Ok(Some(info)) => {
+                                            if !manager.is_version_skipped(&info.latest_version).await {
+                                                tracing::info!("[UPDATER] Update available: v{}", info.latest_version);
+                                                let _ = app.emit("update-available", &info);
+                                            }
+                                        }
+                                        Ok(None) => {
+                                            tracing::debug!("[UPDATER] No update available");
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!("[UPDATER] Failed to check for updates: {}", e);
+                                        }
+                                    }
+                                    manager.record_check().await;
                                 }
                             }
                         });
@@ -338,6 +365,13 @@ pub fn run() {
             sync_commands::ensure_media_blob,
             sync_commands::check_sync_triggers,
             sync_commands::test_sync_trigger,
+            // Updater commands
+            updater_commands::check_for_updates,
+            updater_commands::download_and_install_update,
+            updater_commands::skip_update_version,
+            updater_commands::get_update_preferences,
+            updater_commands::set_update_preferences,
+            updater_commands::get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
