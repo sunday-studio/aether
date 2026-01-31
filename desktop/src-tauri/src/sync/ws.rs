@@ -7,8 +7,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-/// Convert http(s) URL to ws(s) and append /ws with device_id query param.
-fn to_ws_url(base: &str, device_id: &str) -> String {
+/// Convert http(s) URL to ws(s) and append /ws with device_id and hostname query params.
+fn to_ws_url(base: &str, device_id: &str, hostname: &str) -> String {
     let s = base.trim_end_matches('/');
     let (scheme, rest) = if s.starts_with("https://") {
         ("wss://", &s[8..])
@@ -17,7 +17,12 @@ fn to_ws_url(base: &str, device_id: &str) -> String {
     } else {
         ("wss://", s)
     };
-    format!("{}{}/ws?device_id={}", scheme, rest, device_id)
+    // URL-encode the hostname since it may contain spaces or special characters
+    let encoded_hostname = urlencoding::encode(hostname);
+    format!(
+        "{}{}/ws?device_id={}&hostname={}",
+        scheme, rest, device_id, encoded_hostname
+    )
 }
 
 /// Run the WebSocket listener. Connects when engine has a URL, reconnects with backoff on disconnect.
@@ -36,7 +41,7 @@ pub async fn run_ws_listener(engine: Arc<SyncEngine>, app: AppHandle) {
             continue;
         };
 
-        // Get device_id for registration
+        // Get device_id and hostname for registration
         let device_id = match engine.get_device_id().await {
             Ok(id) => id,
             Err(e) => {
@@ -46,8 +51,21 @@ pub async fn run_ws_listener(engine: Arc<SyncEngine>, app: AppHandle) {
             }
         };
 
-        let ws_url = to_ws_url(&base_url, &device_id);
-        tracing::info!("[SYNC-WS] Connecting to WebSocket: {} (device: {})", ws_url, device_id);
+        let hostname = match engine.get_device_hostname().await {
+            Ok(h) => h,
+            Err(e) => {
+                tracing::warn!("[SYNC-WS] Failed to get hostname: {}, using 'unknown'", e);
+                "unknown".to_string()
+            }
+        };
+
+        let ws_url = to_ws_url(&base_url, &device_id, &hostname);
+        tracing::info!(
+            "[SYNC-WS] Connecting to WebSocket: {} (device: {}, hostname: {})",
+            ws_url,
+            device_id,
+            hostname
+        );
 
         match connect_async(&ws_url).await {
             Ok((ws, _)) => {

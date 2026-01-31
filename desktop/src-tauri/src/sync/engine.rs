@@ -425,4 +425,10 @@ impl SyncEngine {
         let db = get_database(&self.db);
         metadata::get_device_id(&db).await
     }
+
+    /// Get the device hostname for this device. Used for WebSocket registration.
+    pub async fn get_device_hostname(&self) -> Result<String> {
+        let db = get_database(&self.db);
+        metadata::get_device_hostname(&db).await
+    }
 }

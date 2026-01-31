@@ -12,18 +12,33 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 
 use crate::models::{EncryptedChange, PullResponse, PushRequest};
 use crate::storage::Storage;
+
+/// Tracks a connected device
+#[derive(Clone, Debug, Serialize)]
+pub struct ConnectedDevice {
+    pub device_id: String,
+    pub hostname: Option<String>,
+    pub connected_at: i64,
+    pub last_seen: i64,
+}
+
+/// Shared state for tracking connected devices
+pub type ConnectedDevices = Arc<RwLock<HashMap<String, ConnectedDevice>>>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<Storage>,
     /// Broadcasts the device_id that pushed, so other devices can sync
     pub broadcast: broadcast::Sender<String>,
+    /// Tracks currently connected WebSocket clients
+    pub connected_devices: ConnectedDevices,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,12 +49,14 @@ pub struct PullQuery {
 #[derive(Debug, Deserialize)]
 pub struct WsQuery {
     pub device_id: Option<String>,
+    pub hostname: Option<String>,
 }
 
 pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<String>) -> Router {
     let state = AppState {
         storage,
         broadcast: broadcast_tx,
+        connected_devices: Arc::new(RwLock::new(HashMap::new())),
     };
     Router::new()
         .route("/health", get(health))
@@ -47,6 +64,7 @@ pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<String>) ->
         .route("/push", post(push))
         .route("/pull", get(pull))
         .route("/ws", get(ws_handler))
+        .route("/devices", get(get_devices))
         .route("/media/:hash", get(get_media).put(put_media).head(head_media))
         .with_state(state)
 }
@@ -102,25 +120,69 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     let device_id = query.device_id.unwrap_or_else(|| "unknown".to_string());
+    let hostname = query.hostname;
     let rx = s.broadcast.subscribe();
-    tracing::info!("WebSocket connection from device: {}", device_id);
-    ws.on_upgrade(move |socket| handle_websocket(socket, rx, device_id))
+    let connected_devices = s.connected_devices.clone();
+    tracing::info!(
+        "WebSocket connection from device: {} (hostname: {:?})",
+        device_id,
+        hostname
+    );
+    ws.on_upgrade(move |socket| {
+        handle_websocket(socket, rx, device_id, hostname, connected_devices)
+    })
 }
 
 async fn handle_websocket(
     socket: WebSocket,
     mut rx: broadcast::Receiver<String>,
     my_device_id: String,
+    hostname: Option<String>,
+    connected_devices: ConnectedDevices,
 ) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+
+    // Register device as connected
+    {
+        let mut devices = connected_devices.write().await;
+        devices.insert(
+            my_device_id.clone(),
+            ConnectedDevice {
+                device_id: my_device_id.clone(),
+                hostname: hostname.clone(),
+                connected_at: now,
+                last_seen: now,
+            },
+        );
+        tracing::info!(
+            "Device {} registered, {} devices now connected",
+            my_device_id,
+            devices.len()
+        );
+    }
+
     let (mut sender, mut receiver) = socket.split();
 
     // Task to read from client (handle pongs, detect disconnect)
     let device_id_for_recv = my_device_id.clone();
+    let connected_devices_for_recv = connected_devices.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(msg) = receiver.next().await {
             match msg {
                 Ok(Message::Pong(_)) => {
-                    tracing::debug!("Received pong from device {}", device_id_for_recv);
+                    // Update last_seen timestamp on pong
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as i64;
+                    let mut devices = connected_devices_for_recv.write().await;
+                    if let Some(device) = devices.get_mut(&device_id_for_recv) {
+                        device.last_seen = now;
+                    }
+                    tracing::debug!("Received pong from device {}, updated last_seen", device_id_for_recv);
                 }
                 Ok(Message::Close(_)) => {
                     tracing::info!("WebSocket closed by device {}", device_id_for_recv);
@@ -192,7 +254,31 @@ async fn handle_websocket(
         }
     }
 
-    tracing::info!("WebSocket connection closed for device {}", my_device_id);
+    // Unregister device on disconnect
+    {
+        let mut devices = connected_devices.write().await;
+        devices.remove(&my_device_id);
+        tracing::info!(
+            "Device {} disconnected, {} devices now connected",
+            my_device_id,
+            devices.len()
+        );
+    }
+}
+
+/// Response for /devices endpoint
+#[derive(Serialize)]
+struct DevicesResponse {
+    devices: Vec<ConnectedDevice>,
+    count: usize,
+}
+
+/// Get list of currently connected devices
+async fn get_devices(State(s): State<AppState>) -> impl IntoResponse {
+    let devices = s.connected_devices.read().await;
+    let device_list: Vec<ConnectedDevice> = devices.values().cloned().collect();
+    let count = device_list.len();
+    (StatusCode::OK, Json(DevicesResponse { devices: device_list, count }))
 }
 
 async fn pull(
