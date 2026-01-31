@@ -2,6 +2,7 @@ import { DownloadIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/shared/button";
 import { useUpdater } from "~/hooks/use-updater";
+import type { UpdatePreferences } from "~/types/updater";
 
 export const WhatsNewSection = () => {
 	const {
@@ -14,15 +15,35 @@ export const WhatsNewSection = () => {
 		checkForUpdates,
 		downloadAndInstall,
 		skipVersion,
-		dismissUpdate,
 		getAppVersion,
+		getPreferences,
+		setPreferences,
 	} = useUpdater();
 
 	const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+	const [prefs, setPrefs] = useState<UpdatePreferences | null>(null);
 
 	useEffect(() => {
 		getAppVersion().then(setCurrentVersion);
-	}, [getAppVersion]);
+		getPreferences().then(setPrefs);
+	}, [getAppVersion, getPreferences]);
+
+	const handlePreferenceChange = async (
+		key: keyof UpdatePreferences,
+		value: boolean,
+	) => {
+		if (!prefs) return;
+		const newPrefs = { ...prefs, [key]: value };
+		setPrefs(newPrefs);
+		await setPreferences(newPrefs);
+	};
+
+	const clearSkippedVersions = async () => {
+		if (!prefs) return;
+		const newPrefs = { ...prefs, skippedVersions: [] };
+		setPrefs(newPrefs);
+		await setPreferences(newPrefs);
+	};
 
 	return (
 		<div className="space-y-10 max-w-xl">
@@ -125,6 +146,62 @@ export const WhatsNewSection = () => {
 					<p className="text-sm text-(--color-secondary-text)">
 						You're running the latest version. Check back later for updates.
 					</p>
+				</div>
+			)}
+
+			{/* Update preferences */}
+			{prefs && (
+				<div className="space-y-4">
+					<h4 className="text-sm font-medium">Update Settings</h4>
+
+					<label className="flex items-center gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							checked={prefs.autoCheck}
+							onChange={(e) =>
+								handlePreferenceChange("autoCheck", e.target.checked)
+							}
+							className="rounded border-neutral-400"
+						/>
+						<div>
+							<p className="text-sm">Automatic update checks</p>
+							<p className="text-xs text-(--color-secondary-text)">
+								Check for updates when the app gains focus
+							</p>
+						</div>
+					</label>
+
+					<label className="flex items-center gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							checked={prefs.autoDownload}
+							onChange={(e) =>
+								handlePreferenceChange("autoDownload", e.target.checked)
+							}
+							className="rounded border-neutral-400"
+						/>
+						<div>
+							<p className="text-sm">Auto-download updates</p>
+							<p className="text-xs text-(--color-secondary-text)">
+								Download updates in the background (still requires confirmation
+								to install)
+							</p>
+						</div>
+					</label>
+
+					{prefs.skippedVersions.length > 0 && (
+						<div className="pt-2">
+							<p className="text-sm text-(--color-secondary-text) mb-2">
+								Skipped versions: {prefs.skippedVersions.join(", ")}
+							</p>
+							<Button
+								onClick={clearSkippedVersions}
+								label="Clear skipped versions"
+								variant="ghost"
+								tooltipContent="Remove all skipped versions"
+							/>
+						</div>
+					)}
 				</div>
 			)}
 		</div>
