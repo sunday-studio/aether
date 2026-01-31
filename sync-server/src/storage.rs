@@ -27,11 +27,6 @@ impl Storage {
             )",
             [],
         )?;
-        // Migrate existing changes table to add device_hostname
-        conn.execute(
-            "ALTER TABLE changes ADD COLUMN device_hostname TEXT",
-            [],
-        ).ok(); // Ignore error if column already exists
         conn.execute("CREATE INDEX IF NOT EXISTS idx_changes_time ON changes(received_at)", [])?;
 
         conn.execute(
