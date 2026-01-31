@@ -39,5 +39,12 @@
 			"signingIdentity": "null"
 		}
 	},
-	"plugins": {}
+	"plugins": {
+		"updater": {
+			"endpoints": [
+				"https://github.com/sunday-studio/aether/releases/latest/download/latest.json"
+			],
+			"pubkey": "REPLACE_WITH_PUBLIC_KEY"
+		}
+	}
 }
