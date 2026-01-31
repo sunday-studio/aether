@@ -1,7 +1,7 @@
 use axum::{
     body::Bytes,
     extract::{
-        ws::{Message, WebSocketUpgrade},
+        ws::{Message, WebSocket, WebSocketUpgrade},
         Query, State,
     },
     http::StatusCode,
@@ -10,8 +10,10 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::broadcast;
 
 use crate::models::{EncryptedChange, PullResponse, PushRequest};
@@ -20,7 +22,8 @@ use crate::storage::Storage;
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<Storage>,
-    pub broadcast: broadcast::Sender<()>,
+    /// Broadcasts the device_id that pushed, so other devices can sync
+    pub broadcast: broadcast::Sender<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,7 +31,12 @@ pub struct PullQuery {
     pub since: Option<i64>,
 }
 
-pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<()>) -> Router {
+#[derive(Debug, Deserialize)]
+pub struct WsQuery {
+    pub device_id: Option<String>,
+}
+
+pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<String>) -> Router {
     let state = AppState {
         storage,
         broadcast: broadcast_tx,
@@ -77,19 +85,114 @@ async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl 
             return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
         }
     }
-    let _ = s.broadcast.send(());
+    // Broadcast the device_id that pushed, so other devices know to sync
+    let receiver_count = s.broadcast.send(body.device_id.clone()).unwrap_or(0);
+    tracing::info!(
+        "Push from device {}: {} changes, notified {} connected devices",
+        body.device_id,
+        body.changes.len(),
+        receiver_count
+    );
     (StatusCode::OK, "{}").into_response()
 }
 
-async fn ws_handler(State(s): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
-    let mut rx = s.broadcast.subscribe();
-    ws.on_upgrade(move |mut socket| async move {
-        while let Ok(()) = rx.recv().await {
-            if socket.send(Message::Text("sync".into())).await.is_err() {
-                break;
+async fn ws_handler(
+    State(s): State<AppState>,
+    Query(query): Query<WsQuery>,
+    ws: WebSocketUpgrade,
+) -> impl IntoResponse {
+    let device_id = query.device_id.unwrap_or_else(|| "unknown".to_string());
+    let rx = s.broadcast.subscribe();
+    tracing::info!("WebSocket connection from device: {}", device_id);
+    ws.on_upgrade(move |socket| handle_websocket(socket, rx, device_id))
+}
+
+async fn handle_websocket(
+    socket: WebSocket,
+    mut rx: broadcast::Receiver<String>,
+    my_device_id: String,
+) {
+    let (mut sender, mut receiver) = socket.split();
+
+    // Task to read from client (handle pongs, detect disconnect)
+    let device_id_for_recv = my_device_id.clone();
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(msg) = receiver.next().await {
+            match msg {
+                Ok(Message::Pong(_)) => {
+                    tracing::debug!("Received pong from device {}", device_id_for_recv);
+                }
+                Ok(Message::Close(_)) => {
+                    tracing::info!("WebSocket closed by device {}", device_id_for_recv);
+                    break;
+                }
+                Err(e) => {
+                    tracing::warn!("WebSocket error from device {}: {}", device_id_for_recv, e);
+                    break;
+                }
+                _ => {}
             }
         }
-    })
+    });
+
+    // Task to send pings and sync notifications
+    let device_id_for_send = my_device_id.clone();
+    let mut send_task = tokio::spawn(async move {
+        let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            tokio::select! {
+                _ = ping_interval.tick() => {
+                    if sender.send(Message::Ping(vec![])).await.is_err() {
+                        tracing::debug!("Failed to send ping to device {}", device_id_for_send);
+                        break;
+                    }
+                }
+                result = rx.recv() => {
+                    match result {
+                        Ok(pusher_device_id) => {
+                            // Only notify if a DIFFERENT device pushed
+                            if pusher_device_id != device_id_for_send {
+                                tracing::info!(
+                                    "Notifying device {} about changes from device {}",
+                                    device_id_for_send,
+                                    pusher_device_id
+                                );
+                                if sender.send(Message::Text("sync".into())).await.is_err() {
+                                    tracing::debug!("Failed to send sync to device {}", device_id_for_send);
+                                    break;
+                                }
+                            } else {
+                                tracing::debug!(
+                                    "Skipping notification to device {} (same as pusher)",
+                                    device_id_for_send
+                                );
+                            }
+                        }
+                        Err(broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::warn!("Device {} lagged {} messages", device_id_for_send, n);
+                            // Continue, we'll catch up on next broadcast
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            tracing::info!("Broadcast channel closed");
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Wait for either task to finish
+    tokio::select! {
+        _ = &mut recv_task => {
+            send_task.abort();
+        }
+        _ = &mut send_task => {
+            recv_task.abort();
+        }
+    }
+
+    tracing::info!("WebSocket connection closed for device {}", my_device_id);
 }
 
 async fn pull(

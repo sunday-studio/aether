@@ -19,7 +19,7 @@ use commands::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 /// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
 pub struct WindowFocus(pub Arc<AtomicBool>);
@@ -143,7 +143,29 @@ pub fn run() {
                             }
                         });
                     } else {
-                        tracing::debug!("[SYNC] Window gained focus");
+                        // Window gained focus - sync to pull any changes from other devices
+                        tracing::info!("[SYNC] Window gained focus, triggering sync");
+                        let app = window.app_handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
+                                // Check if sync is configured and ready
+                                if let Ok(status) = engine.status().await {
+                                    if status.connected && !status.needs_passphrase && !engine.is_syncing() {
+                                        match engine.sync().await {
+                                            Ok(new_status) => {
+                                                tracing::info!(
+                                                    "[SYNC] Focus sync completed: pending={}, last_sync={:?}",
+                                                    new_status.pending_changes,
+                                                    new_status.last_sync
+                                                );
+                                                let _ = app.emit("sync-status", &new_status);
+                                            }
+                                            Err(e) => tracing::warn!("[SYNC] Focus sync failed: {}", e),
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
                 _ => {}
@@ -166,7 +188,7 @@ pub fn run() {
             // Periodic sync: every 5 min when focused and ready
             tauri::async_runtime::spawn(async move {
                 tracing::info!("[SYNC] Starting periodic sync task (every 5 minutes)");
-                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5 * 60));
+                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
                 loop {
                     interval.tick().await;
                     let Some(engine) = handle.try_state::<Arc<sync::SyncEngine>>() else {

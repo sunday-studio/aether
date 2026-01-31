@@ -17,7 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let storage = Storage::new(&db_path, &data_root)?;
     storage.initialize_salt()?;
     let storage = Arc::new(storage);
-    let (broadcast_tx, _) = broadcast::channel(16);
+    // Broadcast channel carries the device_id that pushed changes
+    let (broadcast_tx, _) = broadcast::channel::<String>(16);
 
     let app = handlers::router(storage, broadcast_tx);
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], 8080).into();

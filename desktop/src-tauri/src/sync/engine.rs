@@ -419,4 +419,10 @@ impl SyncEngine {
         let db = get_database(&self.db);
         metadata::verify_key(db.as_ref(), &pass).await.ok()
     }
+
+    /// Get the device ID for this device. Used for WebSocket registration.
+    pub async fn get_device_id(&self) -> Result<String> {
+        let db = get_database(&self.db);
+        metadata::get_device_id(&db).await
+    }
 }
