@@ -577,3 +577,40 @@ BEGIN
     INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
     VALUES ('resource_links', COALESCE(NEW._sync_id, NEW.id), 'delete', (strftime('%s','now') * 1000));
 END;
+
+-- ============================================================================
+-- ACTIVITIES SYNC (audit log sync across devices)
+-- ============================================================================
+
+-- activities
+ALTER TABLE activities ADD COLUMN _sync_id TEXT;
+ALTER TABLE activities ADD COLUMN _updated_at INTEGER;
+ALTER TABLE activities ADD COLUMN _deleted INTEGER DEFAULT 0;
+ALTER TABLE activities ADD COLUMN _extra TEXT DEFAULT '{}';
+ALTER TABLE activities ADD COLUMN _version INTEGER DEFAULT 1;
+UPDATE activities SET _sync_id = id, _updated_at = CAST(strftime('%s', created_at) AS INTEGER) * 1000, _deleted = 0 WHERE _sync_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_sync_id ON activities(_sync_id);
+
+-- activities triggers
+CREATE TRIGGER IF NOT EXISTS activities_sync_insert AFTER INSERT ON activities
+WHEN (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('activities', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS activities_sync_update AFTER UPDATE ON activities
+WHEN NEW._updated_at IS NOT NULL AND (NEW._updated_at != OLD._updated_at OR (OLD._updated_at IS NULL))
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('activities', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS activities_sync_delete AFTER UPDATE ON activities
+WHEN NEW._deleted = 1 AND (OLD._deleted = 0 OR OLD._deleted IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('activities', COALESCE(NEW._sync_id, NEW.id), 'delete', (strftime('%s','now') * 1000));
+END;
