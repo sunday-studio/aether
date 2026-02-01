@@ -12,7 +12,6 @@
 
 .editor-placeholder {
 	font-style: italic;
-	/* font-family: "Newsreader", serif; */
 	z-index: 2;
 	position: absolute;
 	margin-top: -24px;
@@ -27,7 +26,6 @@
 }
 
 .editor-container {
-	/* background-color: #f6f8fa; */
 	color: #24292e;
 	font-family: monospace;
 	padding: 10px;
@@ -43,7 +41,7 @@
 .editor-text-bold {
 	font-weight: 550;
 	color: var(--color-foreground);
-	font-family: "GT Ultra", sans-serif;
+	font-family: "Inter", sans-serif;
 }
 
 .editor-text-code {
@@ -123,40 +121,35 @@
 	font-size: 30px;
 	font-weight: 400;
 	margin-bottom: 0.5rem;
-	/* font-family: "Newsreader", serif; */
-	font-family: "GT Ultra", sans-serif;
+	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
 .editor-heading-h2 {
 	font-size: 24px;
 	font-weight: 400;
 	margin-bottom: 0.5rem;
-	/* font-family: "Newsreader", serif; */
-	font-family: "GT Ultra", sans-serif;
+	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
 .editor-heading-h3 {
 	font-size: 20px;
 	font-weight: 400;
 	margin-bottom: 0.5rem;
-	/* font-family: "Newsreader", serif; */
-	font-family: "GT Ultra", sans-serif;
+	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
 .editor-heading-h4 {
 	font-size: 16px;
 	font-weight: 400;
 	margin-bottom: 0.5rem;
-	/* font-family: "Newsreader", serif; */
-	font-family: "GT Ultra", sans-serif;
+	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
 .editor-heading-h5 {
 	font-size: 14px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	/* 	font-family: "Newsreader", serif; */
-	font-family: "GT Ultra", sans-serif;
+	margin-bottom: 0.5rem;		
+	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
 

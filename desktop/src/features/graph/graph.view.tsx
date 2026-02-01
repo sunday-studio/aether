@@ -21,7 +21,6 @@ export const GraphView = () => {
 		);
 	}
 
-	// SDK now returns properly typed PaginatedLinks
 	const links = response?.status === 200 ? response.data?.items ?? [] : [];
 
 	return (

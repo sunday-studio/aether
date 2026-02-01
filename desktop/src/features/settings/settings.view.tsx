@@ -1,10 +1,11 @@
-import { BrainIcon, CloudIcon, Palette, SparklesIcon } from "lucide-react";
+import { CloudIcon, Palette, SparklesIcon } from "lucide-react";
 import { useState } from "react";
-import { cn } from "~/utils/cn";
-import { ModelsSection } from "./components/models.section";
+// import { cn } from "~/utils/cn";
+// import { ModelsSection } from "./components/models.section";
 import { PreferencesSection } from "./components/preferences.section";
 import { SyncSection } from "./components/sync.section";
 import { WhatsNewSection } from "./components/whats-new.section";
+import { cn } from "~/utils/cn";
 
 type AvailableSections = "preferences" | "whats-new" | "sync";
 
@@ -32,7 +33,7 @@ export const SettingsView = () => {
 		// 	component: <ModelsSection />,
 		// },
 		"whats-new": {
-			label: "What's New",
+			label: "What's new",
 			icon: <SparklesIcon className="size-4" strokeWidth={2.5} />,
 			component: <WhatsNewSection />,
 		},
