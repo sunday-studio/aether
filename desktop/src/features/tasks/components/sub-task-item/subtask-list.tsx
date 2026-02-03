@@ -1,10 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import type { SubTask } from "~/aether-sdk/models/sub-task";
 import {
-	useOptimisticCreateSubtask,
-	useOptimisticDeleteSubtask,
-	useOptimisticUpdateSubtask,
-} from "../../use-optimistic-task-hooks";
+	useCreateSubtask,
+	useDeleteSubtask,
+	useUpdateSubtask,
+} from "~/aether-sdk";
+import { invalidateSubtaskQueries } from "../../invalidate-task-queries";
 import { TaskSubtaskItem } from "./subtask-item";
 
 interface SubtaskListProps {
@@ -13,9 +15,10 @@ interface SubtaskListProps {
 }
 
 export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
-	const { mutate: updateSubtask } = useOptimisticUpdateSubtask();
-	const { mutate: createSubtask } = useOptimisticCreateSubtask();
-	const { mutate: deleteSubtask } = useOptimisticDeleteSubtask();
+	const queryClient = useQueryClient();
+	const { mutate: updateSubtask } = useUpdateSubtask();
+	const { mutate: createSubtask } = useCreateSubtask();
+	const { mutate: deleteSubtask } = useDeleteSubtask();
 
 	const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 	const pendingFocusRef = useRef<string | null>(null);
@@ -52,44 +55,46 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 	};
 
 	const handleOnChangeTitleChange = (subtaskId: string, value: string) => {
-		updateSubtask({
-			taskId: taskId,
-			subtaskId: subtaskId,
-			data: {
-				title: value,
+		updateSubtask(
+			{
+				taskId: taskId,
+				subtaskId: subtaskId,
+				data: { title: value },
 			},
-		});
+			{
+				onSuccess: () => invalidateSubtaskQueries(queryClient, taskId),
+			},
+		);
 	};
 
 	const handleOnChangeIsCompletedChange = (
 		subtaskId: string,
 		value: boolean,
 	) => {
-		updateSubtask({
-			taskId: taskId,
-			subtaskId: subtaskId,
-			data: {
-				isCompleted: value,
+		updateSubtask(
+			{
+				taskId: taskId,
+				subtaskId: subtaskId,
+				data: { isCompleted: value },
 			},
-		});
+			{
+				onSuccess: () => invalidateSubtaskQueries(queryClient, taskId),
+			},
+		);
 	};
 
 	const handleCreateSubtask = (title: string) => {
 		createSubtask(
 			{
 				taskId: taskId,
-				data: {
-					title: title,
-				},
+				data: { title },
 			},
 			{
-				onSuccess: ({ data: newSubtask }: { data: DbSubTask }) => {
-					const subtaskId = newSubtask.id as string;
-
-					// Set the pending focus ref - the callback ref will handle focusing when element mounts
+				onSuccess: ({ data: newSubtask }) => {
+					invalidateSubtaskQueries(queryClient, taskId);
+					const subtaskId = newSubtask?.id as string;
+					if (!subtaskId) return;
 					pendingFocusRef.current = subtaskId;
-
-					// Also try to focus immediately in case ref is already set
 					setTimeout(() => {
 						const input = getInputElement(subtaskId);
 						if (input && pendingFocusRef.current === subtaskId) {
@@ -160,7 +165,13 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 						}}
 						onKeyDown={(e) => handleKeyDown(e, subtaskId, index)}
 						onDelete={() =>
-							deleteSubtask({ taskId: taskId, subtaskId: subtaskId })
+							deleteSubtask(
+								{ taskId, subtaskId },
+								{
+									onSuccess: () =>
+										invalidateSubtaskQueries(queryClient, taskId),
+								},
+							)
 						}
 					/>
 				);
