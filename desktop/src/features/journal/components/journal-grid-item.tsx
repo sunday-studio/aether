@@ -2,11 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { MoreVertical } from "lucide-react";
 import { useState } from "react";
-import {
-	getGetEntriesQueryKey,
-	useDeleteEntry,
-	useUpdateEntry,
-} from "~/aether-sdk";
+import { useDeleteEntry, useUpdateEntry } from "~/aether-sdk";
+import { invalidateEntryQueries } from "../invalidate-entry-queries";
 import { showToast } from "~/components/shared/toast-components";
 import type { EntryWithTags } from "~/types/models";
 import { extractFirstSentence } from "../journal.domain.ts";
@@ -26,7 +23,6 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 	const { mutate: updateEntry } = useUpdateEntry();
 	const { mutate: deleteEntry } = useDeleteEntry();
 	const queryClient = useQueryClient();
-	const entriesQueryKey = getGetEntriesQueryKey();
 
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
@@ -43,9 +39,7 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 					},
 				},
 				{
-					onSuccess: () => {
-						queryClient.invalidateQueries({ queryKey: entriesQueryKey });
-					},
+					onSuccess: () => invalidateEntryQueries(queryClient),
 				},
 			);
 		}
@@ -58,7 +52,7 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 			},
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					invalidateEntryQueries(queryClient);
 					showToast({
 						title: "Entry deleted successfully",
 					});

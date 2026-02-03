@@ -2,7 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { Mic } from "lucide-react";
 import { useState } from "react";
-import { getGetEntriesQueryKey, useGetEntries } from "~/aether-sdk";
+import { useGetEntries } from "~/aether-sdk";
+import { invalidateEntryQueries } from "../invalidate-entry-queries";
 import type { Entry } from "~/aether-sdk/models";
 import { AudioRecorderModal } from "~/components/shared/audio-recorder-modal";
 import { Button } from "~/components/shared/button";
@@ -15,7 +16,6 @@ export const JournalGridView = () => {
 	const { data: entriesResponse } = useGetEntries();
 	const { createEntry } = useCreateJournalEntry();
 	const queryClient = useQueryClient();
-	const entriesQueryKey = getGetEntriesQueryKey();
 	const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
 	// SDK now returns properly typed PaginatedEntries
@@ -60,8 +60,8 @@ export const JournalGridView = () => {
 				},
 			});
 
-			// Refresh entries
-			queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+			// Refresh entries (both timeline and grid)
+			invalidateEntryQueries(queryClient);
 
 			showToast({
 				title: "Audio recorded and transcription started",

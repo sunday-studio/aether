@@ -1,9 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-	getGetEntriesQueryKey,
-	useAddTagsToEntry,
-	useRemoveTagsFromEntry,
-} from "~/aether-sdk";
+import { useAddTagsToEntry, useRemoveTagsFromEntry } from "~/aether-sdk";
+import { invalidateEntryQueries } from "../invalidate-entry-queries";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 import type { EntryWithTags } from "~/types/models";
 import { cn } from "~/utils/cn";
@@ -35,8 +32,6 @@ interface EntryTagsProps {
 export const EntryTags = ({ entry }: EntryTagsProps) => {
 	const queryClient = useQueryClient();
 
-	const entriesQueryKey = getGetEntriesQueryKey();
-
 	const { mutate: addTagsToEntry } = useAddTagsToEntry();
 	const { mutate: removeTagsFromEntry } = useRemoveTagsFromEntry();
 
@@ -49,9 +44,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 				data: [tagId],
 			},
 			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
-				},
+				onSuccess: () => invalidateEntryQueries(queryClient),
 			},
 		);
 	};
@@ -65,9 +58,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 				data: tagId,
 			},
 			{
-				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
-				},
+				onSuccess: () => invalidateEntryQueries(queryClient),
 			},
 		);
 	};

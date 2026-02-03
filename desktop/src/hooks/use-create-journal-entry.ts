@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetEntriesInfiniteQueryKey, useCreateEntry } from "~/aether-sdk";
+import { useCreateEntry } from "~/aether-sdk";
+import { invalidateEntryQueries } from "~/features/journal/invalidate-entry-queries";
 import { useEditorFocusStore } from "~/store/editor-focus-state";
 
 const placeholder =
@@ -8,7 +9,6 @@ const placeholder =
 export const useCreateJournalEntry = () => {
 	const queryClient = useQueryClient();
 	const { mutate } = useCreateEntry();
-	const entriesQueryKey = getGetEntriesInfiniteQueryKey({});
 	const { requestFocus } = useEditorFocusStore();
 
 	const createEntry = async () => {
@@ -23,8 +23,7 @@ export const useCreateJournalEntry = () => {
 			},
 			{
 				onSuccess: ({ data }) => {
-					// console.log("created entry ->", data);
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					invalidateEntryQueries(queryClient);
 					requestFocus(data?.id ?? "");
 				},
 				onError: (error) => {

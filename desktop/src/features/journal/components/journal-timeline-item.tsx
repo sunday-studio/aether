@@ -1,12 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
-import {
-	getGetEntriesInfiniteQueryKey,
-	getGetEntriesQueryKey,
-	useDeleteEntry,
-	useUpdateEntry,
-} from "~/aether-sdk";
+import { useDeleteEntry, useUpdateEntry } from "~/aether-sdk";
+import { invalidateEntryQueries } from "../invalidate-entry-queries";
 import { Timeline } from "~/components/shared/timeline";
 import { showToast } from "~/components/shared/toast-components";
 import { Tooltip } from "~/components/shared/tooltip";
@@ -30,7 +26,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	const { mutate: deleteEntry } = useDeleteEntry();
 
 	const queryClient = useQueryClient();
-	const entriesQueryKey = getGetEntriesInfiniteQueryKey();
 
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isTagsShown, setIsTagsShown] = useState(false);
@@ -48,9 +43,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 					},
 				},
 				{
-					onSuccess: () => {
-						queryClient.invalidateQueries({ queryKey: entriesQueryKey });
-					},
+					onSuccess: () => invalidateEntryQueries(queryClient),
 				},
 			);
 		}
@@ -63,7 +56,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 			},
 			{
 				onSuccess: () => {
-					queryClient.invalidateQueries({ queryKey: entriesQueryKey });
+					invalidateEntryQueries(queryClient);
 					showToast({
 						title: "Entry deleted successfully",
 					});
