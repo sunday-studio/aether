@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Disc } from "lucide-react";
 import { forwardRef, useMemo, useState } from "react";
 import { Button, DialogTrigger, Popover } from "react-aria-components";
@@ -9,7 +10,7 @@ import {
 	searchInputStyles,
 } from "~/components/shared/tags-popover-selector";
 import { Tooltip } from "~/components/shared/tooltip";
-import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-task-hooks";
+import { invalidateTaskQueries } from "../../invalidate-task-queries";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskGoalSelectorProps {
@@ -34,11 +35,10 @@ const CustomTrigger = forwardRef<
 });
 
 export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
+	const queryClient = useQueryClient();
 	const { data: goalsResponse } = useGetGoals();
 	const { mutate: addGoalToTask } = useAddGoalToTask();
 	const [searchValue, setSearchValue] = useState("");
-
-	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
 
 	// SDK now returns properly typed PaginatedGoals
 	const goalsData: Goal[] = goalsResponse?.data?.items ?? [];
@@ -54,44 +54,14 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 	}, [goalsData, searchValue]);
 
 	const handleOnSelectGoal = (goalId: string) => {
-		// Store previous state for rollback
-		const previousData = getPreviousData();
-
-		// Optimistically update the goal
-		updateLocalInstance({
-			id: taskId,
-			data: {
-				goalId,
-				goalInstanceId: `temp-${Date.now()}`, // Temporary until server confirms
-			},
-		});
-
 		addGoalToTask(
 			{
 				id: taskId,
-				data: {
-					goalId,
-				},
+				data: { goalId },
 			},
 			{
-				onSuccess: ({ data }) => {
-					// Replace with real server response
-					updateLocalInstance({
-						id: taskId,
-						data: {
-							goalInstanceId: data?.goalInstanceId ?? "",
-						},
-					});
-				},
-				onError: () => {
-					// Rollback on error
-					if (previousData.inbox) {
-						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
-					}
-					if (previousData.overdue) {
-						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
-					}
-				},
+				onSuccess: () =>
+					invalidateTaskQueries(queryClient, { goalId }),
 			},
 		);
 	};
