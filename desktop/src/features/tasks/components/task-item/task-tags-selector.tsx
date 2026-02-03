@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/a11y/useFocusableInteractive: false positive */
 /** biome-ignore-all lint/a11y/useSemanticElements: false positive */
+import { useQueryClient } from "@tanstack/react-query";
 import { Tag } from "lucide-react";
 import { forwardRef, useMemo } from "react";
 import { cn } from "tailwind-variants";
@@ -7,7 +8,7 @@ import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
 import type { Tag as TagModel } from "~/aether-sdk/models";
 import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
 import { Tooltip } from "~/components/shared/tooltip";
-import { useOptimisticUpdateTaskQuery } from "../../use-optimistic-task-hooks";
+import { invalidateTaskQueries } from "../../invalidate-task-queries";
 import { TaskActionButton } from "./task-shared-components";
 
 interface TaskTagsInputProps {
@@ -30,96 +31,32 @@ const TagItem = ({ label }: { label: string }) => {
 };
 
 export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
+	const queryClient = useQueryClient();
 	const { mutate: removeTagsFromTask } = useRemoveTagsFromTask();
 	const { mutate: addTagsToTask } = useAddTagsToTask();
 
 	const tags = value ?? [];
-	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
 
 	const handleAddTag = (tag: string) => {
-		// Store previous state for rollback
-		const previousData = getPreviousData();
-
-		// Create optimistic tag
-		const optimisticTag: TagModel = {
-			id: `temp-${Date.now()}`,
-			name: tag,
-		};
-
-		// Optimistically add the tag
-		updateLocalInstance({
-			id: taskId,
-			data: {
-				tags: [...tags, optimisticTag],
-			},
-		});
-
 		addTagsToTask(
 			{
 				id: taskId,
 				data: [tag],
 			},
 			{
-				onSuccess: (response) => {
-					// Replace optimistic data with real server response
-					const taskData = response.data as unknown as { tags?: TagModel[] };
-					updateLocalInstance({
-						id: taskId,
-						data: {
-							tags: taskData?.tags ?? [],
-						},
-					});
-				},
-				onError: () => {
-					// Rollback on error
-					if (previousData.inbox) {
-						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
-					}
-					if (previousData.overdue) {
-						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
-					}
-				},
+				onSuccess: () => invalidateTaskQueries(queryClient),
 			},
 		);
 	};
 
 	const handleRemoveTag = (tag: string) => {
-		// Store previous state for rollback
-		const previousData = getPreviousData();
-
-		// Optimistically remove the tag
-		updateLocalInstance({
-			id: taskId,
-			data: {
-				tags: tags.filter((t) => t.name !== tag),
-			},
-		});
-
 		removeTagsFromTask(
 			{
 				id: taskId,
 				data: [tag],
 			},
 			{
-				onSuccess: (response) => {
-					// Confirm with real server response
-					const taskData = response.data as unknown as { tags?: TagModel[] };
-					updateLocalInstance({
-						id: taskId,
-						data: {
-							tags: taskData?.tags ?? [],
-						},
-					});
-				},
-				onError: () => {
-					// Rollback on error
-					if (previousData.inbox) {
-						queryClient.setQueryData(inboxTasksQueryKey, previousData.inbox);
-					}
-					if (previousData.overdue) {
-						queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
-					}
-				},
+				onSuccess: () => invalidateTaskQueries(queryClient),
 			},
 		);
 	};
