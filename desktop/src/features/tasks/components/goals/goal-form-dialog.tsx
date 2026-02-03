@@ -16,7 +16,7 @@ import {
 	useCreateGoal,
 	useUpdateGoal,
 } from "~/aether-sdk";
-import type { Goal, PaginatedGoals } from "~/aether-sdk/models";
+import type { Goal } from "~/aether-sdk/models";
 import { Checkbox } from "~/components/shared/checkbox";
 import { DateTimePicker } from "~/components/shared/datepicker";
 import { Label } from "~/components/shared/field";
@@ -130,33 +130,6 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 			const goalsQueryKey = getGetGoalsQueryKey();
 
 			if (isEditMode) {
-				// Store previous state for rollback
-				const previousGoal = queryClient.getQueryData<{ data: Goal }>(goalQueryKey);
-				const previousGoals = queryClient.getQueryData<{ data: PaginatedGoals }>(goalsQueryKey);
-
-				// Optimistically update the goal
-				queryClient.setQueryData<{ data: Goal }>(goalQueryKey, (old) => {
-					if (!old) return old;
-					return {
-						...old,
-						data: { ...old.data, ...data },
-					};
-				});
-
-				// Also update in goals list
-				queryClient.setQueryData<{ data: PaginatedGoals }>(goalsQueryKey, (old) => {
-					if (!old?.data?.items) return old;
-					return {
-						...old,
-						data: {
-							...old.data,
-							items: old.data.items.map((g) =>
-								g.id === goal?.id ? { ...g, ...data } : g,
-							),
-						},
-					};
-				});
-
 				updateGoal(
 					{
 						id: goal?.id ?? "",
@@ -168,48 +141,10 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 							queryClient.invalidateQueries({ queryKey: goalsQueryKey });
 							setIsOpen(false);
 						},
-						onError: () => {
-							// Rollback on error
-							if (previousGoal) {
-								queryClient.setQueryData(goalQueryKey, previousGoal);
-							}
-							if (previousGoals) {
-								queryClient.setQueryData(goalsQueryKey, previousGoals);
-							}
-						},
 					},
 				);
 				return;
 			}
-
-			// Store previous state for rollback
-			const previousGoals = queryClient.getQueryData<{ data: PaginatedGoals }>(goalsQueryKey);
-
-			// Create optimistic goal
-			const tempId = `temp-${Date.now()}`;
-			const optimisticGoal: Goal = {
-				id: tempId,
-				name: data.name,
-				description: data.description,
-				recurrenceType: data.recurrenceType,
-				recurrenceInterval: data.recurrenceInterval,
-				recurrenceAnchor: data.recurrenceAnchor,
-				isNonRecurring: data.isNonRecurring,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			};
-
-			// Optimistically add the goal
-			queryClient.setQueryData<{ data: PaginatedGoals }>(goalsQueryKey, (old) => {
-				if (!old?.data) return { data: { items: [optimisticGoal], nextCursor: null } };
-				return {
-					...old,
-					data: {
-						...old.data,
-						items: [optimisticGoal, ...(old.data.items || [])],
-					},
-				};
-			});
 
 			createGoal(
 				{
@@ -219,12 +154,6 @@ export const GoalFormDialog = ({ goal, trigger }: CreateGoalFormProps) => {
 					onSuccess: () => {
 						queryClient.invalidateQueries({ queryKey: goalsQueryKey });
 						setIsOpen(false);
-					},
-					onError: () => {
-						// Rollback on error
-						if (previousGoals) {
-							queryClient.setQueryData(goalsQueryKey, previousGoals);
-						}
 					},
 				},
 			);
