@@ -36,34 +36,24 @@ function applyTheme(mode: ThemeMode, light: LightTheme, dark: DarkTheme) {
 	localStorage.setItem(STORAGE_KEY, theme);
 }
 
-function useOptimisticUpdate() {
+export function useTheme() {
 	const queryClient = useQueryClient();
-	const mutation = useSetSetting();
-	const queryKey = getGetAllSettingsQueryKey();
+	const { mutate: setSetting } = useSetSetting();
+	const settingsQueryKey = getGetAllSettingsQueryKey();
 
-	return useCallback(
+	const update = useCallback(
 		(key: string, value: string) => {
-			queryClient.setQueryData<GetAllSettingsQueryResult | undefined>(
-				queryKey,
-				// biome-ignore lint/suspicious/noExplicitAny: fix types
-				(old: any = {}) => {
-					return {
-						...old,
-						data: {
-							...old.data,
-							[key]: value,
-						},
-					};
+			setSetting(
+				{ data: { key, value } },
+				{
+					onSuccess: () => {
+						queryClient.invalidateQueries({ queryKey: settingsQueryKey });
+					},
 				},
 			);
-			mutation.mutate({ data: { key, value } });
 		},
-		[queryClient, queryKey, mutation],
+		[queryClient, settingsQueryKey, setSetting],
 	);
-}
-
-export function useTheme() {
-	const update = useOptimisticUpdate();
 
 	const { data } = useGetAllSettings({
 		query: {
