@@ -11,7 +11,7 @@ pub struct DbState {
     pub database: Arc<Mutex<Arc<Database>>>,
 }
 
-/// Database path: local dev = project libsql-replica; build = app data dir.
+/// Database path: local dev = target/libsql-replica-dev (avoids watcher rebuilds); build = app data dir.
 fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
     let app_data_dir = if let Some(handle) = app_handle {
         handle
@@ -22,8 +22,9 @@ fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
                 format!("Failed to get app data dir: {}", e),
             )))?
     } else if cfg!(debug_assertions) {
-        // Local dev: base is project src/ so path becomes .../src/libsql-replica/local.db
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")
+        // Local dev: use target/ so DB files are outside src/ and don't trigger the dev watcher
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join("libsql-replica-dev");
+        return Ok(dir.join("local.db"));
     } else {
         // Build without handle: resolve app data dir from identifier (com.cas.aether)
         directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
