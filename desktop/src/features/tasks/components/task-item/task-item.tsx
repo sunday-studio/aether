@@ -57,7 +57,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				<SubtaskList taskId={task.id as string} />
+				{/* <SubtaskList taskId={task.id as string} /> */}
 				<div className="flex gap-1 items-center">
 					<TaskDueDateInput
 						value={task.dueDate ?? undefined}

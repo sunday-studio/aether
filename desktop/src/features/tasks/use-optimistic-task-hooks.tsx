@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
-	getGetGoalInstancesQueryKey,
-	getGetInboxTasksQueryKey,
-	getGetOverdueTasksQueryKey,
+	getGetGoalInstancesInfiniteQueryKey,
+	getGetInboxTasksInfiniteQueryKey,
+	getGetOverdueTasksInfiniteQueryKey,
 	getGetSubtasksQueryKey,
 	useCreateSubtask,
 	useCreateTask,
@@ -21,12 +21,9 @@ type InfiniteQueryData<T> = {
 	pageParams: unknown[];
 };
 
-/**
- * Helper to update a task in infinite query cache
- */
 const updateTaskInInfiniteCache = <T extends { items?: Task[] }>(
 	queryClient: ReturnType<typeof useQueryClient>,
-	queryKey: unknown[],
+	queryKey: readonly unknown[],
 	taskId: string,
 	updates: Record<string, unknown>,
 ) => {
@@ -52,7 +49,7 @@ const updateTaskInInfiniteCache = <T extends { items?: Task[] }>(
  */
 const removeTaskFromInfiniteCache = <T extends { items?: Task[] }>(
 	queryClient: ReturnType<typeof useQueryClient>,
-	queryKey: unknown[],
+	queryKey: readonly unknown[],
 	taskId: string,
 ) => {
 	queryClient.setQueryData<InfiniteQueryData<T>>(queryKey, (old) => {
@@ -75,8 +72,9 @@ const removeTaskFromInfiniteCache = <T extends { items?: Task[] }>(
  */
 export const useOptimisticUpdateTaskQuery = () => {
 	const queryClient = useQueryClient();
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
+	// Pass empty object to match the query key used in views
+	const inboxTasksQueryKey = getGetInboxTasksInfiniteQueryKey({});
+	const overdueTasksQueryKey = getGetOverdueTasksInfiniteQueryKey({});
 
 	const getPreviousData = () => ({
 		inbox: queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(inboxTasksQueryKey),
@@ -121,7 +119,7 @@ export const useOptimisticUpdateTask = () => {
 		// Store previous state for rollback
 		const previousData = getPreviousData();
 		const previousGoalInstances = variables.goalId
-			? queryClient.getQueryData(getGetGoalInstancesQueryKey(variables.goalId))
+			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}))
 			: null;
 
 		// Optimistically update inbox and overdue
@@ -129,7 +127,7 @@ export const useOptimisticUpdateTask = () => {
 
 		// Optimistically update goal instances if goalId is provided
 		if (variables.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.goalId);
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.goalId, {});
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -163,7 +161,7 @@ export const useOptimisticUpdateTask = () => {
 					queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
 				}
 				if (previousGoalInstances && variables.goalId) {
-					queryClient.setQueryData(getGetGoalInstancesQueryKey(variables.goalId), previousGoalInstances);
+					queryClient.setQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}), previousGoalInstances);
 				}
 			},
 		});
@@ -180,8 +178,9 @@ export const useOptimisticUpdateTask = () => {
  */
 export const useOptimisticDeleteTask = () => {
 	const queryClient = useQueryClient();
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
-	const overdueTasksQueryKey = getGetOverdueTasksQueryKey();
+	// Pass empty object to match the query key used in views
+	const inboxTasksQueryKey = getGetInboxTasksInfiniteQueryKey({});
+	const overdueTasksQueryKey = getGetOverdueTasksInfiniteQueryKey({});
 
 	const mutation = useDeleteTask();
 
@@ -190,7 +189,7 @@ export const useOptimisticDeleteTask = () => {
 		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
 		const previousOverdueTasks = queryClient.getQueryData(overdueTasksQueryKey);
 		const previousGoalInstances = variables.goalId
-			? queryClient.getQueryData(getGetGoalInstancesQueryKey(variables.goalId))
+			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}))
 			: null;
 
 		// Optimistically update inbox tasks
@@ -201,7 +200,7 @@ export const useOptimisticDeleteTask = () => {
 
 		// Optimistically update goal instances if goalId is provided
 		if (variables.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.goalId);
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.goalId, {});
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -236,23 +235,23 @@ export const useOptimisticDeleteTask = () => {
 					if (previousOverdueTasks) {
 						queryClient.setQueryData(overdueTasksQueryKey, previousOverdueTasks);
 					}
-					if (previousGoalInstances && variables.goalId) {
-						queryClient.setQueryData(
-							getGetGoalInstancesQueryKey(variables.goalId),
-							previousGoalInstances,
-						);
-					}
-				},
-				onSuccess: () => {
-					// Invalidate queries to ensure fresh data
-					queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
-					queryClient.invalidateQueries({ queryKey: overdueTasksQueryKey });
-					if (variables.goalId) {
-						queryClient.invalidateQueries({
-							queryKey: getGetGoalInstancesQueryKey(variables.goalId),
-						});
-					}
-				},
+				if (previousGoalInstances && variables.goalId) {
+					queryClient.setQueryData(
+						getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+						previousGoalInstances,
+					);
+				}
+			},
+			onSuccess: () => {
+				// Invalidate queries to ensure fresh data
+				queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
+				queryClient.invalidateQueries({ queryKey: overdueTasksQueryKey });
+				if (variables.goalId) {
+					queryClient.invalidateQueries({
+						queryKey: getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+					});
+				}
+			},
 			},
 		);
 	};
@@ -268,7 +267,7 @@ export const useOptimisticDeleteTask = () => {
  */
 const addTaskToInfiniteCache = <T extends { items?: Task[] }>(
 	queryClient: ReturnType<typeof useQueryClient>,
-	queryKey: unknown[],
+	queryKey: readonly unknown[],
 	task: Task,
 ) => {
 	queryClient.setQueryData<InfiniteQueryData<T>>(queryKey, (old) => {
@@ -302,7 +301,8 @@ const addTaskToInfiniteCache = <T extends { items?: Task[] }>(
  */
 export const useOptimisticCreateTask = () => {
 	const queryClient = useQueryClient();
-	const inboxTasksQueryKey = getGetInboxTasksQueryKey();
+	// Pass empty object to match the query key used in views
+	const inboxTasksQueryKey = getGetInboxTasksInfiniteQueryKey({});
 	const mutation = useCreateTask();
 
 	const mutate = (
@@ -315,7 +315,7 @@ export const useOptimisticCreateTask = () => {
 		// Store previous state for rollback
 		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
 		const previousGoalInstances = variables.data.goalId
-			? queryClient.getQueryData(getGetGoalInstancesQueryKey(variables.data.goalId))
+			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {}))
 			: null;
 
 		// Create a temporary task with optimistic ID
@@ -334,7 +334,7 @@ export const useOptimisticCreateTask = () => {
 
 		// Optimistically add to goal instances if goalId is provided
 		if (variables.data.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.data.goalId);
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {});
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -392,7 +392,7 @@ export const useOptimisticCreateTask = () => {
 
 				// Replace in goal instances if applicable
 				if (variables.data.goalId) {
-					const goalInstancesQueryKey = getGetGoalInstancesQueryKey(variables.data.goalId);
+					const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {});
 					queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 						goalInstancesQueryKey,
 						(old) => {
@@ -425,7 +425,7 @@ export const useOptimisticCreateTask = () => {
 				}
 				if (previousGoalInstances && variables.data.goalId) {
 					queryClient.setQueryData(
-						getGetGoalInstancesQueryKey(variables.data.goalId),
+						getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {}),
 						previousGoalInstances,
 					);
 				}
@@ -534,6 +534,7 @@ export const useOptimisticCreateSubtask = () => {
 			title: variables.data.title,
 			isCompleted: false,
 			taskId: variables.taskId,
+			orderIndex: Date.now(), // Use timestamp as placeholder order index
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
