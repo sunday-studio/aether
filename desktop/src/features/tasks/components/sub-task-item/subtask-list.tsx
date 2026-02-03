@@ -1,6 +1,4 @@
-import { Loader2 } from "lucide-react";
 import { useCallback, useRef } from "react";
-import { useGetSubtasks } from "~/aether-sdk";
 import type { SubTask } from "~/aether-sdk/models/sub-task";
 import {
 	useOptimisticCreateSubtask,
@@ -11,15 +9,13 @@ import { TaskSubtaskItem } from "./subtask-item";
 
 interface SubtaskListProps {
 	taskId: string;
+	subtasks: SubTask[];
 }
 
-export const SubtaskList = ({ taskId }: SubtaskListProps) => {
+export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 	const { mutate: updateSubtask } = useOptimisticUpdateSubtask();
 	const { mutate: createSubtask } = useOptimisticCreateSubtask();
-	const { data: subtasksData, isLoading } = useGetSubtasks(taskId);
 	const { mutate: deleteSubtask } = useOptimisticDeleteSubtask();
-
-	const subtasks: SubTask[] = (subtasksData?.data as SubTask[]) ?? [];
 
 	const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 	const pendingFocusRef = useRef<string | null>(null);
@@ -41,14 +37,13 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 			} else {
 				// Only delete the ref if the subtask no longer exists in the list
 				// This prevents cleanup from running during re-renders when subtasks still exist
-				const currentSubtasks = subtasksData?.data as SubTask[] | undefined;
-				const subtaskExists = currentSubtasks?.some((s) => s.id === subtaskId);
+				const subtaskExists = subtasks?.some((s) => s.id === subtaskId);
 				if (!subtaskExists) {
 					inputRefs.current.delete(subtaskId);
 				}
 			}
 		},
-		[subtasksData], // Only recreate when subtasks data changes
+		[subtasks], // Only recreate when subtasks data changes
 	);
 
 	// Helper function to get input element
@@ -145,25 +140,6 @@ export const SubtaskList = ({ taskId }: SubtaskListProps) => {
 			}
 		}
 	};
-
-	if (isLoading) {
-		return (
-			<div className="flex flex-col my-3">
-				<div className="flex gap-2 items-center border-b border-neutral-200 first:border-t">
-					<div className="w-4 h-4 flex items-center justify-center">
-						<Loader2
-							size={12}
-							strokeWidth={2}
-							className="animate-spin text-neutral-400"
-						/>
-					</div>
-					<div className="text-[13px] text-neutral-400 py-1.5">
-						Loading subtasks...
-					</div>
-				</div>
-			</div>
-		);
-	}
 
 	if (subtasks.length === 0) return null;
 

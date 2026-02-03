@@ -4851,6 +4851,13 @@
           "isCompleted": {
             "type": "boolean"
           },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubTask"
+            },
+            "nullable": true
+          },
           "title": {
             "type": "string"
           },

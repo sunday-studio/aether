@@ -132,6 +132,8 @@ pub struct Task {
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subtasks: Option<Vec<SubTask>>,
     #[serde(skip)]
     pub _sync_id: Option<String>,
     #[serde(skip)]

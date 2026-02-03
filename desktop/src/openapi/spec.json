@@ -3437,7 +3437,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Task"
+                    "$ref": "#/components/schemas/crate.db.models.Task"
                   }
                 }
               }
@@ -4850,6 +4850,13 @@
           },
           "isCompleted": {
             "type": "boolean"
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubTask"
+            },
+            "nullable": true
           },
           "title": {
             "type": "string"

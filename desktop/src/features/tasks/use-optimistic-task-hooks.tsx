@@ -11,7 +11,13 @@ import {
 	useUpdateSubtask,
 	useUpdateTask,
 } from "~/aether-sdk";
-import type { GoalInstance, PaginatedGoalInstances, PaginatedTasks, SubTask, Task } from "~/aether-sdk/models";
+import type {
+	GoalInstance,
+	PaginatedGoalInstances,
+	PaginatedTasks,
+	SubTask,
+	Task,
+} from "~/aether-sdk/models";
 
 /**
  * Type for infinite query data structure
@@ -77,8 +83,14 @@ export const useOptimisticUpdateTaskQuery = () => {
 	const overdueTasksQueryKey = getGetOverdueTasksInfiniteQueryKey({});
 
 	const getPreviousData = () => ({
-		inbox: queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(inboxTasksQueryKey),
-		overdue: queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(overdueTasksQueryKey),
+		inbox:
+			queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(
+				inboxTasksQueryKey,
+			),
+		overdue:
+			queryClient.getQueryData<InfiniteQueryData<PaginatedTasks>>(
+				overdueTasksQueryKey,
+			),
 	});
 
 	const updateLocalInstance = (variables: {
@@ -112,14 +124,26 @@ export const useOptimisticUpdateTaskQuery = () => {
 };
 
 export const useOptimisticUpdateTask = () => {
-	const { updateLocalInstance, getPreviousData, queryClient, inboxTasksQueryKey, overdueTasksQueryKey } = useOptimisticUpdateTaskQuery();
+	const {
+		updateLocalInstance,
+		getPreviousData,
+		queryClient,
+		inboxTasksQueryKey,
+		overdueTasksQueryKey,
+	} = useOptimisticUpdateTaskQuery();
 	const mutation = useUpdateTask();
 
-	const mutate = (variables: { id: string; data: Record<string, unknown>; goalId?: string }) => {
+	const mutate = (variables: {
+		id: string;
+		data: Record<string, unknown>;
+		goalId?: string;
+	}) => {
 		// Store previous state for rollback
 		const previousData = getPreviousData();
 		const previousGoalInstances = variables.goalId
-			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}))
+			? queryClient.getQueryData(
+					getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+				)
 			: null;
 
 		// Optimistically update inbox and overdue
@@ -127,7 +151,10 @@ export const useOptimisticUpdateTask = () => {
 
 		// Optimistically update goal instances if goalId is provided
 		if (variables.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.goalId, {});
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(
+				variables.goalId,
+				{},
+			);
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -140,8 +167,13 @@ export const useOptimisticUpdateTask = () => {
 								...page.data,
 								items: (page.data?.items || []).map((goalInstance) => ({
 									...goalInstance,
-									tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).map(
-										(task) => task.id === variables.id ? { ...task, ...variables.data } : task,
+									tasks: (
+										(goalInstance as GoalInstance & { tasks?: Task[] }).tasks ||
+										[]
+									).map((task) =>
+										task.id === variables.id
+											? { ...task, ...variables.data }
+											: task,
 									),
 								})),
 							},
@@ -161,7 +193,10 @@ export const useOptimisticUpdateTask = () => {
 					queryClient.setQueryData(overdueTasksQueryKey, previousData.overdue);
 				}
 				if (previousGoalInstances && variables.goalId) {
-					queryClient.setQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}), previousGoalInstances);
+					queryClient.setQueryData(
+						getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+						previousGoalInstances,
+					);
 				}
 			},
 		});
@@ -189,18 +224,31 @@ export const useOptimisticDeleteTask = () => {
 		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
 		const previousOverdueTasks = queryClient.getQueryData(overdueTasksQueryKey);
 		const previousGoalInstances = variables.goalId
-			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}))
+			? queryClient.getQueryData(
+					getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+				)
 			: null;
 
 		// Optimistically update inbox tasks
-		removeTaskFromInfiniteCache<PaginatedTasks>(queryClient, inboxTasksQueryKey, variables.id);
+		removeTaskFromInfiniteCache<PaginatedTasks>(
+			queryClient,
+			inboxTasksQueryKey,
+			variables.id,
+		);
 
 		// Optimistically update overdue tasks
-		removeTaskFromInfiniteCache<PaginatedTasks>(queryClient, overdueTasksQueryKey, variables.id);
+		removeTaskFromInfiniteCache<PaginatedTasks>(
+			queryClient,
+			overdueTasksQueryKey,
+			variables.id,
+		);
 
 		// Optimistically update goal instances if goalId is provided
 		if (variables.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.goalId, {});
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(
+				variables.goalId,
+				{},
+			);
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -213,9 +261,10 @@ export const useOptimisticDeleteTask = () => {
 								...page.data,
 								items: (page.data?.items || []).map((goalInstance) => ({
 									...goalInstance,
-									tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).filter(
-										(task) => task.id !== variables.id,
-									),
+									tasks: (
+										(goalInstance as GoalInstance & { tasks?: Task[] }).tasks ||
+										[]
+									).filter((task) => task.id !== variables.id),
 								})),
 							},
 						})),
@@ -233,25 +282,31 @@ export const useOptimisticDeleteTask = () => {
 						queryClient.setQueryData(inboxTasksQueryKey, previousInboxTasks);
 					}
 					if (previousOverdueTasks) {
-						queryClient.setQueryData(overdueTasksQueryKey, previousOverdueTasks);
+						queryClient.setQueryData(
+							overdueTasksQueryKey,
+							previousOverdueTasks,
+						);
 					}
-				if (previousGoalInstances && variables.goalId) {
-					queryClient.setQueryData(
-						getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
-						previousGoalInstances,
-					);
-				}
-			},
-			onSuccess: () => {
-				// Invalidate queries to ensure fresh data
-				queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
-				queryClient.invalidateQueries({ queryKey: overdueTasksQueryKey });
-				if (variables.goalId) {
-					queryClient.invalidateQueries({
-						queryKey: getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
-					});
-				}
-			},
+					if (previousGoalInstances && variables.goalId) {
+						queryClient.setQueryData(
+							getGetGoalInstancesInfiniteQueryKey(variables.goalId, {}),
+							previousGoalInstances,
+						);
+					}
+				},
+				onSuccess: () => {
+					// Invalidate queries to ensure fresh data
+					queryClient.invalidateQueries({ queryKey: inboxTasksQueryKey });
+					queryClient.invalidateQueries({ queryKey: overdueTasksQueryKey });
+					if (variables.goalId) {
+						queryClient.invalidateQueries({
+							queryKey: getGetGoalInstancesInfiniteQueryKey(
+								variables.goalId,
+								{},
+							),
+						});
+					}
+				},
 			},
 		);
 	};
@@ -301,7 +356,6 @@ const addTaskToInfiniteCache = <T extends { items?: Task[] }>(
  */
 export const useOptimisticCreateTask = () => {
 	const queryClient = useQueryClient();
-	// Pass empty object to match the query key used in views
 	const inboxTasksQueryKey = getGetInboxTasksInfiniteQueryKey({});
 	const mutation = useCreateTask();
 
@@ -315,7 +369,9 @@ export const useOptimisticCreateTask = () => {
 		// Store previous state for rollback
 		const previousInboxTasks = queryClient.getQueryData(inboxTasksQueryKey);
 		const previousGoalInstances = variables.data.goalId
-			? queryClient.getQueryData(getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {}))
+			? queryClient.getQueryData(
+					getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {}),
+				)
 			: null;
 
 		// Create a temporary task with optimistic ID
@@ -327,14 +383,22 @@ export const useOptimisticCreateTask = () => {
 			goalId: variables.data.goalId,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
+			subtasks: [],
 		};
 
 		// Optimistically add to inbox
-		addTaskToInfiniteCache<PaginatedTasks>(queryClient, inboxTasksQueryKey, optimisticTask);
+		addTaskToInfiniteCache<PaginatedTasks>(
+			queryClient,
+			inboxTasksQueryKey,
+			optimisticTask,
+		);
 
 		// Optimistically add to goal instances if goalId is provided
 		if (variables.data.goalId) {
-			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {});
+			const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(
+				variables.data.goalId,
+				{},
+			);
 			queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 				goalInstancesQueryKey,
 				(old) => {
@@ -348,15 +412,24 @@ export const useOptimisticCreateTask = () => {
 									...page,
 									data: {
 										...page.data,
-										items: page.data.items.map((goalInstance, instanceIndex) => {
-											if (instanceIndex === 0) {
-												return {
-													...goalInstance,
-													tasks: [optimisticTask, ...((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || [])],
-												};
-											}
-											return goalInstance;
-										}),
+										items: page.data.items.map(
+											(goalInstance, instanceIndex) => {
+												if (instanceIndex === 0) {
+													return {
+														...goalInstance,
+														tasks: [
+															optimisticTask,
+															...((
+																goalInstance as GoalInstance & {
+																	tasks?: Task[];
+																}
+															).tasks || []),
+														],
+													};
+												}
+												return goalInstance;
+											},
+										),
 									},
 								};
 							}
@@ -392,7 +465,10 @@ export const useOptimisticCreateTask = () => {
 
 				// Replace in goal instances if applicable
 				if (variables.data.goalId) {
-					const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(variables.data.goalId, {});
+					const goalInstancesQueryKey = getGetGoalInstancesInfiniteQueryKey(
+						variables.data.goalId,
+						{},
+					);
 					queryClient.setQueryData<InfiniteQueryData<PaginatedGoalInstances>>(
 						goalInstancesQueryKey,
 						(old) => {
@@ -405,8 +481,11 @@ export const useOptimisticCreateTask = () => {
 										...page.data,
 										items: (page.data?.items || []).map((goalInstance) => ({
 											...goalInstance,
-											tasks: ((goalInstance as GoalInstance & { tasks?: Task[] }).tasks || []).map(
-												(task) => task.id === tempId ? newTask.data : task,
+											tasks: (
+												(goalInstance as GoalInstance & { tasks?: Task[] })
+													.tasks || []
+											).map((task) =>
+												task.id === tempId ? newTask.data : task,
 											),
 										})),
 									},

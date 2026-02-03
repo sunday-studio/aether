@@ -74,6 +74,7 @@ pub async fn get_trashed_tasks(
             created_at,
             updated_at,
             deleted_at,
+            subtasks: None,
             _sync_id: None,
             _updated_at: None,
             _deleted: true,

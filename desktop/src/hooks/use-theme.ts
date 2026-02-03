@@ -70,13 +70,12 @@ export function useTheme() {
 			select: (r: GetAllSettingsQueryResult) => ({
 				mode:
 					(r.data?.[SETTING_KEYS.interfaceTheme] as ThemeMode | undefined) ??
-					ThemeMode.SYSTEM,
+					ThemeMode.LIGHT,
 				light:
 					(r.data?.[SETTING_KEYS.themeLight] as LightTheme | undefined) ??
 					"classic",
 				dark:
-					(r.data?.[SETTING_KEYS.themeDark] as DarkTheme | undefined) ??
-					"classic",
+					(r.data?.[SETTING_KEYS.themeDark] as DarkTheme | undefined) ?? "lime",
 			}),
 		},
 	});
