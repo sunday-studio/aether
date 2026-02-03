@@ -1,16 +1,18 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
 import { Button } from "react-aria-components";
 import { useParams } from "react-router";
-import { useGetGoalById, useGetGoalInstancesInfinite } from "~/aether-sdk";
+import { useCreateTask, useGetGoalById, useGetGoalInstancesInfinite } from "~/aether-sdk";
 import { useInfiniteScroll } from "~/hooks/use-infinite-scroll";
 import { GoalFormDialog } from "./components/goals/goal-form-dialog";
 import { RecurrencyTag } from "./components/goals/recurrency-tag";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
+import { invalidateTaskQueries } from "./invalidate-task-queries";
 import { transformGoalInstancesToGroupedTasks } from "./tasks.domain";
-import { useOptimisticCreateTask } from "./use-optimistic-task-hooks";
 
 export const GoalView = () => {
 	const { goalId } = useParams();
+	const queryClient = useQueryClient();
 	const { data: goal, isLoading: isLoadingGoal } = useGetGoalById(goalId ?? "");
 
 	const {
@@ -28,7 +30,7 @@ export const GoalView = () => {
 			},
 		},
 	);
-	const { mutate: createTask } = useOptimisticCreateTask();
+	const { mutate: createTask } = useCreateTask();
 
 	const isLoading = isLoadingGoal || isLoadingGoalInstances;
 
@@ -43,12 +45,20 @@ export const GoalView = () => {
 	const groupedGoalInstances = transformGoalInstancesToGroupedTasks(allGoalInstances);
 
 	const handleCreateTask = () => {
-		createTask({
-			data: {
-				title: "New Task",
-				goalId: goalId ?? "",
+		createTask(
+			{
+				data: {
+					title: "New Task",
+					goalId: goalId ?? "",
+				},
 			},
-		});
+			{
+				onSuccess: () =>
+					invalidateTaskQueries(queryClient, {
+						goalId: goalId ?? undefined,
+					}),
+			},
+		);
 	};
 
 	if (isLoading) {
