@@ -14,7 +14,7 @@
 			{
 				"title": "Aether",
 				"width": 1500,
-				"height": 1000, 
+				"height": 1000,
 				"titleBarStyle": "Overlay",
 				"hiddenTitle": true,
 				"transparent": false
@@ -36,7 +36,13 @@
 		],
 		"macOS": {
 			"entitlements": "./Entitlements.plist",
-			"signingIdentity": "null"
+			"signingIdentity": null,
+			"hardenedRuntime": true,
+			"notarization": {
+				"appleId": null,
+				"password": null,
+				"teamId": null
+			}
 		}
 	},
 	"plugins": {
