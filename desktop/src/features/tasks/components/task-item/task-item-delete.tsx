@@ -1,15 +1,23 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Trash } from "lucide-react";
 
 import { Tooltip } from "~/components/shared/tooltip";
 import { cn } from "~/utils/cn";
-import { useOptimisticDeleteTask } from "../../use-optimistic-task-hooks";
+import { useDeleteTask } from "~/aether-sdk";
+import { invalidateTaskQueries } from "../../invalidate-task-queries";
 import { TaskActionButton } from "./task-shared-components";
 
 export const TaskItemDelete = ({ taskId, goalId }: { taskId: string, goalId?: string }) => {
-	const { mutate: deleteTask } = useOptimisticDeleteTask();
+	const queryClient = useQueryClient();
+	const { mutate: deleteTask } = useDeleteTask();
 
 	const handleClick = () => {
-		deleteTask({ id: taskId, goalId });
+		deleteTask(
+			{ id: taskId },
+			{
+				onSuccess: () => invalidateTaskQueries(queryClient, { goalId }),
+			},
+		);
 	};
 
 	return (
