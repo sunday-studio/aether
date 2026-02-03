@@ -1,0 +1,111 @@
+name: Check Release
+
+on:
+  workflow_call:
+    outputs:
+      should_release:
+        value: ${{ jobs.check.outputs.should_release }}
+      version:
+        value: ${{ jobs.check.outputs.version }}
+      release_notes:
+        value: ${{ jobs.check.outputs.release_notes }}
+
+jobs:
+  check:
+    name: Check if Release Needed
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.extract.outputs.should_release }}
+      version: ${{ steps.extract.outputs.version }}
+      release_notes: ${{ steps.extract.outputs.release_notes }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get merged PR details
+        id: get-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commit = context.sha;
+            
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: commit
+            });
+            
+            const mergedPR = prs.find(pr => pr.merged_at);
+            
+            if (!mergedPR) {
+              console.log('No merged PR found for this commit');
+              return null;
+            }
+            
+            console.log(`Found merged PR #${mergedPR.number}: ${mergedPR.title}`);
+            
+            return {
+              number: mergedPR.number,
+              body: mergedPR.body || '',
+              title: mergedPR.title
+            };
+      
+      - name: Extract release info from PR
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prData = ${{ steps.get-pr.outputs.result }};
+            
+            if (!prData) {
+              core.setOutput('should_release', 'false');
+              console.log('No PR data available');
+              return;
+            }
+            
+            const prBody = prData.body;
+            
+            const releaseNotesRegex = /## Release Notes\s+### Version:\s*(\d+\.\d+\.\d+)\s+([\s\S]+?)(?=\n## [A-Z]|\n---|\n```|<!-- End of release notes -->|$)/i;
+            const match = prBody.match(releaseNotesRegex);
+            
+            if (!match) {
+              core.setOutput('should_release', 'false');
+              console.log('No release notes section found in PR description');
+              return;
+            }
+            
+            const version = match[1].trim();
+            let releaseNotes = match[2].trim();
+            
+            releaseNotes = releaseNotes.replace(/<!--[\s\S]*?-->/g, '');
+            releaseNotes = releaseNotes.trim();
+            
+            if (!releaseNotes || releaseNotes.length < 10) {
+              core.setOutput('should_release', 'false');
+              console.log('Release notes are empty or too short');
+              return;
+            }
+            
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/v${version}`
+              });
+              
+              core.setFailed(`Version v${version} already exists as a git tag!`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+            
+            core.setOutput('should_release', 'true');
+            core.setOutput('version', version);
+            core.setOutput('release_notes', releaseNotes);
+            
+            console.log(`Release detected: v${version}`);

@@ -1,0 +1,145 @@
+name: Build Platform
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+      target:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: true
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: true
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+
+jobs:
+  build:
+    name: Build ${{ inputs.target }}
+    runs-on: ${{ inputs.platform }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+      
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ inputs.target }}
+      
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './desktop/src-tauri -> target'
+      
+      - name: Install Linux dependencies
+        if: inputs.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+      
+      - name: Import Apple Developer Certificate
+        if: inputs.platform == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+      
+      - name: Verify Certificate and Set Identity
+        if: inputs.platform == 'macos-latest'
+        run: |
+          security find-identity -v -p codesigning build.keychain
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" || security find-identity -v -p codesigning build.keychain | grep "Apple Development")
+          CERT_ID=$(echo "$CERT_INFO" | head -n1 | awk -F'"' '{print $2}')
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate ID: $CERT_ID"
+      
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: bun install --frozen-lockfile
+      
+      - name: Update version in Cargo.toml
+        working-directory: desktop/src-tauri
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          else
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          fi
+        shell: bash
+      
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: desktop
+          tauriScript: bun tauri
+          args: --target ${{ inputs.target }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ inputs.target }}
+          path: |
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.dmg
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.app.tar.gz
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.app.tar.gz.sig
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.AppImage
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.AppImage.sig
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.deb
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.msi
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.msi.sig
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.exe
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.nsis.zip
+            desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.nsis.zip.sig
+          retention-days: 1

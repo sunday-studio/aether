@@ -1,4 +1,4 @@
-name: Build and Release
+name: Release
 
 on:
   push:
@@ -11,105 +11,14 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Step 1: Check if we should release
   check-release:
-    name: Check if Release Needed
-    runs-on: ubuntu-latest
-    outputs:
-      should_release: ${{ steps.extract.outputs.should_release }}
-      version: ${{ steps.extract.outputs.version }}
-      release_notes: ${{ steps.extract.outputs.release_notes }}
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Get merged PR details
-        id: get-pr
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const commit = context.sha;
-            
-            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: commit
-            });
-            
-            const mergedPR = prs.find(pr => pr.merged_at);
-            
-            if (!mergedPR) {
-              console.log('No merged PR found for this commit');
-              return null;
-            }
-            
-            console.log(`Found merged PR #${mergedPR.number}: ${mergedPR.title}`);
-            
-            return {
-              number: mergedPR.number,
-              body: mergedPR.body || '',
-              title: mergedPR.title
-            };
-      
-      - name: Extract release info from PR
-        id: extract
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const prData = ${{ steps.get-pr.outputs.result }};
-            
-            if (!prData) {
-              core.setOutput('should_release', 'false');
-              console.log('No PR data available');
-              return;
-            }
-            
-            const prBody = prData.body;
-            
-            const releaseNotesRegex = /## Release Notes\s+### Version:\s*(\d+\.\d+\.\d+)\s+([\s\S]+?)(?=\n## [A-Z]|\n---|\n```|<!-- End of release notes -->|$)/i;
-            const match = prBody.match(releaseNotesRegex);
-            
-            if (!match) {
-              core.setOutput('should_release', 'false');
-              console.log('No release notes section found in PR description');
-              return;
-            }
-            
-            const version = match[1].trim();
-            let releaseNotes = match[2].trim();
-            
-            releaseNotes = releaseNotes.replace(/<!--[\s\S]*?-->/g, '');
-            releaseNotes = releaseNotes.trim();
-            
-            if (!releaseNotes || releaseNotes.length < 10) {
-              core.setOutput('should_release', 'false');
-              console.log('Release notes are empty or too short');
-              return;
-            }
-            
-            try {
-              await github.rest.git.getRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `tags/v${version}`
-              });
-              
-              core.setFailed(`Version v${version} already exists as a git tag!`);
-              return;
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
-            }
-            
-            core.setOutput('should_release', 'true');
-            core.setOutput('version', version);
-            core.setOutput('release_notes', releaseNotes);
-            
-            console.log(`Release detected: v${version}`);
+    uses: ./.github/workflows/check-release.yml
+    permissions:
+      contents: read
+      pull-requests: read
 
+  # Step 2: Create the version tag
   create-tag:
     name: Create Version Tag
     needs: check-release
@@ -128,136 +37,56 @@ jobs:
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION"
 
-  build:
-    name: Build ${{ matrix.target }}
+  # Step 3: Build for all platforms
+  build-macos-intel:
     needs: [check-release, create-tag]
     if: needs.check-release.outputs.should_release == 'true'
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-    
-    runs-on: ${{ matrix.platform }}
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: v${{ needs.check-release.outputs.version }}
-      
-      - name: Setup bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './desktop/src-tauri -> target'
-      
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev
-      
-      - name: Import Apple Developer Certificate
-        if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          rm certificate.p12
-      
-      - name: Verify Certificate and Set Identity
-        if: matrix.platform == 'macos-latest'
-        run: |
-          security find-identity -v -p codesigning build.keychain
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" || security find-identity -v -p codesigning build.keychain | grep "Apple Development")
-          CERT_ID=$(echo "$CERT_INFO" | head -n1 | awk -F'"' '{print $2}')
-          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate ID: $CERT_ID"
-      
-      - name: Install frontend dependencies
-        working-directory: desktop
-        run: bun install --frozen-lockfile
-      
-      - name: Update version in Cargo.toml
-        working-directory: desktop/src-tauri
-        run: |
-          VERSION="${{ needs.check-release.outputs.version }}"
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-          else
-            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-          fi
-        shell: bash
-      
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: desktop
-          tauriScript: bun tauri
-          args: --target ${{ matrix.target }}
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.target }}
-          path: |
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz.sig
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi.sig
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip.sig
-          retention-days: 1
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: macos-latest
+      target: x86_64-apple-darwin
+      version: ${{ needs.check-release.outputs.version }}
+    secrets: inherit
 
-  release:
-    name: Create GitHub Release
-    needs: [check-release, build]
+  build-macos-silicon:
+    needs: [check-release, create-tag]
+    if: needs.check-release.outputs.should_release == 'true'
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: macos-latest
+      target: aarch64-apple-darwin
+      version: ${{ needs.check-release.outputs.version }}
+    secrets: inherit
+
+  build-linux:
+    needs: [check-release, create-tag]
+    if: needs.check-release.outputs.should_release == 'true'
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: ubuntu-22.04
+      target: x86_64-unknown-linux-gnu
+      version: ${{ needs.check-release.outputs.version }}
+    secrets: inherit
+
+  build-windows:
+    needs: [check-release, create-tag]
+    if: needs.check-release.outputs.should_release == 'true'
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: windows-latest
+      target: x86_64-pc-windows-msvc
+      version: ${{ needs.check-release.outputs.version }}
+    secrets: inherit
+
+  # Step 4: Create GitHub Release with all artifacts
+  publish-release:
+    name: Publish Release
+    needs: 
+      - check-release
+      - build-macos-intel
+      - build-macos-silicon
+      - build-linux
+      - build-windows
     runs-on: ubuntu-latest
     
     steps:
@@ -273,7 +102,6 @@ jobs:
           ls -la release/
       
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.check-release.outputs.version }}
@@ -352,3 +180,4 @@ jobs:
           echo "## Release v${{ needs.check-release.outputs.version }} Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.check-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+```
