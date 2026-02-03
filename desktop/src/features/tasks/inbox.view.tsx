@@ -1,12 +1,14 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
-import { useGetInboxTasksInfinite } from "~/aether-sdk";
+import { useCreateTask, useGetInboxTasksInfinite } from "~/aether-sdk";
 import { Button } from "~/components/shared/button";
 import { useInfiniteScroll } from "~/hooks/use-infinite-scroll";
+import { invalidateTaskQueries } from "./invalidate-task-queries";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
 import { groupTaskByCreatedAt } from "./tasks.domain";
-import { useOptimisticCreateTask } from "./use-optimistic-task-hooks";
 
 export const InboxTasksView = () => {
+	const queryClient = useQueryClient();
 	const {
 		data: inboxTasksData,
 		isLoading: isLoadingInboxTasks,
@@ -23,10 +25,15 @@ export const InboxTasksView = () => {
 		},
 	);
 
-	const { mutate: createTask } = useOptimisticCreateTask();
+	const { mutate: createTask } = useCreateTask();
 
 	// Use the infinite scroll hook to flatten pages and get scroll helpers
-	const { items: allTasks, hasMore, isFetchingMore, fetchMore } = useInfiniteScroll({
+	const {
+		items: allTasks,
+		hasMore,
+		isFetchingMore,
+		fetchMore,
+	} = useInfiniteScroll({
 		pages: inboxTasksData?.pages,
 		getItems: (page) => page.data?.items ?? [],
 		fetchNextPage,
@@ -53,11 +60,16 @@ export const InboxTasksView = () => {
 	const groupedTasks = groupTaskByCreatedAt(allTasks);
 
 	const handleCreateTask = () => {
-		createTask({
-			data: {
-				title: "New Task",
+		createTask(
+			{
+				data: {
+					title: "New Task",
+				},
 			},
-		});
+			{
+				onSuccess: () => invalidateTaskQueries(queryClient),
+			},
+		);
 	};
 
 	return (
