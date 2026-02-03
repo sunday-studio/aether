@@ -1,6 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type { TaskWithSubtasks } from "~/aether-sdk/models";
 import { convertCalendarDateToIsoString } from "~/utils/date";
-import { useOptimisticUpdateTask } from "../../use-optimistic-task-hooks";
+import { invalidateTaskQueries } from "../../invalidate-task-queries";
 import { SubtaskList } from "../sub-task-item/subtask-list";
 import { TaskGoalSelector } from "./task-goal-selector";
 import { TaskItemCheckbox } from "./task-item-checkbox";
@@ -10,6 +11,7 @@ import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
+import { useUpdateTask } from "~/aether-sdk";
 
 interface TaskItemProps {
 	task: TaskWithSubtasks;
@@ -20,18 +22,27 @@ const Divider = () => {
 };
 
 export const TaskItem = ({ task }: TaskItemProps) => {
-	const { mutate: updateTask } = useOptimisticUpdateTask();
+	const queryClient = useQueryClient();
+	const { mutate: updateTask } = useUpdateTask();
 
 	const handleOnUpdateTask = (
 		inputName: string,
 		inputValue: string | boolean | null,
 	) => {
-		updateTask({
-			id: task.id as string,
-			data: {
-				[inputName]: inputValue,
+		updateTask(
+			{
+				id: task.id as string,
+				data: {
+					[inputName]: inputValue,
+				},
 			},
-		});
+			{
+				onSuccess: () =>
+					invalidateTaskQueries(queryClient, {
+						goalId: task.goalId ?? undefined,
+					}),
+			},
+		);
 	};
 
 	return (
