@@ -2,7 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Disc } from "lucide-react";
 import { forwardRef, useMemo, useState } from "react";
 import { Button, DialogTrigger, Popover } from "react-aria-components";
-import { useAddGoalToTask, useGetGoals } from "~/aether-sdk";
+import {
+	getGetGoalInstancesInfiniteQueryKey,
+	useAddGoalToTask,
+	useGetGoals,
+} from "~/aether-sdk";
 import type { Goal, Task } from "~/aether-sdk/models";
 import { Radio, RadioGroup } from "~/components/shared/radio";
 import {
@@ -53,15 +57,23 @@ export const TaskGoalSelector = ({ taskId, value }: TaskGoalSelectorProps) => {
 		);
 	}, [goalsData, searchValue]);
 
-	const handleOnSelectGoal = (goalId: string) => {
+	const handleOnSelectGoal = (selectedGoalId: string) => {
 		addGoalToTask(
 			{
 				id: taskId,
-				data: { goalId },
+				data: { goalId: selectedGoalId },
 			},
 			{
-				onSuccess: () =>
-					invalidateTaskQueries(queryClient, { goalId }),
+				onSuccess: () => {
+					invalidateTaskQueries(queryClient, { goalId: selectedGoalId });
+					// Force refetch goal instances so goal page updates immediately
+					queryClient.refetchQueries({
+						queryKey: getGetGoalInstancesInfiniteQueryKey(
+							selectedGoalId,
+							{},
+						),
+					});
+				},
 			},
 		);
 	};
