@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { TaskWithSubtasks } from "~/aether-sdk/models";
+import { useUpdateTask } from "~/aether-sdk";
+import type { Tag, TaskWithSubtasks } from "~/aether-sdk/models";
 import { convertCalendarDateToIsoString } from "~/utils/date";
 import { invalidateTaskQueries } from "../../invalidate-task-queries";
 import { SubtaskList } from "../sub-task-item/subtask-list";
@@ -11,7 +12,6 @@ import { TaskDueDateInput } from "./task-item-due-date";
 import { TaskTitleInput } from "./task-item-title";
 import { TaskSubtasksTrigger } from "./task-subtask-list";
 import { TaskTagsInput } from "./task-tags-selector";
-import { useUpdateTask } from "~/aether-sdk";
 
 interface TaskItemProps {
 	task: TaskWithSubtasks;
@@ -68,25 +68,33 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 						handleOnUpdateTask("description", value);
 					}}
 				/>
-				{/* <SubtaskList taskId={task.id as string} subtasks={task.subtasks} /> */}
+				<SubtaskList
+					taskId={task.id as string}
+					subtasks={task.subtasks}
+					goalId={task.goalId ?? undefined}
+				/>
 				<div className="flex gap-1 items-center">
 					<TaskDueDateInput
 						value={task.dueDate ?? undefined}
 						onChange={(value) => {
-							if (value) {
-								handleOnUpdateTask(
-									"dueDate",
-									convertCalendarDateToIsoString(value),
-								);
-							}
+							handleOnUpdateTask(
+								"dueDate",
+								value ? convertCalendarDateToIsoString(value) : null,
+							);
 						}}
 					/>
 					<Divider />
-					<TaskTagsInput taskId={task.id as string} value={[]} />
+					<TaskTagsInput
+					taskId={task.id as string}
+					value={(task as TaskWithSubtasks & { tags?: Tag[] }).tags}
+				/>
 					<Divider />
 					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
 					<Divider />
-					<TaskSubtasksTrigger taskId={task.id as string} />
+					<TaskSubtasksTrigger
+					taskId={task.id as string}
+					goalId={task.goalId ?? undefined}
+				/>
 					<Divider />
 					<TaskItemDelete
 						taskId={task.id as string}

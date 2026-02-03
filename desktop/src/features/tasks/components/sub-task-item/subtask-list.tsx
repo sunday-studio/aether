@@ -6,15 +6,19 @@ import {
 	useDeleteSubtask,
 	useUpdateSubtask,
 } from "~/aether-sdk";
-import { invalidateSubtaskQueries } from "../../invalidate-task-queries";
+import {
+	invalidateSubtaskQueries,
+	invalidateTaskQueries,
+} from "../../invalidate-task-queries";
 import { TaskSubtaskItem } from "./subtask-item";
 
 interface SubtaskListProps {
 	taskId: string;
 	subtasks: SubTask[];
+	goalId?: string;
 }
 
-export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
+export const SubtaskList = ({ taskId, subtasks, goalId }: SubtaskListProps) => {
 	const queryClient = useQueryClient();
 	const { mutate: updateSubtask } = useUpdateSubtask();
 	const { mutate: createSubtask } = useCreateSubtask();
@@ -54,6 +58,11 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 		return inputRefs.current.get(subtaskId);
 	};
 
+	const invalidate = useCallback(() => {
+		invalidateSubtaskQueries(queryClient, taskId);
+		invalidateTaskQueries(queryClient, { goalId });
+	}, [queryClient, taskId, goalId]);
+
 	const handleOnChangeTitleChange = (subtaskId: string, value: string) => {
 		updateSubtask(
 			{
@@ -61,9 +70,7 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 				subtaskId: subtaskId,
 				data: { title: value },
 			},
-			{
-				onSuccess: () => invalidateSubtaskQueries(queryClient, taskId),
-			},
+			{ onSuccess: invalidate },
 		);
 	};
 
@@ -77,9 +84,7 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 				subtaskId: subtaskId,
 				data: { isCompleted: value },
 			},
-			{
-				onSuccess: () => invalidateSubtaskQueries(queryClient, taskId),
-			},
+			{ onSuccess: invalidate },
 		);
 	};
 
@@ -91,20 +96,21 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 			},
 			{
 				onSuccess: ({ data: newSubtask }) => {
-					invalidateSubtaskQueries(queryClient, taskId);
-					const subtaskId = newSubtask?.id as string;
-					if (!subtaskId) return;
-					pendingFocusRef.current = subtaskId;
+					invalidate();
+					const newId = newSubtask?.id as string;
+					if (!newId) return;
+					pendingFocusRef.current = newId;
+					// Wait for task list refetch so new subtask is in DOM, then focus
 					setTimeout(() => {
-						const input = getInputElement(subtaskId);
-						if (input && pendingFocusRef.current === subtaskId) {
+						const input = getInputElement(newId);
+						if (input && pendingFocusRef.current === newId) {
 							requestAnimationFrame(() => {
 								input.focus();
 								input.select();
 								pendingFocusRef.current = null;
 							});
 						}
-					}, 150);
+					}, 400);
 				},
 			},
 		);
@@ -167,10 +173,7 @@ export const SubtaskList = ({ taskId, subtasks }: SubtaskListProps) => {
 						onDelete={() =>
 							deleteSubtask(
 								{ taskId, subtaskId },
-								{
-									onSuccess: () =>
-										invalidateSubtaskQueries(queryClient, taskId),
-								},
+								{ onSuccess: invalidate },
 							)
 						}
 					/>

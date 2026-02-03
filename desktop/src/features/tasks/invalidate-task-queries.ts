@@ -28,6 +28,8 @@ export function invalidateTaskQueries(
 /**
  * Invalidate subtasks query for a task.
  * Call after create/update/delete subtask.
+ * When subtasks are shown from parent task list data, also call invalidateTaskQueries
+ * so inbox/goal instances refetch and task.subtasks updates.
  */
 export function invalidateSubtaskQueries(
 	queryClient: QueryClient,
