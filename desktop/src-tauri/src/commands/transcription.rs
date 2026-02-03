@@ -3,10 +3,9 @@ use crate::commands::params::{
     PaginationQueryParams, TranscriptionIdPathParams, TranscriptionStartQueryParams,
 };
 use crate::db::connection;
-use crate::db::models::AudioTranscription;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
-use crate::handlers::common::{PaginatedTranscriptions, PaginationResponse};
+use crate::handlers::common::PaginationResponse;
 use crate::settings;
 use crate::transcription::model_manager;
 use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider};

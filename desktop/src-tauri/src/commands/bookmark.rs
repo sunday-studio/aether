@@ -5,7 +5,6 @@ use crate::commands::params::{
 use crate::db::models::Bookmark;
 use crate::db::{connection, DbState, BookmarkRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginatedBookmarks;
 use crate::handlers::bookmark::{CreateBookmarkRequest, UpdateBookmarkRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::metadata::extractor::ExtractedMetadata;

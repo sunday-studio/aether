@@ -9,8 +9,9 @@ pub enum MetadataProvider {
     Microlink,
 }
 
-/// LinkPreview API response
+/// LinkPreview API response (reserved for future use)
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct LinkPreviewResponse {
     title: Option<String>,
     description: Option<String>,
@@ -33,6 +34,7 @@ struct MicrolinkData {
     publisher: Option<String>,
     author: Option<String>,
     date: Option<String>,
+    #[allow(dead_code)]
     lang: Option<String>,
 }
 

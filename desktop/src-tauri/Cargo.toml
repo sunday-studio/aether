@@ -1,21 +1,25 @@
+[workspace]
+members = ["tools"]
+
 [package]
 name = "Aether"
 version = "0.1.0"
 description = "something something app"
-authors = ["you"]
+authors = ["casprine@thesunday.studio"]
 edition = "2021"
 default-run = "Aether"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "generate-openapi"
-path = "src/bin/generate-openapi.rs"
+# REMOVE these lines:
+# [features]
+# openapi-gen = []
+# 
+# [[bin]]
+# name = "generate-openapi"
+# path = "src/bin/generate-openapi.rs"
+# required-features = ["openapi-gen"]
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -59,6 +63,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Environment
 dotenvy = "0.15"
+directories = "5"
 
 # Error handling
 thiserror = "1"

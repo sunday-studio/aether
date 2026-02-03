@@ -1,7 +1,6 @@
-use crate::db::models::Tag;
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::{PaginatedTags, PaginationResponse};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::log_create;
 use axum::{
     extract::{Query, State},

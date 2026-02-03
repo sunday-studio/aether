@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Always run from the script's directory
 cd "$(dirname "$0")"
 
-# Ensure production mode for tools that rely on NODE_ENV
 export NODE_ENV=production
 
-# Preload .env.production so dotenv (which doesn't override by default)
-# will keep these values when orval.config.ts calls dotenv.config()
 if [ -f ".env.production" ]; then
 	set -a
-	# shellcheck disable=SC1091
 	. ./.env.production
 	set +a
 fi
 
-echo "Generating SDK in production mode..."
+echo "Step 1: Generating OpenAPI spec..."
+cd src-tauri
+cargo run --bin generate-openapi -p generate-openapi-tool
+cd ..
+
+echo "Step 2: Generating SDK from OpenAPI spec..."
 bun generate:sdk
 
-echo "Building Tauri app (bundles: app, target: universal-apple-darwin)..."
-bun tauri build --bundles app --target universal-apple-darwin
+echo "Step 3: Building Tauri app (universal binary for macOS)..."
+bun tauri build --bundles app --target aarch64-apple-darwin
+
+echo "✅ Build complete!"

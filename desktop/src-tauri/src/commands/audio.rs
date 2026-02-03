@@ -3,7 +3,6 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EntryIdPathParams, MediaIdPathParams,
 };
 use crate::db::connection;
-use crate::db::models::MediaItem;
 use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
 use crate::settings;

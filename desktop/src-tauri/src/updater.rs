@@ -9,6 +9,9 @@ use tokio::sync::RwLock;
 /// Minimum time between update checks (30 minutes)
 const CHECK_COOLDOWN_SECS: u64 = 30 * 60;
 
+/// After a failed check, wait this long before trying again (1 hour)
+const FAILURE_BACKOFF_SECS: u64 = 60 * 60;
+
 /// Information about an available update
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,9 +41,10 @@ impl Default for UpdatePreferences {
     }
 }
 
-/// Manages update checking with cooldown and preferences
+/// Manages update checking with cooldown, failure backoff, and preferences
 pub struct UpdateManager {
     last_check: Arc<RwLock<Option<Instant>>>,
+    last_failure: Arc<RwLock<Option<Instant>>>,
     preferences: Arc<RwLock<UpdatePreferences>>,
 }
 
@@ -48,11 +52,12 @@ impl UpdateManager {
     pub fn new() -> Self {
         Self {
             last_check: Arc::new(RwLock::new(None)),
+            last_failure: Arc::new(RwLock::new(None)),
             preferences: Arc::new(RwLock::new(UpdatePreferences::default())),
         }
     }
 
-    /// Check if enough time has passed since last update check
+    /// Check if enough time has passed since last update check and we're not in failure backoff
     pub async fn should_check(&self) -> bool {
         let prefs = self.preferences.read().await;
         if !prefs.auto_check {
@@ -61,16 +66,31 @@ impl UpdateManager {
         drop(prefs);
 
         let last = self.last_check.read().await;
-        match *last {
+        let check_ok = match *last {
             Some(instant) => instant.elapsed() >= Duration::from_secs(CHECK_COOLDOWN_SECS),
+            None => true,
+        };
+        if !check_ok {
+            return false;
+        }
+
+        let last_fail = self.last_failure.read().await;
+        match *last_fail {
+            Some(instant) => instant.elapsed() >= Duration::from_secs(FAILURE_BACKOFF_SECS),
             None => true,
         }
     }
 
-    /// Record that an update check was performed
-    pub async fn record_check(&self) {
+    /// Record that an update check was performed. Pass `failed: true` when the check failed
+    /// so we back off and don't retry until FAILURE_BACKOFF_SECS have passed.
+    pub async fn record_check(&self, failed: bool) {
         let mut last = self.last_check.write().await;
         *last = Some(Instant::now());
+        drop(last);
+        if failed {
+            let mut last_fail = self.last_failure.write().await;
+            *last_fail = Some(Instant::now());
+        }
     }
 
     /// Check if a version should be skipped

@@ -37,12 +37,7 @@
 		"macOS": {
 			"entitlements": "./Entitlements.plist",
 			"signingIdentity": null,
-			"hardenedRuntime": true,
-			"notarization": {
-				"appleId": null,
-				"password": null,
-				"teamId": null
-			}
+			"hardenedRuntime": true
 		}
 	},
 	"plugins": {

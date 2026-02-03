@@ -1,4 +1,3 @@
-use crate::db::models::Task;
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use crate::utils::log_restore;
@@ -14,7 +13,7 @@ use axum::{
     path = "/v1/trash/tasks",
     tag = "Trash",
     responses(
-        (status = 200, description = "List of deleted tasks", body = Vec<Task>),
+        (status = 200, description = "List of deleted tasks", body = Vec<crate::db::models::Task>),
         (status = 500, description = "Internal server error")
     )
 )]

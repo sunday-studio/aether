@@ -72,7 +72,7 @@ pub fn run() {
         dotenvy::dotenv().ok();
 
         // Initialize database
-        let state = db::initialize().await
+        let state = db::initialize(None).await
             .expect("Failed to initialize database");
         
         // Run migrations
@@ -171,11 +171,13 @@ pub fn run() {
                                 }
                             }
 
-                            // Check for updates (with cooldown)
+                            // Check for updates (with cooldown and failure backoff)
                             if let Some(manager) = app.try_state::<updater::UpdateManager>() {
                                 if manager.should_check().await {
                                     tracing::debug!("[UPDATER] Checking for updates on focus");
-                                    match updater::check_for_updates(&app).await {
+                                    let result = updater::check_for_updates(&app).await;
+                                    let failed = result.is_err();
+                                    match result {
                                         Ok(Some(info)) => {
                                             if !manager.is_version_skipped(&info.latest_version).await {
                                                 tracing::info!("[UPDATER] Update available: v{}", info.latest_version);
@@ -186,10 +188,10 @@ pub fn run() {
                                             tracing::debug!("[UPDATER] No update available");
                                         }
                                         Err(e) => {
-                                            tracing::warn!("[UPDATER] Failed to check for updates: {}", e);
+                                            tracing::warn!("[UPDATER] Failed to check for updates (will back off): {}", e);
                                         }
                                     }
-                                    manager.record_check().await;
+                                    manager.record_check(failed).await;
                                 }
                             }
                         });

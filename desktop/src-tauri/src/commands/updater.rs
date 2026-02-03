@@ -10,9 +10,10 @@ pub async fn check_for_updates(
     app: AppHandle,
     manager: State<'_, UpdateManager>,
 ) -> Result<Option<UpdateInfo>, String> {
-    manager.record_check().await;
+    let result = updater::check_for_updates(&app).await;
+    manager.record_check(result.is_err()).await;
 
-    let info = updater::check_for_updates(&app).await?;
+    let info = result?;
 
     // Filter out skipped versions
     if let Some(ref update_info) = info {

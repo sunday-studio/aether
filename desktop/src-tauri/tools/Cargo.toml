@@ -1,0 +1,11 @@
+[package]
+name = "generate-openapi-tool"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "generate-openapi"
+path = "src/main.rs"
+
+[dependencies]
+Aether = { path = ".." }

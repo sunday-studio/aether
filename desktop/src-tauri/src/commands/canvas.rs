@@ -2,7 +2,7 @@ use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, I
 use crate::db::models::Canvas;
 use crate::db::{connection, DbState, CanvasRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::{PaginatedCanvases, PaginationResponse};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_update};
 use serde::Deserialize;
 use tauri::State;

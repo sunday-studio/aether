@@ -1,7 +1,6 @@
-use crate::db::models::Entry;
 use crate::db::{connection, DbState, EntryRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::{PaginatedEntries, PaginationResponse};
+use crate::handlers::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use axum::{
     extract::{Path, Query, State},

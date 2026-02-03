@@ -1,24 +1,57 @@
-use crate::error::{AppError, Result};
-use libsql::{Builder, Database};
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+use tauri::{AppHandle, Manager};
+use libsql::{Builder, Database};
+
+use crate::error::{AppError, Result};
 
 #[derive(Clone)]
 pub struct DbState {
     pub database: Arc<Mutex<Arc<Database>>>,
 }
 
-/// Initialize the database connection in local-only mode
-pub async fn initialize() -> Result<DbState> {
-    let db_path = "./libsql-replica/local.db";
+/// Database path: local dev = project libsql-replica; build = app data dir.
+fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
+    let app_data_dir = if let Some(handle) = app_handle {
+        handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Failed to get app data dir: {}", e),
+            )))?
+    } else if cfg!(debug_assertions) {
+        // Local dev: base is project src/ so path becomes .../src/libsql-replica/local.db
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")
+    } else {
+        // Build without handle: resolve app data dir from identifier (com.cas.aether)
+        directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
+            .ok_or_else(|| {
+                AppError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Failed to resolve app data directory",
+                ))
+            })?
+            .data_local_dir()
+            .to_path_buf()
+    };
+
+    Ok(app_data_dir.join("libsql-replica").join("local.db"))
+}
+
+/// Initialize the database connection in local-only mode.
+/// Pass None for local dev (uses project libsql-replica); pass Some(app_handle) when available (e.g. in setup) for app path.
+pub async fn initialize(app_handle: Option<&AppHandle>) -> Result<DbState> {
+    let db_path = get_db_path(app_handle)?;
 
     // Ensure database directory exists
-    if let Some(parent) = Path::new(db_path).parent() {
+    if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| AppError::Io(e))?;
     }
 
-    tracing::info!("Initializing local database");
+    tracing::info!("Initializing local database at: {}", db_path.display());
 
     let database = Builder::new_local(db_path)
         .build()

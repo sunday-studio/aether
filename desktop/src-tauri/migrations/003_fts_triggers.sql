@@ -95,8 +95,8 @@ END;
 CREATE TRIGGER IF NOT EXISTS bookmarks_fts_insert AFTER INSERT ON bookmarks BEGIN
     INSERT INTO bookmarks_fts_map(bookmark_id) VALUES (new.id);
     INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id), 
-            COALESCE(new.title, ''), COALESCE(new.description, ''), 
+    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id),
+            COALESCE(new.title, ''), COALESCE(new.description, ''),
             COALESCE(new.site_name, ''), COALESCE(new.author, ''));
 END;
 
@@ -108,8 +108,8 @@ END;
 CREATE TRIGGER IF NOT EXISTS bookmarks_fts_update AFTER UPDATE ON bookmarks BEGIN
     DELETE FROM bookmarks_fts WHERE rowid = (SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = old.id);
     INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id), 
-            COALESCE(new.title, ''), COALESCE(new.description, ''), 
+    VALUES ((SELECT rowid FROM bookmarks_fts_map WHERE bookmark_id = new.id),
+            COALESCE(new.title, ''), COALESCE(new.description, ''),
             COALESCE(new.site_name, ''), COALESCE(new.author, ''));
 END;
 
@@ -163,7 +163,7 @@ INSERT INTO bookmarks_fts_map(bookmark_id)
 SELECT id FROM bookmarks WHERE deleted_at IS NULL;
 
 INSERT INTO bookmarks_fts(rowid, title, description, site_name, author)
-SELECT m.rowid, COALESCE(b.title, ''), COALESCE(b.description, ''), 
+SELECT m.rowid, COALESCE(b.title, ''), COALESCE(b.description, ''),
        COALESCE(b.site_name, ''), COALESCE(b.author, '')
 FROM bookmarks b
 JOIN bookmarks_fts_map m ON b.id = m.bookmark_id
