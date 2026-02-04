@@ -130,20 +130,20 @@ export function useUpdater() {
 		}
 	}, []);
 
-	// Listen for update events from backend
-	useEffect(() => {
-		const unlistenAvailable = listen<UpdateInfo>("update-available", (event) => {
-			setState((prev) => ({
-				...prev,
-				available: true,
-				info: event.payload,
-			}));
-		});
+	// // Listen for update events from backend
+	// useEffect(() => {
+	// 	const unlistenAvailable = listen<UpdateInfo>("update-available", (event) => {
+	// 		setState((prev) => ({
+	// 			...prev,
+	// 			available: true,
+	// 			info: event.payload,
+	// 		}));
+	// 	});
 
-		return () => {
-			unlistenAvailable.then((fn) => fn());
-		};
-	}, []);
+	// 	return () => {
+	// 		unlistenAvailable.then((fn) => fn());
+	// 	};
+	// }, []);
 
 	return {
 		...state,

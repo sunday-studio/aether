@@ -1,5 +1,43 @@
 import { invoke } from "@tauri-apps/api/core";
 
+// =============================================================================
+// Request body normalizers: OpenAPI/SDK may send array or string; Tauri expects
+// specific object shapes. Map command name → normalizer (no per-command ifs).
+// =============================================================================
+
+type RequestDataNormalizer = (data: unknown) => unknown;
+
+function toTagIdsBody(data: unknown): { tag_ids: string[] } {
+	const ids = Array.isArray(data)
+		? (data as string[]).filter((x): x is string => typeof x === "string")
+		: typeof data === "string"
+			? [data]
+			: [];
+	return { tag_ids: ids };
+}
+
+function toTagIdBody(data: unknown): { tag_id: string } {
+	const id =
+		typeof data === "string"
+			? data
+			: Array.isArray(data) && data.length > 0 && typeof data[0] === "string"
+				? (data[0] as string)
+				: "";
+	return { tag_id: id };
+}
+
+/** Commands whose request body must be normalized to match Tauri request types */
+const requestDataNormalizers: Record<string, RequestDataNormalizer> = {
+	add_tags_to_entry: toTagIdsBody,
+	add_tags_to_task: toTagIdsBody,
+	add_tags_to_goal: toTagIdsBody,
+	add_tags_to_bookmark: toTagIdsBody,
+	remove_tags_from_entry: toTagIdsBody,
+	// remove_tags_from_task: toTagIdsBody,
+	remove_tags_from_goal: toTagIdsBody,
+	remove_tags_from_bookmark: toTagIdsBody,
+};
+
 // Route to command mapping
 const routeToCommand: Record<string, string> = {
 	// Tags
@@ -244,6 +282,7 @@ export const customFetch = async <T>(
 				}
 			}
 		} catch (e) {
+			console.log("error ->", { e });
 			throw new Error(`Invalid JSON in request body: ${e}`);
 		}
 	}
@@ -255,7 +294,8 @@ export const customFetch = async <T>(
 	const args: Record<string, unknown> = {};
 
 	if (requestData !== undefined && requestData !== null) {
-		args.requestData = requestData;
+		const normalizer = requestDataNormalizers[match.command];
+		args.requestData = normalizer ? normalizer(requestData) : requestData;
 	}
 
 	if (Object.keys(match.queryParams).length > 0) {

@@ -713,6 +713,7 @@ impl SearchRepository {
                     .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
                     .map(|dt| dt.with_timezone(&chrono::Utc)))
                 .transpose()?,
+            tags: None,
             _sync_id: row.get::<String>(8).ok(),
             _updated_at: row.get::<i64>(9).ok(),
             _deleted: row.get::<i64>(10).ok().map(|v| v != 0).unwrap_or(false),

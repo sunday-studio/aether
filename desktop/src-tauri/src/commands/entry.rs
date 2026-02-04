@@ -17,10 +17,10 @@ pub struct AddTagsToEntryRequest {
     pub tag_ids: Vec<String>,
 }
 
-/// Request to remove a tag from an entry
+/// Request to remove tags from an entry
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct RemoveTagFromEntryRequest {
-    pub tag_id: String,
+    pub tag_ids: Vec<String>,
 }
 
 /// Get all entries
@@ -389,9 +389,9 @@ pub async fn add_tags_to_entry(
     params(
         ("id" = String, Path, description = "Entry ID")
     ),
-    request_body = String,
+    request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tag removed from entry", body = Entry),
+        (status = 200, description = "Tags removed from entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -410,18 +410,20 @@ pub async fn remove_tags_from_entry(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
-    if request.tag_id.is_empty() {
-        return Err(AppError::BadRequest("Tag ID is required".to_string()));
+
+    if request.tag_ids.is_empty() {
+        return Err(AppError::BadRequest("Tag IDs are required".to_string()));
     }
+
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
-    repo.remove_tags(&id, request.tag_id).await?;
-    
+    repo.remove_tags(&id, request.tag_ids).await?;
+
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await {
         tracing::warn!("Failed to log remove_tags activity for entry {}: {}", id, e);
     }
-    
+
     // Return updated entry
     repo.find_by_id(&id)
         .await?

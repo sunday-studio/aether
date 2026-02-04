@@ -1,8 +1,9 @@
-use crate::db::models::Entry;
+use crate::db::models::{Entry, Tag};
 use crate::error::{AppError, Result};
 use crate::utils::generate_id;
 use chrono::Utc;
 use libsql::Database;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct EntryRepository {
@@ -41,7 +42,11 @@ impl EntryRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 entries.push(self.row_to_entry(row)?);
             }
-
+            let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
+            let tag_map = self.get_tags_for_entries(&ids).await?;
+            for entry in &mut entries {
+                entry.tags = Some(tag_map.get(&entry.id).cloned().unwrap_or_default());
+            }
             return Ok((entries, None, false));
         }
 
@@ -100,6 +105,12 @@ impl EntryRepository {
             None
         };
 
+        let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
+        let tag_map = self.get_tags_for_entries(&ids).await?;
+        for entry in &mut entries {
+            entry.tags = Some(tag_map.get(&entry.id).cloned().unwrap_or_default());
+        }
+
         Ok((entries, next_cursor, has_more))
     }
 
@@ -118,7 +129,9 @@ impl EntryRepository {
             .map_err(|e| AppError::LibSQL(e))?;
 
         if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            Ok(Some(self.row_to_entry(row)?))
+            let mut entry = self.row_to_entry(row)?;
+            entry.tags = Some(self.get_tags_for_entry(&entry.id).await?);
+            Ok(Some(entry))
         } else {
             Ok(None)
         }
@@ -382,6 +395,7 @@ impl EntryRepository {
             is_deleted,
             updated_at: now,
             deleted_at: None,
+            tags: None,
             _sync_id: Some(id),
             _updated_at: Some(now_ms),
             _deleted: is_deleted,
@@ -438,6 +452,7 @@ impl EntryRepository {
                 is_deleted,
                 updated_at: now,
                 deleted_at: None,
+                tags: None,
                 _sync_id: Some(id),
                 _updated_at: Some(now_ms),
                 _deleted: is_deleted,
@@ -603,31 +618,38 @@ impl EntryRepository {
     }
 
     /// Remove tags from an entry
-    pub async fn remove_tags(&self, entry_id: &str, tag_id: String) -> Result<()> {
+    pub async fn remove_tags(&self, entry_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
+        if tag_ids.is_empty() {
+            return Ok(());
+        }
+
         // Verify entry exists
         let entry = self.find_by_id(entry_id).await?;
         if entry.is_none() {
             return Err(AppError::NotFound(format!("Entry {} not found", entry_id)));
         }
 
-        // Verify tag exists
-        let mut rows = conn
-            .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
-        
-        if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
-            return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
+        // Verify all tags exist
+        for tag_id in &tag_ids {
+            let mut rows = conn
+                .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
+            if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+                return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
+            }
         }
 
-        conn.execute(
-            "DELETE FROM entry_tags WHERE entry_id = ?1 AND tag_id = ?2",
-            libsql::params![entry_id, tag_id.as_str()],
-        )
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
+        for tag_id in &tag_ids {
+            conn.execute(
+                "DELETE FROM entry_tags WHERE entry_id = ?1 AND tag_id = ?2",
+                libsql::params![entry_id, tag_id.as_str()],
+            )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+        }
 
         Ok(())
     }
@@ -665,6 +687,111 @@ impl EntryRepository {
             is_pinned: is_pinned != 0,
             is_archived: is_archived != 0,
             is_deleted: is_deleted != 0,
+            updated_at,
+            deleted_at,
+            tags: None,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
+        })
+    }
+
+    /// Load tags for a single entry (for get_entry_by_id).
+    pub async fn get_tags_for_entry(&self, entry_id: &str) -> Result<Vec<Tag>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let mut rows = conn
+            .query(
+                "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at, t._sync_id, t._updated_at, t._deleted, t._extra
+                 FROM tags t
+                 INNER JOIN entry_tags et ON t.id = et.tag_id
+                 WHERE et.entry_id = ?1 AND t.deleted_at IS NULL
+                 ORDER BY t.name ASC",
+                libsql::params![entry_id],
+            )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+        let mut tags = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            tags.push(self.row_to_tag(row)?);
+        }
+        Ok(tags)
+    }
+
+    /// Load tags for multiple entries in one query. Returns map of entry_id -> tags.
+    pub async fn get_tags_for_entries(&self, entry_ids: &[String]) -> Result<HashMap<String, Vec<Tag>>> {
+        if entry_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        // Build IN clause with escaped ids (same pattern as add_tags in this codebase)
+        let escaped_ids: Vec<String> = entry_ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace('\'', "''")))
+            .collect();
+        let in_clause = escaped_ids.join(", ");
+
+        let query = format!(
+            "SELECT et.entry_id, t.id, t.name, t.created_at, t.updated_at, t.deleted_at,
+                    t._sync_id, t._updated_at, t._deleted, t._extra
+             FROM entry_tags et
+             INNER JOIN tags t ON t.id = et.tag_id
+             WHERE et.entry_id IN ({}) AND t.deleted_at IS NULL
+             ORDER BY et.entry_id, t.name ASC",
+            in_clause
+        );
+
+        let mut rows = conn
+            .query(&query, libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut map: HashMap<String, Vec<Tag>> = HashMap::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let entry_id: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
+            let tag = self.row_to_tag_from_offset(row, 1)?;
+            map.entry(entry_id).or_default().push(tag);
+        }
+
+        Ok(map)
+    }
+
+    fn row_to_tag(&self, row: libsql::Row) -> Result<Tag> {
+        self.row_to_tag_from_offset(row, 0)
+    }
+
+    /// Build Tag from row starting at column `offset` (0 = tag-only row, 1 = after entry_id).
+    fn row_to_tag_from_offset(&self, row: libsql::Row, offset: usize) -> Result<Tag> {
+        let o = offset as i32;
+        let id: String = row.get(o).map_err(|e| AppError::LibSQL(e))?;
+        let name: String = row.get(o + 1).map_err(|e| AppError::LibSQL(e))?;
+        let created_at_str: String = row.get(o + 2).map_err(|e| AppError::LibSQL(e))?;
+        let updated_at_str: String = row.get(o + 3).map_err(|e| AppError::LibSQL(e))?;
+        let deleted_at_str: Option<String> = row.get(o + 4).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(o + 5).ok();
+        let _updated_at: Option<i64> = row.get(o + 6).ok();
+        let _deleted: i64 = row.get(o + 7).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(o + 8)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
+        let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+            .map_err(|e| AppError::Internal(format!("Invalid tag created_at: {}", e)))?
+            .with_timezone(&Utc);
+        let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+            .map_err(|e| AppError::Internal(format!("Invalid tag updated_at: {}", e)))?
+            .with_timezone(&Utc);
+        let deleted_at = deleted_at_str
+            .map(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .flatten()
+            .map(|dt| dt.with_timezone(&Utc));
+        Ok(Tag {
+            id,
+            name,
+            created_at,
             updated_at,
             deleted_at,
             _sync_id,

@@ -12,25 +12,25 @@ import "./app.css";
 
 const queryClient = initQueryClient();
 
-function SyncDataRefresh({ children }: { children: React.ReactNode }) {
-	// useSyncDataRefresh();
-	return <>{children}</>;
-}
+// // function SyncDataRefresh({ children }: { children: React.ReactNode }) {
+// // 	// useSyncDataRefresh();
+// // 	return <>{children}</>;
+// }
 
 function App() {
 	return (
 		<Suspense fallback={<div>Loading...</div>}>
 			<QueryClientProvider client={queryClient}>
-				<SyncDataRefresh>
-					<ThemeProvider>
-						<Toaster />
-						<ReactQueryDevtools
-							buttonPosition="top-right"
-							initialIsOpen={false}
-						/>
-						<RouterProvider router={router} />
-					</ThemeProvider>
-				</SyncDataRefresh>
+				{/* <SyncDataRefresh> */}
+				<ThemeProvider>
+					<Toaster />
+					<ReactQueryDevtools
+						buttonPosition="top-right"
+						initialIsOpen={false}
+					/>
+					<RouterProvider router={router} />
+				</ThemeProvider>
+				{/* </SyncDataRefresh> */}
 			</QueryClientProvider>
 		</Suspense>
 	);

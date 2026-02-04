@@ -1139,9 +1139,12 @@
         ],
         "requestBody": {
           "content": {
-            "text/plain": {
+            "application/json": {
               "schema": {
-                "type": "string"
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -1149,7 +1152,7 @@
         },
         "responses": {
           "200": {
-            "description": "Tag removed from entry",
+            "description": "Tags removed from entry",
             "content": {
               "application/json": {
                 "schema": {
@@ -3954,6 +3957,13 @@
           "isPinned": {
             "type": "boolean"
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            },
+            "nullable": true
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -4281,6 +4291,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GoalInstance"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Next page cursor (null when no more pages)",
+            "nullable": true
+          }
+        }
+      },
+      "PaginatedGoalInstancesWithTasks": {
+        "type": "object",
+        "description": "Pagination response wrapper optimized for infinite scroll",
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Convenience flag for infinite scroll"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalInstanceWithTasks"
             }
           },
           "nextCursor": {

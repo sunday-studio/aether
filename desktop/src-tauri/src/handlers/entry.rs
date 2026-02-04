@@ -290,9 +290,9 @@ pub async fn add_tags_to_entry(
     params(
         ("id" = String, Path, description = "Entry ID")
     ),
-    request_body = String,
+    request_body = Vec<String>,
     responses(
-        (status = 200, description = "Tag removed from entry", body = Entry),
+        (status = 200, description = "Tags removed from entry", body = Entry),
         (status = 404, description = "Entry or tag not found"),
         (status = 500, description = "Internal server error")
     )
@@ -300,11 +300,11 @@ pub async fn add_tags_to_entry(
 pub async fn remove_tags_from_entry(
     State(state): State<DbState>,
     Path(id): Path<String>,
-    Json(tag_id): Json<String>,
+    Json(tag_ids): Json<Vec<String>>,
 ) -> Result<impl IntoResponse> {
     let db = connection::get_database(&state);
     let repo = EntryRepository::new(db.clone());
-    repo.remove_tags(&id, tag_id).await?;
+    repo.remove_tags(&id, tag_ids).await?;
     
     // Log activity
     if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await {

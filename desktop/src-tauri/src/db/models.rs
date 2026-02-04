@@ -83,6 +83,8 @@ pub struct Entry {
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub tags: Option<Vec<Tag>>,
     #[serde(skip)]
     pub _sync_id: Option<String>,
     #[serde(skip)]

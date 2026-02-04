@@ -1,16 +1,16 @@
-import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import {
 	getGetSyncStatusQueryKey,
-	useGetSyncStatus,
-	useSyncNow,
 	useConfigureSync,
 	useDisconnectSync,
-	useReconnectSync,
 	useGetSetting,
+	useGetSyncStatus,
+	useReconnectSync,
 	useSetSetting,
+	useSyncNow,
 } from "~/aether-sdk";
 import type { SyncStatus } from "~/aether-sdk/models";
 import { Button } from "~/components/shared/button";
@@ -37,16 +37,17 @@ export const SyncSection = () => {
 		},
 	);
 
-	const mediaSyncPolicy = (mediaPolicyResponse?.data?.value as "auto" | "on_demand") ?? "on_demand";
+	const mediaSyncPolicy =
+		(mediaPolicyResponse?.data?.value as "auto" | "on_demand") ?? "on_demand";
 
-	useEffect(() => {
-		const unlisten = listen<SyncStatus>("sync-status", () => {
-			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-		});
-		return () => {
-			unlisten.then((fn) => fn());
-		};
-	}, [queryClient, syncStatusQueryKey]);
+	// useEffect(() => {
+	// 	const unlisten = listen<SyncStatus>("sync-status", () => {
+	// 		queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
+	// 	});
+	// 	return () => {
+	// 		unlisten.then((fn) => fn());
+	// 	};
+	// }, [queryClient, syncStatusQueryKey]);
 
 	const syncNowMutation = useSyncNow({
 		mutation: {

@@ -45,17 +45,23 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 			},
 			{
 				onSuccess: () => invalidateEntryQueries(queryClient),
+				onError: (error) => {
+					console.error("Error adding tags to entry", error);
+				},
 			},
 		);
 	};
 
 	const handleRemoveTag = (tagId: string) => {
+		// console.log("handleRemoveTag", tagId);
 		if (!entry.id) return;
+
+		// console.log("okay -> let's continue");
 
 		removeTagsFromEntry(
 			{
 				id: entry.id,
-				data: tagId,
+				data: [tagId],
 			},
 			{
 				onSuccess: () => invalidateEntryQueries(queryClient),

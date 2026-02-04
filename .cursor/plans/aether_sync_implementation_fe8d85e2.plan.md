@@ -2,6 +2,7 @@
 name: Aether Sync Implementation
 overview: Implement an offline-first, end-to-end encrypted sync system for Aether that enables multi-device synchronization through a user-deployed Docker server. The system uses last-write-wins conflict resolution, content-addressed media storage, and SQLite triggers for change tracking.
 todos: []
+isProject: false
 ---
 
 # Aether Sync Implementation Plan
@@ -45,6 +46,8 @@ graph TB
     D2C --> D2B
     D2B --> D2A
 ```
+
+
 
 ## Phase 1: Schema & Outbox
 
@@ -270,11 +273,9 @@ Flow:
 1. Read all rows from `_sync_outbox`
 2. Group by `(entity, entity_id)` (dedupe)
 3. For each unique entry:
-
-   - Read current row from entity table
-   - Build `ChangeEnvelope` with full row data
-   - Encrypt envelope
-
+  - Read current row from entity table
+  - Build `ChangeEnvelope` with full row data
+  - Encrypt envelope
 4. POST to `/push` endpoint
 5. On success: delete from outbox
 6. Handle errors with retry logic
@@ -292,12 +293,10 @@ Flow:
 
 1. GET `/pull?since={last_sync}`
 2. For each encrypted change:
-
-   - Decrypt to `ChangeEnvelope`
-   - Skip if `device_id` matches local device
-   - Apply using LWW logic
-   - Store unknown fields in `_extra` for forward compatibility
-
+  - Decrypt to `ChangeEnvelope`
+  - Skip if `device_id` matches local device
+  - Apply using LWW logic
+  - Store unknown fields in `_extra` for forward compatibility
 3. Update `last_sync` timestamp
 4. If `has_more`: repeat pagination
 
@@ -681,7 +680,6 @@ Implement sync logic based on policy.
 **Files to modify:**
 
 - `desktop/src-tauri/src/sync/engine.rs`
-
 - Connect to WebSocket on sync setup
 - Listen for "sync" notifications
 - Trigger pull on notification
@@ -936,12 +934,12 @@ fn post_upgrade_migration() {
 
 ## Security Checklist
 
-- [ ] HTTPS required for server
-- [ ] Passphrase strength validation (min 12 chars)
-- [ ] Rate limiting on server (100 req/min per IP)
-- [ ] No server-side content logging
-- [ ] Key verification on connect
-- [ ] Secure key storage (use OS keychain if available)
+- HTTPS required for server
+- Passphrase strength validation (min 12 chars)
+- Rate limiting on server (100 req/min per IP)
+- No server-side content logging
+- Key verification on connect
+- Secure key storage (use OS keychain if available)
 
 ---
 
@@ -1038,3 +1036,4 @@ User enters wrong passphrase on new device.
 ### Frontend (desktop/package.json)
 
 - `@tauri-apps/api` - Tauri API for invoking commands and listening to events (already included)
+

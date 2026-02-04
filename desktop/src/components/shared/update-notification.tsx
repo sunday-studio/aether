@@ -12,33 +12,33 @@ import type { UpdateInfo } from "~/types/updater";
 export function UpdateNotificationListener() {
 	const navigate = useNavigate();
 
-	useEffect(() => {
-		const unlisten = listen<UpdateInfo>("update-available", (event) => {
-			const info = event.payload;
+	// useEffect(() => {
+	// 	const unlisten = listen<UpdateInfo>("update-available", (event) => {
+	// 		const info = event.payload;
 
-			toast.custom(
-				(id) => (
-					<UpdateToast
-						id={id}
-						info={info}
-						onViewChanges={() => {
-							toast.dismiss(id);
-							navigate("/settings");
-						}}
-						onDismiss={() => toast.dismiss(id)}
-					/>
-				),
-				{
-					duration: 15000,
-					position: "bottom-right",
-				},
-			);
-		});
+	// 		toast.custom(
+	// 			(id) => (
+	// 				<UpdateToast
+	// 					id={id}
+	// 					info={info}
+	// 					onViewChanges={() => {
+	// 						toast.dismiss(id);
+	// 						navigate("/settings");
+	// 					}}
+	// 					onDismiss={() => toast.dismiss(id)}
+	// 				/>
+	// 			),
+	// 			{
+	// 				duration: 15000,
+	// 				position: "bottom-right",
+	// 			},
+	// 		);
+	// 	});
 
-		return () => {
-			unlisten.then((fn) => fn());
-		};
-	}, [navigate]);
+	// 	return () => {
+	// 		unlisten.then((fn) => fn());
+	// 	};
+	// }, [navigate]);
 
 	return null;
 }

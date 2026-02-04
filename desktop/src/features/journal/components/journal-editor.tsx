@@ -34,8 +34,9 @@ export const JournalEditor = ({
 	return (
 		<div
 			className={cn(
-				"text-neutral-800 bg-transparent relative w-full flex gap-2 px-3 -mx-3 py-2 -my-2 transition-colors duration-150 rounded-md",
-				isSelected && "bg-blue-50/50 ring ring-blue-100",
+				"text-neutral-800 bg-transparent relative w-full flex gap-2 px-3 -mx-3 py-1 -my-2 transition-colors duration-150 rounded-md",
+				isSelected &&
+					"bg-green-50/50 ring ring-green-100 text-green-700! &> .editor-root { color: var(--color-green-700) !important; }",
 			)}
 		>
 			<Editor

@@ -37,7 +37,7 @@ export const JournalTimeline = () => {
 	}
 
 	return (
-		<div className="h-full overflow-y-scroll  relative flex justify-center mt-2 mb-100!">
+		<div className="h-full overflow-y-scroll  relative flex justify-center mt-2 mb-200!">
 			<Timeline>
 				<Timeline.Item
 					className="max-w-5xl w-full bg-red-0 pt-6"

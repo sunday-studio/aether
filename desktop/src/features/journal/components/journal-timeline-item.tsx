@@ -100,7 +100,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 				</Timeline.LeftContent>
 			}
 			rightContent={
-				<Timeline.RightContent className="mb-5 flex flex-col gap-1">
+				<Timeline.RightContent className="mb-5 flex flex-col gap-3">
 					{/* <EntryAudio entryId={entry.id ?? ""} /> */}
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
