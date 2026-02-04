@@ -3,8 +3,8 @@ import { Loader } from "lucide-react";
 import { useCreateTask, useGetInboxTasksInfinite } from "~/aether-sdk";
 import { Button } from "~/components/shared/button";
 import { useInfiniteScroll } from "~/hooks/use-infinite-scroll";
-import { invalidateTaskQueries } from "./invalidate-task-queries";
 import { VirtualizedTaskList } from "./components/virtualized-task-list";
+import { invalidateTaskQueries } from "./invalidate-task-queries";
 import { groupTaskByCreatedAt } from "./tasks.domain";
 
 export const InboxTasksView = () => {
@@ -41,18 +41,18 @@ export const InboxTasksView = () => {
 		isFetchingNextPage,
 	});
 
-	if (errorInboxTasks) {
-		return (
-			<div className="h-full flex items-center justify-center">
-				<p className="text-sm text-neutral-500">Error loading inbox tasks</p>
-			</div>
-		);
-	}
-
 	if (isLoadingInboxTasks) {
 		return (
 			<div className="h-full flex items-center justify-center">
 				<Loader className="w-4 h-4 animate-spin" />
+			</div>
+		);
+	}
+
+	if (errorInboxTasks) {
+		return (
+			<div className="h-full flex items-center justify-center">
+				<p className="text-sm text-neutral-500">Error loading inbox tasks</p>
 			</div>
 		);
 	}

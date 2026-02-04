@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::db::models::{
-    AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, ResourceLink, Tag, Task,
-    TaskWithSubtasks,
+    AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, GoalInstanceWithTasks,
+    ResourceLink, Tag, Task, TaskWithSubtasks,
 };
 
 /// Pagination response wrapper optimized for infinite scroll
@@ -16,6 +16,7 @@ use crate::db::models::{
     PaginatedTasksWithSubtasks = PaginationResponse<TaskWithSubtasks>,
     PaginatedGoals = PaginationResponse<Goal>,
     PaginatedGoalInstances = PaginationResponse<GoalInstance>,
+    PaginatedGoalInstancesWithTasks = PaginationResponse<GoalInstanceWithTasks>,
     PaginatedLinks = PaginationResponse<ResourceLink>,
     PaginatedBookmarks = PaginationResponse<Bookmark>,
     PaginatedCanvases = PaginationResponse<Canvas>,

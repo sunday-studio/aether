@@ -9,19 +9,22 @@ import {
 /**
  * Invalidate inbox + overdue + optionally goal instances for a goal.
  * Call after create/update/delete task (pass goalId when task is scoped to a goal).
+ * Also refetches so the list updates immediately.
  */
 export function invalidateTaskQueries(
 	queryClient: QueryClient,
 	options?: { goalId?: string },
 ) {
-	queryClient.invalidateQueries({ queryKey: getGetInboxTasksInfiniteQueryKey({}) });
-	queryClient.invalidateQueries({
-		queryKey: getGetOverdueTasksInfiniteQueryKey({}),
-	});
+	const inboxKey = getGetInboxTasksInfiniteQueryKey({});
+	const overdueKey = getGetOverdueTasksInfiniteQueryKey({});
+	queryClient.invalidateQueries({ queryKey: inboxKey });
+	queryClient.invalidateQueries({ queryKey: overdueKey });
+	void queryClient.refetchQueries({ queryKey: inboxKey });
+	void queryClient.refetchQueries({ queryKey: overdueKey });
 	if (options?.goalId) {
-		queryClient.invalidateQueries({
-			queryKey: getGetGoalInstancesInfiniteQueryKey(options.goalId, {}),
-		});
+		const goalKey = getGetGoalInstancesInfiniteQueryKey(options.goalId, {});
+		queryClient.invalidateQueries({ queryKey: goalKey });
+		void queryClient.refetchQueries({ queryKey: goalKey });
 	}
 }
 

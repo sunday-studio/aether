@@ -1,0 +1,146 @@
+name: Release Sync Server
+
+on:
+  push:
+    tags:
+      - "sync-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.0.0)"
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/sync-server
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF#refs/tags/sync-v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sync-server
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write release notes
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          R="${{ env.REGISTRY }}"
+          I="${{ env.IMAGE_NAME }}"
+          
+          cat > release_notes.md <<EOF
+          ## Aether Sync Server ${V}
+
+          ### Docker image
+
+          \`\`\`bash
+          docker pull ${R}/${I}:${V}
+          \`\`\`
+
+          ### Quick start
+
+          1. **Create docker-compose.yml**
+
+          \`\`\`yaml
+          services:
+            aether-sync:
+              image: ${R}/${I}:${V}
+              ports:
+                - "8080:8080"
+              volumes:
+                - ./data:/data
+              environment:
+                SERVER_PASSPHRASE: \${SERVER_PASSPHRASE}
+                DATA_ROOT: /data
+              restart: unless-stopped
+          \`\`\`
+
+          2. **Create .env file**
+
+          \`\`\`bash
+          echo "SERVER_PASSPHRASE=your-secure-passphrase" > .env
+          \`\`\`
+
+          3. **Start the server**
+
+          \`\`\`bash
+          docker compose up -d
+          \`\`\`
+
+          ### Changes
+
+          See repository history for details.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: sync-v${{ steps.version.outputs.version }}
+          name: Sync Server v${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Job summary
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          R="${{ env.REGISTRY }}"
+          I="${{ env.IMAGE_NAME }}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Sync Server released
+
+          **Version:** ${V}
+
+          **Image:** \`${R}/${I}:${V}\`
+
+          **Pull:**
+          \`\`\`bash
+          docker pull ${R}/${I}:${V}
+          \`\`\`
+          EOF

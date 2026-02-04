@@ -10,9 +10,28 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use utoipa::ToSchema;
+
+/// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
+/// Used with #[serde(default)] so missing field = None (no change). When present, null = clear.
+fn deserialize_clearable_datetime<'de, D>(
+	d: D,
+) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	let v = serde_json::Value::deserialize(d)?;
+	match v {
+		serde_json::Value::Null => Ok(Some(None)),
+		serde_json::Value::String(s) => {
+			let dt = chrono::DateTime::parse_from_rfc3339(&s).map_err(serde::de::Error::custom)?;
+			Ok(Some(Some(dt.with_timezone(&Utc))))
+		}
+		_ => Err(serde::de::Error::custom("dueDate must be a string or null")),
+	}
+}
 
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +54,7 @@ pub struct UpdateTaskRequest {
     pub title: Option<String>,
     #[serde(default)]
     pub description: Option<Option<String>>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_clearable_datetime")]
     pub due_date: Option<Option<chrono::DateTime<Utc>>>,
     #[serde(default)]
     pub is_completed: Option<bool>,

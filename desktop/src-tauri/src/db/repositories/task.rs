@@ -270,7 +270,7 @@ impl TaskRepository {
     /// Get task by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Task>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -286,6 +286,28 @@ impl TaskRepository {
         } else {
             Ok(None)
         }
+    }
+
+    /// Get tasks for a goal instance (for goal view)
+    pub async fn find_by_goal_instance_id(&self, goal_instance_id: &str) -> Result<Vec<Task>> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let mut rows = conn
+            .query(
+                "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                 FROM tasks 
+                 WHERE goal_instance_id = ?1 AND deleted_at IS NULL 
+                 ORDER BY COALESCE(due_date, '') ASC, id ASC",
+                libsql::params![goal_instance_id],
+            )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        let mut tasks = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            tasks.push(self.row_to_task(row)?);
+        }
+        Ok(tasks)
     }
 
     /// Update a task

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  aether-sync:
+    image: ghcr.io/sunday-studio/aether/sync-server:latest
+    container_name: aether-sync
+    ports:
+      - "9999:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      - SERVER_PASSPHRASE=${SERVER_PASSPHRASE}
+    restart: unless-stopped

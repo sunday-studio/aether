@@ -2,8 +2,8 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, GoalIdPathParams, IdPathParams,
     PaginationQueryParams,
 };
-use crate::db::models::{Goal, GoalInstance};
-use crate::db::{connection, DbState, GoalRepository};
+use crate::db::models::{Goal, GoalInstance, GoalInstanceWithTasks};
+use crate::db::{connection, DbState, GoalRepository, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::handlers::common::PaginationResponse;
 use crate::handlers::goal::{CreateGoalRequest, UpdateGoalRequest};
@@ -270,7 +270,7 @@ pub async fn delete_goal(
     Ok(())
 }
 
-/// Get goal instances for a goal
+/// Get goal instances for a goal (with tasks per instance for goal view)
 #[utoipa::path(
     get,
     path = "/v1/goals/{goalId}/instances",
@@ -281,7 +281,7 @@ pub async fn delete_goal(
         ("cursor" = Option<String>, Query, description = "Cursor for pagination")
     ),
     responses(
-        (status = 200, description = "Paginated list of goal instances", body = PaginatedGoalInstances),
+        (status = 200, description = "Paginated list of goal instances with tasks", body = PaginatedGoalInstancesWithTasks),
         (status = 404, description = "Goal not found"),
         (status = 500, description = "Internal server error")
     )
@@ -292,16 +292,40 @@ pub async fn get_goal_instances(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     path_params: Option<GoalIdPathParams>,
-) -> Result<PaginationResponse<GoalInstance>> {
+) -> Result<PaginationResponse<GoalInstanceWithTasks>> {
     let goal_id = path_params
         .and_then(|p| Some(p.goal_id))
         .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
     let params = query_params.unwrap_or_default();
-    let repo = GoalRepository::new(connection::get_database(&*state));
-    let (instances, next_cursor, has_more) = repo
+    let db = connection::get_database(&*state);
+    let goal_repo = GoalRepository::new(db.clone());
+    let task_repo = TaskRepository::new(db);
+    let (instances, next_cursor, has_more) = goal_repo
         .find_instances(&goal_id, params.normalize_limit(), params.cursor)
         .await?;
-    Ok(PaginationResponse::new(instances, next_cursor, has_more))
+    let mut instances_with_tasks = Vec::with_capacity(instances.len());
+    for instance in instances {
+        let tasks = task_repo.find_by_goal_instance_id(&instance.id).await?;
+        let mut tasks_with_subtasks = Vec::with_capacity(tasks.len());
+        for task in tasks {
+            let subtasks = task_repo.find_subtasks(&task.id).await.unwrap_or_default();
+            tasks_with_subtasks.push(TaskRepository::task_to_task_with_subtasks(task, subtasks));
+        }
+        instances_with_tasks.push(GoalInstanceWithTasks {
+            id: instance.id,
+            goal_id: instance.goal_id,
+            period_start: instance.period_start,
+            period_end: instance.period_end,
+            status: instance.status,
+            created_at: instance.created_at,
+            tasks: tasks_with_subtasks,
+        });
+    }
+    Ok(PaginationResponse::new(
+        instances_with_tasks,
+        next_cursor,
+        has_more,
+    ))
 }
 
 /// Get or create current goal instance

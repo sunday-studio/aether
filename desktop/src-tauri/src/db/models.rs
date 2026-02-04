@@ -249,6 +249,20 @@ pub struct GoalInstance {
     pub _extra: Option<serde_json::Value>,
 }
 
+/// Goal instance with its tasks (for goal view)
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GoalInstanceWithTasks {
+    pub id: String,
+    pub goal_id: String,
+    pub period_start: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period_end: Option<DateTime<Utc>>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub tasks: Vec<TaskWithSubtasks>,
+}
+
 /// Activity model for tracking user actions and audit logging
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]

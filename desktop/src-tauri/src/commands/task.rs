@@ -56,14 +56,19 @@ pub async fn create_task(
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    
+    let goal_instance_id = if let Some(ref goal_id) = request.goal_id {
+        let goal_repo = crate::db::GoalRepository::new(db.clone());
+        Some(goal_repo.get_or_create_current_instance(goal_id).await?.id)
+    } else {
+        None
+    };
     let task = repo
         .create(
             request.title,
             request.description,
             request.due_date,
             request.goal_id.clone(),
-            None, // goal_instance_id - will be set in Milestone 5
+            goal_instance_id,
         )
         .await?;
 
