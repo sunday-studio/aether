@@ -15,7 +15,7 @@ interface ButtonProps {
 
 // bg-linear-to-b from-neutral-100 to-neutral-200
 const buttonStyles = tv({
-	base: "flex items-center gap-1 transition-all duration-200 cursor-pointer px-3 py-1.5 text-sm rounded-full",
+	base: "flex items-center gap-1 transition-all duration-200 cursor-pointer px-3 py-2.5 text-[13px] rounded-full leading-none",
 	variants: {
 		variant: {
 			primary:
@@ -50,7 +50,7 @@ export const Button = ({
 					onClick={onClick}
 					disabled={isDisabled}
 				>
-					<p className="text-sm">{label}</p>
+					{label}
 				</button>
 			}
 		/>

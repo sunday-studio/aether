@@ -13,7 +13,7 @@ import "./app.css";
 const queryClient = initQueryClient();
 
 function SyncDataRefresh({ children }: { children: React.ReactNode }) {
-	useSyncDataRefresh();
+	// useSyncDataRefresh();
 	return <>{children}</>;
 }
 

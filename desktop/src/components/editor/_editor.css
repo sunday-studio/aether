@@ -35,7 +35,7 @@
 .editor-root {
 	outline: none;
 	color: var(--color-foreground) !important;
-	font-size: 16px;
+	font-size: 14px;
 }
 
 .editor-text-bold {
@@ -148,7 +148,7 @@
 .editor-heading-h5 {
 	font-size: 14px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;		
+	margin-bottom: 0.5rem;
 	font-family: "Inter", sans-serif;
 	line-height: 1.2;
 }
