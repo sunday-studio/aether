@@ -39,6 +39,8 @@ pub struct AppState {
     pub broadcast: broadcast::Sender<String>,
     /// Tracks currently connected WebSocket clients
     pub connected_devices: ConnectedDevices,
+    /// When set, only registered devices (matching passphrase) can pull/push/ws
+    pub server_passphrase: Option<Arc<str>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,11 +54,16 @@ pub struct WsQuery {
     pub hostname: Option<String>,
 }
 
-pub fn router(storage: Arc<Storage>, broadcast_tx: broadcast::Sender<String>) -> Router {
+pub fn router(
+    storage: Arc<Storage>,
+    broadcast_tx: broadcast::Sender<String>,
+    server_passphrase: Option<Arc<str>>,
+) -> Router {
     let state = AppState {
         storage,
         broadcast: broadcast_tx,
         connected_devices: Arc::new(RwLock::new(HashMap::new())),
+        server_passphrase,
     };
     Router::new()
         .route("/health", get(health))

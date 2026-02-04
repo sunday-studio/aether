@@ -16,4 +16,5 @@ serde_json = "1"
 tower-http = { version = "0.5", features = ["cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+subtle = "2.5"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }

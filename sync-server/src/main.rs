@@ -17,10 +17,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let storage = Storage::new(&db_path, &data_root)?;
     storage.initialize_salt()?;
     let storage = Arc::new(storage);
+    let server_passphrase = std::env::var("SERVER_PASSPHRASE").ok().map(|s| Arc::from(s.into_boxed_str()));
     // Broadcast channel carries the device_id that pushed changes
     let (broadcast_tx, _) = broadcast::channel::<String>(16);
 
-    let app = handlers::router(storage, broadcast_tx);
+    let app = handlers::router(storage, broadcast_tx, server_passphrase);
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], 8080).into();
     tracing::info!("listening on {}", addr);
 
