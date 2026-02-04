@@ -29,13 +29,13 @@ export const dropdownContentStyles = cn(
 );
 
 export const dropdownItemStyles = cn(
-	"relative flex items-center gap-2 text-neutral-200",
+	"relative flex items-center text-neutral-200",
 	"rounded-md px-2 py-1.5 text-sm",
 	"cursor-default outline-hidden select-none",
 	"focus:bg-neutral-800",
 	"data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
 	"data-[inset]:pl-8",
-	"data-[variant=destructive]:text-red-500 data-[variant=destructive]:focus:bg-red-500/10 data-[variant=destructive]:focus:text-red-500 data-[variant=destructive]:*:[svg]:!text-destructive",
+	"data-[variant=destructive]:text-red-400 data-[variant=destructive]:focus:bg-red-500/10 data-[variant=destructive]:focus:text-red-500 data-[variant=destructive]:*:[svg]:!text-destructive",
 	"[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-neutral-400",
 );
 
@@ -60,10 +60,10 @@ function DropdownMenuItem({
 }
 
 export const JournalActionsDropdown = ({
-	onAddTags,
+	// onAddTags,
 	onDeleteEntry,
-	onPinEntry,
-	onArchiveEntry,
+	// onPinEntry,
+	// onArchiveEntry,
 	isOpen,
 	onOpenChange,
 	children,
@@ -73,26 +73,26 @@ export const JournalActionsDropdown = ({
 			<DropdownMenu.Trigger asChild>{children}</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
 				<DropdownMenu.Content className={dropdownContentStyles} sideOffset={5}>
-					<DropdownMenuItem className={dropdownItemStyles} onClick={onAddTags}>
+					{/* <DropdownMenuItem className={dropdownItemStyles} onClick={onAddTags}>
 						<Tag className="mr-2 size-4" />
 						Add tags
-					</DropdownMenuItem>
+					</DropdownMenuItem> */}
 
-					<DropdownMenuItem className={dropdownItemStyles} onClick={onPinEntry}>
+					{/* <DropdownMenuItem className={dropdownItemStyles} onClick={onPinEntry}>
 						<Pin className="mr-2 size-4" />
 						Pin
-					</DropdownMenuItem>
+					</DropdownMenuItem> */}
 
-					<DropdownMenuItem
+					{/* <DropdownMenuItem
 						className={dropdownItemStyles}
 						onClick={onArchiveEntry}
 					>
 						<Archive className="mr-2 size-4" />
 						Archive
-					</DropdownMenuItem>
+					</DropdownMenuItem> */}
 
 					<DropdownMenuItem variant="destructive" onClick={onDeleteEntry}>
-						<Trash className="mr-2 size-4" />
+						<Trash className="mr-2 size-4 text-inherit" />
 						Delete entry
 					</DropdownMenuItem>
 				</DropdownMenu.Content>

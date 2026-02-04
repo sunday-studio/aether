@@ -57,9 +57,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 			{
 				onSuccess: () => {
 					invalidateEntryQueries(queryClient);
-					showToast({
-						title: "Entry deleted successfully",
-					});
 				},
 			},
 		);

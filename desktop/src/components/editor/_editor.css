@@ -11,12 +11,11 @@
 }
 
 .editor-placeholder {
-	font-style: italic;
 	z-index: 2;
 	position: absolute;
-	margin-top: -24px;
-
-	font-size: 15px;
+	margin-top: -26px;
+	padding-left: 2px;
+	font-size: 14px;
 	color: #6b7280;
 	overflow: hidden;
 	white-space: nowrap;
