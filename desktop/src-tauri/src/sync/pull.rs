@@ -16,10 +16,20 @@ fn debug_log(location: &str, message: &str, data: &str, hypothesis: &str) {
 // #endregion
 
 /// Returns (envelopes, timestamp). Caller should set last_sync to timestamp after applying.
-pub async fn pull(db: &Database, key: &[u8; 32], base_url: &str) -> Result<(Vec<ChangeEnvelope>, i64)> {
+pub async fn pull(
+    db: &Database,
+    key: &[u8; 32],
+    base_url: &str,
+    device_id: &str,
+) -> Result<(Vec<ChangeEnvelope>, i64)> {
     let since = metadata::get_last_sync(db).await?.unwrap_or(0);
-    let url = format!("{}/pull?since={}", base_url.trim_end_matches('/'), since);
-    tracing::info!("[SYNC-PULL] Pulling changes from {} (since: {})", url, since);
+    let url = format!(
+        "{}/pull?since={}&device_id={}",
+        base_url.trim_end_matches('/'),
+        since,
+        urlencoding::encode(device_id)
+    );
+    tracing::info!("[SYNC-PULL] Pulling changes from {} (since: {}, device: {})", url, since, device_id);
     // #region agent log
     debug_log("pull.rs:25", "pull_start", &format!(r#"{{"since":{},"url":"{}"}}"#, since, url), "H4");
     // #endregion

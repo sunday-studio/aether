@@ -8,6 +8,7 @@ use crate::sync::apply;
 use crate::sync::metadata;
 use crate::sync::pull;
 use crate::sync::push;
+use crate::sync::register;
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::AppHandle;
@@ -213,17 +214,42 @@ impl SyncEngine {
         };
         tracing::info!("[SYNC] Pending changes in outbox before sync: {}", pending_before);
 
+        let device_id = metadata::get_device_id(&db).await?;
+        let device_hostname = metadata::get_device_hostname(&db).await.unwrap_or_else(|_| "unknown".to_string());
+
+        if let Err(e) = register::register_with_server(&url, &device_id, &device_hostname, &pass).await {
+            if e.to_string().contains("401") || e.to_string().contains("wrong passphrase") {
+                *self.is_syncing.lock().unwrap() = false;
+                return Err(e);
+            }
+            tracing::warn!("[SYNC] Register failed (server may not require it): {}", e);
+        }
+
         // Pull
         tracing::info!("[SYNC-PULL] Starting pull from server");
-        let (envelopes, ts) = match pull::pull(&db, &key, &url).await {
+        let (envelopes, ts) = match pull::pull(&db, &key, &url, &device_id).await {
             Ok((e, t)) => {
                 tracing::info!("[SYNC-PULL] Pull successful: received {} changes, timestamp: {}", e.len(), t);
                 (e, t)
             }
             Err(e) => {
-                tracing::error!("[SYNC] Pull failed: {}", e);
-                *self.is_syncing.lock().unwrap() = false;
-                return Err(e);
+                let err_str = e.to_string();
+                if err_str.contains("401") || err_str.contains("not registered") {
+                    tracing::info!("[SYNC] Pull 401, re-registering and retrying");
+                    let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
+                    match pull::pull(&db, &key, &url, &device_id).await {
+                        Ok((e, t)) => (e, t),
+                        Err(e2) => {
+                            tracing::error!("[SYNC] Pull failed after retry: {}", e2);
+                            *self.is_syncing.lock().unwrap() = false;
+                            return Err(e2);
+                        }
+                    }
+                } else {
+                    tracing::error!("[SYNC] Pull failed: {}", e);
+                    *self.is_syncing.lock().unwrap() = false;
+                    return Err(e);
+                }
             }
         };
 
@@ -273,13 +299,23 @@ impl SyncEngine {
 
         // Push
         tracing::info!("[SYNC] Starting push to server");
-        match push::push(db.clone(), &key, &url, &media_sync_policy).await {
+        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy).await;
+        match push_res {
             Ok(count) => {
                 tracing::info!("[SYNC] Push successful: {} changes pushed", count);
             }
             Err(e) => {
-                tracing::error!("[SYNC] Push failed: {}", e);
-                // Don't fail the entire sync if push fails, but log it
+                let err_str = e.to_string();
+                if (err_str.contains("401") || err_str.contains("not registered")) && !device_id.is_empty() {
+                    let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
+                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy).await {
+                        tracing::info!("[SYNC] Push successful after re-register: {} changes pushed", count);
+                    } else {
+                        tracing::error!("[SYNC] Push failed after retry: {}", e);
+                    }
+                } else {
+                    tracing::error!("[SYNC] Push failed: {}", e);
+                }
             }
         }
 

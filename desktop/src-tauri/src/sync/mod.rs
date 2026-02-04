@@ -5,6 +5,7 @@ pub mod media;
 pub mod metadata;
 pub mod pull;
 pub mod push;
+pub mod register;
 pub mod scheduler;
 pub mod types;
 pub mod ws;
