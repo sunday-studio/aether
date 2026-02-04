@@ -36,6 +36,7 @@ pub struct ReconnectSyncRequest {
 pub async fn configure_sync(
     app: AppHandle,
     engine: State<'_, Arc<SyncEngine>>,
+    start_periodic_sync: State<'_, crate::StartPeriodicSyncTx>,
     request_data: Option<ConfigureSyncRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
@@ -59,6 +60,9 @@ pub async fn configure_sync(
     if let Ok(status) = engine.status().await {
         tracing::info!("[SYNC-CMD] Configuration complete, emitting status event");
         let _ = app.emit("sync-status", &status);
+    }
+    if let Some(tx) = start_periodic_sync.0.lock().unwrap().take() {
+        let _ = tx.send(());
     }
     Ok(())
 }

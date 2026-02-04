@@ -2,6 +2,7 @@
 [watch]
 ignore = [
   "libsql-replica/**",
+  "src/libsql-replica/**",
   "**/*.db",
   "**/*.db-shm",
   "**/*.db-wal",

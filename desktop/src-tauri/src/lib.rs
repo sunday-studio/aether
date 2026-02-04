@@ -20,8 +20,9 @@ use commands::{
     updater as updater_commands,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager, WindowEvent};
+use tokio::sync::oneshot;
 
 /// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
 pub struct WindowFocus(pub Arc<AtomicBool>);
@@ -34,6 +35,9 @@ impl WindowFocus {
         self.0.load(Ordering::Relaxed)
     }
 }
+
+/// One-shot sender to start the periodic sync task when user configures sync (no URL on first load).
+pub struct StartPeriodicSyncTx(pub Arc<Mutex<Option<oneshot::Sender<()>>>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -111,11 +115,13 @@ pub fn run() {
     let window_focus = WindowFocus(Arc::new(AtomicBool::new(true)));
     let update_manager = updater::UpdateManager::new();
 
+    let (periodic_sync_tx, periodic_sync_rx) = oneshot::channel();
     builder
         .manage(db_state)
         .manage(sync_engine.clone())
         .manage(window_focus)
         .manage(update_manager)
+        .manage(StartPeriodicSyncTx(Arc::new(Mutex::new(Some(periodic_sync_tx)))))
         .on_window_event(|window, event| {
             match event {
                 WindowEvent::CloseRequested { .. } => {
@@ -200,22 +206,27 @@ pub fn run() {
                 _ => {}
             }
         })
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
             let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();
             let window_focus = app.state::<WindowFocus>().inner().0.clone();
-
-            // Hydrate sync engine from metadata and keychain
             let app_handle = app.handle().clone();
             let engine_clone = sync_engine.clone();
+            let periodic_sync_rx = periodic_sync_rx;
+
+            // Hydrate then start periodic sync only when a sync server URL exists (from metadata or after user configures)
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = engine_clone.hydrate(&app_handle).await {
                     tracing::warn!("[SYNC] Failed to hydrate sync engine: {}", e);
                 }
-            });
-
-            // Periodic sync: every 5 min when focused and ready
-            tauri::async_runtime::spawn(async move {
+                let has_url = match handle.try_state::<Arc<sync::SyncEngine>>() {
+                    Some(engine) => engine.status().await.ok().map(|s| s.connected).unwrap_or(false),
+                    None => false,
+                };
+                if !has_url {
+                    tracing::info!("[SYNC] No sync server URL configured, waiting for user to set sync server before starting periodic sync");
+                    let _ = periodic_sync_rx.await;
+                }
                 tracing::info!("[SYNC] Starting periodic sync task (every 5 minutes)");
                 let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
                 loop {

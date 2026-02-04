@@ -1,4 +1,4 @@
-import { Atom, BadgeCheck, Bookmark, Egg, Network } from "lucide-react";
+import { BadgeCheck, Egg } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "~/utils/cn";
 import { RadialAvatar } from "./radiant-avatar";
