@@ -18,7 +18,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
 
 use crate::models::{EncryptedChange, PullResponse, PushRequest, RegisterRequest};
-use crate::storage::Storage;
+use crate::storage::{Storage, DeviceRow};
 use subtle::ConstantTimeEq;
 
 /// Tracks a connected device
@@ -340,19 +340,50 @@ async fn handle_websocket(
     }
 }
 
-/// Response for /devices endpoint
+/// Device in GET /devices: registered device with connected flag from in-memory set
+#[derive(Serialize)]
+struct DeviceInfo {
+    id: String,
+    hostname: Option<String>,
+    created_at: i64,
+    last_seen: i64,
+    last_sync: i64,
+    connected: bool,
+}
+
 #[derive(Serialize)]
 struct DevicesResponse {
-    devices: Vec<ConnectedDevice>,
+    devices: Vec<DeviceInfo>,
     count: usize,
 }
 
-/// Get list of currently connected devices
+/// Get registered devices from DB with connected flag (single endpoint)
 async fn get_devices(State(s): State<AppState>) -> impl IntoResponse {
-    let devices = s.connected_devices.read().await;
-    let device_list: Vec<ConnectedDevice> = devices.values().cloned().collect();
-    let count = device_list.len();
-    (StatusCode::OK, Json(DevicesResponse { devices: device_list, count }))
+    let rows = match s.storage.list_devices() {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!("list_devices: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(DevicesResponse { devices: vec![], count: 0 }),
+            )
+                .into_response();
+        }
+    };
+    let connected = s.connected_devices.read().await;
+    let devices: Vec<DeviceInfo> = rows
+        .into_iter()
+        .map(|r: DeviceRow| DeviceInfo {
+            id: r.id.clone(),
+            hostname: r.hostname.clone(),
+            created_at: r.created_at,
+            last_seen: r.last_seen,
+            last_sync: r.last_sync,
+            connected: connected.contains_key(&r.id),
+        })
+        .collect();
+    let count = devices.len();
+    (StatusCode::OK, Json(DevicesResponse { devices, count })).into_response()
 }
 
 async fn pull(
