@@ -17,8 +17,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::models::{EncryptedChange, PullResponse, PushRequest};
+use crate::models::{EncryptedChange, PullResponse, PushRequest, RegisterRequest};
 use crate::storage::Storage;
+use subtle::ConstantTimeEq;
 
 /// Tracks a connected device
 #[derive(Clone, Debug, Serialize)]
@@ -68,6 +69,7 @@ pub fn router(
     Router::new()
         .route("/health", get(health))
         .route("/salt", get(get_salt))
+        .route("/register", post(register))
         .route("/push", post(push))
         .route("/pull", get(pull))
         .route("/ws", get(ws_handler))
@@ -93,6 +95,36 @@ async fn get_salt(State(s): State<AppState>) -> impl IntoResponse {
             (StatusCode::INTERNAL_SERVER_ERROR, "salt not configured").into_response()
         }
     }
+}
+
+fn verify_passphrase(got: &str, expected: &str) -> bool {
+    let a = got.as_bytes();
+    let b = expected.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    a.ct_eq(b).into()
+}
+
+async fn register(State(s): State<AppState>, Json(body): Json<RegisterRequest>) -> impl IntoResponse {
+    let Some(ref expected) = s.server_passphrase else {
+        if let Err(e) = s.storage.register_device(&body.device_id, body.hostname.as_deref()) {
+            tracing::error!("register_device: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
+        }
+        tracing::info!("Device {} registered (no server passphrase)", body.device_id);
+        return (StatusCode::OK, "{}").into_response();
+    };
+    if !verify_passphrase(&body.passphrase, expected) {
+        tracing::warn!("Register rejected: wrong passphrase for device {}", body.device_id);
+        return (StatusCode::UNAUTHORIZED, "wrong passphrase").into_response();
+    }
+    if let Err(e) = s.storage.register_device(&body.device_id, body.hostname.as_deref()) {
+        tracing::error!("register_device: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
+    }
+    tracing::info!("Device {} registered", body.device_id);
+    (StatusCode::OK, "{}").into_response()
 }
 
 async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl IntoResponse {

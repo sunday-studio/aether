@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
+pub struct RegisterRequest {
+    pub device_id: String,
+    pub hostname: Option<String>,
+    pub passphrase: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct PushRequest {
     pub device_id: String,
     pub device_hostname: String,
