@@ -10,8 +10,10 @@ use crate::sync::pull;
 use crate::sync::push;
 use crate::sync::register;
 use serde::Serialize;
+use std::sync::Arc;
 use std::sync::Mutex;
 use tauri::AppHandle;
+use tokio::sync::Notify;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -28,6 +30,8 @@ pub struct SyncEngine {
     server_url: Mutex<Option<String>>,
     passphrase: Mutex<Option<String>>,
     is_syncing: Mutex<bool>,
+    /// Signalled when server_url is set (from hydrate or configure). WS listener waits on this.
+    ws_url_configured: Arc<Notify>,
 }
 
 const SERVICE_NAME: &str = "com.aether.sync";
@@ -40,7 +44,13 @@ impl SyncEngine {
             server_url: Mutex::new(None),
             passphrase: Mutex::new(None),
             is_syncing: Mutex::new(false),
+            ws_url_configured: Arc::new(Notify::new()),
         }
+    }
+
+    /// Wait until a server URL has been configured (from hydrate or configure). Used by WS listener.
+    pub async fn wait_for_url_configured(&self) {
+        self.ws_url_configured.notified().await;
     }
 
     /// Store passphrase in OS keychain
@@ -100,6 +110,7 @@ impl SyncEngine {
         let db = get_database(&self.db);
         if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
             *self.server_url.lock().unwrap() = Some(url.clone());
+            self.ws_url_configured.notify_one();
             tracing::info!("[SYNC] Loaded server URL from metadata: {}", url);
 
             // Attempt to load passphrase from keychain
@@ -145,6 +156,7 @@ impl SyncEngine {
 
         metadata::set_server_url(&db, &server_url).await?;
         *self.server_url.lock().unwrap() = Some(server_url.clone());
+        self.ws_url_configured.notify_one();
         *self.passphrase.lock().unwrap() = Some(passphrase.clone());
         // Store passphrase in keychain
         self.store_passphrase(app, &passphrase)?;

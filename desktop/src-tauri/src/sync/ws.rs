@@ -35,8 +35,8 @@ pub async fn run_ws_listener(engine: Arc<SyncEngine>, app: AppHandle) {
     loop {
         let url = engine.try_get_url();
         let Some(base_url) = url else {
-            tracing::debug!("[SYNC-WS] No server URL configured, waiting 10s");
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            tracing::debug!("[SYNC-WS] No server URL configured, waiting until URL is set");
+            engine.wait_for_url_configured().await;
             backoff_secs = 1;
             continue;
         };

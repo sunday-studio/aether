@@ -51,3 +51,4 @@ sync-server/target/debug/
 sync-server/data/**
 sync-server/target/debug/
 sync-server/target/flycheck0/
+sync-server/.env

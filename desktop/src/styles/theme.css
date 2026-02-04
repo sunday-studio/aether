@@ -44,11 +44,10 @@
 	--color-link: var(--color-green-700);
 
 	/* navigation-control */
-	--color-navigation-control-active: var(--green-dark-4);
-	--color-navigation-control-hover: var(--green-dark-8);
-	--color-navigation-control-active-background: var(--green-dark-9);
+	--color-navigation-control-active: var(--green-11);
+	--color-navigation-control-hover: var(--green-12);
 	--color-navigation-control-foreground: var(--color-neutral-600);
-	--color-navigation-control-active-foreground: var(--color-neutral-100);
+	--color-navigation-control-active-foreground: var(--green-4);
 	--color-navigation-control-inset: rgb(255, 255, 255);
 
 	/* activity heatmap */
@@ -71,66 +70,6 @@
 	--color-button-destructive-start: var(--red-dark-4);
 	--color-button-destructive-end: var(--red-dark-5);
 	--color-button-destructive-foreground: var(--color-red-100);
-}
-
-/* TODO: update colors to match design */
-[data-theme="light-amber"] {
-	--color-background: #f7f2ed;
-	/* --color-foreground: var(--color-orange-500); */
-	--color-background-secondary: var(--color-orange-100);
-	--color-card: var(--color-orange-50);
-	--color-card-foreground: oklch(0.47 0.12 70);
-	--color-popover: oklch(1 0 0);
-	--color-popover-foreground: oklch(0.47 0.12 70);
-	--color-primary: oklch(0.47 0.12 70);
-	--color-primary-foreground: oklch(1 0 0);
-	--color-secondary: oklch(0.99 0.02 70);
-	--color-secondary-foreground: oklch(0.47 0.12 70);
-	--color-muted: oklch(0.99 0.02 70);
-	--color-muted-foreground: oklch(0.6 0.08 70);
-	--color-accent: oklch(0.99 0.02 70);
-	--color-accent-foreground: oklch(0.47 0.12 70);
-	--color-destructive: oklch(0.577 0.245 27.325);
-	--color-destructive-foreground: oklch(0.98 0 0);
-	--color-border: oklch(0.95 0.04 70);
-	--color-input: oklch(0.95 0.04 70);
-	--color-ring: oklch(0.6 0.08 70);
-
-	/* navigation-control */
-	--color-navigation-control-active: var(--color-orange-900);
-	--color-navigation-control-hover: var(--color-orange-800);
-	--color-navigation-control-active-background: var(--color-orange-900);
-
-	/* activity heatmap */
-	--color-activity-heatmap-index-0: var(--green-dark-3);
-	--color-activity-heatmap-index-1: var(--green-dark-5);
-	--color-activity-heatmap-index-2: var(--color-green-800);
-	--color-activity-heatmap-index-3: var(--color-green-700);
-	--color-activity-heatmap-index-4: var(--color-green-500);
-}
-
-/* TODO: update colors to match design  */
-[data-theme="dark-classic"] {
-	--color-background: oklch(0.04 0 0);
-	--color-foreground: oklch(0.98 0 0);
-	--color-card: oklch(0.09 0 0);
-	--color-card-foreground: oklch(0.98 0 0);
-	--color-popover: oklch(0.09 0 0);
-	--color-popover-foreground: oklch(0.98 0 0);
-	--color-primary: oklch(0.9 0 0);
-	--color-primary-foreground: oklch(0.09 0 0);
-	--color-secondary: oklch(0.15 0 0);
-	--color-secondary-foreground: oklch(0.9 0 0);
-	--color-muted: oklch(0.15 0 0);
-	--color-muted-foreground: oklch(0.64 0 0);
-	--color-accent: oklch(0.15 0 0);
-	--color-accent-foreground: oklch(0.9 0 0);
-	--color-destructive: oklch(0.577 0.245 27.325);
-	--color-destructive-foreground: oklch(0.98 0 0);
-	--color-border: oklch(0.25 0 0);
-	--color-input: oklch(0.25 0 0);
-	--color-ring: oklch(0.64 0 0);
-	--radius: 0.625rem;
 }
 
 [data-theme="dark-lime"] {
