@@ -37,7 +37,7 @@ jobs:
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION"
 
-  # Step 3: Build for all platforms
+  # Step 3: Build for macOS only
   build-macos-intel:
     needs: [check-release, create-tag]
     if: needs.check-release.outputs.should_release == 'true'
@@ -58,35 +58,13 @@ jobs:
       version: ${{ needs.check-release.outputs.version }}
     secrets: inherit
 
-  build-linux:
-    needs: [check-release, create-tag]
-    if: needs.check-release.outputs.should_release == 'true'
-    uses: ./.github/workflows/build-platform.yml
-    with:
-      platform: ubuntu-22.04
-      target: x86_64-unknown-linux-gnu
-      version: ${{ needs.check-release.outputs.version }}
-    secrets: inherit
-
-  build-windows:
-    needs: [check-release, create-tag]
-    if: needs.check-release.outputs.should_release == 'true'
-    uses: ./.github/workflows/build-platform.yml
-    with:
-      platform: windows-latest
-      target: x86_64-pc-windows-msvc
-      version: ${{ needs.check-release.outputs.version }}
-    secrets: inherit
-
-  # Step 4: Create GitHub Release with all artifacts
+  # Step 4: Create GitHub Release with macOS artifacts
   publish-release:
     name: Publish Release
     needs: 
       - check-release
       - build-macos-intel
       - build-macos-silicon
-      - build-linux
-      - build-windows
     runs-on: ubuntu-latest
     
     steps:
@@ -98,7 +76,7 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release
-          find artifacts -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" -o -name "*.AppImage" -o -name "*.AppImage.sig" -o -name "*.deb" -o -name "*.msi" -o -name "*.msi.sig" -o -name "*.exe" -o -name "*.nsis.zip" -o -name "*.nsis.zip.sig" \) -exec cp {} release/ \;
+          find artifacts -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) -exec cp {} release/ \;
           ls -la release/
       
       - name: Create GitHub Release
@@ -136,10 +114,14 @@ jobs:
             };
             
             const platformPatterns = {
-              'darwin-x86_64': { pattern: /x86_64.*darwin.*\.app\.tar\.gz$|darwin.*x86_64.*\.app\.tar\.gz$/i, sig: /x86_64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*x86_64.*\.app\.tar\.gz\.sig$/i },
-              'darwin-aarch64': { pattern: /aarch64.*darwin.*\.app\.tar\.gz$|darwin.*aarch64.*\.app\.tar\.gz$/i, sig: /aarch64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*aarch64.*\.app\.tar\.gz\.sig$/i },
-              'linux-x86_64': { pattern: /\.AppImage$/i, sig: /\.AppImage\.sig$/i },
-              'windows-x86_64': { pattern: /\.msi$|\.nsis\.zip$/i, sig: /\.msi\.sig$|\.nsis\.zip\.sig$/i }
+              'darwin-x86_64': { 
+                pattern: /x86_64.*darwin.*\.app\.tar\.gz$|darwin.*x86_64.*\.app\.tar\.gz$/i, 
+                sig: /x86_64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*x86_64.*\.app\.tar\.gz\.sig$/i 
+              },
+              'darwin-aarch64': { 
+                pattern: /aarch64.*darwin.*\.app\.tar\.gz$|darwin.*aarch64.*\.app\.tar\.gz$/i, 
+                sig: /aarch64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*aarch64.*\.app\.tar\.gz\.sig$/i 
+              }
             };
             
             for (const [platform, patterns] of Object.entries(platformPatterns)) {
@@ -179,5 +161,6 @@ jobs:
         run: |
           echo "## Release v${{ needs.check-release.outputs.version }} Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms:** macOS (Intel + Apple Silicon)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.check-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-```
