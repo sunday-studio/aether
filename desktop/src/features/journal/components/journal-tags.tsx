@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useAddTagsToEntry, useRemoveTagsFromEntry } from "~/aether-sdk";
-import { invalidateEntryQueries } from "../invalidate-entry-queries";
-import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
+import { AddTagsToEntity } from "~/components/shared/add-tag-to-entity";
 import type { EntryWithTags } from "~/types/models";
 import { cn } from "~/utils/cn";
+import { invalidateEntryQueries } from "../invalidate-entry-queries";
 
 export const popoverContentStyles = cn(
 	"z-50 shadow-lg",
@@ -64,22 +64,11 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	};
 
 	return (
-		<div className="mb-3">
-			<TagsPopoverSelector
-				selectedTags={
-					entry.tags
-						? entry.tags?.map((tag) => ({
-								id: tag.id!,
-								name: tag.name!,
-							}))
-						: []
-				}
-				onAddTag={handleAddTag}
-				onRemoveTag={handleRemoveTag}
-				onCreateTag={handleAddTag}
-				placeholder="Add tag"
-				className="w-full"
-			/>
-		</div>
+		<AddTagsToEntity
+			selectedTags={entry.tags}
+			entityId={entry.id}
+			addTagToEntity={handleAddTag}
+			removeTagFromEntity={handleRemoveTag}
+		/>
 	);
 };

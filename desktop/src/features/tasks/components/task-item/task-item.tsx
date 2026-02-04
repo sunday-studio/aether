@@ -85,16 +85,16 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 					/>
 					<Divider />
 					<TaskTagsInput
-					taskId={task.id as string}
-					value={(task as TaskWithSubtasks & { tags?: Tag[] }).tags}
-				/>
+						taskId={task.id as string}
+						value={(task as TaskWithSubtasks & { tags?: Tag[] }).tags}
+					/>
 					<Divider />
 					<TaskGoalSelector value={task?.goalId} taskId={task.id as string} />
 					<Divider />
 					<TaskSubtasksTrigger
-					taskId={task.id as string}
-					goalId={task.goalId ?? undefined}
-				/>
+						taskId={task.id as string}
+						goalId={task.goalId ?? undefined}
+					/>
 					<Divider />
 					<TaskItemDelete
 						taskId={task.id as string}

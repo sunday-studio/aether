@@ -10,8 +10,7 @@ import { invalidateEntryQueries } from "../invalidate-entry-queries";
 // import { EntryAudio } from "./entry-audio";
 import { JournalActionsDropdown } from "./journal-actions-dropdown";
 import { JournalEditor } from "./journal-editor";
-
-// import { EntryTags } from "./journal-tags";
+import { EntryTags } from "./journal-tags";
 
 interface JournalTimelineItemProps {
 	entry: EntryWithTags;
@@ -29,9 +28,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isTagsShown, setIsTagsShown] = useState(false);
-
-	const shouldShowTags =
-		isTagsShown || (entry?.tags && entry?.tags?.length > 0);
 
 	const onUpdateEntry = async (entryId: string, document: string) => {
 		if (isEntryDocumentDifferent(entry.document ?? "", document)) {
@@ -104,8 +100,7 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 				</Timeline.LeftContent>
 			}
 			rightContent={
-				<Timeline.RightContent className="mb-5 flex flex-col gap-1 ">
-					{/* {shouldShowTags && <EntryTags entry={entry} />} */}
+				<Timeline.RightContent className="mb-5 flex flex-col gap-1">
 					{/* <EntryAudio entryId={entry.id ?? ""} /> */}
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
@@ -115,6 +110,8 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 							onUpdateEntry(entry.id ?? "", document)
 						}
 					/>
+
+					<EntryTags entry={entry} />
 				</Timeline.RightContent>
 			}
 		></Timeline.Item>
