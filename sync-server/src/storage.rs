@@ -6,6 +6,16 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Mutex;
 
+/// Device row from the persistent devices table.
+#[derive(Debug, Clone)]
+pub struct DeviceRow {
+    pub id: String,
+    pub hostname: Option<String>,
+    pub created_at: i64,
+    pub last_seen: i64,
+    pub last_sync: i64,
+}
+
 pub struct Storage {
     conn: Mutex<Connection>,
     blob_dir: std::path::PathBuf,
@@ -43,6 +53,17 @@ impl Storage {
                 key TEXT PRIMARY KEY NOT NULL,
                 value TEXT NOT NULL,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS devices (
+                id TEXT PRIMARY KEY NOT NULL,
+                hostname TEXT,
+                created_at INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL,
+                last_sync INTEGER NOT NULL
             )",
             [],
         )?;
@@ -167,5 +188,69 @@ impl Storage {
 
     pub fn has_blob(&self, hash: &str) -> bool {
         self.blob_dir.join(hash).exists()
+    }
+
+    pub fn register_device(&self, device_id: &str, hostname: Option<&str>) -> Result<(), rusqlite::Error> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let conn = self.conn.lock().unwrap();
+        let existing: Option<i64> = conn
+            .query_row("SELECT 1 FROM devices WHERE id = ?1", params![device_id], |_| Ok(1i64))
+            .optional()?;
+        if existing.is_some() {
+            conn.execute(
+                "UPDATE devices SET hostname = ?1, last_seen = ?2, last_sync = ?3 WHERE id = ?4",
+                params![hostname, now, now, device_id],
+            )?;
+        } else {
+            conn.execute(
+                "INSERT INTO devices (id, hostname, created_at, last_seen, last_sync) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![device_id, hostname, now, now, now],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn is_device_registered(&self, device_id: &str) -> Result<bool, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let v: Option<i64> = conn
+            .query_row("SELECT 1 FROM devices WHERE id = ?1", params![device_id], |r| r.get(0))
+            .optional()?;
+        Ok(v.is_some())
+    }
+
+    pub fn update_device_last_seen(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("UPDATE devices SET last_seen = ?1 WHERE id = ?2", params![ts, device_id])?;
+        Ok(())
+    }
+
+    pub fn update_device_last_sync(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("UPDATE devices SET last_sync = ?1 WHERE id = ?2", params![ts, device_id])?;
+        Ok(())
+    }
+
+    pub fn list_devices(&self) -> Result<Vec<DeviceRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, hostname, created_at, last_seen, last_sync FROM devices ORDER BY last_seen DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(DeviceRow {
+                id: r.get(0)?,
+                hostname: r.get(1)?,
+                created_at: r.get(2)?,
+                last_seen: r.get(3)?,
+                last_sync: r.get(4)?,
+            })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
     }
 }
