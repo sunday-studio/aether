@@ -80,6 +80,7 @@ pub async fn create_link(
         )));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
     
@@ -108,6 +109,7 @@ pub async fn get_backlinks(
     query_params: Option<LinkQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<BacklinkResponse>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
@@ -148,6 +150,7 @@ pub async fn get_outgoing_links(
     query_params: Option<LinkQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ResourceLink>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
@@ -178,6 +181,7 @@ pub async fn delete_link(
     query_params: Option<DeleteLinkQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
@@ -230,6 +234,7 @@ pub async fn search_linkable_resources(
     };
 
     let limit = params.limit.unwrap_or(20).min(100);
+    let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let search_repo = SearchRepository::new(db.clone());
     
@@ -317,6 +322,7 @@ pub async fn get_all_links_for_graph(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<ResourceLink>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
@@ -346,6 +352,7 @@ pub async fn sync_links_from_content(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<serde_json::Value> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let link_repo = LinkRepository::new(db.clone());

@@ -27,6 +27,7 @@ pub async fn get_activities(
     query_params: Option<ActivityQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<HashMap<String, HashMap<String, HashMap<String, i64>>>> {
+    let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let repo = ActivityRepository::new(db);
 

@@ -619,11 +619,10 @@ impl EntryRepository {
 
     /// Remove tags from an entry
     pub async fn remove_tags(&self, entry_id: &str, tag_ids: Vec<String>) -> Result<()> {
-        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-
         if tag_ids.is_empty() {
             return Ok(());
         }
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
         // Verify entry exists
         let entry = self.find_by_id(entry_id).await?;
@@ -631,18 +630,17 @@ impl EntryRepository {
             return Err(AppError::NotFound(format!("Entry {} not found", entry_id)));
         }
 
-        // Verify all tags exist
         for tag_id in &tag_ids {
+            // Verify tag exists
             let mut rows = conn
                 .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
+
             if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
                 return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
             }
-        }
 
-        for tag_id in &tag_ids {
             conn.execute(
                 "DELETE FROM entry_tags WHERE entry_id = ?1 AND tag_id = ?2",
                 libsql::params![entry_id, tag_id.as_str()],

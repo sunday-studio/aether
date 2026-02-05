@@ -21,6 +21,7 @@ pub async fn get_trashed_tasks(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<crate::db::models::Task>> {
+    let _guard = connection::with_db_access(&*state).await;
     let conn = connection::get_database(&*state).connect().map_err(|e| AppError::LibSQL(e))?;
     
     let mut rows = conn
@@ -106,6 +107,7 @@ pub async fn restore_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

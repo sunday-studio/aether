@@ -27,6 +27,7 @@ pub async fn get_setting(
     query_params: Option<SettingQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SettingResponse> {
+    let _guard = crate::db::connection::with_db_access(&*state).await;
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
@@ -55,6 +56,7 @@ pub async fn get_all_settings(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<AllSettingsResponse> {
+    let _guard = crate::db::connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     let settings = settings::get_all_settings(database).await?;
 
@@ -83,6 +85,7 @@ pub async fn set_setting(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
+    let _guard = crate::db::connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));

@@ -31,6 +31,7 @@ pub async fn search_resources(
     query_params: Option<SearchQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SearchResponse> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.q.trim().is_empty() {
         return Err(AppError::BadRequest("Query parameter 'q' is required and cannot be empty".to_string()));

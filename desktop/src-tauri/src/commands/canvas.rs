@@ -48,6 +48,7 @@ pub async fn get_canvases(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<Canvas>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = CanvasRepository::new(connection::get_database(&*state));
     let (canvases, next_cursor, has_more) = repo
@@ -77,6 +78,7 @@ pub async fn get_canvas_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Canvas> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -108,6 +110,7 @@ pub async fn create_canvas(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Canvas> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
@@ -155,6 +158,7 @@ pub async fn update_canvas(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Canvas> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -197,6 +201,7 @@ pub async fn delete_canvas(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

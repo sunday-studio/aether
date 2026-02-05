@@ -47,6 +47,7 @@ pub async fn save_audio_recording(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<String> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.entry_id.is_empty() {
         return Err(AppError::BadRequest("Entry ID is required".to_string()));
@@ -114,6 +115,7 @@ pub async fn get_audio_data(
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     path_params: Option<MediaIdPathParams>,
 ) -> Result<Vec<u8>> {
+    let _guard = connection::with_db_access(&*state).await;
     let media_id = path_params
         .and_then(|p| Some(p.media_id))
         .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
@@ -161,6 +163,7 @@ pub async fn delete_audio_recording(
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     path_params: Option<MediaIdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let media_id = path_params
         .and_then(|p| Some(p.media_id))
         .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;
@@ -193,6 +196,7 @@ pub async fn get_media_items_for_entry(
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     path_params: Option<EntryIdPathParams>,
 ) -> Result<Vec<crate::db::models::MediaItem>> {
+    let _guard = connection::with_db_access(&*state).await;
     let entry_id = path_params
         .and_then(|p| Some(p.entry_id))
         .ok_or_else(|| AppError::BadRequest("Entry ID is required".to_string()))?;
@@ -226,6 +230,7 @@ pub async fn get_audio_metadata(
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     path_params: Option<MediaIdPathParams>,
 ) -> Result<Option<crate::db::models::MediaItem>> {
+    let _guard = connection::with_db_access(&*state).await;
     let media_id = path_params
         .and_then(|p| Some(p.media_id))
         .ok_or_else(|| AppError::BadRequest("Media ID is required".to_string()))?;

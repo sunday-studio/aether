@@ -28,6 +28,7 @@ pub async fn get_all_tags(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<Tag>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = TagRepository::new(connection::get_database(&*state));
     let (tags, next_cursor, has_more) = repo
@@ -55,6 +56,7 @@ pub async fn create_tag(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Tag> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
@@ -91,6 +93,7 @@ pub async fn bulk_create_tags(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<Tag>> {
+    let _guard = connection::with_db_access(&*state).await;
     let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TagRepository::new(db.clone());

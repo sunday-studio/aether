@@ -3,12 +3,15 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Manager};
 use libsql::{Builder, Database};
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::error::{AppError, Result};
 
 #[derive(Clone)]
 pub struct DbState {
     pub database: Arc<Mutex<Arc<Database>>>,
+    /// Serializes all DB access (read and write) so only one operation runs at a time. Prevents "database is locked".
+    pub db_access: Arc<AsyncMutex<()>>,
 }
 
 /// Database path: local dev = target/libsql-replica-dev (avoids watcher rebuilds); build = app data dir.
@@ -64,7 +67,13 @@ pub async fn initialize(app_handle: Option<&AppHandle>) -> Result<DbState> {
 
     Ok(DbState {
         database: Arc::new(Mutex::new(Arc::new(database))),
+        db_access: Arc::new(AsyncMutex::new(())),
     })
+}
+
+/// Acquire exclusive access to the database. Hold the guard for the duration of the operation.
+pub async fn with_db_access(state: &DbState) -> tokio::sync::MutexGuard<'_, ()> {
+    state.db_access.lock().await
 }
 
 /// Get current database instance (for use in handlers and repositories)

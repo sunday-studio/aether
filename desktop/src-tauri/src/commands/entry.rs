@@ -44,6 +44,7 @@ pub async fn get_entries(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<Entry>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = EntryRepository::new(connection::get_database(&*state));
     let (entries, next_cursor, has_more) = repo
@@ -73,6 +74,7 @@ pub async fn get_entry_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Entry> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -116,6 +118,7 @@ pub async fn create_entry(
     } else {
         tracing::info!("create_entry called with no request_data");
     }
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
@@ -170,6 +173,7 @@ pub async fn bulk_create_entries(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<Entry>> {
+    let _guard = connection::with_db_access(&*state).await;
     let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
@@ -228,6 +232,7 @@ pub async fn update_entry(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
@@ -315,6 +320,7 @@ pub async fn delete_entry(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -359,6 +365,7 @@ pub async fn add_tags_to_entry(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Entry> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -415,6 +422,7 @@ pub async fn remove_tags_from_entry(
         return Err(AppError::BadRequest("Tag IDs are required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     repo.remove_tags(&id, request.tag_ids).await?;

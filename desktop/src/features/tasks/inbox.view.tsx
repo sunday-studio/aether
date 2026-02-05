@@ -27,7 +27,6 @@ export const InboxTasksView = () => {
 
 	const { mutate: createTask } = useCreateTask();
 
-	// Use the infinite scroll hook to flatten pages and get scroll helpers
 	const {
 		items: allTasks,
 		hasMore,
@@ -40,6 +39,8 @@ export const InboxTasksView = () => {
 		hasNextPage,
 		isFetchingNextPage,
 	});
+
+	console.log("allTasks ->", allTasks, { errorInboxTasks });
 
 	if (isLoadingInboxTasks) {
 		return (
@@ -73,7 +74,7 @@ export const InboxTasksView = () => {
 	};
 
 	return (
-		<div className="h-full flex flex-col">
+		<div className="h-full flex flex-col debug">
 			<div className="flex items-center justify-between py-4">
 				<h3 className="font-gt-ultra text-2xl font-medium">Inbox</h3>
 				<Button

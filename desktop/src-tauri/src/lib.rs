@@ -21,7 +21,7 @@ use commands::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri;
 use tokio::sync::oneshot;
 
 /// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
@@ -91,187 +91,187 @@ pub fn run() {
         state
     });
 
-    let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
+    // let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
     
     // Ensure _suppress_triggers is reset to '0' on startup (in case it was stuck)
-    let db = db::connection::get_database(&db_state);
-    let _ = rt.block_on(async {
-        use crate::sync::metadata;
-        match metadata::get_suppress_triggers(db.as_ref()).await {
-            Ok(suppress) => {
-                if suppress != "0" {
-                    tracing::warn!("[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'", suppress);
-                    let _ = metadata::set_suppress_triggers(db.as_ref(), "0").await;
-                } else {
-                    tracing::debug!("[SYNC] _suppress_triggers is correctly set to '0'");
-                }
-            }
-            Err(e) => {
-                tracing::warn!("[SYNC] Could not check _suppress_triggers on startup: {}", e);
-            }
-        }
-    });
+    // let db = db::connection::get_database(&db_state);
+    // let _ = rt.block_on(async {
+    //     use crate::sync::metadata;
+    //     match metadata::get_suppress_triggers(db.as_ref()).await {
+    //         Ok(suppress) => {
+    //             if suppress != "0" {
+    //                 tracing::warn!("[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'", suppress);
+    //                 let _ = metadata::set_suppress_triggers(db.as_ref(), "0").await;
+    //             } else {
+    //                 tracing::debug!("[SYNC] _suppress_triggers is correctly set to '0'");
+    //             }
+    //         }
+    //         Err(e) => {
+    //             tracing::warn!("[SYNC] Could not check _suppress_triggers on startup: {}", e);
+    //         }
+    //     }
+    // });
     
     let window_focus = WindowFocus(Arc::new(AtomicBool::new(true)));
     let update_manager = updater::UpdateManager::new();
 
-    let (periodic_sync_tx, periodic_sync_rx) = oneshot::channel();
+    let (periodic_sync_tx, _periodic_sync_rx) = oneshot::channel();
     builder
         .manage(db_state)
-        .manage(sync_engine.clone())
+        // .manage(sync_engine.clone())
         .manage(window_focus)
         .manage(update_manager)
         .manage(StartPeriodicSyncTx(Arc::new(Mutex::new(Some(periodic_sync_tx)))))
-        .on_window_event(|window, event| {
-            match event {
-                WindowEvent::CloseRequested { .. } => {
-                    tracing::info!("[SYNC] Window closing, running final sync");
-                    if let Some(engine) = window.app_handle().try_state::<Arc<sync::SyncEngine>>() {
-                        match tauri::async_runtime::block_on(engine.sync()) {
-                            Ok(status) => {
-                                tracing::info!("[SYNC] Final sync completed: pending={}, last_sync={:?}", 
-                                    status.pending_changes, status.last_sync);
-                            }
-                            Err(e) => {
-                                tracing::error!("[SYNC] Final sync failed: {}", e);
-                            }
-                        }
-                    }
-                }
-                WindowEvent::Focused(focused) => {
-                    if let Some(wf) = window.app_handle().try_state::<WindowFocus>() {
-                        wf.set(*focused);
-                    }
-                    if !focused {
-                        tracing::info!("[SYNC] Window lost focus, pushing pending changes");
-                        let app = window.app_handle().clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
-                                match engine.push_pending().await {
-                                    Ok(()) => tracing::debug!("[SYNC] Pushed pending changes on window blur"),
-                                    Err(e) => tracing::warn!("[SYNC] Failed to push pending changes on window blur: {}", e),
-                                }
-                            }
-                        });
-                    } else {
-                        // Window gained focus - sync to pull any changes from other devices
-                        tracing::info!("[SYNC] Window gained focus, triggering sync");
-                        let app = window.app_handle().clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
-                                // Check if sync is configured and ready
-                                if let Ok(status) = engine.status().await {
-                                    if status.connected && !status.needs_passphrase && !engine.is_syncing() {
-                                        match engine.sync().await {
-                                            Ok(new_status) => {
-                                                tracing::info!(
-                                                    "[SYNC] Focus sync completed: pending={}, last_sync={:?}",
-                                                    new_status.pending_changes,
-                                                    new_status.last_sync
-                                                );
-                                                let _ = app.emit("sync-status", &new_status);
-                                            }
-                                            Err(e) => tracing::warn!("[SYNC] Focus sync failed: {}", e),
-                                        }
-                                    }
-                                }
-                            }
+        // .on_window_event(|window, event| {
+        //     match event {
+        //         WindowEvent::CloseRequested { .. } => {
+        //             tracing::info!("[SYNC] Window closing, running final sync");
+        //             // if let Some(engine) = window.app_handle().try_state::<Arc<sync::SyncEngine>>() {
+        //             //     match tauri::async_runtime::block_on(engine.sync()) {
+        //             //         Ok(status) => {
+        //             //             tracing::info!("[SYNC] Final sync completed: pending={}, last_sync={:?}", 
+        //             //                 status.pending_changes, status.last_sync);
+        //             //         }
+        //             //         Err(e) => {
+        //             //             tracing::error!("[SYNC] Final sync failed: {}", e);
+        //             //         }
+        //             //     }
+        //             // }
+        //         }
+        //         WindowEvent::Focused(focused) => {
+        //             if let Some(wf) = window.app_handle().try_state::<WindowFocus>() {
+        //                 wf.set(*focused);
+        //             }
+        //             if !focused {
+        //                 // tracing::info!("[SYNC] Window lost focus, pushing pending changes");
+        //                 let app = window.app_handle().clone();
+        //                 tauri::async_runtime::spawn(async move {
+        //                     if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
+        //                         match engine.push_pending().await {
+        //                             Ok(()) => tracing::debug!("[SYNC] Pushed pending changes on window blur"),
+        //                             Err(e) => tracing::warn!("[SYNC] Failed to push pending changes on window blur: {}", e),
+        //                         }
+        //                     }
+        //                 });
+        //             } else {
+        //                 // Window gained focus - sync to pull any changes from other devices
+        //                 tracing::info!("[SYNC] Window gained focus, triggering sync");
+        //                 let app = window.app_handle().clone();
+        //                 tauri::async_runtime::spawn(async move {
+        //                     if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
+        //                         // Check if sync is configured and ready
+        //                         if let Ok(status) = engine.status().await {
+        //                             if status.connected && !status.needs_passphrase && !engine.is_syncing() {
+        //                                 match engine.sync().await {
+        //                                     Ok(new_status) => {
+        //                                         tracing::info!(
+        //                                             "[SYNC] Focus sync completed: pending={}, last_sync={:?}",
+        //                                             new_status.pending_changes,
+        //                                             new_status.last_sync
+        //                                         );
+        //                                         let _ = app.emit("sync-status", &new_status);
+        //                                     }
+        //                                     Err(e) => tracing::warn!("[SYNC] Focus sync failed: {}", e),
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
 
-                            // Check for updates (with cooldown and failure backoff)
-                            if let Some(manager) = app.try_state::<updater::UpdateManager>() {
-                                if manager.should_check().await {
-                                    tracing::debug!("[UPDATER] Checking for updates on focus");
-                                    let result = updater::check_for_updates(&app).await;
-                                    let failed = result.is_err();
-                                    match result {
-                                        Ok(Some(info)) => {
-                                            if !manager.is_version_skipped(&info.latest_version).await {
-                                                tracing::info!("[UPDATER] Update available: v{}", info.latest_version);
-                                                let _ = app.emit("update-available", &info);
-                                            }
-                                        }
-                                        Ok(None) => {
-                                            tracing::debug!("[UPDATER] No update available");
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!("[UPDATER] Failed to check for updates (will back off): {}", e);
-                                        }
-                                    }
-                                    manager.record_check(failed).await;
-                                }
-                            }
-                        });
-                    }
-                }
-                _ => {}
-            }
-        })
-        .setup(move |app| {
-            let handle = app.handle().clone();
-            let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();
-            let window_focus = app.state::<WindowFocus>().inner().0.clone();
-            let app_handle = app.handle().clone();
-            let engine_clone = sync_engine.clone();
-            let periodic_sync_rx = periodic_sync_rx;
+        //                     // Check for updates (with cooldown and failure backoff)
+        //                     if let Some(manager) = app.try_state::<updater::UpdateManager>() {
+        //                         if manager.should_check().await {
+        //                             tracing::debug!("[UPDATER] Checking for updates on focus");
+        //                             let result = updater::check_for_updates(&app).await;
+        //                             let failed = result.is_err();
+        //                             match result {
+        //                                 Ok(Some(info)) => {
+        //                                     if !manager.is_version_skipped(&info.latest_version).await {
+        //                                         tracing::info!("[UPDATER] Update available: v{}", info.latest_version);
+        //                                         let _ = app.emit("update-available", &info);
+        //                                     }
+        //                                 }
+        //                                 Ok(None) => {
+        //                                     tracing::debug!("[UPDATER] No update available");
+        //                                 }
+        //                                 Err(e) => {
+        //                                     tracing::warn!("[UPDATER] Failed to check for updates (will back off): {}", e);
+        //                                 }
+        //                             }
+        //                             manager.record_check(failed).await;
+        //                         }
+        //                     }
+        //                 });
+        //             }
+        //         }
+        //         _ => {}
+        //     }
+        // })
+        // .setup(move |app| {
+        //     let handle = app.handle().clone();
+        //     let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();
+        //     let window_focus = app.state::<WindowFocus>().inner().0.clone();
+        //     let app_handle = app.handle().clone();
+        //     let engine_clone = sync_engine.clone();
+        //     let periodic_sync_rx = periodic_sync_rx;
 
-            // Hydrate then start periodic sync only when a sync server URL exists (from metadata or after user configures)
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = engine_clone.hydrate(&app_handle).await {
-                    tracing::warn!("[SYNC] Failed to hydrate sync engine: {}", e);
-                }
-                let has_url = match handle.try_state::<Arc<sync::SyncEngine>>() {
-                    Some(engine) => engine.status().await.ok().map(|s| s.connected).unwrap_or(false),
-                    None => false,
-                };
-                if !has_url {
-                    tracing::info!("[SYNC] No sync server URL configured, waiting for user to set sync server before starting periodic sync");
-                    let _ = periodic_sync_rx.await;
-                }
-                tracing::info!("[SYNC] Starting periodic sync task (every 5 minutes)");
-                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-                loop {
-                    interval.tick().await;
-                    let Some(engine) = handle.try_state::<Arc<sync::SyncEngine>>() else {
-                        tracing::warn!("[SYNC] Periodic sync: engine not available");
-                        continue;
-                    };
-                    if !window_focus.load(Ordering::Relaxed) {
-                        tracing::debug!("[SYNC] Periodic sync: window not focused, skipping");
-                        continue;
-                    }
-                    let Ok(status) = engine.status().await else {
-                        tracing::warn!("[SYNC] Periodic sync: failed to get status");
-                        continue;
-                    };
-                    if !status.connected {
-                        tracing::debug!("[SYNC] Periodic sync: not connected, skipping");
-                        continue;
-                    }
-                    if status.needs_passphrase {
-                        tracing::debug!("[SYNC] Periodic sync: needs passphrase, skipping");
-                        continue;
-                    }
-                    if engine.is_syncing() {
-                        tracing::debug!("[SYNC] Periodic sync: sync already in progress, skipping");
-                        continue;
-                    }
-                    tracing::info!("[SYNC] Periodic sync triggered");
-                    match engine.sync().await {
-                        Ok(status) => {
-                            tracing::info!("[SYNC] Periodic sync completed: pending={}, last_sync={:?}", 
-                                status.pending_changes, status.last_sync);
-                        }
-                        Err(e) => {
-                            tracing::error!("[SYNC] Periodic sync failed: {}", e);
-                        }
-                    }
-                }
-            });
+        //     // Hydrate then start periodic sync only when a sync server URL exists (from metadata or after user configures)
+        //     tauri::async_runtime::spawn(async move {
+        //         if let Err(e) = engine_clone.hydrate(&app_handle).await {
+        //             tracing::warn!("[SYNC] Failed to hydrate sync engine: {}", e);
+        //         }
+        //         let has_url = match handle.try_state::<Arc<sync::SyncEngine>>() {
+        //             Some(engine) => engine.status().await.ok().map(|s| s.connected).unwrap_or(false),
+        //             None => false,
+        //         };
+        //         if !has_url {
+        //             tracing::info!("[SYNC] No sync server URL configured, waiting for user to set sync server before starting periodic sync");
+        //             let _ = periodic_sync_rx.await;
+        //         }
+        //         tracing::info!("[SYNC] Starting periodic sync task (every 5 minutes)");
+        //         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        //         loop {
+        //             interval.tick().await;
+        //             let Some(engine) = handle.try_state::<Arc<sync::SyncEngine>>() else {
+        //                 tracing::warn!("[SYNC] Periodic sync: engine not available");
+        //                 continue;
+        //             };
+        //             if !window_focus.load(Ordering::Relaxed) {
+        //                 tracing::debug!("[SYNC] Periodic sync: window not focused, skipping");
+        //                 continue;
+        //             }
+        //             let Ok(status) = engine.status().await else {
+        //                 tracing::warn!("[SYNC] Periodic sync: failed to get status");
+        //                 continue;
+        //             };
+        //             if !status.connected {
+        //                 tracing::debug!("[SYNC] Periodic sync: not connected, skipping");
+        //                 continue;
+        //             }
+        //             if status.needs_passphrase {
+        //                 tracing::debug!("[SYNC] Periodic sync: needs passphrase, skipping");
+        //                 continue;
+        //             }
+        //             if engine.is_syncing() {
+        //                 tracing::debug!("[SYNC] Periodic sync: sync already in progress, skipping");
+        //                 continue;
+        //             }
+        //             tracing::info!("[SYNC] Periodic sync triggered");
+        //             match engine.sync().await {
+        //                 Ok(status) => {
+        //                     tracing::info!("[SYNC] Periodic sync completed: pending={}, last_sync={:?}", 
+        //                         status.pending_changes, status.last_sync);
+        //                 }
+        //                 Err(e) => {
+        //                     tracing::error!("[SYNC] Periodic sync failed: {}", e);
+        //                 }
+        //             }
+        //         }
+        //     });
 
-            // WebSocket listener: connect when configured, sync on "sync" message
-            tauri::async_runtime::spawn(sync::ws::run_ws_listener(sync_engine, app.handle().clone()));
-            Ok(())
-        })
+        //     // WebSocket listener: connect when configured, sync on "sync" message
+        //     tauri::async_runtime::spawn(sync::ws::run_ws_listener(sync_engine, app.handle().clone()));
+        //     Ok(())
+        // })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             // Tag commands

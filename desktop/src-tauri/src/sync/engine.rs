@@ -1,14 +1,9 @@
 //! Sync engine: configure, sync (pull+apply+push), status, disconnect.
 
-use crate::db::connection::get_database;
+use crate::db::connection::{get_database, with_db_access};
 use crate::db::DbState;
 use crate::error::{AppError, Result};
-use crate::settings;
-use crate::sync::apply;
 use crate::sync::metadata;
-use crate::sync::pull;
-use crate::sync::push;
-use crate::sync::register;
 use serde::Serialize;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -107,6 +102,7 @@ impl SyncEngine {
     /// Call after app start so status().connected is true when sync was previously configured.
     pub async fn hydrate(&self, app: &AppHandle) -> Result<()> {
         tracing::info!("[SYNC] Hydrating sync configuration from metadata");
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
             *self.server_url.lock().unwrap() = Some(url.clone());
@@ -139,6 +135,7 @@ impl SyncEngine {
     /// Configure sync: server URL and passphrase. On first run, fetches salt from server.
     pub async fn configure(&self, app: &AppHandle, server_url: String, passphrase: String) -> Result<()> {
         tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
 
         // Check if we have a cached salt locally
@@ -176,7 +173,7 @@ impl SyncEngine {
             tracing::error!("[SYNC] Sync not configured: server URL missing");
             AppError::Sync("sync not configured".into())
         })?;
-        let pass = pass.ok_or_else(|| {
+        let _pass = pass.ok_or_else(|| {
             tracing::error!("[SYNC] Sync not configured: passphrase missing");
             AppError::Sync("sync not configured".into())
         })?;
@@ -196,6 +193,13 @@ impl SyncEngine {
             return self.status().await;
         }
 
+        // Temporarily disabled to test if "database is locked" reproduces without sync. Uncomment block below to re-enable.
+        *self.is_syncing.lock().unwrap() = false;
+        let connected = self.server_url.lock().unwrap().is_some();
+        let needs_passphrase = connected && self.passphrase.lock().unwrap().is_none();
+        return Ok(SyncStatus { connected, pending_changes: 0, last_sync: None, needs_passphrase });
+
+        /* sync DB work (commented out for testing)
         let db = get_database(&self.db);
         let key = match metadata::verify_key(&db, &pass).await {
             Ok(k) => {
@@ -211,6 +215,9 @@ impl SyncEngine {
 
         // Check outbox before sync
         let pending_before: i64 = {
+            // #region agent log
+            debug_log::log("engine.rs:sync", "sync_outbox_read_enter", &[], "H1");
+            // #endregion
             let conn = db.connect().map_err(AppError::LibSQL)?;
             let mut rows = conn
                 .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -278,7 +285,15 @@ impl SyncEngine {
             media_sync_policy: &media_sync_policy,
         };
 
-        // Apply with triggers suppressed
+        // Prefer local writes: only proceed with apply if we can get the lock without blocking
+        let _write_guard = match self.db.write_lock.try_lock() {
+            Ok(g) => g,
+            Err(_) => {
+                tracing::info!("[SYNC] Skipping apply/push this round (local write in progress)");
+                *self.is_syncing.lock().unwrap() = false;
+                return self.status().await;
+            }
+        };
         tracing::info!("[SYNC-PULL] Applying {} remote changes", envelopes.len());
         let apply_res = apply::with_suppress_triggers(&db, async {
             let mut applied = 0;
@@ -308,10 +323,11 @@ impl SyncEngine {
 
         metadata::set_last_sync(&db, ts).await?;
         tracing::info!("[SYNC] Last sync timestamp updated to: {}", ts);
+        drop(_write_guard);
 
-        // Push
+        // Push (reads + network; acquires write lock only for outbox deletes so local writes take precedence)
         tracing::info!("[SYNC] Starting push to server");
-        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy).await;
+        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy, Some(self.db.write_lock.clone())).await;
         match push_res {
             Ok(count) => {
                 tracing::info!("[SYNC] Push successful: {} changes pushed", count);
@@ -320,7 +336,7 @@ impl SyncEngine {
                 let err_str = e.to_string();
                 if (err_str.contains("401") || err_str.contains("not registered")) && !device_id.is_empty() {
                     let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
-                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy).await {
+                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy, Some(self.db.write_lock.clone())).await {
                         tracing::info!("[SYNC] Push successful after re-register: {} changes pushed", count);
                     } else {
                         tracing::error!("[SYNC] Push failed after retry: {}", e);
@@ -351,10 +367,15 @@ impl SyncEngine {
         *self.is_syncing.lock().unwrap() = false;
         tracing::info!("[SYNC] Sync operation completed");
         self.status().await
+        */
     }
 
     /// Push only (no pull). Use on window blur to flush pending changes.
+    /// Push acquires write lock only for outbox deletes so local writes take precedence.
     pub async fn push_pending(&self) -> Result<()> {
+        // Temporarily disabled to test if "database is locked" reproduces without sync. Uncomment block below to re-enable.
+        return Ok(());
+        /*
         tracing::info!("[SYNC] Pushing pending changes");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
@@ -385,9 +406,11 @@ impl SyncEngine {
             }
         }
         Ok(())
+        */
     }
 
     pub async fn status(&self) -> Result<SyncStatus> {
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         let conn = db.connect().map_err(AppError::LibSQL)?;
 
@@ -436,6 +459,7 @@ impl SyncEngine {
         let Some(_) = url else {
             return Err(AppError::Sync("sync not configured".into()));
         };
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::verify_key(&db, &passphrase).await?;
         *self.passphrase.lock().unwrap() = Some(passphrase);
@@ -449,6 +473,7 @@ impl SyncEngine {
         *self.passphrase.lock().unwrap() = None;
 
         // Clear salt and key_check so next connect fetches fresh from server
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::clear_key_material(&db).await?;
 
@@ -464,18 +489,21 @@ impl SyncEngine {
     /// If passphrase is in memory, verifies and returns the key. Used for on-demand media decrypt.
     pub async fn try_get_key(&self) -> Option<[u8; 32]> {
         let pass = self.passphrase.lock().unwrap().clone()?;
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::verify_key(db.as_ref(), &pass).await.ok()
     }
 
     /// Get the device ID for this device. Used for WebSocket registration.
     pub async fn get_device_id(&self) -> Result<String> {
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::get_device_id(&db).await
     }
 
     /// Get the device hostname for this device. Used for WebSocket registration.
     pub async fn get_device_hostname(&self) -> Result<String> {
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::get_device_hostname(&db).await
     }

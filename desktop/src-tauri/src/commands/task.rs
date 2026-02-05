@@ -49,6 +49,7 @@ pub async fn create_task(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
@@ -76,12 +77,10 @@ pub async fn create_task(
         repo.add_tags(&task.id, request.tag_ids).await?;
     }
 
-    // Log activity
     if let Err(e) = log_create(db, "task".to_string(), task.id.clone()).await {
         tracing::warn!("Failed to log task creation activity: {}", e);
     }
 
-    // New task has no subtasks yet
     Ok(TaskRepository::task_to_task_with_subtasks(task, vec![]))
 }
 
@@ -106,6 +105,7 @@ pub async fn get_inbox_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = TaskRepository::new(connection::get_database(&*state));
     let (tasks, next_cursor, has_more) = repo
@@ -136,6 +136,7 @@ pub async fn get_overdue_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = TaskRepository::new(connection::get_database(&*state));
     let (tasks, next_cursor, has_more) = repo
@@ -166,6 +167,7 @@ pub async fn get_task_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -204,6 +206,7 @@ pub async fn update_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -286,6 +289,7 @@ pub async fn delete_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -325,6 +329,7 @@ pub async fn get_subtasks(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskIdPathParams>,
 ) -> Result<Vec<SubTask>> {
+    let _guard = connection::with_db_access(&*state).await;
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
@@ -358,6 +363,7 @@ pub async fn create_subtask(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskIdPathParams>,
 ) -> Result<SubTask> {
+    let _guard = connection::with_db_access(&*state).await;
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
@@ -405,6 +411,7 @@ pub async fn update_subtask(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskSubtaskPathParams>,
 ) -> Result<SubTask> {
+    let _guard = connection::with_db_access(&*state).await;
     let task_id = path_params
         .as_ref()
         .and_then(|p| Some(p.task_id.clone()))
@@ -477,6 +484,7 @@ pub async fn delete_subtask(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskSubtaskPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let task_id = path_params
         .as_ref()
         .and_then(|p| Some(p.task_id.clone()))
@@ -525,6 +533,7 @@ pub async fn reorder_subtasks(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<TaskIdPathParams>,
 ) -> Result<serde_json::Value> {
+    let _guard = connection::with_db_access(&*state).await;
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
@@ -563,6 +572,7 @@ pub async fn add_tags_to_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -605,6 +615,7 @@ pub async fn remove_tags_from_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -647,6 +658,7 @@ pub async fn add_goal_to_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -699,6 +711,7 @@ pub async fn remove_goal_from_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

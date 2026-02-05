@@ -78,6 +78,7 @@ pub async fn start_transcription(
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     
     // Get provider name (default or specified)
@@ -146,6 +147,7 @@ pub async fn get_transcriptions(
         return Err(AppError::BadRequest("Media ID is required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
@@ -183,6 +185,7 @@ pub async fn get_transcription_by_id(
         return Err(AppError::BadRequest("Transcription ID is required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
     repo.find_by_id(&transcription_id).await
@@ -215,6 +218,7 @@ pub async fn set_active_transcription(
         return Err(AppError::BadRequest("Transcription ID and Media ID are required".to_string()));
     }
 
+    let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
     repo.set_active(&request.transcription_id, &request.media_id).await?;
@@ -238,6 +242,7 @@ pub async fn list_providers(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ProviderInfo>> {
+    let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     
     let mut providers = Vec::new();
@@ -342,6 +347,7 @@ pub async fn validate_provider(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<bool> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let database = connection::get_database(&*state);
     
@@ -415,6 +421,7 @@ pub async fn download_model(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<ModelSizePathParams>,
 ) -> Result<String> {
+    let _guard = connection::with_db_access(&*state).await;
     let model_size = path_params
         .and_then(|p| Some(p.model_size))
         .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;

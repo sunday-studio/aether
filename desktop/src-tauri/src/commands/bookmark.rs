@@ -49,6 +49,7 @@ pub async fn get_bookmarks(
     query_params: Option<BookmarkQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::handlers::common::PaginationResponse<Bookmark>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = BookmarkRepository::new(connection::get_database(&*state));
     let (bookmarks, next_cursor, has_more) = repo
@@ -84,6 +85,7 @@ pub async fn get_bookmark_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -115,6 +117,7 @@ pub async fn create_bookmark(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
@@ -178,6 +181,7 @@ pub async fn update_bookmark(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -233,6 +237,7 @@ pub async fn delete_bookmark(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -273,6 +278,7 @@ pub async fn add_tags_to_bookmark(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -317,6 +323,7 @@ pub async fn remove_tags_from_bookmark(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;

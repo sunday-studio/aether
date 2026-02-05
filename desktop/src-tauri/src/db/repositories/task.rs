@@ -25,7 +25,7 @@ impl TaskRepository {
         goal_instance_id: Option<String>,
     ) -> Result<Task> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let id = generate_id("task");
         let now = Utc::now();
         let created_at_str = now.to_rfc3339();
@@ -81,7 +81,7 @@ impl TaskRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -323,7 +323,7 @@ impl TaskRepository {
         client_updated_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<Task> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current task
         let current = self.find_by_id(id).await?;
         let mut task = current.ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
@@ -387,7 +387,7 @@ impl TaskRepository {
     /// Delete a task (soft delete)
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if task exists
         let task = self.find_by_id(id).await?;
         if task.is_none() {

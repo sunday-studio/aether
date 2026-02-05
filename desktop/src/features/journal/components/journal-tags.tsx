@@ -53,10 +53,7 @@ export const EntryTags = ({ entry }: EntryTagsProps) => {
 	};
 
 	const handleRemoveTag = (tagId: string) => {
-		// console.log("handleRemoveTag", tagId);
 		if (!entry.id) return;
-
-		// console.log("okay -> let's continue");
 
 		removeTagsFromEntry(
 			{

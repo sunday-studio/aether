@@ -45,6 +45,7 @@ pub async fn get_goals(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<Goal>> {
+    let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = GoalRepository::new(connection::get_database(&*state));
     let (goals, next_cursor, has_more) = repo
@@ -74,6 +75,7 @@ pub async fn get_goal_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Goal> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -102,6 +104,7 @@ pub async fn create_goal(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Goal> {
+    let _guard = connection::with_db_access(&*state).await;
     let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
@@ -191,6 +194,7 @@ pub async fn update_goal(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Goal> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -252,6 +256,7 @@ pub async fn delete_goal(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -293,6 +298,7 @@ pub async fn get_goal_instances(
     query_params: Option<PaginationQueryParams>,
     path_params: Option<GoalIdPathParams>,
 ) -> Result<PaginationResponse<GoalInstanceWithTasks>> {
+    let _guard = connection::with_db_access(&*state).await;
     let goal_id = path_params
         .and_then(|p| Some(p.goal_id))
         .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
@@ -349,6 +355,7 @@ pub async fn get_current_goal_instance(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<GoalIdPathParams>,
 ) -> Result<GoalInstance> {
+    let _guard = connection::with_db_access(&*state).await;
     let goal_id = path_params
         .and_then(|p| Some(p.goal_id))
         .ok_or_else(|| AppError::BadRequest("Goal ID is required".to_string()))?;
@@ -378,6 +385,7 @@ pub async fn add_tags_to_goal(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Goal> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -418,6 +426,7 @@ pub async fn remove_tags_from_goal(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Goal> {
+    let _guard = connection::with_db_access(&*state).await;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
