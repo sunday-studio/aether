@@ -1,11 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
-import type { SubTask } from "~/aether-sdk/models/sub-task";
 import {
 	useCreateSubtask,
 	useDeleteSubtask,
 	useUpdateSubtask,
 } from "~/aether-sdk";
+import type { SubTask } from "~/aether-sdk/models/sub-task";
 import {
 	invalidateSubtaskQueries,
 	invalidateTaskQueries,
@@ -171,10 +171,7 @@ export const SubtaskList = ({ taskId, subtasks, goalId }: SubtaskListProps) => {
 						}}
 						onKeyDown={(e) => handleKeyDown(e, subtaskId, index)}
 						onDelete={() =>
-							deleteSubtask(
-								{ taskId, subtaskId },
-								{ onSuccess: invalidate },
-							)
+							deleteSubtask({ taskId, subtaskId }, { onSuccess: invalidate })
 						}
 					/>
 				);

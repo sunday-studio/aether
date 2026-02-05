@@ -58,6 +58,14 @@ const cellStyles = tv({
 		isDisabled: {
 			true: "text-neutral-300 dark:text-neutral-600 forced-colors:text-[GrayText]",
 		},
+		isToday: {
+			false: "",
+			true: "bg-lime-950",
+			// "ring-1 ring-neutral-500 ring-offset-neutral-900",
+		},
+	},
+	defaultVariants: {
+		isToday: false,
 	},
 });
 

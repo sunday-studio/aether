@@ -15,6 +15,8 @@ interface TaskDueDateInputProps {
 	onChange: (value: CalendarDate | null) => void;
 }
 
+const TRIGGER_HEIGHT = "h-6 min-h-6";
+
 export const TaskDueDateInput = ({
 	value,
 	onChange,
@@ -23,8 +25,8 @@ export const TaskDueDateInput = ({
 		return value ? (
 			<p
 				className={cn(
-					"text-xs",
-					"h-6",
+					"text-xs leading-none",
+					TRIGGER_HEIGHT,
 					"flex items-center justify-between",
 					"pr-3 pl-2",
 					"transition-colors",
@@ -67,7 +69,7 @@ export const TaskDueDateInput = ({
 	}, [value, onChange]);
 
 	return (
-		<div className={cn("shrink-0")}>
+		<div className={cn("shrink-0", TRIGGER_HEIGHT)}>
 			<DateTimePicker
 				value={getDateValue(value ?? undefined)}
 				onChange={onChange}
