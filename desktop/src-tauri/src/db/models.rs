@@ -196,6 +196,9 @@ pub struct TaskWithSubtasks {
     #[serde(rename = "deletedAt")]
     pub deleted_at: Option<DateTime<Utc>>,
     pub subtasks: Vec<SubTask>,
+    pub tags: Vec<Tag>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal: Option<Goal>,
 }
 
 /// Goal model

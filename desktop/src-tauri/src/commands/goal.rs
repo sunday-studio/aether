@@ -312,11 +312,7 @@ pub async fn get_goal_instances(
     let mut instances_with_tasks = Vec::with_capacity(instances.len());
     for instance in instances {
         let tasks = task_repo.find_by_goal_instance_id(&instance.id).await?;
-        let mut tasks_with_subtasks = Vec::with_capacity(tasks.len());
-        for task in tasks {
-            let subtasks = task_repo.find_subtasks(&task.id).await.unwrap_or_default();
-            tasks_with_subtasks.push(TaskRepository::task_to_task_with_subtasks(task, subtasks));
-        }
+        let tasks_with_subtasks = task_repo.with_subtasks(tasks).await?;
         instances_with_tasks.push(GoalInstanceWithTasks {
             id: instance.id,
             goal_id: instance.goal_id,

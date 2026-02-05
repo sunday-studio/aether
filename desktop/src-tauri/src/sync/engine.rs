@@ -353,9 +353,6 @@ impl SyncEngine {
     /// Push only (no pull). Use on window blur to flush pending changes.
     /// Push acquires write lock only for outbox deletes so local writes take precedence.
     pub async fn push_pending(&self) -> Result<()> {
-        // Temporarily disabled to test if "database is locked" reproduces without sync. Uncomment block below to re-enable.
-        return Ok(());
-        /*
         tracing::info!("[SYNC] Pushing pending changes");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
@@ -370,6 +367,7 @@ impl SyncEngine {
             tracing::debug!("[SYNC] No passphrase in memory, skipping push");
             return Ok(());
         };
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         let key = metadata::verify_key(&db, &pass).await?;
         let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
@@ -386,7 +384,6 @@ impl SyncEngine {
             }
         }
         Ok(())
-        */
     }
 
     pub async fn status(&self) -> Result<SyncStatus> {

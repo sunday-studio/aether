@@ -81,7 +81,8 @@ pub async fn create_task(
         tracing::warn!("Failed to log task creation activity: {}", e);
     }
 
-    Ok(TaskRepository::task_to_task_with_subtasks(task, vec![]))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Get inbox tasks
@@ -178,8 +179,8 @@ pub async fn get_task_by_id(
     let task = repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Update a task
@@ -263,9 +264,8 @@ pub async fn update_task(
         }
     }
 
-    // Get subtasks for the updated task
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Delete a task
@@ -589,8 +589,8 @@ pub async fn add_tags_to_task(
     let task = repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Remove tags from a task
@@ -632,8 +632,8 @@ pub async fn remove_tags_from_task(
     let task = repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Add goal to a task
@@ -685,9 +685,8 @@ pub async fn add_goal_to_task(
         tracing::warn!("Failed to log add_goal activity for task {}: {}", task.id, e);
     }
     
-    // Get subtasks for the updated task
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }
 
 /// Remove goal from a task
@@ -727,6 +726,6 @@ pub async fn remove_goal_from_task(
     let task = repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
-    let subtasks = repo.find_subtasks(&id).await?;
-    Ok(TaskRepository::task_to_task_with_subtasks(task, subtasks))
+    let out = repo.with_subtasks(vec![task]).await?;
+    Ok(out.into_iter().next().expect("one task"))
 }

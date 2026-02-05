@@ -21,7 +21,7 @@ use commands::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri;
+use tauri::{Manager, WindowEvent};
 use tokio::sync::oneshot;
 
 /// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
@@ -122,90 +122,47 @@ pub fn run() {
         .manage(window_focus)
         .manage(update_manager)
         .manage(StartPeriodicSyncTx(Arc::new(Mutex::new(Some(periodic_sync_tx)))))
-        // .on_window_event(|window, event| {
-        //     match event {
-        //         WindowEvent::CloseRequested { .. } => {
-        //             tracing::info!("[SYNC] Window closing, running final sync");
-        //             // if let Some(engine) = window.app_handle().try_state::<Arc<sync::SyncEngine>>() {
-        //             //     match tauri::async_runtime::block_on(engine.sync()) {
-        //             //         Ok(status) => {
-        //             //             tracing::info!("[SYNC] Final sync completed: pending={}, last_sync={:?}", 
-        //             //                 status.pending_changes, status.last_sync);
-        //             //         }
-        //             //         Err(e) => {
-        //             //             tracing::error!("[SYNC] Final sync failed: {}", e);
-        //             //         }
-        //             //     }
-        //             // }
-        //         }
-        //         WindowEvent::Focused(focused) => {
-        //             if let Some(wf) = window.app_handle().try_state::<WindowFocus>() {
-        //                 wf.set(*focused);
-        //             }
-        //             if !focused {
-        //                 // tracing::info!("[SYNC] Window lost focus, pushing pending changes");
-        //                 let app = window.app_handle().clone();
-        //                 tauri::async_runtime::spawn(async move {
-        //                     if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
-        //                         match engine.push_pending().await {
-        //                             Ok(()) => tracing::debug!("[SYNC] Pushed pending changes on window blur"),
-        //                             Err(e) => tracing::warn!("[SYNC] Failed to push pending changes on window blur: {}", e),
-        //                         }
-        //                     }
-        //                 });
-        //             } else {
-        //                 // Window gained focus - sync to pull any changes from other devices
-        //                 tracing::info!("[SYNC] Window gained focus, triggering sync");
-        //                 let app = window.app_handle().clone();
-        //                 tauri::async_runtime::spawn(async move {
-        //                     if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
-        //                         // Check if sync is configured and ready
-        //                         if let Ok(status) = engine.status().await {
-        //                             if status.connected && !status.needs_passphrase && !engine.is_syncing() {
-        //                                 match engine.sync().await {
-        //                                     Ok(new_status) => {
-        //                                         tracing::info!(
-        //                                             "[SYNC] Focus sync completed: pending={}, last_sync={:?}",
-        //                                             new_status.pending_changes,
-        //                                             new_status.last_sync
-        //                                         );
-        //                                         let _ = app.emit("sync-status", &new_status);
-        //                                     }
-        //                                     Err(e) => tracing::warn!("[SYNC] Focus sync failed: {}", e),
-        //                                 }
-        //                             }
-        //                         }
-        //                     }
-
-        //                     // Check for updates (with cooldown and failure backoff)
-        //                     if let Some(manager) = app.try_state::<updater::UpdateManager>() {
-        //                         if manager.should_check().await {
-        //                             tracing::debug!("[UPDATER] Checking for updates on focus");
-        //                             let result = updater::check_for_updates(&app).await;
-        //                             let failed = result.is_err();
-        //                             match result {
-        //                                 Ok(Some(info)) => {
-        //                                     if !manager.is_version_skipped(&info.latest_version).await {
-        //                                         tracing::info!("[UPDATER] Update available: v{}", info.latest_version);
-        //                                         let _ = app.emit("update-available", &info);
-        //                                     }
-        //                                 }
-        //                                 Ok(None) => {
-        //                                     tracing::debug!("[UPDATER] No update available");
-        //                                 }
-        //                                 Err(e) => {
-        //                                     tracing::warn!("[UPDATER] Failed to check for updates (will back off): {}", e);
-        //                                 }
-        //                             }
-        //                             manager.record_check(failed).await;
-        //                         }
-        //                     }
-        //                 });
-        //             }
-        //         }
-        //         _ => {}
-        //     }
-        // })
+        .on_window_event(|window, event| {
+            match event {
+                WindowEvent::CloseRequested { .. } => {
+                    tracing::info!("[SYNC] Window closing, running final sync");
+                    // if let Some(engine) = window.app_handle().try_state::<Arc<sync::SyncEngine>>() {
+                    //     match tauri::async_runtime::block_on(engine.sync()) {
+                    //         Ok(status) => {
+                    //             tracing::info!("[SYNC] Final sync completed: pending={}, last_sync={:?}",
+                    //                 status.pending_changes, status.last_sync);
+                    //         }
+                    //         Err(e) => {
+                    //             tracing::error!("[SYNC] Final sync failed: {}", e);
+                    //         }
+                    //     }
+                    // }
+                }
+                WindowEvent::Focused(focused) => {
+                    if let Some(wf) = window.app_handle().try_state::<WindowFocus>() {
+                        wf.set(*focused);
+                    }
+                    if !focused {
+                        tracing::info!("[SYNC] Window lost focus, pushing pending changes");
+                        let app = window.app_handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Some(engine) = app.try_state::<Arc<sync::SyncEngine>>() {
+                                match engine.push_pending().await {
+                                    Ok(()) => tracing::debug!("[SYNC] Pushed pending changes on window blur"),
+                                    Err(e) => tracing::warn!("[SYNC] Failed to push pending changes on window blur: {}", e),
+                                }
+                            }
+                        });
+                    } else {
+                        // Window gained focus - sync (Stage 3); updater check - still disabled
+                        // tracing::info!("[SYNC] Window gained focus, triggering sync");
+                        // let app = window.app_handle().clone();
+                        // tauri::async_runtime::spawn(async move { ... });
+                    }
+                }
+                _ => {}
+            }
+        })
         // .setup(move |app| {
         //     let handle = app.handle().clone();
         //     let sync_engine = app.state::<Arc<sync::SyncEngine>>().inner().clone();

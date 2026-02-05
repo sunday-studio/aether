@@ -1,4 +1,4 @@
-use crate::db::models::{SubTask, Task, TaskWithSubtasks};
+use crate::db::models::{Goal, SubTask, Tag, Task, TaskWithSubtasks};
 use std::collections::HashMap;
 use crate::error::{AppError, Result};
 use crate::utils::generate_id;
@@ -482,27 +482,81 @@ impl TaskRepository {
         Ok(subtasks_map)
     }
 
-    /// Convert tasks to tasks with subtasks
+    /// Load tags for multiple tasks in one query. Returns map of task_id -> tags.
+    pub async fn get_tags_for_tasks(&self, task_ids: &[String]) -> Result<HashMap<String, Vec<Tag>>> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let escaped: Vec<String> = task_ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace('\'', "''")))
+            .collect();
+        let in_clause = escaped.join(", ");
+        let query = format!(
+            "SELECT tt.task_id, t.id, t.name, t.created_at, t.updated_at, t.deleted_at, t._sync_id, t._updated_at, t._deleted, t._extra
+             FROM task_tags tt
+             INNER JOIN tags t ON t.id = tt.tag_id
+             WHERE tt.task_id IN ({}) AND COALESCE(tt._deleted, 0) = 0 AND t.deleted_at IS NULL
+             ORDER BY tt.task_id, t.name ASC",
+            in_clause
+        );
+        let mut rows = conn.query(&query, libsql::params![]).await.map_err(|e| AppError::LibSQL(e))?;
+        let mut map: HashMap<String, Vec<Tag>> = HashMap::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let task_id: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
+            let tag = self.row_to_tag_from_offset(row, 1)?;
+            map.entry(task_id).or_default().push(tag);
+        }
+        Ok(map)
+    }
+
+    /// Convert tasks to tasks with subtasks, tags, and goals (bulk load, no N+1).
     pub async fn with_subtasks(&self, tasks: Vec<Task>) -> Result<Vec<TaskWithSubtasks>> {
         let task_ids: Vec<String> = tasks.iter().map(|t| t.id.clone()).collect();
-        let subtasks_map = self.find_subtasks_for_tasks(&task_ids).await?;
+        let (subtasks_map, tags_map, goals_map) = tokio::try_join!(
+            self.find_subtasks_for_tasks(&task_ids),
+            self.get_tags_for_tasks(&task_ids),
+            async {
+                let goal_ids: Vec<String> = tasks
+                    .iter()
+                    .filter_map(|t| t.goal_id.clone())
+                    .collect::<std::collections::HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                if goal_ids.is_empty() {
+                    Ok(HashMap::new())
+                } else {
+                    crate::db::GoalRepository::new(self.database.clone())
+                        .find_by_ids(&goal_ids)
+                        .await
+                }
+            }
+        )?;
 
         let tasks_with_subtasks = tasks
             .into_iter()
             .map(|task| {
-                let subtasks = subtasks_map
-                    .get(&task.id)
-                    .cloned()
-                    .unwrap_or_default();
-                Self::task_to_task_with_subtasks(task, subtasks)
+                let subtasks = subtasks_map.get(&task.id).cloned().unwrap_or_default();
+                let tags = tags_map.get(&task.id).cloned().unwrap_or_default();
+                let goal = task
+                    .goal_id
+                    .as_ref()
+                    .and_then(|gid| goals_map.get(gid).cloned());
+                Self::task_to_task_with_subtasks(task, subtasks, tags, goal)
             })
             .collect();
 
         Ok(tasks_with_subtasks)
     }
 
-    /// Helper to convert Task + subtasks to TaskWithSubtasks
-    pub fn task_to_task_with_subtasks(task: Task, subtasks: Vec<SubTask>) -> TaskWithSubtasks {
+    /// Helper to convert Task + subtasks + tags + goal to TaskWithSubtasks
+    pub fn task_to_task_with_subtasks(
+        task: Task,
+        subtasks: Vec<SubTask>,
+        tags: Vec<Tag>,
+        goal: Option<Goal>,
+    ) -> TaskWithSubtasks {
         TaskWithSubtasks {
             id: task.id,
             title: task.title,
@@ -515,6 +569,8 @@ impl TaskRepository {
             updated_at: task.updated_at,
             deleted_at: task.deleted_at,
             subtasks,
+            tags,
+            goal,
         }
     }
 
@@ -841,6 +897,45 @@ impl TaskRepository {
         .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(())
+    }
+
+    /// Build Tag from row starting at column `offset` (e.g. 1 after task_id).
+    fn row_to_tag_from_offset(&self, row: libsql::Row, offset: usize) -> Result<Tag> {
+        let o = offset as i32;
+        let id: String = row.get(o).map_err(|e| AppError::LibSQL(e))?;
+        let name: String = row.get(o + 1).map_err(|e| AppError::LibSQL(e))?;
+        let created_at_str: String = row.get(o + 2).map_err(|e| AppError::LibSQL(e))?;
+        let updated_at_str: String = row.get(o + 3).map_err(|e| AppError::LibSQL(e))?;
+        let deleted_at_str: Option<String> = row.get(o + 4).map_err(|e| AppError::LibSQL(e))?;
+        let _sync_id: Option<String> = row.get(o + 5).ok();
+        let _updated_at: Option<i64> = row.get(o + 6).ok();
+        let _deleted: i64 = row.get(o + 7).unwrap_or(0);
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(o + 8)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
+        let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+            .map_err(|e| AppError::Internal(format!("Invalid tag created_at: {}", e)))?
+            .with_timezone(&Utc);
+        let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+            .map_err(|e| AppError::Internal(format!("Invalid tag updated_at: {}", e)))?
+            .with_timezone(&Utc);
+        let deleted_at = deleted_at_str
+            .map(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .flatten()
+            .map(|dt| dt.with_timezone(&Utc));
+        Ok(Tag {
+            id,
+            name,
+            created_at,
+            updated_at,
+            deleted_at,
+            _sync_id,
+            _updated_at,
+            _deleted: _deleted != 0,
+            _extra,
+        })
     }
 
     /// Helper to convert database row to Task

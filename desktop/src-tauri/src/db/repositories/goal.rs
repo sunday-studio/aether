@@ -123,6 +123,30 @@ impl GoalRepository {
         }
     }
 
+    /// Get goals by IDs in one query. Returns map of id -> Goal.
+    pub async fn find_by_ids(&self, ids: &[String]) -> Result<std::collections::HashMap<String, Goal>> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let escaped: Vec<String> = ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace('\'', "''")))
+            .collect();
+        let in_clause = escaped.join(", ");
+        let query = format!(
+            "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goals WHERE id IN ({}) AND deleted_at IS NULL",
+            in_clause
+        );
+        let mut rows = conn.query(&query, libsql::params![]).await.map_err(|e| AppError::LibSQL(e))?;
+        let mut map = std::collections::HashMap::new();
+        while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            let goal = self.row_to_goal(row)?;
+            map.insert(goal.id.clone(), goal);
+        }
+        Ok(map)
+    }
+
     /// Create a new goal with its first instance
     pub async fn create(
         &self,
