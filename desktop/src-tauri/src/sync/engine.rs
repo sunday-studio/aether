@@ -3,7 +3,8 @@
 use crate::db::connection::{get_database, with_db_access};
 use crate::db::DbState;
 use crate::error::{AppError, Result};
-use crate::sync::metadata;
+use crate::settings;
+use crate::sync::{apply, metadata, pull, push, register};
 use serde::Serialize;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -173,7 +174,7 @@ impl SyncEngine {
             tracing::error!("[SYNC] Sync not configured: server URL missing");
             AppError::Sync("sync not configured".into())
         })?;
-        let _pass = pass.ok_or_else(|| {
+        let pass = pass.ok_or_else(|| {
             tracing::error!("[SYNC] Sync not configured: passphrase missing");
             AppError::Sync("sync not configured".into())
         })?;
@@ -193,13 +194,7 @@ impl SyncEngine {
             return self.status().await;
         }
 
-        // Temporarily disabled to test if "database is locked" reproduces without sync. Uncomment block below to re-enable.
-        *self.is_syncing.lock().unwrap() = false;
-        let connected = self.server_url.lock().unwrap().is_some();
-        let needs_passphrase = connected && self.passphrase.lock().unwrap().is_none();
-        return Ok(SyncStatus { connected, pending_changes: 0, last_sync: None, needs_passphrase });
-
-        /* sync DB work (commented out for testing)
+        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         let key = match metadata::verify_key(&db, &pass).await {
             Ok(k) => {
@@ -215,9 +210,6 @@ impl SyncEngine {
 
         // Check outbox before sync
         let pending_before: i64 = {
-            // #region agent log
-            debug_log::log("engine.rs:sync", "sync_outbox_read_enter", &[], "H1");
-            // #endregion
             let conn = db.connect().map_err(AppError::LibSQL)?;
             let mut rows = conn
                 .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -285,15 +277,6 @@ impl SyncEngine {
             media_sync_policy: &media_sync_policy,
         };
 
-        // Prefer local writes: only proceed with apply if we can get the lock without blocking
-        let _write_guard = match self.db.write_lock.try_lock() {
-            Ok(g) => g,
-            Err(_) => {
-                tracing::info!("[SYNC] Skipping apply/push this round (local write in progress)");
-                *self.is_syncing.lock().unwrap() = false;
-                return self.status().await;
-            }
-        };
         tracing::info!("[SYNC-PULL] Applying {} remote changes", envelopes.len());
         let apply_res = apply::with_suppress_triggers(&db, async {
             let mut applied = 0;
@@ -323,11 +306,9 @@ impl SyncEngine {
 
         metadata::set_last_sync(&db, ts).await?;
         tracing::info!("[SYNC] Last sync timestamp updated to: {}", ts);
-        drop(_write_guard);
 
-        // Push (reads + network; acquires write lock only for outbox deletes so local writes take precedence)
         tracing::info!("[SYNC] Starting push to server");
-        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy, Some(self.db.write_lock.clone())).await;
+        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy).await;
         match push_res {
             Ok(count) => {
                 tracing::info!("[SYNC] Push successful: {} changes pushed", count);
@@ -336,7 +317,7 @@ impl SyncEngine {
                 let err_str = e.to_string();
                 if (err_str.contains("401") || err_str.contains("not registered")) && !device_id.is_empty() {
                     let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
-                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy, Some(self.db.write_lock.clone())).await {
+                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy).await {
                         tracing::info!("[SYNC] Push successful after re-register: {} changes pushed", count);
                     } else {
                         tracing::error!("[SYNC] Push failed after retry: {}", e);
@@ -367,7 +348,6 @@ impl SyncEngine {
         *self.is_syncing.lock().unwrap() = false;
         tracing::info!("[SYNC] Sync operation completed");
         self.status().await
-        */
     }
 
     /// Push only (no pull). Use on window blur to flush pending changes.

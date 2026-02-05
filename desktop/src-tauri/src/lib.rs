@@ -91,34 +91,34 @@ pub fn run() {
         state
     });
 
-    // let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
-    
+    let sync_engine = Arc::new(sync::SyncEngine::new(db_state.clone()));
+
     // Ensure _suppress_triggers is reset to '0' on startup (in case it was stuck)
-    // let db = db::connection::get_database(&db_state);
-    // let _ = rt.block_on(async {
-    //     use crate::sync::metadata;
-    //     match metadata::get_suppress_triggers(db.as_ref()).await {
-    //         Ok(suppress) => {
-    //             if suppress != "0" {
-    //                 tracing::warn!("[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'", suppress);
-    //                 let _ = metadata::set_suppress_triggers(db.as_ref(), "0").await;
-    //             } else {
-    //                 tracing::debug!("[SYNC] _suppress_triggers is correctly set to '0'");
-    //             }
-    //         }
-    //         Err(e) => {
-    //             tracing::warn!("[SYNC] Could not check _suppress_triggers on startup: {}", e);
-    //         }
-    //     }
-    // });
-    
+    let db = db::connection::get_database(&db_state);
+    let _ = rt.block_on(async {
+        use crate::sync::metadata;
+        match metadata::get_suppress_triggers(db.as_ref()).await {
+            Ok(suppress) => {
+                if suppress != "0" {
+                    tracing::warn!("[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'", suppress);
+                    let _ = metadata::set_suppress_triggers(db.as_ref(), "0").await;
+                } else {
+                    tracing::debug!("[SYNC] _suppress_triggers is correctly set to '0'");
+                }
+            }
+            Err(e) => {
+                tracing::warn!("[SYNC] Could not check _suppress_triggers on startup: {}", e);
+            }
+        }
+    });
+
     let window_focus = WindowFocus(Arc::new(AtomicBool::new(true)));
     let update_manager = updater::UpdateManager::new();
 
     let (periodic_sync_tx, _periodic_sync_rx) = oneshot::channel();
     builder
         .manage(db_state)
-        // .manage(sync_engine.clone())
+        .manage(sync_engine.clone())
         .manage(window_focus)
         .manage(update_manager)
         .manage(StartPeriodicSyncTx(Arc::new(Mutex::new(Some(periodic_sync_tx)))))
