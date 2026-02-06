@@ -6,17 +6,92 @@ use crate::db::models::{SubTask, TaskWithSubtasks};
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
-use crate::handlers::task::{
-    AddGoalToTaskRequest, CreateSubTaskRequest, CreateTaskRequest, ReorderSubTasksRequest,
-    UpdateSubTaskRequest, UpdateTaskRequest,
-};
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
 };
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tauri::State;
 use utoipa::ToSchema;
+
+/// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
+fn deserialize_clearable_datetime<'de, D>(
+    d: D,
+) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v = serde_json::Value::deserialize(d)?;
+    match v {
+        serde_json::Value::Null => Ok(Some(None)),
+        serde_json::Value::String(s) => {
+            let dt = chrono::DateTime::parse_from_rfc3339(&s).map_err(serde::de::Error::custom)?;
+            Ok(Some(Some(dt.with_timezone(&Utc))))
+        }
+        _ => Err(serde::de::Error::custom("dueDate must be a string or null")),
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTaskRequest {
+    pub title: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub due_date: Option<chrono::DateTime<Utc>>,
+    #[serde(default)]
+    pub goal_id: Option<String>,
+    #[serde(default)]
+    pub tag_ids: Vec<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTaskRequest {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub description: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_clearable_datetime")]
+    pub due_date: Option<Option<chrono::DateTime<Utc>>>,
+    #[serde(default)]
+    pub is_completed: Option<bool>,
+    #[serde(default)]
+    pub goal_id: Option<Option<String>>,
+    #[serde(default)]
+    pub tag_ids: Option<Vec<String>>,
+    #[serde(default)]
+    pub updated_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSubTaskRequest {
+    pub title: String,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSubTaskRequest {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub is_completed: Option<bool>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderSubTasksRequest {
+    pub sub_task_ids: Vec<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddGoalToTaskRequest {
+    pub goal_id: String,
+}
 
 /// Request to add tags to a task
 #[derive(Debug, Clone, Deserialize, ToSchema)]
