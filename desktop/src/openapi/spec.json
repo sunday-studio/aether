@@ -1258,7 +1258,7 @@
         "tags": [
           "GoalInstances"
         ],
-        "summary": "Get goal instances for a goal",
+        "summary": "Get goal instances for a goal (with tasks per instance for goal view)",
         "operationId": "get_goal_instances",
         "parameters": [
           {
@@ -1295,11 +1295,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of goal instances",
+            "description": "Paginated list of goal instances with tasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedGoalInstances"
+                  "$ref": "#/components/schemas/PaginatedGoalInstancesWithTasks"
                 }
               }
             }
@@ -1901,7 +1901,7 @@
           "Search"
         ],
         "summary": "Search across all resources",
-        "operationId": "search",
+        "operationId": "search_resources",
         "parameters": [
           {
             "name": "q",
@@ -4911,7 +4911,8 @@
           "isCompleted",
           "createdAt",
           "updatedAt",
-          "subtasks"
+          "subtasks",
+          "tags"
         ],
         "properties": {
           "createdAt": {
@@ -4932,6 +4933,14 @@
             "format": "date-time",
             "nullable": true
           },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Goal"
+              }
+            ],
+            "nullable": true
+          },
           "goalId": {
             "type": "string",
             "nullable": true
@@ -4950,6 +4959,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SubTask"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
             }
           },
           "title": {
