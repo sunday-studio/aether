@@ -2,6 +2,7 @@ pub mod activity;
 pub mod audio;
 pub mod bookmark;
 pub mod canvas;
+pub mod common;
 pub mod entry;
 pub mod embeddings;
 pub mod goal;
