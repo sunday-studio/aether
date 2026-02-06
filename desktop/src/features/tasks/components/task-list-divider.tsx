@@ -23,7 +23,7 @@ export const TaskListDivider = ({
 		<div className={cn("flex items-center justify-between gap-4 my-6")}>
 			<div
 				className={cn(
-					"shrink-0 bg-linear-to-b from-neutral-100 to-neutral-200 text-neutral-600  py-1 rounded-lg px-1.5 ring ring-neutral-200",
+					"shrink-0 bg-linear-to-b from-(--color-tasklist-label-start) to-(--color-tasklist-label-end) text-neutral-600  py-1 rounded-lg px-1.5 ring ring-(--color-divider)",
 					{
 						"ring-rose-200 from-rose-100 to-rose-200 text-rose-700": isOverdue,
 					},
@@ -31,7 +31,7 @@ export const TaskListDivider = ({
 			>
 				<p className=" text-xs select-none">{title ?? label}</p>
 			</div>
-			<div className="w-full h-0.5 bg-neutral-100 rounded-full" />
+			<div className="w-full h-0.5 bg-(--color-divider) rounded-full" />
 			{completedCountLabel && (
 				<p className="text-xs shrink-0 font-medium text-neutral-500">
 					{completedCountLabel}

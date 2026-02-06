@@ -42,6 +42,7 @@
 	--color-active-text: var(--color-green-700);
 	--color-active-text-hover: var(--color-green-900);
 	--color-link: var(--color-green-700);
+	--color-divider: var(--color-neutral-200);
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--green-11);
@@ -66,10 +67,13 @@
 	--color-button-primary-start: var(--color-neutral-200);
 	--color-button-primary-end: var(--color-neutral-200);
 	--color-button-primary-foreground: var(--color-neutral-800);
-
 	--color-button-destructive-start: var(--red-dark-4);
 	--color-button-destructive-end: var(--red-dark-5);
 	--color-button-destructive-foreground: var(--color-red-100);
+
+	/* tasklist divider */
+	--color-tasklist-label-start: var(--color-neutral-100);
+	--color-tasklist-label-end: var(--color-neutral-200);
 }
 
 [data-theme="dark-lime"] {
@@ -109,6 +113,7 @@
 	--color-active-text: var(--green-dark-9);
 	--color-active-text-hover: var(--green-dark-10);
 	--color-link: var(--color-green-400);
+	--color-divider: var(--color-neutral-800);
 
 	/* navigation-control */
 	--color-navigation-control-active: var(--green-dark-9);
@@ -135,4 +140,7 @@
 	--color-button-destructive-start: var(--red-dark-4);
 	--color-button-destructive-end: var(--red-dark-5);
 	--color-button-destructive-foreground: var(--red-dark-12);
+
+	--color-tasklist-label-start: var(--green-dark-2);
+	--color-tasklist-label-end: var(--green-dark-3);
 }

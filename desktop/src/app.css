@@ -105,15 +105,9 @@ html {
 	transition:
 		background-color color 0.2s ease,
 		color 0.2s ease;
+	height: 100vh;
+	overflow: hidden;
 }
-/* 
-a {
-	color: var(--color-link);
-
-	&:hover {
-		text-decoration: underline;
-	}
-} */
 
 .debug {
 	outline: 1px dotted red;

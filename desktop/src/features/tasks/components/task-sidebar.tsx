@@ -14,9 +14,9 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 			end
 			className={({ isActive }) => {
 				return cn(
-					"group relative text-xs py-1 leading-[12px] px-1.5 -mx-1.5 rounded-md hover:bg-neutral-100",
+					"group relative text-xs py-1 leading-[12px] px-1.5 -mx-1.5 rounded-md text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)",
 					{
-						"before:absolute before:top-1/2 before:left-[-10px] before:-translate-y-1/2 before:block before:-skew-y-3 before:h-2 before:w-2 before:rounded-full before:bg-green-700 text-green-900":
+						"before:absolute before:top-1/2 before:left-[-10px] before:-translate-y-1/2 before:block before:-skew-y-3 before:h-2 before:w-2 before:rounded-full before:bg-(--color-active-text) text-(--color-active-text)":
 							isActive,
 					},
 				);
@@ -30,14 +30,13 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 const GoalsList = () => {
 	const { data: goalsResponse } = useGetGoals();
 
-	// SDK now returns properly typed PaginatedGoals
 	const goals: Goal[] = goalsResponse?.data?.items ?? [];
 
 	return (
 		<div className="w-full">
 			<div className=" py-2 flex items-center justify-between gap-2">
-				<p className="text-sm text-neutral-800 font-medium">Goals</p>
-				<div className="w-full h-px bg-neutral-200/50"></div>
+				<p className="text-sm text-(--color-primary-text) font-medium">Goals</p>
+				<div className="w-full h-px bg-(--color-divider)"></div>
 				<GoalFormDialog
 					trigger={
 						<Tooltip
