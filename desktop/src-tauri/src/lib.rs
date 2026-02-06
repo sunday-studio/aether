@@ -3,7 +3,6 @@ pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod error;
-pub mod handlers;
 pub mod media;
 pub mod settings;
 pub mod sync;
