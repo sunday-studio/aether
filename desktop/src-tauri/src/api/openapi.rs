@@ -1,75 +1,74 @@
 use utoipa::OpenApi;
 
-use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task, TaskWithSubtasks};
-use crate::utils::metadata::extractor::ExtractedMetadata;
-use crate::handlers::common::{
-    PaginatedBookmarks, PaginatedCanvases, PaginatedEntries, PaginatedGoalInstances,
-    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTasksWithSubtasks, PaginatedTranscriptions,
-};
-use crate::handlers::activity as activity_handlers;
-use crate::handlers::entry;
-use crate::handlers::goal as goal_handlers;
-use crate::handlers::tag;
-use crate::handlers::task as task_handlers;
-use crate::handlers::trash as trash_handlers;
-use crate::handlers::search as search_handlers;
-use crate::handlers::settings as settings_handlers;
-use crate::commands::link as link_commands;
-use crate::commands::audio as audio_commands;
-use crate::commands::transcription as transcription_commands;
-use crate::commands::sync as sync_commands;
+use crate::commands::activity as activity_commands;
 use crate::commands::bookmark as bookmark_commands;
 use crate::commands::canvas as canvas_commands;
+use crate::commands::common::{
+    PaginatedBookmarks, PaginatedCanvases, PaginatedEntries, PaginatedGoalInstances,
+    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTasksWithSubtasks,
+    PaginatedTranscriptions,
+};
+use crate::commands::entry as entry_commands;
+use crate::commands::goal as goal_commands;
+use crate::commands::link as link_commands;
+use crate::commands::search as search_commands;
+use crate::commands::settings as settings_commands;
+use crate::commands::tag as tag_commands;
+use crate::commands::task as task_commands;
+use crate::commands::trash as trash_commands;
+use crate::commands::{audio as audio_commands, sync as sync_commands, transcription as transcription_commands};
+use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task, TaskWithSubtasks};
+use crate::utils::metadata::extractor::ExtractedMetadata;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
         // Tag endpoints
-        tag::get_all_tags,
-        tag::create_tag,
-        tag::bulk_create_tags,
+        tag_commands::get_all_tags,
+        tag_commands::create_tag,
+        tag_commands::bulk_create_tags,
         // Entry endpoints
-        entry::get_entries,
-        entry::get_entry_by_id,
-        entry::create_entry,
-        entry::bulk_create_entries,
-        entry::update_entry,
-        entry::delete_entry,
-        entry::add_tags_to_entry,
-        entry::remove_tags_from_entry,
+        entry_commands::get_entries,
+        entry_commands::get_entry_by_id,
+        entry_commands::create_entry,
+        entry_commands::bulk_create_entries,
+        entry_commands::update_entry,
+        entry_commands::delete_entry,
+        entry_commands::add_tags_to_entry,
+        entry_commands::remove_tags_from_entry,
         // Task endpoints
-        task_handlers::create_task,
-        task_handlers::get_inbox_tasks,
-        task_handlers::get_overdue_tasks,
-        task_handlers::get_task_by_id,
-        task_handlers::update_task,
-        task_handlers::delete_task,
-        task_handlers::get_subtasks,
-        task_handlers::create_subtask,
-        task_handlers::update_subtask,
-        task_handlers::delete_subtask,
-        task_handlers::reorder_subtasks,
-        task_handlers::add_tags_to_task,
-        task_handlers::remove_tags_from_task,
-        task_handlers::add_goal_to_task,
-        task_handlers::remove_goal_from_task,
+        task_commands::create_task,
+        task_commands::get_inbox_tasks,
+        task_commands::get_overdue_tasks,
+        task_commands::get_task_by_id,
+        task_commands::update_task,
+        task_commands::delete_task,
+        task_commands::get_subtasks,
+        task_commands::create_subtask,
+        task_commands::update_subtask,
+        task_commands::delete_subtask,
+        task_commands::reorder_subtasks,
+        task_commands::add_tags_to_task,
+        task_commands::remove_tags_from_task,
+        task_commands::add_goal_to_task,
+        task_commands::remove_goal_from_task,
         // Goal endpoints
-        goal_handlers::get_goals,
-        goal_handlers::get_goal_by_id,
-        goal_handlers::create_goal,
-        goal_handlers::update_goal,
-        goal_handlers::delete_goal,
-        goal_handlers::get_goal_instances,
-        goal_handlers::get_current_goal_instance,
-        goal_handlers::add_tags_to_goal,
-        goal_handlers::remove_tags_from_goal,
+        goal_commands::get_goals,
+        goal_commands::get_goal_by_id,
+        goal_commands::create_goal,
+        goal_commands::update_goal,
+        goal_commands::delete_goal,
+        goal_commands::get_goal_instances,
+        goal_commands::get_current_goal_instance,
+        goal_commands::add_tags_to_goal,
+        goal_commands::remove_tags_from_goal,
         // Trash endpoints
-        trash_handlers::get_trashed_tasks,
-        trash_handlers::restore_task,
+        trash_commands::get_trashed_tasks,
+        trash_commands::restore_task,
         // Activity endpoints
-        activity_handlers::get_activities,
+        activity_commands::get_activities,
         // Search endpoints
-        search_handlers::search,
+        search_commands::search_resources,
         // Link endpoints
         link_commands::create_link,
         link_commands::get_backlinks,
@@ -79,9 +78,9 @@ use crate::commands::canvas as canvas_commands;
         link_commands::get_all_links_for_graph,
         link_commands::sync_links_from_content,
         // Settings endpoints
-        settings_handlers::get_setting,
-        settings_handlers::get_all_settings,
-        settings_handlers::set_setting,
+        settings_commands::get_setting,
+        settings_commands::get_all_settings,
+        settings_commands::set_setting,
         // Audio endpoints
         audio_commands::save_audio_recording,
         audio_commands::get_audio_data,
@@ -151,27 +150,26 @@ use crate::commands::canvas as canvas_commands;
         // Composite types
         TaskWithSubtasks,
         // Request/Response schemas
-        tag::CreateTagRequest,
-        entry::CreateEntryRequest,
-        entry::UpdateEntryRequest,
-        task_handlers::CreateTaskRequest,
-        task_handlers::UpdateTaskRequest,
-        task_handlers::CreateSubTaskRequest,
-        task_handlers::UpdateSubTaskRequest,
-        task_handlers::ReorderSubTasksRequest,
-        task_handlers::AddGoalToTaskRequest,
-        goal_handlers::CreateGoalRequest,
-        goal_handlers::UpdateGoalRequest,
-        search_handlers::SearchRequest,
-        search_handlers::SearchResponse,
-        // Note: SearchResultResponse uses serde(flatten) which isn't supported by ToSchema
+        tag_commands::CreateTagRequest,
+        entry_commands::CreateEntryRequest,
+        entry_commands::UpdateEntryRequest,
+        task_commands::CreateTaskRequest,
+        task_commands::UpdateTaskRequest,
+        task_commands::CreateSubTaskRequest,
+        task_commands::UpdateSubTaskRequest,
+        task_commands::ReorderSubTasksRequest,
+        task_commands::AddGoalToTaskRequest,
+        goal_commands::CreateGoalRequest,
+        goal_commands::UpdateGoalRequest,
+        search_commands::SearchRequest,
+        search_commands::SearchResponse,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,
         link_commands::SyncLinksRequest,
-        settings_handlers::SettingResponse,
-        settings_handlers::AllSettingsResponse,
-        settings_handlers::SetSettingRequest,
+        settings_commands::SettingResponse,
+        settings_commands::AllSettingsResponse,
+        settings_commands::SetSettingRequest,
         transcription_commands::ProviderInfo,
         transcription_commands::ModelInfo,
         transcription_commands::SetActiveTranscriptionRequest,
@@ -179,8 +177,8 @@ use crate::commands::canvas as canvas_commands;
         crate::sync::SyncStatus,
         sync_commands::ConfigureSyncRequest,
         sync_commands::ReconnectSyncRequest,
-        crate::handlers::bookmark::CreateBookmarkRequest,
-        crate::handlers::bookmark::UpdateBookmarkRequest,
+        bookmark_commands::CreateBookmarkRequest,
+        bookmark_commands::UpdateBookmarkRequest,
         bookmark_commands::AddTagsToBookmarkRequest,
         bookmark_commands::RemoveTagsFromBookmarkRequest,
         canvas_commands::CreateCanvasRequest,
