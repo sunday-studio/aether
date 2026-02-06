@@ -3,9 +3,15 @@ use crate::db::models::Tag;
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
-use crate::handlers::tag::CreateTagRequest;
 use crate::utils::log_create;
+use serde::Deserialize;
 use tauri::State;
+use utoipa::ToSchema;
+
+#[derive(Deserialize, ToSchema)]
+pub struct CreateTagRequest {
+    pub name: String,
+}
 
 /// Get all tags
 #[utoipa::path(

@@ -6,11 +6,53 @@ use crate::db::models::{Goal, GoalInstance, GoalInstanceWithTasks};
 use crate::db::{connection, DbState, GoalRepository, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
-use crate::handlers::goal::{CreateGoalRequest, UpdateGoalRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use serde::Deserialize;
 use tauri::State;
 use utoipa::ToSchema;
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateGoalRequest {
+    pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub is_non_recurring: Option<bool>,
+    #[serde(default)]
+    pub recurrence_type: Option<String>,
+    #[serde(default)]
+    pub recurrence_interval: Option<i32>,
+    #[serde(default)]
+    pub recurrence_anchor: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub recurrence_meta: Option<serde_json::Value>,
+    #[serde(default)]
+    pub tag_ids: Vec<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateGoalRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<Option<String>>,
+    #[serde(default)]
+    pub is_non_recurring: Option<bool>,
+    #[serde(default)]
+    pub recurrence_type: Option<Option<String>>,
+    #[serde(default)]
+    pub recurrence_interval: Option<Option<i32>>,
+    #[serde(default)]
+    pub recurrence_anchor: Option<Option<chrono::DateTime<chrono::Utc>>>,
+    #[serde(default)]
+    pub recurrence_meta: Option<Option<serde_json::Value>>,
+    #[serde(default)]
+    pub tag_ids: Option<Vec<String>>,
+    #[serde(default)]
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
 
 /// Request to add tags to a goal
 #[derive(Debug, Clone, Deserialize, ToSchema)]

@@ -1,10 +1,54 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, SettingQueryParams};
 use crate::db::connection;
 use crate::error::{AppError, Result};
-use crate::handlers::settings::{AllSettingsResponse, SettingResponse, SetSettingRequest};
 use crate::settings;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri::State;
+use utoipa::ToSchema;
+
+#[derive(Serialize, ToSchema)]
+pub struct SettingResponse {
+    pub key: String,
+    pub value: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct AllSettingsResponse(HashMap<String, String>);
+
+impl ToSchema<'_> for AllSettingsResponse {
+    fn schema() -> (&'static str, utoipa::openapi::RefOr<utoipa::openapi::Schema>) {
+        (
+            "AllSettingsResponse",
+            utoipa::openapi::ObjectBuilder::new()
+                .additional_properties(
+                    utoipa::openapi::ObjectBuilder::new()
+                        .schema_type(utoipa::openapi::SchemaType::String)
+                        .into(),
+                )
+                .into(),
+        )
+    }
+}
+
+impl From<HashMap<String, String>> for AllSettingsResponse {
+    fn from(map: HashMap<String, String>) -> Self {
+        AllSettingsResponse(map)
+    }
+}
+
+impl From<AllSettingsResponse> for HashMap<String, String> {
+    fn from(response: AllSettingsResponse) -> Self {
+        response.0
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct SetSettingRequest {
+    pub key: String,
+    pub value: String,
+}
 
 /// Get a setting value
 #[utoipa::path(

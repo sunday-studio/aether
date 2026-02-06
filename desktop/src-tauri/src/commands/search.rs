@@ -1,9 +1,127 @@
 use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
 use crate::db::{connection, DbState};
-use crate::db::repositories::search::{SearchRepository, ResourceType};
+use crate::db::repositories::search::{SearchRepository, ResourceType, SearchResult};
 use crate::error::{AppError, Result};
-use crate::handlers::search::{SearchResponse, SearchResultResponse};
+use serde::{Deserialize, Serialize};
 use tauri::State;
+use utoipa::ToSchema;
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchRequest {
+    pub q: String,
+    #[serde(default)]
+    pub types: Option<String>,
+    #[serde(default)]
+    pub tags: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub offset: Option<u32>,
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResponse {
+    pub results: Vec<SearchResultResponse>,
+    pub total: usize,
+    pub query: String,
+    pub mode: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum SearchResultResponse {
+    Entry {
+        id: String,
+        #[serde(flatten)]
+        entry: crate::db::models::Entry,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Task {
+        id: String,
+        #[serde(flatten)]
+        task: crate::db::models::Task,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    SubTask {
+        id: String,
+        #[serde(flatten)]
+        subtask: crate::db::models::SubTask,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Goal {
+        id: String,
+        #[serde(flatten)]
+        goal: crate::db::models::Goal,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Tag {
+        id: String,
+        #[serde(flatten)]
+        tag: crate::db::models::Tag,
+        score: f64,
+        highlights: Vec<String>,
+    },
+    Bookmark {
+        id: String,
+        #[serde(flatten)]
+        bookmark: crate::db::models::Bookmark,
+        score: f64,
+        highlights: Vec<String>,
+    },
+}
+
+impl From<SearchResult> for SearchResultResponse {
+    fn from(result: SearchResult) -> Self {
+        match result {
+            SearchResult::Entry { entry, score, highlights } => SearchResultResponse::Entry {
+                id: entry.id.clone(),
+                entry,
+                score,
+                highlights,
+            },
+            SearchResult::Task { task, score, highlights } => SearchResultResponse::Task {
+                id: task.id.clone(),
+                task,
+                score,
+                highlights,
+            },
+            SearchResult::SubTask { subtask, score, highlights } => SearchResultResponse::SubTask {
+                id: subtask.id.clone(),
+                subtask,
+                score,
+                highlights,
+            },
+            SearchResult::Goal { goal, score, highlights } => SearchResultResponse::Goal {
+                id: goal.id.clone(),
+                goal,
+                score,
+                highlights,
+            },
+            SearchResult::Tag { tag, score, highlights } => SearchResultResponse::Tag {
+                id: tag.id.clone(),
+                tag,
+                score,
+                highlights,
+            },
+            SearchResult::Bookmark { bookmark, score, highlights } => {
+                SearchResultResponse::Bookmark {
+                    id: bookmark.id.clone(),
+                    bookmark,
+                    score,
+                    highlights,
+                }
+            }
+        }
+    }
+}
 
 /// Search across all resources
 #[utoipa::path(

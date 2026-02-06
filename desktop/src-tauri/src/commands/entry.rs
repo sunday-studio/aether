@@ -4,12 +4,44 @@ use crate::db::{connection, DbState, EntryRepository};
 use crate::db::repositories::LinkRepository;
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
-use crate::handlers::entry::{CreateEntryRequest, UpdateEntryRequest};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::link_parser::extract_links_from_lexical_content;
+use chrono::Utc;
 use serde::Deserialize;
 use tauri::State;
 use utoipa::ToSchema;
+
+fn default_created_at() -> chrono::DateTime<Utc> {
+    Utc::now()
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateEntryRequest {
+    pub document: String,
+    #[serde(default = "default_created_at")]
+    pub date: chrono::DateTime<Utc>,
+    #[serde(default)]
+    pub is_pinned: Option<bool>,
+    #[serde(default)]
+    pub is_archived: Option<bool>,
+    #[serde(default)]
+    pub is_deleted: Option<bool>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateEntryRequest {
+    pub document: String,
+    #[serde(default)]
+    pub is_pinned: Option<bool>,
+    #[serde(default)]
+    pub is_archived: Option<bool>,
+    #[serde(default)]
+    pub is_deleted: Option<bool>,
+    #[serde(default)]
+    pub updated_at: Option<chrono::DateTime<Utc>>,
+}
 
 /// Request to add tags to an entry
 #[derive(Debug, Clone, Deserialize, ToSchema)]
