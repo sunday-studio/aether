@@ -189,13 +189,38 @@ pub async fn search_resources(
     let mode = params.mode.as_deref().unwrap_or("fuzzy").to_string();
 
     let repo = SearchRepository::new(connection::get_database(&*state));
-    let results: Vec<crate::db::repositories::search::SearchResult> = repo.search_fuzzy(
-        &params.q,
-        types,
-        tag_ids,
-        params.limit,
-        params.offset,
-    ).await?;
+    let results: Vec<SearchResult> = match mode.as_str() {
+        "hybrid" => {
+            repo.search_hybrid(
+                &params.q,
+                types,
+                tag_ids,
+                params.limit,
+                params.offset,
+            )
+            .await?
+        }
+        "similar" => {
+            repo.search_fuzzy(
+                &params.q,
+                types,
+                tag_ids,
+                params.limit,
+                params.offset,
+            )
+            .await?
+        }
+        _ => {
+            repo.search_fuzzy(
+                &params.q,
+                types,
+                tag_ids,
+                params.limit,
+                params.offset,
+            )
+            .await?
+        }
+    };
 
     let total = results.len();
     let response = SearchResponse {
