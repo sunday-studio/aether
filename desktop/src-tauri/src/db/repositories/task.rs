@@ -88,7 +88,7 @@ impl TaskRepository {
                 .query(
                     "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                      FROM tasks 
-                     WHERE goal_id IS NULL AND deleted_at IS NULL 
+                     WHERE deleted_at IS NULL 
                      ORDER BY COALESCE(due_date, '') ASC, id ASC",
                     libsql::params![],
                 )

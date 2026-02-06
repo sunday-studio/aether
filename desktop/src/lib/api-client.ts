@@ -33,7 +33,7 @@ const requestDataNormalizers: Record<string, RequestDataNormalizer> = {
 	add_tags_to_goal: toTagIdsBody,
 	add_tags_to_bookmark: toTagIdsBody,
 	remove_tags_from_entry: toTagIdsBody,
-	// remove_tags_from_task: toTagIdsBody,
+	remove_tags_from_task: toTagIdsBody,
 	remove_tags_from_goal: toTagIdsBody,
 	remove_tags_from_bookmark: toTagIdsBody,
 };
