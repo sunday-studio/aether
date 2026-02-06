@@ -50,7 +50,7 @@ impl CanvasRepository {
         let fetch_limit = limit_val + 1;
         
         let mut rows = if let Some(cursor_val) = cursor {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
             conn.query(
@@ -91,7 +91,7 @@ impl CanvasRepository {
         }
 
         let next_cursor = if has_more && !canvases.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             Some(cursor::encode(&canvases.last().unwrap().id))
         } else {
             None

@@ -5,7 +5,7 @@ use crate::commands::params::{
 use crate::db::connection;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::commands::common::PaginationResponse;
 use crate::settings;
 use crate::transcription::model_manager;
 use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider};

@@ -48,7 +48,7 @@ pub async fn get_bookmarks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<BookmarkQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::handlers::common::PaginationResponse<Bookmark>> {
+) -> Result<crate::commands::common::PaginationResponse<Bookmark>> {
     let _guard = connection::with_db_access(&*state).await;
     let params = query_params.unwrap_or_default();
     let repo = BookmarkRepository::new(connection::get_database(&*state));
@@ -61,7 +61,7 @@ pub async fn get_bookmarks(
             params.cursor,
         )
         .await?;
-    Ok(crate::handlers::common::PaginationResponse::new(bookmarks, next_cursor, has_more))
+    Ok(crate::commands::common::PaginationResponse::new(bookmarks, next_cursor, has_more))
 }
 
 /// Get bookmark by ID

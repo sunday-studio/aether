@@ -72,7 +72,7 @@ impl BookmarkRepository {
         
         // Add cursor condition if provided
         if let Some(cursor_val) = cursor {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             query.push_str(&format!(" AND id > '{}'", last_id.replace("'", "''")));
         }
@@ -100,7 +100,7 @@ impl BookmarkRepository {
         }
 
         let next_cursor = if has_more && !bookmarks.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             Some(cursor::encode(&bookmarks.last().unwrap().id))
         } else {
             None

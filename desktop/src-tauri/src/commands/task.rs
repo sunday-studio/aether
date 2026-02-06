@@ -5,7 +5,7 @@ use crate::commands::params::{
 use crate::db::models::{SubTask, TaskWithSubtasks};
 use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::commands::common::PaginationResponse;
 use crate::handlers::task::{
     AddGoalToTaskRequest, CreateSubTaskRequest, CreateTaskRequest, ReorderSubTasksRequest,
     UpdateSubTaskRequest, UpdateTaskRequest,

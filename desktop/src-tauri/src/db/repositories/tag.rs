@@ -75,7 +75,7 @@ impl TagRepository {
         let fetch_limit = limit_val + 1;
         
         let mut rows = if let Some(cursor_val) = cursor {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
                 return Err(AppError::BadRequest("Invalid cursor format for tags".to_string()));
@@ -152,7 +152,7 @@ impl TagRepository {
         }
 
         let next_cursor = if has_more && !tags.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_tag = tags.last().unwrap();
             Some(cursor::encode_composite(&[&last_tag.name, &last_tag.id]))
         } else {

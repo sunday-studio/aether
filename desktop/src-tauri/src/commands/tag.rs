@@ -2,7 +2,7 @@ use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, P
 use crate::db::models::Tag;
 use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
-use crate::handlers::common::PaginationResponse;
+use crate::commands::common::PaginationResponse;
 use crate::handlers::tag::CreateTagRequest;
 use crate::utils::log_create;
 use tauri::State;

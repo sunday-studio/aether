@@ -108,7 +108,7 @@ impl TaskRepository {
         let fetch_limit = limit_val + 1;
         
         let mut rows = if let Some(cursor_val) = cursor {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
                 return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
@@ -155,7 +155,7 @@ impl TaskRepository {
         }
 
         let next_cursor = if has_more && !tasks.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_task = tasks.last().unwrap();
             let due_date_str = last_task.due_date
                 .map(|d| d.to_rfc3339())
@@ -207,7 +207,7 @@ impl TaskRepository {
         let fetch_limit = limit_val + 1;
         
         let mut rows = if let Some(cursor_val) = cursor {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
                 return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
@@ -254,7 +254,7 @@ impl TaskRepository {
         }
 
         let next_cursor = if has_more && !tasks.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_task = tasks.last().unwrap();
             let due_date_str = last_task.due_date
                 .map(|d| d.to_rfc3339())

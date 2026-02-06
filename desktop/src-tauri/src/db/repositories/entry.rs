@@ -56,7 +56,7 @@ impl EntryRepository {
         
         let mut rows = if let Some(cursor_val) = cursor {
             // Decode cursor to get last ID
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
             
             conn.query(
@@ -99,7 +99,7 @@ impl EntryRepository {
 
         // Set next_cursor from last entry if we have entries
         let next_cursor = if has_more && !entries.is_empty() {
-            use crate::handlers::common::cursor;
+            use crate::commands::common::cursor;
             Some(cursor::encode(&entries.last().unwrap().id))
         } else {
             None
