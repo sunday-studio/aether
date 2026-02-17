@@ -1,5 +1,3 @@
-use crate::error::{AppError, Result};
-use crate::utils::timezone::{days_since_in_timezone, get_goal_location, now_in_timezone};
 use chrono::{DateTime, Datelike, Duration, Utc};
 use chrono_tz::Tz;
 
@@ -53,18 +51,18 @@ fn calculate_weekly(
     let now_start = now_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
 
     let days_since = (now_start - anchor_start).num_days();
-    let weeks_since = days_since / 7;
 
+    // recurrence_interval is in days (e.g. 7 for weekly, 14 for bi-weekly)
     let interval = if goal.recurrence_interval <= 0 {
-        1
+        7
     } else {
         goal.recurrence_interval
     };
+    let interval_days = interval as i64;
 
-    let period_index = weeks_since / (interval as i64 * 7);
-
-    let start = anchor_start + Duration::days(period_index * interval as i64 * 7);
-    let end = start + Duration::days(interval as i64 * 7) - Duration::nanoseconds(1);
+    let period_index = days_since / interval_days;
+    let start = anchor_start + Duration::days(period_index * interval_days);
+    let end = start + Duration::days(interval_days) - Duration::nanoseconds(1);
 
     (start.with_timezone(&Utc), end.with_timezone(&Utc))
 }
@@ -177,39 +175,4 @@ fn calculate_custom(
     let end = start + Duration::days(interval as i64) - Duration::nanoseconds(1);
 
     (start.with_timezone(&Utc), end.with_timezone(&Utc))
-}
-
-/// Check if a new goal instance should be created based on the goal's recurrence settings
-/// and the last instance's creation date. All intervals are in days, regardless of recurrence type.
-pub fn should_create_new_goal_instance(
-    is_non_recurring: bool,
-    last_instance_created_at: Option<DateTime<Utc>>,
-    recurrence_interval: Option<i32>,
-    timezone: Option<&str>,
-) -> Result<bool> {
-    // Non-recurring goals never create new instances
-    if is_non_recurring {
-        return Ok(false);
-    }
-
-    // If no last instance exists, we should create the first one
-    if last_instance_created_at.is_none() {
-        return Ok(true);
-    }
-
-    let last_instance = last_instance_created_at.unwrap();
-    let tz_str = timezone.unwrap_or("UTC");
-    let tz = get_goal_location(tz_str)
-        .map_err(|e| AppError::BadRequest(format!("Invalid timezone: {}", e)))?;
-    let now = now_in_timezone(tz);
-
-    // Calculate calendar days since last instance (DST-safe)
-    let days_since = days_since_in_timezone(last_instance, now, tz);
-
-    // Get the interval (all intervals are in days)
-    let interval = recurrence_interval.unwrap_or(1);
-    let interval = if interval <= 0 { 1 } else { interval };
-
-    // For all recurrence types, check if days since last instance >= interval
-    Ok(days_since >= interval as i64)
 }

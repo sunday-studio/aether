@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "~/lib/api-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { customFetch } from "~/utils/api-client";
 import type { Canvas, CanvasData } from "../types";
 
 // Backend response type (snake_case)

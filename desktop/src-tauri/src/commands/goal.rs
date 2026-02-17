@@ -348,6 +348,12 @@ pub async fn get_goal_instances(
     let db = connection::get_database(&*state);
     let goal_repo = GoalRepository::new(db.clone());
     let task_repo = TaskRepository::new(db);
+    // For recurring goals, ensure the current period's instance exists before listing
+    if let Ok(Some(goal)) = goal_repo.find_by_id(&goal_id).await {
+        if !goal.is_non_recurring {
+            goal_repo.get_or_create_current_instance(&goal_id).await?;
+        }
+    }
     let (instances, next_cursor, has_more) = goal_repo
         .find_instances(&goal_id, params.normalize_limit(), params.cursor)
         .await?;
