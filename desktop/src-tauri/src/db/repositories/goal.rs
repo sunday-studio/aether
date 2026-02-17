@@ -1,9 +1,9 @@
 use crate::db::models::{Goal, GoalInstance};
 use crate::error::{AppError, Result};
-use crate::utils::goal_period::{calculate_goal_period, RecurringGoal};
+use crate::utils::goal_period::{calculate_goal_period, should_create_new_goal_instance, RecurringGoal};
 use crate::utils::{generate_id};
 use crate::utils::timezone::get_goal_location;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use libsql::Database;
 use std::sync::Arc;
 
@@ -523,20 +523,20 @@ impl GoalRepository {
         // Get goal before starting transaction to avoid nested connection issues
         let goal = self.find_by_id(goal_id).await?;
         let goal = goal.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", goal_id)))?;
-
+        
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
-        // Last instance: by period_start DESC so we have the chronologically latest period that exists
+        // Get last instance
         let mut rows = conn
             .query(
                 "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
                  WHERE goal_id = ?1 
-                 ORDER BY period_start DESC 
+                 ORDER BY created_at DESC 
                  LIMIT 1",
                 libsql::params![goal_id],
             )
@@ -558,20 +558,24 @@ impl GoalRepository {
                 return Ok(instance);
             }
 
+            // Create instance for non-recurring goal
             let instance_id = generate_id("goal_instance");
             let now = Utc::now();
             let now_ms = now.timestamp_millis();
             let created_at_str = now.to_rfc3339();
+            let created_at_str_1 = created_at_str.clone();
+            let updated_at_str = created_at_str.clone();
+
             conn.execute(
                 "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
                  VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, 0, '{}')",
                 libsql::params![
                     instance_id.clone(),
                     goal_id,
-                    created_at_str.clone(),
-                    "active",
-                    created_at_str.clone(),
                     created_at_str,
+                    "active",
+                    created_at_str_1,
+                    updated_at_str,
                     instance_id.clone(),
                     now_ms,
                 ],
@@ -586,160 +590,107 @@ impl GoalRepository {
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
 
+            // Return created instance
             let mut rows = conn
                 .query(
                     "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
-                     FROM goal_instances WHERE id = ?1",
+                     FROM goal_instances 
+                     WHERE id = ?1",
                     libsql::params![instance_id],
                 )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
+
             if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 return Ok(self.row_to_goal_instance(row)?);
+            } else {
+                return Err(AppError::Internal("Failed to retrieve created instance".to_string()));
             }
-            return Err(AppError::Internal("Failed to retrieve created instance".to_string()));
         }
 
-        // Recurring goals: always ensure intervals from last instance through current period exist, then return current
-        let tz = get_goal_location(&goal.timezone)
-            .map_err(|e| AppError::BadRequest(format!("Invalid timezone: {}", e)))?;
-        let recurring_goal = RecurringGoal {
-            recurrence_type: goal.recurrence_type.clone().unwrap_or_default(),
-            recurrence_interval: goal.recurrence_interval.unwrap_or(1),
-            recurrence_anchor: goal.recurrence_anchor.unwrap_or(Utc::now()),
-        };
-        let now = Utc::now();
-        let now_ms = now.timestamp_millis();
-        let (current_period_start, current_period_end) = calculate_goal_period(recurring_goal, now, tz);
-        let current_period_start_str = current_period_start.to_rfc3339();
-        let interval_days = goal.recurrence_interval.unwrap_or(1) as i64;
+        // For recurring goals, check if new instance should be created
+        let should_create = should_create_new_goal_instance(
+            goal.is_non_recurring,
+            last_instance.as_ref().map(|i| i.created_at),
+            goal.recurrence_interval,
+            Some(&goal.timezone),
+        )?;
 
-        match &last_instance {
-            None => {
-                // No instances yet: create the current period only
-                let instance_id = generate_id("goal_instance");
-                let created_at_str = now.to_rfc3339();
-                conn.execute(
-                    "INSERT OR IGNORE INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
-                    libsql::params![
-                        instance_id.clone(),
-                        goal_id,
-                        current_period_start_str.clone(),
-                        current_period_end.to_rfc3339(),
-                        "active",
-                        created_at_str.clone(),
-                        created_at_str,
-                        instance_id.clone(),
-                        now_ms,
-                    ],
+        if should_create {
+            // Get goal's timezone location
+            let tz = get_goal_location(&goal.timezone)
+                .map_err(|e| AppError::BadRequest(format!("Invalid timezone: {}", e)))?;
+
+            // Calculate new period
+            let recurring_goal = RecurringGoal {
+                recurrence_type: goal.recurrence_type.clone().unwrap_or_default(),
+                recurrence_interval: goal.recurrence_interval.unwrap_or(1),
+                recurrence_anchor: goal.recurrence_anchor.unwrap_or(Utc::now()),
+            };
+
+            let now = Utc::now();
+            let now_ms = now.timestamp_millis();
+            let (period_start, period_end) = calculate_goal_period(recurring_goal, now, tz);
+            let period_start_str = period_start.to_rfc3339();
+            let period_end_str = period_end.to_rfc3339();
+
+            let instance_id = generate_id("goal_instance");
+            let created_at_str = now.to_rfc3339();
+            let updated_at_str = created_at_str.clone();
+
+            conn.execute(
+                "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
+                libsql::params![
+                    instance_id.clone(),
+                    goal_id,
+                    period_start_str,
+                    period_end_str,
+                    "active",
+                    created_at_str,
+                    updated_at_str,
+                    instance_id.clone(),
+                    now_ms,
+                ],
+            )
+            .await
+            .map_err(|e| {
+                let _ = conn.execute("ROLLBACK", libsql::params![]);
+                AppError::LibSQL(e)
+            })?;
+
+            conn.execute("COMMIT", libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+            // Return created instance
+            let mut rows = conn
+                .query(
+                    "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
+                     FROM goal_instances 
+                     WHERE id = ?1",
+                    libsql::params![instance_id],
                 )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
-            }
-            Some(last) if last.period_start == current_period_start => {
-                // Current period already exists; return it without another round-trip
-                conn.execute("COMMIT", libsql::params![])
-                    .await
-                    .map_err(|e| AppError::LibSQL(e))?;
-                return Ok(last.clone());
-            }
-            Some(last) if last.period_start > current_period_start => {
-                // Last instance is a future period; current period may not exist — ensure it
-                let instance_id = generate_id("goal_instance");
-                let created_at_str = now.to_rfc3339();
-                let _ = conn
-                    .execute(
-                        "INSERT OR IGNORE INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
-                        libsql::params![
-                            instance_id.clone(),
-                            goal_id,
-                            current_period_start_str.clone(),
-                            current_period_end.to_rfc3339(),
-                            "active",
-                            created_at_str.clone(),
-                            created_at_str,
-                            instance_id.clone(),
-                            now_ms,
-                        ],
-                    )
-                    .await;
-            }
-            Some(last) => {
-                // Backfill from last.period_start + interval through current period (inclusive)
-                let mut period_start = last.period_start + Duration::days(interval_days);
-                while period_start <= current_period_start {
-                    let period_end = period_start + Duration::days(interval_days) - Duration::nanoseconds(1);
-                    let ps = period_start.to_rfc3339();
-                    let pe = period_end.to_rfc3339();
-                    let id = generate_id("goal_instance");
-                    let created_at_str = now.to_rfc3339();
-                    let _ = conn
-                        .execute(
-                            "INSERT OR IGNORE INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) 
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, '{}')",
-                            libsql::params![
-                                id.clone(),
-                                goal_id,
-                                ps,
-                                pe,
-                                "active",
-                                created_at_str.clone(),
-                                created_at_str,
-                                id,
-                                now_ms,
-                            ],
-                        )
-                        .await;
-                    period_start = period_start + Duration::days(interval_days);
-                }
+
+            if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+                return Ok(self.row_to_goal_instance(row)?);
+            } else {
+                return Err(AppError::Internal("Failed to retrieve created instance".to_string()));
             }
         }
 
+        // Return last instance (no new instance needed)
         conn.execute("COMMIT", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
-        let mut rows = conn
-            .query(
-                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
-                 FROM goal_instances 
-                 WHERE goal_id = ?1 AND period_start = ?2 
-                 LIMIT 1",
-                libsql::params![goal_id, current_period_start_str],
-            )
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
-
-        if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
-            return Ok(self.row_to_goal_instance(row)?);
-        }
-
-        // Current period row not found (e.g. format mismatch or insert skipped); return latest instance we have
-        let mut fallback = conn
-            .query(
-                "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
-                 FROM goal_instances 
-                 WHERE goal_id = ?1 
-                 ORDER BY period_start DESC 
-                 LIMIT 1",
-                libsql::params![goal_id],
-            )
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
-
-        if let Some(row) = fallback.next().await.map_err(|e| AppError::LibSQL(e))? {
-            return Ok(self.row_to_goal_instance(row)?);
-        }
-
         if let Some(instance) = last_instance {
-            return Ok(instance.clone());
+            Ok(instance)
+        } else {
+            Err(AppError::Internal("No instance found and failed to create one".to_string()))
         }
-
-        Err(AppError::Internal(
-            "No goal instances found for goal".to_string(),
-        ))
     }
 
     /// Add tags to a goal
