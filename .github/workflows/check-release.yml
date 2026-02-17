@@ -2,6 +2,15 @@ name: Check Release
 
 on:
   workflow_call:
+    inputs:
+      manual_version:
+        description: 'Version when running release manually'
+        required: false
+        type: string
+      manual_release_notes:
+        description: 'Release notes when running release manually'
+        required: false
+        type: string
     outputs:
       should_release:
         value: ${{ jobs.check.outputs.should_release }}
@@ -15,17 +24,19 @@ jobs:
     name: Check if Release Needed
     runs-on: ubuntu-latest
     outputs:
-      should_release: ${{ steps.extract.outputs.should_release }}
-      version: ${{ steps.extract.outputs.version }}
-      release_notes: ${{ steps.extract.outputs.release_notes }}
+      should_release: ${{ steps.out.outputs.should_release }}
+      version: ${{ steps.out.outputs.version }}
+      release_notes: ${{ steps.out.outputs.release_notes }}
     
     steps:
       - name: Checkout code
+        if: ${{ inputs.manual_version == '' || inputs.manual_release_notes == '' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
       - name: Get merged PR details
+        if: ${{ inputs.manual_version == '' || inputs.manual_release_notes == '' }}
         id: get-pr
         uses: actions/github-script@v7
         with:
@@ -55,6 +66,7 @@ jobs:
       
       - name: Extract release info from PR
         id: extract
+        if: ${{ inputs.manual_version == '' || inputs.manual_release_notes == '' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -67,18 +79,24 @@ jobs:
             }
             
             const prBody = prData.body;
-            
-            const releaseNotesRegex = /## Release Notes\s+### Version:\s*(\d+\.\d+\.\d+)\s+([\s\S]+?)(?=\n## [A-Z]|\n---|\n```|<!-- End of release notes -->|$)/i;
+            // Match "## Release Notes" then "### Version: X.Y.Z" or "### Version: X.Y.Z-rc.N". Trailing HTML comment on version line is allowed.
+            const releaseNotesRegex = /## Release Notes\s+### Version:\s*(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)\s*(?:[^\n]*)?\n+([\s\S]+?)(?=\n## [A-Z]|\n---|\n```|<!-- End of release notes -->|$)/i;
             const match = prBody.match(releaseNotesRegex);
             
             if (!match) {
               core.setOutput('should_release', 'false');
-              console.log('No release notes section found in PR description');
+              if (!/## Release Notes/i.test(prBody)) {
+                console.log('No "## Release Notes" heading found in PR description');
+              } else if (!/### Version:\s*\d+\.\d+\.\d+/.test(prBody)) {
+                console.log('No "### Version: X.Y.Z" line found—use e.g. "### Version: 0.0.1" (replace placeholder with real version)');
+              } else {
+                console.log('No release notes section found in PR description');
+              }
               return;
             }
             
             const version = match[1].trim();
-            let releaseNotes = match[2].trim();
+            let releaseNotes = (match[2] || '').trim();
             
             releaseNotes = releaseNotes.replace(/<!--[\s\S]*?-->/g, '');
             releaseNotes = releaseNotes.trim();
@@ -109,3 +127,22 @@ jobs:
             core.setOutput('release_notes', releaseNotes);
             
             console.log(`Release detected: v${version}`);
+
+      - name: Set release outputs
+        id: out
+        run: |
+          if [ -n "${{ inputs.manual_version }}" ] && [ -n "${{ inputs.manual_release_notes }}" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.manual_version }}" >> $GITHUB_OUTPUT
+            echo "release_notes<<RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
+            cat << 'RELEASE_NOTES_INNER'
+          ${{ inputs.manual_release_notes }}
+          RELEASE_NOTES_INNER
+            echo "RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
+          else
+            echo "should_release=${{ steps.extract.outputs.should_release }}" >> $GITHUB_OUTPUT
+            echo "version=${{ steps.extract.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "release_notes<<RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
+            echo "${{ steps.extract.outputs.release_notes }}" >> $GITHUB_OUTPUT
+            echo "RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
+          fi

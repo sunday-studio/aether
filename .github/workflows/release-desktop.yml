@@ -1,19 +1,30 @@
 name: Release
 
+# Runs automatically on every push to main (e.g. when a PR is merged). Release only proceeds if
+# the merged PR description contains "## Release Notes" and "### Version: X.Y.Z" with content.
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.0.1) — leave blank to use merged PR Release Notes'
+        required: false
+      release_notes:
+        description: 'Release notes (markdown) — leave blank to use merged PR body'
+        required: false
 
 permissions:
   contents: write
   pull-requests: read
 
 jobs:
-  # Step 1: Check if we should release
   check-release:
     uses: ./.github/workflows/check-release.yml
+    with:
+      manual_version: ${{ inputs.version }}
+      manual_release_notes: ${{ inputs.release_notes }}
     permissions:
       contents: read
       pull-requests: read

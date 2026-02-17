@@ -40,6 +40,8 @@ export const InboxTasksView = () => {
 		isFetchingNextPage,
 	});
 
+	console.log("allTasks ->", allTasks, { errorInboxTasks });
+
 	if (isLoadingInboxTasks) {
 		return (
 			<div className="h-full flex items-center justify-center">
