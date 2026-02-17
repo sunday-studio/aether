@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Suspense } from "react";
 import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
+import { UpdateNotificationListener } from "./components/shared/update-notification";
 import { ThemeProvider } from "./context/theme-context";
 import { router } from "./features/router";
 import { useSyncDataRefresh } from "./hooks/use-sync-data-refresh";
@@ -12,16 +13,24 @@ import "./app.css";
 
 const queryClient = initQueryClient();
 
-// // function SyncDataRefresh({ children }: { children: React.ReactNode }) {
-// // 	// useSyncDataRefresh();
-// // 	return <>{children}</>;
+// function SyncDataRefresh({ children }: { children: React.ReactNode }) {
+// 	useSyncDataRefresh();
+// 	return <>{children}</>;
+// }
+
+// function UpdateListener({ children }: { children: React.ReactNode }) {
+// 	return (
+// 		<>
+// 			<UpdateNotificationListener />
+// 			{children}
+// 		</>
+// 	);
 // }
 
 function App() {
 	return (
 		<Suspense fallback={<div>Loading...</div>}>
 			<QueryClientProvider client={queryClient}>
-				{/* <SyncDataRefresh> */}
 				<ThemeProvider>
 					<Toaster />
 					<ReactQueryDevtools
@@ -30,7 +39,6 @@ function App() {
 					/>
 					<RouterProvider router={router} />
 				</ThemeProvider>
-				{/* </SyncDataRefresh> */}
 			</QueryClientProvider>
 		</Suspense>
 	);
