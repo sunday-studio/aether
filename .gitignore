@@ -1,13 +1,6 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
 node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
 
 # Native
 .kotlin/
@@ -52,3 +45,4 @@ sync-server/data/**
 sync-server/target/debug/
 sync-server/target/flycheck0/
 sync-server/.env
+sync-server/target/.rustc_info.json
