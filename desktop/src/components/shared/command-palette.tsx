@@ -9,7 +9,8 @@ import {
 import { Bookmark, Egg, Goal, ListTodo, Tag } from "lucide-react";
 import * as React from "react";
 import { useNavigate } from "react-router";
-import { useSearch } from "~/aether-sdk";
+
+// import { useSearch } from "~/aether-sdk";
 
 interface CommandPaletteProps {
 	open: boolean;
@@ -20,17 +21,17 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = React.useState("");
 
-	const { data: searchResults, isLoading } = useSearch(
-		{
-			q: searchQuery,
-			limit: 20,
-		},
-		{
-			query: {
-				enabled: searchQuery.length > 0,
-			},
-		},
-	);
+	// const { data: searchResults, isLoading } = useSearch(
+	// 	{
+	// 		q: searchQuery,
+	// 		limit: 20,
+	// 	},
+	// 	{
+	// 		query: {
+	// 			enabled: searchQuery.length > 0,
+	// 		},
+	// 	},
+	// );
 
 	const handleSelect = (result: { type: string; id: string }) => {
 		onOpenChange(false);
@@ -120,7 +121,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 		}
 	};
 
-	const results = searchResults?.data?.results || [];
+	// const results = searchResults?.data?.results || [];
 
 	return (
 		<CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -129,7 +130,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 				value={searchQuery}
 				onValueChange={setSearchQuery}
 			/>
-			<CommandList>
+			{/* <CommandList>
 				{isLoading && searchQuery.length > 0 && (
 					<div className="py-6 text-center text-sm command-palette-loading">
 						Searching...
@@ -179,7 +180,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 						)}
 					</CommandGroup>
 				)}
-			</CommandList>
+			</CommandList> */}
 		</CommandDialog>
 	);
 };
