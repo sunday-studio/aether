@@ -17,7 +17,6 @@ pub struct SyncStatus {
     pub connected: bool,
     pub pending_changes: u32,
     pub last_sync: Option<i64>,
-    /// True when server_url is in memory but passphrase is not (e.g. after app restart).
     pub needs_passphrase: bool,
 }
 
@@ -26,12 +25,39 @@ pub struct SyncEngine {
     server_url: Mutex<Option<String>>,
     passphrase: Mutex<Option<String>>,
     is_syncing: Mutex<bool>,
-    /// Signalled when server_url is set (from hydrate or configure). WS listener waits on this.
     ws_url_configured: Arc<Notify>,
 }
 
 const SERVICE_NAME: &str = "com.aether.sync";
 const PASSPHRASE_KEY: &str = "encryption_passphrase";
+
+async fn apply_pulled_changes(
+    db: &libsql::Database,
+    envelopes: &[crate::sync::types::ChangeEnvelope],
+    next_cursor: Option<&crate::sync::types::PullCursor>,
+    ctx: &apply::ApplyCtx<'_>,
+) -> Result<()> {
+    apply::with_suppress_triggers(db, async {
+        for envelope in envelopes {
+            apply::apply_change(db, envelope, Some(ctx))
+                .await
+                .map_err(|err| {
+                    AppError::Sync(format!(
+                        "failed to apply change {} {}: {}",
+                        envelope.entity, envelope.id, err
+                    ))
+                })?;
+        }
+        Ok(())
+    })
+    .await?;
+
+    if let Some(cursor) = next_cursor {
+        metadata::set_pull_cursor(db, cursor).await?;
+    }
+
+    Ok(())
+}
 
 impl SyncEngine {
     pub fn new(db: DbState) -> Self {
@@ -44,33 +70,25 @@ impl SyncEngine {
         }
     }
 
-    /// Wait until a server URL has been configured (from hydrate or configure). Used by WS listener.
     pub async fn wait_for_url_configured(&self) {
         self.ws_url_configured.notified().await;
     }
 
-    /// Store passphrase in OS keychain
     fn store_passphrase(&self, app: &AppHandle, passphrase: &str) -> Result<()> {
         use tauri_plugin_keyring::KeyringExt;
         app.keyring()
             .set_password(SERVICE_NAME, PASSPHRASE_KEY, passphrase)
-            .map_err(|e| AppError::Sync(format!("failed to store passphrase in keychain: {}", e)))?;
-        tracing::info!("[SYNC] Passphrase stored in keychain");
+            .map_err(|e| {
+                AppError::Sync(format!("failed to store passphrase in keychain: {}", e))
+            })?;
         Ok(())
     }
 
-    /// Retrieve passphrase from OS keychain
     fn get_passphrase(&self, app: &AppHandle) -> Result<Option<String>> {
         use tauri_plugin_keyring::KeyringExt;
         match app.keyring().get_password(SERVICE_NAME, PASSPHRASE_KEY) {
-            Ok(Some(pass)) => {
-                tracing::info!("[SYNC] Passphrase retrieved from keychain");
-                Ok(Some(pass))
-            }
-            Ok(None) => {
-                tracing::debug!("[SYNC] No passphrase found in keychain");
-                Ok(None)
-            }
+            Ok(Some(pass)) => Ok(Some(pass)),
+            Ok(None) => Ok(None),
             Err(e) => {
                 tracing::warn!("[SYNC] Failed to retrieve passphrase from keychain: {}", e);
                 Ok(None)
@@ -78,108 +96,86 @@ impl SyncEngine {
         }
     }
 
-    /// Clear passphrase from OS keychain
     fn clear_passphrase(&self, app: &AppHandle) -> Result<()> {
         use tauri_plugin_keyring::KeyringExt;
         match app.keyring().delete_password(SERVICE_NAME, PASSPHRASE_KEY) {
-            Ok(()) => {
-                tracing::info!("[SYNC] Passphrase cleared from keychain");
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(e) => {
                 let err_str = e.to_string();
                 if err_str.contains("No matching entry") || err_str.contains("not found") {
-                    tracing::debug!("[SYNC] No passphrase to clear from keychain");
                     Ok(())
                 } else {
                     tracing::warn!("[SYNC] Failed to clear passphrase from keychain: {}", e);
-                    Ok(()) // Don't fail on clear errors
+                    Ok(())
                 }
             }
         }
     }
 
-    /// Load server_url from persisted metadata into memory and attempt to load passphrase from keychain.
-    /// Call after app start so status().connected is true when sync was previously configured.
     pub async fn hydrate(&self, app: &AppHandle) -> Result<()> {
-        tracing::info!("[SYNC] Hydrating sync configuration from metadata");
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         if let Some(url) = metadata::get_server_url(db.as_ref()).await? {
-            *self.server_url.lock().unwrap() = Some(url.clone());
+            *self.server_url.lock().unwrap() = Some(url);
             self.ws_url_configured.notify_one();
-            tracing::info!("[SYNC] Loaded server URL from metadata: {}", url);
-
-            // Attempt to load passphrase from keychain
             if let Some(passphrase) = self.get_passphrase(app)? {
-                // Verify passphrase against stored key_check
                 match metadata::verify_key(db.as_ref(), &passphrase).await {
-                    Ok(_) => {
-                        *self.passphrase.lock().unwrap() = Some(passphrase);
-                        tracing::info!("[SYNC] Passphrase loaded from keychain and verified");
-                    }
+                    Ok(_) => *self.passphrase.lock().unwrap() = Some(passphrase),
                     Err(e) => {
-                        tracing::warn!("[SYNC] Passphrase from keychain failed verification: {}", e);
-                        // Clear invalid passphrase from keychain
+                        tracing::warn!(
+                            "[SYNC] Passphrase from keychain failed verification: {}",
+                            e
+                        );
                         let _ = self.clear_passphrase(app);
                     }
                 }
-            } else {
-                tracing::info!("[SYNC] No passphrase found in keychain");
             }
-        } else {
-            tracing::info!("[SYNC] No server URL found in metadata");
         }
         Ok(())
     }
 
-    /// Configure sync: server URL and passphrase. On first run, fetches salt from server.
-    pub async fn configure(&self, app: &AppHandle, server_url: String, passphrase: String) -> Result<()> {
+    pub async fn configure(
+        &self,
+        app: &AppHandle,
+        server_url: String,
+        server_seed_phrase: String,
+        sync_passphrase: String,
+    ) -> Result<()> {
         tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
 
-        // Check if we have a cached salt locally
-        if metadata::get_key_salt(&db).await?.is_none() {
-            // No local salt - fetch from server (first connect or after disconnect)
-            tracing::info!("[SYNC] No local salt found, fetching from server");
-            let salt = metadata::fetch_server_salt(&server_url).await?;
-            tracing::info!("[SYNC] Salt fetched from server, configuring key");
-            metadata::configure_key(&db, &passphrase, &salt).await?;
-        } else {
-            // Local salt exists - verify passphrase against it
-            tracing::info!("[SYNC] Verifying passphrase against cached salt");
-            metadata::verify_key(&db, &passphrase).await?;
-        }
+        let device_id = metadata::get_device_id(&db).await?;
+        let device_hostname = metadata::get_device_hostname(&db).await?;
+        let enrollment = register::register_with_server(
+            &server_url,
+            &device_id,
+            &device_hostname,
+            &server_seed_phrase,
+        )
+        .await?;
 
+        let salt = metadata::decode_server_salt(&enrollment.salt)?;
+        metadata::configure_key(&db, &sync_passphrase, &salt).await?;
         metadata::set_server_url(&db, &server_url).await?;
-        *self.server_url.lock().unwrap() = Some(server_url.clone());
+        metadata::set_device_token(&db, &enrollment.device_token).await?;
+        metadata::clear_pull_cursor(&db).await?;
+
+        *self.server_url.lock().unwrap() = Some(server_url);
+        *self.passphrase.lock().unwrap() = Some(sync_passphrase.clone());
         self.ws_url_configured.notify_one();
-        *self.passphrase.lock().unwrap() = Some(passphrase.clone());
-        // Store passphrase in keychain
-        self.store_passphrase(app, &passphrase)?;
-        tracing::info!("[SYNC] Configuration complete");
+        self.store_passphrase(app, &sync_passphrase)?;
         Ok(())
     }
 
-    /// Run pull, apply, then push.
     pub async fn sync(&self) -> Result<SyncStatus> {
-        tracing::info!("[SYNC] Starting sync operation");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
             let p = self.passphrase.lock().unwrap().clone();
             (u, p)
         };
-        let url = url.ok_or_else(|| {
-            tracing::error!("[SYNC] Sync not configured: server URL missing");
-            AppError::Sync("sync not configured".into())
-        })?;
-        let pass = pass.ok_or_else(|| {
-            tracing::error!("[SYNC] Sync not configured: passphrase missing");
-            AppError::Sync("sync not configured".into())
-        })?;
-
-        tracing::info!("[SYNC] Server URL: {}", url);
+        let url = url.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
+        let pass = pass.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
 
         let already = {
             let mut g = self.is_syncing.lock().unwrap();
@@ -190,181 +186,60 @@ impl SyncEngine {
             v
         };
         if already {
-            tracing::warn!("[SYNC] Sync already in progress, returning current status");
             return self.status().await;
         }
 
+        let result = self.sync_inner(&url, &pass).await;
+        *self.is_syncing.lock().unwrap() = false;
+        result?;
+        self.status().await
+    }
+
+    async fn sync_inner(&self, url: &str, passphrase: &str) -> Result<()> {
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
-        let key = match metadata::verify_key(&db, &pass).await {
-            Ok(k) => {
-                tracing::info!("[SYNC] Passphrase verified successfully");
-                k
-            }
-            Err(e) => {
-                tracing::error!("[SYNC] Passphrase verification failed: {}", e);
-                *self.is_syncing.lock().unwrap() = false;
-                return Err(e);
-            }
-        };
-
-        // Check outbox before sync
-        let pending_before: i64 = {
-            let conn = db.connect().map_err(AppError::LibSQL)?;
-            let mut rows = conn
-                .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
-                .await
-                .map_err(AppError::LibSQL)?;
-            let result = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-                row.get(0).unwrap_or(0)
-            } else {
-                0
-            };
-            // Connection is dropped here when it goes out of scope
-            result
-        };
-        tracing::info!("[SYNC] Pending changes in outbox before sync: {}", pending_before);
-
+        let key = metadata::verify_key(&db, passphrase).await?;
         let device_id = metadata::get_device_id(&db).await?;
-        let device_hostname = metadata::get_device_hostname(&db).await.unwrap_or_else(|_| "unknown".to_string());
-
-        if let Err(e) = register::register_with_server(&url, &device_id, &device_hostname, &pass).await {
-            if e.to_string().contains("401") || e.to_string().contains("wrong passphrase") {
-                *self.is_syncing.lock().unwrap() = false;
-                return Err(e);
-            }
-            tracing::warn!("[SYNC] Register failed (server may not require it): {}", e);
-        }
-
-        // Pull
-        tracing::info!("[SYNC-PULL] Starting pull from server");
-        let (envelopes, ts) = match pull::pull(&db, &key, &url, &device_id).await {
-            Ok((e, t)) => {
-                tracing::info!("[SYNC-PULL] Pull successful: received {} changes, timestamp: {}", e.len(), t);
-                (e, t)
-            }
-            Err(e) => {
-                let err_str = e.to_string();
-                if err_str.contains("401") || err_str.contains("not registered") {
-                    tracing::info!("[SYNC] Pull 401, re-registering and retrying");
-                    let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
-                    match pull::pull(&db, &key, &url, &device_id).await {
-                        Ok((e, t)) => (e, t),
-                        Err(e2) => {
-                            tracing::error!("[SYNC] Pull failed after retry: {}", e2);
-                            *self.is_syncing.lock().unwrap() = false;
-                            return Err(e2);
-                        }
-                    }
-                } else {
-                    tracing::error!("[SYNC] Pull failed: {}", e);
-                    *self.is_syncing.lock().unwrap() = false;
-                    return Err(e);
-                }
-            }
-        };
-
+        let device_token = metadata::get_device_token(&db)
+            .await?
+            .ok_or_else(|| AppError::Sync("device token missing".into()))?;
         let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
             .await
             .ok()
             .flatten()
             .unwrap_or_else(|| "on_demand".to_string());
-        tracing::info!("[SYNC-PULL] Media sync policy: {}", media_sync_policy);
 
-        let ctx = apply::ApplyCtx {
-            base_url: &url,
-            key: &key,
-            media_sync_policy: &media_sync_policy,
-        };
+        loop {
+            let (envelopes, next_cursor, has_more) =
+                pull::pull(&db, &key, url, &device_id, &device_token).await?;
 
-        tracing::info!("[SYNC-PULL] Applying {} remote changes", envelopes.len());
-        let apply_res = apply::with_suppress_triggers(&db, async {
-            let mut applied = 0;
-            let mut skipped = 0;
-            for e in &envelopes {
-                match apply::apply_change(&*db, e, Some(&ctx)).await {
-                    Ok(()) => {
-                        applied += 1;
-                        tracing::debug!("[SYNC] Applied change: {} {} ({:?})", e.entity, e.id, e.op);
-                    }
-                    Err(err) => {
-                        tracing::warn!("[SYNC] Failed to apply change {} {}: {}", e.entity, e.id, err);
-                        skipped += 1;
-                    }
-                }
-            }
-            tracing::info!("[SYNC] Applied {} changes, skipped {} changes", applied, skipped);
-            Ok(())
-        })
-        .await;
-
-        if let Err(e) = apply_res {
-            tracing::error!("[SYNC] Apply phase failed: {}", e);
-            *self.is_syncing.lock().unwrap() = false;
-            return Err(e);
-        }
-
-        metadata::set_last_sync(&db, ts).await?;
-        tracing::info!("[SYNC] Last sync timestamp updated to: {}", ts);
-
-        tracing::info!("[SYNC] Starting push to server");
-        let push_res = push::push(db.clone(), &key, &url, &media_sync_policy).await;
-        match push_res {
-            Ok(count) => {
-                tracing::info!("[SYNC] Push successful: {} changes pushed", count);
-            }
-            Err(e) => {
-                let err_str = e.to_string();
-                if (err_str.contains("401") || err_str.contains("not registered")) && !device_id.is_empty() {
-                    let _ = register::register_with_server(&url, &device_id, &device_hostname, &pass).await;
-                    if let Ok(count) = push::push(db.clone(), &key, &url, &media_sync_policy).await {
-                        tracing::info!("[SYNC] Push successful after re-register: {} changes pushed", count);
-                    } else {
-                        tracing::error!("[SYNC] Push failed after retry: {}", e);
-                    }
-                } else {
-                    tracing::error!("[SYNC] Push failed: {}", e);
-                }
-            }
-        }
-
-        // Check outbox after sync
-        let pending_after: i64 = {
-            let conn = db.connect().map_err(AppError::LibSQL)?;
-            let mut rows = conn
-                .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
-                .await
-                .map_err(AppError::LibSQL)?;
-            let result = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-                row.get(0).unwrap_or(0)
-            } else {
-                0
+            let ctx = apply::ApplyCtx {
+                base_url: url,
+                key: &key,
+                device_id: &device_id,
+                device_token: &device_token,
+                media_sync_policy: &media_sync_policy,
             };
-            // Connection is dropped here when it goes out of scope
-            result
-        };
-        tracing::info!("[SYNC] Pending changes in outbox after sync: {}", pending_after);
+            apply_pulled_changes(&db, &envelopes, next_cursor.as_ref(), &ctx).await?;
+            if !has_more {
+                break;
+            }
+        }
 
-        *self.is_syncing.lock().unwrap() = false;
-        tracing::info!("[SYNC] Sync operation completed");
-        self.status().await
+        let _ = push::push(db.clone(), &key, url, &media_sync_policy).await?;
+        Ok(())
     }
 
-    /// Push only (no pull). Use on window blur to flush pending changes.
-    /// Push acquires write lock only for outbox deletes so local writes take precedence.
     pub async fn push_pending(&self) -> Result<()> {
-        tracing::info!("[SYNC] Pushing pending changes");
         let (url, pass) = {
             let u = self.server_url.lock().unwrap().clone();
             let p = self.passphrase.lock().unwrap().clone();
             (u, p)
         };
         let Some(url) = url else {
-            tracing::debug!("[SYNC] No server URL configured, skipping push");
             return Ok(());
         };
         let Some(pass) = pass else {
-            tracing::debug!("[SYNC] No passphrase in memory, skipping push");
             return Ok(());
         };
         let _guard = with_db_access(&self.db).await;
@@ -375,14 +250,7 @@ impl SyncEngine {
             .ok()
             .flatten()
             .unwrap_or_else(|| "on_demand".to_string());
-        match push::push(db, &key, &url, &media_sync_policy).await {
-            Ok(count) => {
-                tracing::info!("[SYNC] Pushed {} pending changes", count);
-            }
-            Err(e) => {
-                tracing::warn!("[SYNC] Failed to push pending changes: {}", e);
-            }
-        }
+        let _ = push::push(db, &key, &url, &media_sync_policy).await?;
         Ok(())
     }
 
@@ -391,9 +259,10 @@ impl SyncEngine {
         let db = get_database(&self.db);
         let conn = db.connect().map_err(AppError::LibSQL)?;
 
-        let connected = self.server_url.lock().unwrap().is_some();
-        let needs_passphrase = self.server_url.lock().unwrap().is_some()
-            && self.passphrase.lock().unwrap().is_none();
+        let has_server_url = self.server_url.lock().unwrap().is_some();
+        let has_device_token = metadata::get_device_token(db.as_ref()).await?.is_some();
+        let connected = has_server_url && has_device_token;
+        let needs_passphrase = connected && self.passphrase.lock().unwrap().is_none();
 
         let mut rows = conn
             .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -405,32 +274,18 @@ impl SyncEngine {
             0
         };
 
-        let last_sync = metadata::get_last_sync(&db).await.ok().flatten();
-
-        let status = SyncStatus {
+        Ok(SyncStatus {
             connected,
             pending_changes: pending as u32,
-            last_sync,
+            last_sync: metadata::get_last_sync(&db).await.ok().flatten(),
             needs_passphrase,
-        };
-
-        tracing::debug!(
-            "[SYNC] Status: connected={}, pending={}, last_sync={:?}, needs_passphrase={}",
-            status.connected,
-            status.pending_changes,
-            status.last_sync,
-            status.needs_passphrase
-        );
-
-        Ok(status)
+        })
     }
 
-    /// Returns true if a sync is currently in progress.
     pub fn is_syncing(&self) -> bool {
         *self.is_syncing.lock().unwrap()
     }
 
-    /// Re-enter passphrase when needs_passphrase is true (e.g. after app restart).
     pub async fn reconnect(&self, passphrase: String) -> Result<()> {
         let url = self.server_url.lock().unwrap().clone();
         let Some(_) = url else {
@@ -444,26 +299,20 @@ impl SyncEngine {
     }
 
     pub async fn disconnect(&self, app: &AppHandle) -> Result<()> {
-        // Clear passphrase from keychain
         let _ = self.clear_passphrase(app);
         *self.server_url.lock().unwrap() = None;
         *self.passphrase.lock().unwrap() = None;
 
-        // Clear salt and key_check so next connect fetches fresh from server
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
-        metadata::clear_key_material(&db).await?;
-
-        tracing::info!("[SYNC] Disconnected: cleared keychain, salt, and in-memory state");
+        metadata::clear_sync_configuration(&db).await?;
         Ok(())
     }
 
-    /// If sync is configured, returns the server URL. Used for on-demand media fetch.
     pub fn try_get_url(&self) -> Option<String> {
         self.server_url.lock().unwrap().clone()
     }
 
-    /// If passphrase is in memory, verifies and returns the key. Used for on-demand media decrypt.
     pub async fn try_get_key(&self) -> Option<[u8; 32]> {
         let pass = self.passphrase.lock().unwrap().clone()?;
         let _guard = with_db_access(&self.db).await;
@@ -471,17 +320,92 @@ impl SyncEngine {
         metadata::verify_key(db.as_ref(), &pass).await.ok()
     }
 
-    /// Get the device ID for this device. Used for WebSocket registration.
     pub async fn get_device_id(&self) -> Result<String> {
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::get_device_id(&db).await
     }
 
-    /// Get the device hostname for this device. Used for WebSocket registration.
     pub async fn get_device_hostname(&self) -> Result<String> {
         let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
         metadata::get_device_hostname(&db).await
+    }
+
+    pub async fn get_device_token(&self) -> Result<Option<String>> {
+        let _guard = with_db_access(&self.db).await;
+        let db = get_database(&self.db);
+        metadata::get_device_token(&db).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+    use crate::sync::types::{ChangeEnvelope, ChangeOp, PullCursor};
+    use libsql::Builder;
+
+    async fn test_db() -> libsql::Database {
+        let path = std::env::temp_dir().join(format!(
+            "aether-sync-engine-test-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db = Builder::new_local(path).build().await.unwrap();
+        migrations::run_migrations(&db).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn apply_pulled_changes_only_updates_cursor_after_success() {
+        let db = test_db().await;
+        let initial_cursor = PullCursor {
+            received_at: 10,
+            change_id: 1,
+        };
+        metadata::set_pull_cursor(&db, &initial_cursor)
+            .await
+            .unwrap();
+
+        let ctx = apply::ApplyCtx {
+            base_url: "https://sync.example.com",
+            key: &[0; 32],
+            device_id: "device-a",
+            device_token: "token-a",
+            media_sync_policy: "on_demand",
+        };
+
+        let bad_change = ChangeEnvelope {
+            entity: "resource_links".into(),
+            id: "link-1".into(),
+            op: ChangeOp::Upsert,
+            data: Some(serde_json::json!({
+                "id": "link-1",
+                "source_type": "entry",
+                "source_id": "entry-1",
+                "target_type": "task",
+                "created_at": "2026-01-01T00:00:00Z"
+            })),
+            updated_at: 100,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+        let next_cursor = PullCursor {
+            received_at: 20,
+            change_id: 2,
+        };
+
+        let err = apply_pulled_changes(&db, &[bad_change], Some(&next_cursor), &ctx)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("failed to apply change"));
+        assert_eq!(
+            metadata::get_pull_cursor(&db).await.unwrap(),
+            Some(initial_cursor)
+        );
+        assert_eq!(metadata::get_last_sync(&db).await.unwrap(), Some(10));
     }
 }

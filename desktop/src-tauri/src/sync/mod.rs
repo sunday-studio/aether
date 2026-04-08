@@ -1,3 +1,5 @@
+use crate::error::{AppError, Result};
+
 pub mod apply;
 pub mod encryption;
 pub mod engine;
@@ -12,4 +14,32 @@ pub mod types;
 pub mod ws;
 
 pub use engine::{SyncEngine, SyncStatus};
-pub use types::{ChangeEnvelope, ChangeOp, EncryptedChange, PullResponse, PushRequest};
+pub use types::{ChangeEnvelope, ChangeOp, EncryptedChange, PullCursor, PullResponse, PushRequest};
+
+const SYNC_HTTP_CONNECT_TIMEOUT_SECS: u64 = 5;
+const SYNC_HTTP_REQUEST_TIMEOUT_SECS: u64 = 15;
+
+fn http_client() -> Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(
+            SYNC_HTTP_CONNECT_TIMEOUT_SECS,
+        ))
+        .timeout(std::time::Duration::from_secs(
+            SYNC_HTTP_REQUEST_TIMEOUT_SECS,
+        ))
+        .build()
+        .map_err(|e| AppError::Sync(format!("http client: {}", e)))
+}
+
+fn authenticated_request(
+    client: &reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    device_id: &str,
+    device_token: &str,
+) -> reqwest::RequestBuilder {
+    client
+        .request(method, url)
+        .header("x-aether-device-id", device_id)
+        .bearer_auth(device_token)
+}

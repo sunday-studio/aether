@@ -1,79 +1,65 @@
-//! Pull: GET /pull?since=ts, decrypt each change, return Vec<ChangeEnvelope>.
+//! Pull: GET /pull?cursor=... decrypt each change and return envelopes plus next cursor.
 
 use crate::error::{AppError, Result};
 use crate::sync::encryption;
 use crate::sync::metadata;
-use crate::sync::types::{ChangeEnvelope, PullResponse};
+use crate::sync::types::{ChangeEnvelope, PullCursor, PullResponse};
 use libsql::Database;
 
-/// Returns (envelopes, timestamp). Caller should set last_sync to timestamp after applying.
 pub async fn pull(
     db: &Database,
     key: &[u8; 32],
     base_url: &str,
     device_id: &str,
-) -> Result<(Vec<ChangeEnvelope>, i64)> {
-    let since = metadata::get_last_sync(db).await?.unwrap_or(0);
-    let url = format!(
-        "{}/pull?since={}&device_id={}",
-        base_url.trim_end_matches('/'),
-        since,
-        urlencoding::encode(device_id)
+    device_token: &str,
+) -> Result<(Vec<ChangeEnvelope>, Option<PullCursor>, bool)> {
+    let cursor = metadata::get_pull_cursor(db).await?;
+    let mut url = format!("{}/pull", base_url.trim_end_matches('/'));
+    if let Some(cursor) = cursor.as_ref() {
+        url.push_str(&format!(
+            "?cursor={}",
+            urlencoding::encode(&format!("{}:{}", cursor.received_at, cursor.change_id))
+        ));
+    }
+    tracing::info!(
+        "[SYNC-PULL] Pulling changes from {} (device: {})",
+        url,
+        device_id
     );
-    tracing::info!("[SYNC-PULL] Pulling changes from {} (since: {}, device: {})", url, since, device_id);
 
-    let client = reqwest::Client::new();
-    let res = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| {
-            tracing::error!("[SYNC-PULL] Network error: {}", e);
-            AppError::Sync(format!("pull request: {}", e))
-        })?;
+    let client = crate::sync::http_client()?;
+    let res = crate::sync::authenticated_request(
+        &client,
+        reqwest::Method::GET,
+        &url,
+        device_id,
+        device_token,
+    )
+    .send()
+    .await
+    .map_err(|e| AppError::Sync(format!("pull request: {}", e)))?;
 
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        tracing::error!("[SYNC-PULL] Server returned error {}: {}", status, text);
         return Err(AppError::Sync(format!("pull failed {}: {}", status, text)));
     }
 
     let body: PullResponse = res
         .json()
         .await
-        .map_err(|e| {
-            tracing::error!("[SYNC-PULL] JSON parse error: {}", e);
-            AppError::Sync(format!("pull json: {}", e))
-        })?;
-
-    tracing::info!("[SYNC-PULL] Received {} encrypted changes, timestamp: {}", body.changes.len(), body.timestamp);
+        .map_err(|e| AppError::Sync(format!("pull json: {}", e)))?;
 
     let mut out = Vec::with_capacity(body.changes.len());
-    let mut decrypted = 0;
-    let mut _decrypt_failures = 0;
-    let mut _deserialize_failures = 0;
     for ec in &body.changes {
         match encryption::decrypt(key, &ec.nonce, &ec.ciphertext) {
-            Ok(plain) => {
-                match serde_json::from_slice::<ChangeEnvelope>(&plain) {
-                    Ok(envelope) => {
-                        out.push(envelope);
-                        decrypted += 1;
-                    }
-                    Err(e) => {
-                        _deserialize_failures += 1;
-                        tracing::warn!("[SYNC-PULL] Failed to deserialize envelope: {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                _decrypt_failures += 1;
-                tracing::warn!("[SYNC-PULL] Failed to decrypt change: {}", e);
-            }
+            Ok(plain) => match serde_json::from_slice::<ChangeEnvelope>(&plain) {
+                Ok(envelope) => out.push(envelope),
+                Err(e) => tracing::warn!("[SYNC-PULL] Failed to deserialize envelope: {}", e),
+            },
+            Err(e) => tracing::warn!("[SYNC-PULL] Failed to decrypt change: {}", e),
         }
     }
 
-    tracing::info!("[SYNC-PULL] Successfully decrypted {} changes", decrypted);
-    Ok((out, body.timestamp))
+    Ok((out, body.next_cursor, body.has_more))
 }

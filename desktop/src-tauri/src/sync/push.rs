@@ -2,11 +2,13 @@
 
 use crate::error::{AppError, Result};
 use crate::media::get_media_directory;
+use crate::sync;
 use crate::sync::encryption;
 use crate::sync::media;
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
 use libsql::Database;
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 pub async fn push(
@@ -17,16 +19,23 @@ pub async fn push(
 ) -> Result<usize> {
     tracing::info!("[SYNC-PUSH] Starting push operation to {}", base_url);
     let device_id = metadata::get_device_id(&db).await?;
+    let device_token = metadata::get_device_token(&db)
+        .await?
+        .ok_or_else(|| AppError::Sync("device token missing".into()))?;
     let device_hostname = metadata::get_device_hostname(&db).await?;
-    tracing::debug!("[SYNC-PUSH] Device ID: {}, Hostname: {}", device_id, device_hostname);
+    tracing::debug!(
+        "[SYNC-PUSH] Device ID: {}, Hostname: {}",
+        device_id,
+        device_hostname
+    );
     let (envelopes, to_delete) = read_outbox_and_build(&db, &device_id, &device_hostname).await?;
     if envelopes.is_empty() {
         tracing::info!("[SYNC-PUSH] No changes to push");
         return Ok(0);
     }
     tracing::info!("[SYNC-PUSH] Prepared {} changes to push", envelopes.len());
+    let batch_id = compute_batch_id(&envelopes)?;
 
-    // Upload media blobs when policy is "auto"
     if media_sync_policy == "auto" {
         tracing::debug!("[SYNC-PUSH] Media sync policy is 'auto', uploading media blobs");
         if let Ok(media_dir) = get_media_directory() {
@@ -42,7 +51,10 @@ pub async fn push(
                     let full = media_dir.join(fp);
                     if let Ok(bytes) = std::fs::read(&full) {
                         if let Ok(enc) = encryption::encrypt_blob(key, &bytes) {
-                            if media::upload_media(base_url, hash, &enc).await.is_ok() {
+                            if media::upload_media(base_url, hash, &enc, &device_id, &device_token)
+                                .await
+                                .is_ok()
+                            {
                                 uploaded += 1;
                                 tracing::debug!("[SYNC-PUSH] Uploaded media blob: {}", hash);
                             } else {
@@ -61,26 +73,34 @@ pub async fn push(
     for e in &envelopes {
         let json = serde_json::to_vec(e).map_err(AppError::Serialization)?;
         let (nonce, ct) = encryption::encrypt(key, &json)?;
-        encrypted.push(EncryptedChange { nonce, ciphertext: ct });
+        encrypted.push(EncryptedChange {
+            nonce,
+            ciphertext: ct,
+        });
     }
 
     let url = format!("{}/push", base_url.trim_end_matches('/'));
     tracing::info!("[SYNC-PUSH] Sending POST request to {}", url);
     let body = PushRequest {
-        device_id,
+        batch_id,
         device_hostname,
         changes: encrypted,
     };
-    let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| {
-            tracing::error!("[SYNC-PUSH] Network error: {}", e);
-            AppError::Sync(format!("push request: {}", e))
-        })?;
+    let client = sync::http_client()?;
+    let res = sync::authenticated_request(
+        &client,
+        reqwest::Method::POST,
+        &url,
+        &device_id,
+        &device_token,
+    )
+    .json(&body)
+    .send()
+    .await
+    .map_err(|e| {
+        tracing::error!("[SYNC-PUSH] Network error: {}", e);
+        AppError::Sync(format!("push request: {}", e))
+    })?;
 
     if !res.status().is_success() {
         let status = res.status();
@@ -89,10 +109,18 @@ pub async fn push(
         return Err(AppError::Sync(format!("push failed {}: {}", status, text)));
     }
 
-    tracing::info!("[SYNC-PUSH] Server accepted changes, deleting {} rows from outbox", to_delete.len());
+    tracing::info!(
+        "[SYNC-PUSH] Server accepted changes, deleting {} rows from outbox",
+        to_delete.len()
+    );
     delete_outbox_rows(&db, &to_delete).await?;
     tracing::info!("[SYNC-PUSH] Push completed successfully");
     Ok(to_delete.len())
+}
+
+fn compute_batch_id(envelopes: &[ChangeEnvelope]) -> Result<String> {
+    let payload = serde_json::to_vec(envelopes).map_err(AppError::Serialization)?;
+    Ok(hex::encode(Sha256::digest(payload)))
 }
 
 async fn read_outbox_and_build(
@@ -111,7 +139,8 @@ async fn read_outbox_and_build(
         .map_err(AppError::LibSQL)?;
 
     // Dedupe by (entity, entity_id): keep the latest (last) row.
-    let mut seen: std::collections::HashMap<(String, String), (String, i64)> = std::collections::HashMap::new();
+    let mut seen: std::collections::HashMap<(String, String), (String, i64)> =
+        std::collections::HashMap::new();
     let mut total_rows = 0;
     while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
         let entity: String = row.get(0).map_err(AppError::LibSQL)?;
@@ -121,7 +150,11 @@ async fn read_outbox_and_build(
         seen.insert((entity.clone(), entity_id.clone()), (op, queued_at));
         total_rows += 1;
     }
-    tracing::debug!("[SYNC-PUSH] Read {} rows from outbox, {} unique entities after deduplication", total_rows, seen.len());
+    tracing::debug!(
+        "[SYNC-PUSH] Read {} rows from outbox, {} unique entities after deduplication",
+        total_rows,
+        seen.len()
+    );
 
     let mut envelopes = Vec::new();
     let mut to_delete = Vec::new();
@@ -143,9 +176,13 @@ async fn read_outbox_and_build(
 
         // For delete we need updated_at; use last_sync or fetch _updated_at.
         let updated_at = if change_op == ChangeOp::Delete {
-            fetch_updated_at(&db, &entity, &entity_id).await?.unwrap_or(updated_at)
+            fetch_updated_at(&db, &entity, &entity_id)
+                .await?
+                .unwrap_or(updated_at)
         } else {
-            data.as_ref().and_then(|d| d.get("_updated_at").and_then(|v| v.as_i64())).unwrap_or(updated_at)
+            data.as_ref()
+                .and_then(|d| d.get("_updated_at").and_then(|v| v.as_i64()))
+                .unwrap_or(updated_at)
         };
 
         let envelope = ChangeEnvelope {
@@ -176,6 +213,7 @@ async fn fetch_row_json(
         "goals" => fetch_goals_row(db, entity_id).await,
         "canvases" => fetch_canvases_row(db, entity_id).await,
         "bookmarks" => fetch_bookmarks_row(db, entity_id).await,
+        "resource_links" => fetch_resource_links_row(db, entity_id).await,
         "media_items" => fetch_media_items_row(db, entity_id).await,
         "audio_transcriptions" => fetch_audio_transcriptions_row(db, entity_id).await,
         "entry_tags" => fetch_entry_tags_row(db, entity_id).await,
@@ -717,6 +755,39 @@ async fn fetch_audio_transcriptions_row(
     Ok(Some((data, ts)))
 }
 
+async fn fetch_resource_links_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at, _sync_id, _updated_at, _deleted, _extra FROM resource_links WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(8).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "source_type": row.get::<String>(1).ok(),
+        "source_id": row.get::<String>(2).ok(),
+        "target_type": row.get::<String>(3).ok(),
+        "target_id": row.get::<String>(4).ok(),
+        "link_text": row.get::<Option<String>>(5).ok().flatten(),
+        "created_at": row.get::<String>(6).ok(),
+        "_sync_id": row.get::<Option<String>>(7).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(8).ok().flatten(),
+        "_deleted": row.get::<i64>(9).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(10).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
 async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Result<Option<i64>> {
     let table = match entity {
         "entries" => "entries",
@@ -733,6 +804,7 @@ async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Resul
         "audio_transcriptions" => "audio_transcriptions",
         "canvases" => "canvases",
         "bookmarks" => "bookmarks",
+        "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
         _ => return Ok(None),
     };
@@ -750,10 +822,7 @@ async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Resul
     }
 }
 
-async fn delete_outbox_rows(
-    db: &Database,
-    rows: &[(String, String)],
-) -> Result<()> {
+async fn delete_outbox_rows(db: &Database, rows: &[(String, String)]) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
     }
@@ -767,4 +836,59 @@ async fn delete_outbox_rows(
         .map_err(AppError::LibSQL)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+    use libsql::Builder;
+
+    async fn test_db() -> Database {
+        let path = std::env::temp_dir().join(format!(
+            "aether-sync-push-test-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db = Builder::new_local(path).build().await.unwrap();
+        migrations::run_migrations(&db).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn fetches_resource_links_rows_for_push() {
+        let db = test_db().await;
+        let conn = db.connect().unwrap();
+
+        conn.execute(
+            "INSERT INTO resource_links (id, source_type, source_id, target_type, target_id, link_text, created_at, _sync_id, _updated_at, _deleted, _extra)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10)",
+            libsql::params![
+                "link-1",
+                "entry",
+                "entry-1",
+                "task",
+                "task-1",
+                "related",
+                "2026-01-01T00:00:00Z",
+                "link-1",
+                123_i64,
+                "{}",
+            ],
+        )
+        .await
+        .unwrap();
+
+        let (data, updated_at) = fetch_row_json(&db, "resource_links", "link-1")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated_at, 123);
+        assert_eq!(data["source_type"], "entry");
+        assert_eq!(data["target_type"], "task");
+        assert_eq!(data["_sync_id"], "link-1");
+    }
 }

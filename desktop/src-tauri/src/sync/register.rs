@@ -1,21 +1,21 @@
-//! Register this device with the sync server (required when server uses SERVER_PASSPHRASE).
+//! Enroll this device with the sync server and receive device auth material.
 
 use crate::error::{AppError, Result};
+use crate::sync::types::{RegisterRequest, RegisterResponse};
 
-/// Register device with the server. Call before first pull/push when server expects registration.
 pub async fn register_with_server(
     base_url: &str,
     device_id: &str,
     hostname: &str,
-    passphrase: &str,
-) -> Result<()> {
+    server_seed_phrase: &str,
+) -> Result<RegisterResponse> {
     let url = format!("{}/register", base_url.trim_end_matches('/'));
-    let body = serde_json::json!({
-        "device_id": device_id,
-        "hostname": hostname,
-        "passphrase": passphrase,
-    });
-    let client = reqwest::Client::new();
+    let body = RegisterRequest {
+        device_id: device_id.to_string(),
+        hostname: hostname.to_string(),
+        server_seed_phrase: server_seed_phrase.to_string(),
+    };
+    let client = crate::sync::http_client()?;
     let res = client
         .post(&url)
         .json(&body)
@@ -23,13 +23,17 @@ pub async fn register_with_server(
         .await
         .map_err(|e| AppError::Sync(format!("register request: {}", e)))?;
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(AppError::Sync("wrong passphrase".into()));
+        return Err(AppError::Sync("wrong server seed phrase".into()));
     }
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        return Err(AppError::Sync(format!("register failed {}: {}", status, text)));
+        return Err(AppError::Sync(format!(
+            "register failed {}: {}",
+            status, text
+        )));
     }
-    tracing::info!("[SYNC] Device registered with server");
-    Ok(())
+    res.json()
+        .await
+        .map_err(|e| AppError::Sync(format!("register response: {}", e)))
 }

@@ -11,6 +11,8 @@ use libsql::Database;
 pub struct ApplyCtx<'a> {
     pub base_url: &'a str,
     pub key: &'a [u8; 32],
+    pub device_id: &'a str,
+    pub device_token: &'a str,
     pub media_sync_policy: &'a str,
 }
 
@@ -21,13 +23,24 @@ pub async fn apply_change(
     change: &ChangeEnvelope,
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
-    tracing::debug!("[SYNC-APPLY] Applying change: {} {} ({:?})", change.entity, change.id, change.op);
+    tracing::debug!(
+        "[SYNC-APPLY] Applying change: {} {} ({:?})",
+        change.entity,
+        change.id,
+        change.op
+    );
     let local_ts = get_local_updated_at(db, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
     if let Some(ts) = local_ts {
         if change.updated_at <= ts {
-            tracing::debug!("[SYNC-APPLY] Skipping {} {}: local timestamp {} >= remote {}", change.entity, change.id, ts, change.updated_at);
+            tracing::debug!(
+                "[SYNC-APPLY] Skipping {} {}: local timestamp {} >= remote {}",
+                change.entity,
+                change.id,
+                ts,
+                change.updated_at
+            );
             return Ok(());
         }
     }
@@ -55,12 +68,18 @@ where
     let res = f.await;
     tracing::debug!("[SYNC-APPLY] Setting _suppress_triggers back to '0'");
     if let Err(e) = metadata::set_suppress_triggers(db, "0").await {
-        tracing::error!("[SYNC-APPLY] CRITICAL: Failed to reset _suppress_triggers to '0': {}", e);
+        tracing::error!(
+            "[SYNC-APPLY] CRITICAL: Failed to reset _suppress_triggers to '0': {}",
+            e
+        );
         // This is critical - if we can't reset it, triggers will be permanently disabled
         // Try one more time after a short delay
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         if let Err(e2) = metadata::set_suppress_triggers(db, "0").await {
-            tracing::error!("[SYNC-APPLY] CRITICAL: Second attempt to reset _suppress_triggers also failed: {}", e2);
+            tracing::error!(
+                "[SYNC-APPLY] CRITICAL: Second attempt to reset _suppress_triggers also failed: {}",
+                e2
+            );
         } else {
             tracing::info!("[SYNC-APPLY] Successfully reset _suppress_triggers on second attempt");
         }
@@ -68,11 +87,7 @@ where
     res
 }
 
-async fn get_local_updated_at(
-    db: &Database,
-    entity: &str,
-    entity_id: &str,
-) -> Result<Option<i64>> {
+async fn get_local_updated_at(db: &Database, entity: &str, entity_id: &str) -> Result<Option<i64>> {
     let Some(table) = entity_to_table(entity) else {
         return Ok(None);
     };
@@ -106,6 +121,7 @@ fn entity_to_table(entity: &str) -> Option<&'static str> {
         "audio_transcriptions" => "audio_transcriptions",
         "canvases" => "canvases",
         "bookmarks" => "bookmarks",
+        "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
         _ => return None,
     })
@@ -130,12 +146,17 @@ async fn apply_upsert(
         "goals" => apply_goals_upsert(db, entity_id, updated_at, data).await,
         "canvases" => apply_canvases_upsert(db, entity_id, updated_at, data).await,
         "bookmarks" => apply_bookmarks_upsert(db, entity_id, updated_at, data).await,
+        "resource_links" => apply_resource_links_upsert(db, entity_id, updated_at, data).await,
         "media_items" => apply_media_items_upsert(db, entity_id, updated_at, data, ctx).await,
-        "audio_transcriptions" => apply_audio_transcriptions_upsert(db, entity_id, updated_at, data).await,
+        "audio_transcriptions" => {
+            apply_audio_transcriptions_upsert(db, entity_id, updated_at, data).await
+        }
         "entry_tags" => apply_entry_tags_upsert(db, entity_id, updated_at, data).await,
         "task_tags" => apply_task_tags_upsert(db, entity_id, updated_at, data).await,
         "goal_tags" => apply_goal_tags_upsert(db, entity_id, updated_at, data).await,
-        "goal_instance_tags" => apply_goal_instance_tags_upsert(db, entity_id, updated_at, data).await,
+        "goal_instance_tags" => {
+            apply_goal_instance_tags_upsert(db, entity_id, updated_at, data).await
+        }
         "bookmark_tags" => apply_bookmark_tags_upsert(db, entity_id, updated_at, data).await,
         "goal_instances" => apply_goal_instances_upsert(db, entity_id, updated_at, data).await,
         "subtasks" => apply_subtasks_upsert(db, entity_id, updated_at, data).await,
@@ -150,9 +171,17 @@ async fn apply_entry_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("entry_tags: object expected".into()))?;
-    let entry_id = obj.get("entry_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
-    let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("entry_tags: object expected".into()))?;
+    let entry_id = obj
+        .get("entry_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
+    let tag_id = obj
+        .get("tag_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
     conn.execute(
         "INSERT OR REPLACE INTO entry_tags (entry_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
@@ -170,9 +199,17 @@ async fn apply_task_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("task_tags: object expected".into()))?;
-    let task_id = obj.get("task_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
-    let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("task_tags: object expected".into()))?;
+    let task_id = obj
+        .get("task_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
+    let tag_id = obj
+        .get("tag_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
     conn.execute(
         "INSERT OR REPLACE INTO task_tags (task_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
@@ -190,9 +227,17 @@ async fn apply_goal_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("goal_tags: object expected".into()))?;
-    let goal_id = obj.get("goal_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
-    let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("goal_tags: object expected".into()))?;
+    let goal_id = obj
+        .get("goal_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
+    let tag_id = obj
+        .get("tag_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
     conn.execute(
         "INSERT OR REPLACE INTO goal_tags (goal_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
@@ -210,9 +255,17 @@ async fn apply_goal_instance_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("goal_instance_tags: object expected".into()))?;
-    let goal_instance_id = obj.get("goal_instance_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
-    let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("goal_instance_tags: object expected".into()))?;
+    let goal_instance_id = obj
+        .get("goal_instance_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
+    let tag_id = obj
+        .get("tag_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
     conn.execute(
         "INSERT OR REPLACE INTO goal_instance_tags (goal_instance_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
@@ -230,9 +283,17 @@ async fn apply_bookmark_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("bookmark_tags: object expected".into()))?;
-    let bookmark_id = obj.get("bookmark_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
-    let tag_id = obj.get("tag_id").and_then(|v| v.as_str()).unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("bookmark_tags: object expected".into()))?;
+    let bookmark_id = obj
+        .get("bookmark_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').next().unwrap_or(entity_id));
+    let tag_id = obj
+        .get("tag_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| entity_id.split('|').nth(1).unwrap_or(""));
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
     conn.execute(
         "INSERT OR REPLACE INTO bookmark_tags (bookmark_id, tag_id, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, 0, ?5)",
@@ -250,10 +311,15 @@ async fn apply_goal_instances_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("goal_instances: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("goal_instances: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let goal_id = obj.get("goal_id").and_then(|v| v.as_str()).unwrap_or("");
-    let period_start = obj.get("period_start").and_then(|v| v.as_str()).unwrap_or("");
+    let period_start = obj
+        .get("period_start")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let period_end = obj.get("period_end").and_then(|v| v.as_str());
     let status = obj.get("status").and_then(|v| v.as_str()).unwrap_or("");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
@@ -276,10 +342,15 @@ async fn apply_subtasks_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("subtasks: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("subtasks: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let title = obj.get("title").and_then(|v| v.as_str()).unwrap_or("");
-    let is_completed = obj.get("is_completed").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_completed = obj
+        .get("is_completed")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let task_id = obj.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
     let order_index = obj.get("order_index").and_then(|v| v.as_i64()).unwrap_or(0);
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
@@ -302,11 +373,16 @@ async fn apply_tasks_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("tasks: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("tasks: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let title = obj.get("title").and_then(|v| v.as_str()).unwrap_or("");
     let description = obj.get("description").and_then(|v| v.as_str());
-    let is_completed = obj.get("is_completed").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_completed = obj
+        .get("is_completed")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let due_date = obj.get("due_date").and_then(|v| v.as_str());
     let goal_instance_id = obj.get("goal_instance_id").and_then(|v| v.as_str());
     let goal_id = obj.get("goal_id").and_then(|v| v.as_str());
@@ -336,16 +412,24 @@ async fn apply_goals_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("goals: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("goals: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let description = obj.get("description").and_then(|v| v.as_str());
-    let is_non_recurring = obj.get("is_non_recurring").and_then(|v| v.as_bool()).unwrap_or(true);
+    let is_non_recurring = obj
+        .get("is_non_recurring")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     let recurrence_type = obj.get("recurrence_type").and_then(|v| v.as_str());
     let recurrence_interval = obj.get("recurrence_interval").and_then(|v| v.as_i64());
     let recurrence_anchor = obj.get("recurrence_anchor").and_then(|v| v.as_str());
     let recurrence_meta = obj.get("recurrence_meta").and_then(|v| v.as_str());
-    let timezone = obj.get("timezone").and_then(|v| v.as_str()).unwrap_or("UTC");
+    let timezone = obj
+        .get("timezone")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UTC");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
     let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
@@ -372,10 +456,15 @@ async fn apply_canvases_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("canvases: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("canvases: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let canvas_data = obj.get("canvas_data").and_then(|v| v.as_str()).unwrap_or("{}");
+    let canvas_data = obj
+        .get("canvas_data")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{}");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
     let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
@@ -398,7 +487,9 @@ async fn apply_bookmarks_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("bookmarks: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("bookmarks: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let url = obj.get("url").and_then(|v| v.as_str()).unwrap_or("");
     let title = obj.get("title").and_then(|v| v.as_str());
@@ -410,8 +501,14 @@ async fn apply_bookmarks_upsert(
     let published_at = obj.get("published_at").and_then(|v| v.as_str());
     let content_type = obj.get("content_type").and_then(|v| v.as_str());
     let metadata_json = obj.get("metadata_json").and_then(|v| v.as_str());
-    let is_archived = obj.get("is_archived").and_then(|v| v.as_bool()).unwrap_or(false);
-    let is_deleted = obj.get("is_deleted").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_archived = obj
+        .get("is_archived")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let is_deleted = obj
+        .get("is_deleted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
     let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
@@ -440,11 +537,19 @@ async fn apply_media_items_upsert(
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("media_items: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("media_items: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
-    let entity_type = obj.get("entity_type").and_then(|v| v.as_str()).unwrap_or("entry");
+    let entity_type = obj
+        .get("entity_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("entry");
     let entity_id_val = obj.get("entity_id").and_then(|v| v.as_str()).unwrap_or("");
-    let media_type = obj.get("media_type").and_then(|v| v.as_str()).unwrap_or("audio");
+    let media_type = obj
+        .get("media_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("audio");
     let file_path = obj.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
@@ -472,14 +577,28 @@ async fn apply_media_items_upsert(
     if let Some(c) = ctx {
         if c.media_sync_policy == "auto" {
             let content_hash = obj.get("content_hash").and_then(|v| v.as_str());
-            if let (Some(hash), Some(fp)) = (content_hash, if file_path.is_empty() { None } else { Some(file_path) }) {
+            if let (Some(hash), Some(fp)) = (
+                content_hash,
+                if file_path.is_empty() {
+                    None
+                } else {
+                    Some(file_path)
+                },
+            ) {
                 let media_dir = crate::media::get_media_directory()?;
                 let full = media_dir.join(fp);
                 if !full.exists() {
                     if let Some(p) = full.parent() {
                         std::fs::create_dir_all(p).map_err(AppError::Io)?;
                     }
-                    let bytes = crate::sync::media::download_media_decrypt(c.base_url, hash, c.key).await?;
+                    let bytes = crate::sync::media::download_media_decrypt(
+                        c.base_url,
+                        hash,
+                        c.key,
+                        c.device_id,
+                        c.device_token,
+                    )
+                    .await?;
                     std::fs::write(&full, &bytes).map_err(AppError::Io)?;
                 }
             }
@@ -495,16 +614,27 @@ async fn apply_audio_transcriptions_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("audio_transcriptions: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("audio_transcriptions: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let media_id = obj.get("media_id").and_then(|v| v.as_str()).unwrap_or("");
-    let transcription_text = obj.get("transcription_text").and_then(|v| v.as_str()).unwrap_or("");
+    let transcription_text = obj
+        .get("transcription_text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let provider = obj.get("provider").and_then(|v| v.as_str()).unwrap_or("");
     let provider_config = obj.get("provider_config").and_then(|v| v.as_str());
     let confidence_score = obj.get("confidence_score").and_then(|v| v.as_f64());
-    let status = obj.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
+    let status = obj
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("pending");
     let error_message = obj.get("error_message").and_then(|v| v.as_str());
-    let is_active = obj.get("is_active").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_active = obj
+        .get("is_active")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
 
@@ -529,13 +659,24 @@ async fn apply_entries_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("entries: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("entries: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let document = obj.get("document").and_then(|v| v.as_str()).unwrap_or("");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
-    let is_pinned = obj.get("is_pinned").and_then(|v| v.as_bool()).unwrap_or(false);
-    let is_archived = obj.get("is_archived").and_then(|v| v.as_bool()).unwrap_or(false);
-    let is_deleted = obj.get("is_deleted").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_pinned = obj
+        .get("is_pinned")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let is_archived = obj
+        .get("is_archived")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let is_deleted = obj
+        .get("is_deleted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
     let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
     let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
@@ -569,7 +710,9 @@ async fn apply_tags_upsert(
     data: &serde_json::Value,
 ) -> Result<()> {
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    let obj = data.as_object().ok_or_else(|| AppError::Sync("tags: object expected".into()))?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("tags: object expected".into()))?;
     let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
     let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
@@ -586,6 +729,61 @@ async fn apply_tags_upsert(
             created_at,
             updated_at_s,
             deleted_at,
+            entity_id,
+            updated_at,
+            extra,
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+async fn apply_resource_links_upsert(
+    db: &Database,
+    entity_id: &str,
+    updated_at: i64,
+    data: &serde_json::Value,
+) -> Result<()> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("resource_links: object expected".into()))?;
+    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
+    let source_type = obj
+        .get("source_type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("resource_links: source_type is required".into()))?;
+    let source_id = obj
+        .get("source_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("resource_links: source_id is required".into()))?;
+    let target_type = obj
+        .get("target_type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("resource_links: target_type is required".into()))?;
+    let target_id = obj
+        .get("target_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("resource_links: target_id is required".into()))?;
+    let link_text = obj.get("link_text").and_then(|v| v.as_str());
+    let created_at = obj
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("resource_links: created_at is required".into()))?;
+    let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
+
+    conn.execute(
+        "INSERT OR REPLACE INTO resource_links (id, source_type, source_id, target_type, target_id, link_text, created_at, _sync_id, _updated_at, _deleted, _extra)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10)",
+        libsql::params![
+            id,
+            source_type,
+            source_id,
+            target_type,
+            target_id,
+            link_text,
+            created_at,
             entity_id,
             updated_at,
             extra,
@@ -614,8 +812,15 @@ async fn store_unknown(
     Ok(())
 }
 
-async fn apply_soft_delete(db: &Database, entity: &str, entity_id: &str, updated_at: i64) -> Result<()> {
-    let Some(table) = entity_to_table(entity) else { return Ok(()); };
+async fn apply_soft_delete(
+    db: &Database,
+    entity: &str,
+    entity_id: &str,
+    updated_at: i64,
+) -> Result<()> {
+    let Some(table) = entity_to_table(entity) else {
+        return Ok(());
+    };
     let conn = db.connect().map_err(AppError::LibSQL)?;
     let sql = format!(
         "UPDATE {} SET _deleted = 1, _updated_at = ?1 WHERE _sync_id = ?2",
@@ -625,4 +830,87 @@ async fn apply_soft_delete(db: &Database, entity: &str, entity_id: &str, updated
         .await
         .map_err(AppError::LibSQL)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+    use crate::sync::types::{ChangeEnvelope, ChangeOp};
+    use libsql::Builder;
+
+    async fn test_db() -> Database {
+        let path = std::env::temp_dir().join(format!(
+            "aether-sync-apply-test-{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db = Builder::new_local(path).build().await.unwrap();
+        migrations::run_migrations(&db).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn applies_resource_link_upserts_and_deletes() {
+        let db = test_db().await;
+        let upsert = ChangeEnvelope {
+            entity: "resource_links".into(),
+            id: "link-1".into(),
+            op: ChangeOp::Upsert,
+            data: Some(serde_json::json!({
+                "id": "link-1",
+                "source_type": "entry",
+                "source_id": "entry-1",
+                "target_type": "task",
+                "target_id": "task-1",
+                "link_text": "related",
+                "created_at": "2026-01-01T00:00:00Z",
+                "_extra": "{}"
+            })),
+            updated_at: 100,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_change(&db, &upsert, None).await.unwrap();
+
+        let conn = db.connect().unwrap();
+        let mut rows = conn
+            .query(
+                "SELECT source_type, target_type, _deleted, _updated_at FROM resource_links WHERE _sync_id = ?1",
+                libsql::params!["link-1"],
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<String>(0).unwrap(), "entry");
+        assert_eq!(row.get::<String>(1).unwrap(), "task");
+        assert_eq!(row.get::<i64>(2).unwrap(), 0);
+        assert_eq!(row.get::<Option<i64>>(3).unwrap().unwrap(), 100);
+
+        let delete = ChangeEnvelope {
+            entity: "resource_links".into(),
+            id: "link-1".into(),
+            op: ChangeOp::Delete,
+            data: None,
+            updated_at: 200,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_change(&db, &delete, None).await.unwrap();
+
+        let mut rows = conn
+            .query(
+                "SELECT _deleted, _updated_at FROM resource_links WHERE _sync_id = ?1",
+                libsql::params!["link-1"],
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<i64>(0).unwrap(), 1);
+        assert_eq!(row.get::<Option<i64>>(1).unwrap().unwrap(), 200);
+    }
 }
