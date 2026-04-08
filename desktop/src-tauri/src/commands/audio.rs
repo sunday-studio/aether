@@ -48,13 +48,14 @@ pub async fn save_audio_recording(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<String> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.entry_id.is_empty() {
         return Err(AppError::BadRequest("Entry ID is required".to_string()));
     }
 
     let database = connection::get_database(&*state);
-    
+
     // Save audio file
     let media_id = save_audio_file(
         database.clone(),
@@ -62,7 +63,8 @@ pub async fn save_audio_recording(
         request.audio_data,
         request.duration,
         request.format,
-    ).await?;
+    )
+    .await?;
 
     // Optionally queue transcription
     let should_transcribe = if let Some(should) = request.auto_transcribe {
@@ -79,11 +81,12 @@ pub async fn save_audio_recording(
 
     if should_transcribe {
         // Get default provider
-        let _default_provider = settings::get_setting(database.clone(), "transcription.default_provider")
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "openai".to_string());
+        let _default_provider =
+            settings::get_setting(database.clone(), "transcription.default_provider")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "openai".to_string());
 
         // TODO: Auto-queue transcription when auto_transcribe is enabled
         // For now, user can manually trigger transcription
@@ -126,6 +129,8 @@ pub async fn get_audio_data(
     let database = connection::get_database(&*state);
     let url = engine.try_get_url();
     let key = engine.try_get_key().await;
+    let device_id = engine.get_device_id().await.ok();
+    let device_token = engine.get_device_token().await.ok().flatten();
     let policy = settings::get_setting(database.clone(), "sync.media_sync_policy")
         .await
         .ok()
@@ -136,6 +141,8 @@ pub async fn get_audio_data(
         &media_id,
         url.as_deref(),
         key.as_ref(),
+        device_id.as_deref(),
+        device_token.as_deref(),
         &policy,
     )
     .await;

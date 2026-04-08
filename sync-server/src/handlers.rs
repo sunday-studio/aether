@@ -2,26 +2,28 @@ use axum::{
     body::Bytes,
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Query, State,
+        Path, Query, State,
     },
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{get, head, post, put},
+    routing::{get, post},
     Json, Router,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use futures::{SinkExt, StreamExt};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::models::{EncryptedChange, PullResponse, PushRequest, RegisterRequest};
-use crate::storage::{Storage, DeviceRow};
+use crate::models::{
+    EncryptedChange, PullCursor, PullResponse, PushRequest, RegisterRequest, RegisterResponse,
+};
+use crate::storage::{DeviceRow, PushAcceptance, Storage};
 use subtle::ConstantTimeEq;
 
-/// Tracks a connected device
 #[derive(Clone, Debug, Serialize)]
 pub struct ConnectedDevice {
     pub device_id: String,
@@ -30,72 +32,53 @@ pub struct ConnectedDevice {
     pub last_seen: i64,
 }
 
-/// Shared state for tracking connected devices
 pub type ConnectedDevices = Arc<RwLock<HashMap<String, ConnectedDevice>>>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<Storage>,
-    /// Broadcasts the device_id that pushed, so other devices can sync
     pub broadcast: broadcast::Sender<String>,
-    /// Tracks currently connected WebSocket clients
     pub connected_devices: ConnectedDevices,
-    /// When set, only registered devices (matching passphrase) can pull/push/ws
-    pub server_passphrase: Option<Arc<str>>,
+    pub server_seed_phrase: Arc<str>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PullQuery {
-    pub since: Option<i64>,
-    pub device_id: Option<String>,
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct WsQuery {
-    pub device_id: Option<String>,
     pub hostname: Option<String>,
 }
 
 pub fn router(
     storage: Arc<Storage>,
     broadcast_tx: broadcast::Sender<String>,
-    server_passphrase: Option<Arc<str>>,
+    server_seed_phrase: Arc<str>,
 ) -> Router {
     let state = AppState {
         storage,
         broadcast: broadcast_tx,
         connected_devices: Arc::new(RwLock::new(HashMap::new())),
-        server_passphrase,
+        server_seed_phrase,
     };
     Router::new()
         .route("/health", get(health))
-        .route("/salt", get(get_salt))
         .route("/register", post(register))
         .route("/push", post(push))
         .route("/pull", get(pull))
         .route("/ws", get(ws_handler))
         .route("/devices", get(get_devices))
-        .route("/media/:hash", get(get_media).put(put_media).head(head_media))
+        .route(
+            "/media/:hash",
+            get(get_media).put(put_media).head(head_media),
+        )
         .with_state(state)
 }
 
 async fn health() -> &'static str {
     "ok"
-}
-
-#[derive(Serialize)]
-struct SaltResponse {
-    salt: String,
-}
-
-async fn get_salt(State(s): State<AppState>) -> impl IntoResponse {
-    match s.storage.get_salt() {
-        Ok(salt) => (StatusCode::OK, Json(SaltResponse { salt })).into_response(),
-        Err(e) => {
-            tracing::error!("get_salt: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "salt not configured").into_response()
-        }
-    }
 }
 
 fn verify_passphrase(got: &str, expected: &str) -> bool {
@@ -107,41 +90,87 @@ fn verify_passphrase(got: &str, expected: &str) -> bool {
     a.ct_eq(b).into()
 }
 
-async fn register(State(s): State<AppState>, Json(body): Json<RegisterRequest>) -> impl IntoResponse {
-    let Some(ref expected) = s.server_passphrase else {
-        if let Err(e) = s.storage.register_device(&body.device_id, body.hostname.as_deref()) {
-            tracing::error!("register_device: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    value.strip_prefix("Bearer ")
+}
+
+fn authenticated_device_id(headers: &HeaderMap) -> Option<&str> {
+    headers.get("x-aether-device-id")?.to_str().ok()
+}
+
+fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, StatusCode> {
+    let device_id = authenticated_device_id(headers)
+        .filter(|id| !id.is_empty())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let token = bearer_token(headers)
+        .filter(|token| !token.is_empty())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    match storage.authenticate_device(device_id, token) {
+        Ok(true) => Ok(device_id.to_string()),
+        Ok(false) => Err(StatusCode::UNAUTHORIZED),
+        Err(e) => {
+            tracing::error!("authenticate_device: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
-        tracing::info!("Device {} registered (no server passphrase)", body.device_id);
-        return (StatusCode::OK, "{}").into_response();
-    };
-    if !verify_passphrase(&body.passphrase, expected) {
-        tracing::warn!("Register rejected: wrong passphrase for device {}", body.device_id);
-        return (StatusCode::UNAUTHORIZED, "wrong passphrase").into_response();
     }
-    if let Err(e) = s.storage.register_device(&body.device_id, body.hostname.as_deref()) {
+}
+
+async fn register(
+    State(s): State<AppState>,
+    Json(body): Json<RegisterRequest>,
+) -> impl IntoResponse {
+    if !verify_passphrase(&body.server_seed_phrase, &s.server_seed_phrase) {
+        tracing::warn!(
+            "Register rejected: wrong server seed phrase for device {}",
+            body.device_id
+        );
+        return (StatusCode::UNAUTHORIZED, "wrong server seed phrase").into_response();
+    }
+
+    let mut token_bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut token_bytes);
+    let device_token = BASE64.encode(token_bytes);
+
+    if let Err(e) =
+        s.storage
+            .register_device(&body.device_id, body.hostname.as_deref(), &device_token)
+    {
         tracing::error!("register_device: {}", e);
         return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
     }
-    tracing::info!("Device {} registered", body.device_id);
-    (StatusCode::OK, "{}").into_response()
+
+    let salt = match s.storage.get_salt() {
+        Ok(salt) => salt,
+        Err(e) => {
+            tracing::error!("get_salt during register: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "salt not configured").into_response();
+        }
+    };
+
+    tracing::info!("Device {} enrolled", body.device_id);
+    (
+        StatusCode::OK,
+        Json(RegisterResponse { device_token, salt }),
+    )
+        .into_response()
 }
 
-async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl IntoResponse {
-    if s.server_passphrase.is_some() {
-        match s.storage.is_device_registered(&body.device_id) {
-            Ok(false) => {
-                tracing::warn!("Push rejected: device {} not registered", body.device_id);
-                return (StatusCode::UNAUTHORIZED, "device not registered").into_response();
-            }
-            Err(e) => {
-                tracing::error!("is_device_registered: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
-            }
-            _ => {}
-        }
+async fn push(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<PushRequest>,
+) -> impl IntoResponse {
+    let device_id = match require_auth(&headers, &s.storage) {
+        Ok(id) => id,
+        Err(status) => return (status, "unauthorized").into_response(),
+    };
+
+    if body.batch_id.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, "missing batch_id").into_response();
     }
+
+    let mut decoded_changes = Vec::with_capacity(body.changes.len());
     for ec in &body.changes {
         let nonce = match BASE64.decode(&ec.nonce) {
             Ok(v) => v,
@@ -149,48 +178,57 @@ async fn push(State(s): State<AppState>, Json(body): Json<PushRequest>) -> impl 
         };
         let ct = match BASE64.decode(&ec.ciphertext) {
             Ok(v) => v,
-            Err(_) => return (StatusCode::BAD_REQUEST, "invalid ciphertext base64").into_response(),
+            Err(_) => {
+                return (StatusCode::BAD_REQUEST, "invalid ciphertext base64").into_response()
+            }
         };
-        if let Err(e) = s.storage.push(&body.device_id, Some(&body.device_hostname), &nonce, &ct) {
-            tracing::error!("push db: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
+        decoded_changes.push((nonce, ct));
+    }
+
+    match s.storage.record_push_if_new(
+        &device_id,
+        &body.batch_id,
+        Some(&body.device_hostname),
+        &decoded_changes,
+    ) {
+        Ok(PushAcceptance::Accepted) => {
+            let now = epoch_millis();
+            let _ = s.storage.update_device_last_sync(&device_id, now);
+            let receiver_count = s.broadcast.send(device_id.clone()).unwrap_or(0);
+            tracing::info!(
+                "Push from device {}: {} changes, notified {} connected devices",
+                device_id,
+                body.changes.len(),
+                receiver_count
+            );
+            (StatusCode::OK, "{}").into_response()
+        }
+        Ok(PushAcceptance::Duplicate) => {
+            tracing::info!(
+                "Ignoring duplicate batch {} from device {}",
+                body.batch_id,
+                device_id
+            );
+            (StatusCode::OK, "{}").into_response()
+        }
+        Err(e) => {
+            tracing::error!("record_push_if_new: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response()
         }
     }
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-    let _ = s.storage.update_device_last_sync(&body.device_id, now);
-    let receiver_count = s.broadcast.send(body.device_id.clone()).unwrap_or(0);
-    tracing::info!(
-        "Push from device {}: {} changes, notified {} connected devices",
-        body.device_id,
-        body.changes.len(),
-        receiver_count
-    );
-    (StatusCode::OK, "{}").into_response()
 }
 
 async fn ws_handler(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Query(query): Query<WsQuery>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    let device_id = query.device_id.unwrap_or_else(|| "unknown".to_string());
+    let device_id = match require_auth(&headers, &s.storage) {
+        Ok(id) => id,
+        Err(status) => return (status, "unauthorized").into_response(),
+    };
     let hostname = query.hostname.clone();
-    if s.server_passphrase.is_some() {
-        match s.storage.is_device_registered(&device_id) {
-            Ok(false) => {
-                tracing::warn!("WebSocket rejected: device {} not registered", device_id);
-                return (StatusCode::UNAUTHORIZED, "device not registered").into_response();
-            }
-            Err(e) => {
-                tracing::error!("is_device_registered: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
-            }
-            _ => {}
-        }
-    }
     let rx = s.broadcast.subscribe();
     let connected_devices = s.connected_devices.clone();
     let storage = s.storage.clone();
@@ -212,12 +250,8 @@ async fn handle_websocket(
     connected_devices: ConnectedDevices,
     storage: Arc<Storage>,
 ) {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now = epoch_millis();
 
-    // Register device as connected
     {
         let mut devices = connected_devices.write().await;
         devices.insert(
@@ -239,7 +273,6 @@ async fn handle_websocket(
 
     let (mut sender, mut receiver) = socket.split();
 
-    // Task to read from client (handle pongs, detect disconnect)
     let device_id_for_recv = my_device_id.clone();
     let connected_devices_for_recv = connected_devices.clone();
     let storage_for_recv = storage.clone();
@@ -247,21 +280,14 @@ async fn handle_websocket(
         while let Some(msg) = receiver.next().await {
             match msg {
                 Ok(Message::Pong(_)) => {
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as i64;
+                    let now = epoch_millis();
                     let mut devices = connected_devices_for_recv.write().await;
                     if let Some(device) = devices.get_mut(&device_id_for_recv) {
                         device.last_seen = now;
                     }
                     let _ = storage_for_recv.update_device_last_seen(&device_id_for_recv, now);
-                    tracing::debug!("Received pong from device {}, updated last_seen", device_id_for_recv);
                 }
-                Ok(Message::Close(_)) => {
-                    tracing::info!("WebSocket closed by device {}", device_id_for_recv);
-                    break;
-                }
+                Ok(Message::Close(_)) => break,
                 Err(e) => {
                     tracing::warn!("WebSocket error from device {}: {}", device_id_for_recv, e);
                     break;
@@ -271,64 +297,40 @@ async fn handle_websocket(
         }
     });
 
-    // Task to send pings and sync notifications
     let device_id_for_send = my_device_id.clone();
     let mut send_task = tokio::spawn(async move {
         let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
         loop {
             tokio::select! {
                 _ = ping_interval.tick() => {
-                    if sender.send(Message::Ping(vec![])).await.is_err() {
-                        tracing::debug!("Failed to send ping to device {}", device_id_for_send);
+                    if sender.send(Message::Ping(Vec::new().into())).await.is_err() {
                         break;
                     }
                 }
                 result = rx.recv() => {
                     match result {
                         Ok(pusher_device_id) => {
-                            // Only notify if a DIFFERENT device pushed
-                            if pusher_device_id != device_id_for_send {
-                                tracing::info!(
-                                    "Notifying device {} about changes from device {}",
-                                    device_id_for_send,
-                                    pusher_device_id
-                                );
-                                if sender.send(Message::Text("sync".into())).await.is_err() {
-                                    tracing::debug!("Failed to send sync to device {}", device_id_for_send);
-                                    break;
-                                }
-                            } else {
-                                tracing::debug!(
-                                    "Skipping notification to device {} (same as pusher)",
-                                    device_id_for_send
-                                );
+                            if pusher_device_id != device_id_for_send
+                                && sender.send(Message::Text("sync".into())).await.is_err()
+                            {
+                                break;
                             }
                         }
                         Err(broadcast::error::RecvError::Lagged(n)) => {
                             tracing::warn!("Device {} lagged {} messages", device_id_for_send, n);
-                            // Continue, we'll catch up on next broadcast
                         }
-                        Err(broadcast::error::RecvError::Closed) => {
-                            tracing::info!("Broadcast channel closed");
-                            break;
-                        }
+                        Err(broadcast::error::RecvError::Closed) => break,
                     }
                 }
             }
         }
     });
 
-    // Wait for either task to finish
     tokio::select! {
-        _ = &mut recv_task => {
-            send_task.abort();
-        }
-        _ = &mut send_task => {
-            recv_task.abort();
-        }
+        _ = &mut recv_task => send_task.abort(),
+        _ = &mut send_task => recv_task.abort(),
     }
 
-    // Unregister device on disconnect
     {
         let mut devices = connected_devices.write().await;
         devices.remove(&my_device_id);
@@ -340,7 +342,6 @@ async fn handle_websocket(
     }
 }
 
-/// Device in GET /devices: registered device with connected flag from in-memory set
 #[derive(Serialize)]
 struct DeviceInfo {
     id: String,
@@ -357,15 +358,28 @@ struct DevicesResponse {
     count: usize,
 }
 
-/// Get registered devices from DB with connected flag (single endpoint)
-async fn get_devices(State(s): State<AppState>) -> impl IntoResponse {
+async fn get_devices(State(s): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    if let Err(status) = require_auth(&headers, &s.storage) {
+        return (
+            status,
+            Json(DevicesResponse {
+                devices: vec![],
+                count: 0,
+            }),
+        )
+            .into_response();
+    }
+
     let rows = match s.storage.list_devices() {
         Ok(r) => r,
         Err(e) => {
             tracing::error!("list_devices: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(DevicesResponse { devices: vec![], count: 0 }),
+                Json(DevicesResponse {
+                    devices: vec![],
+                    count: 0,
+                }),
             )
                 .into_response();
         }
@@ -388,73 +402,103 @@ async fn get_devices(State(s): State<AppState>) -> impl IntoResponse {
 
 async fn pull(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Query(q): Query<PullQuery>,
 ) -> impl IntoResponse {
-    if s.server_passphrase.is_some() {
-        let device_id = match &q.device_id {
-            Some(id) if !id.is_empty() => id.as_str(),
-            _ => {
+    let device_id = match require_auth(&headers, &s.storage) {
+        Ok(id) => id,
+        Err(status) => {
+            return (
+                status,
+                Json(PullResponse {
+                    changes: vec![],
+                    next_cursor: None,
+                    has_more: false,
+                }),
+            )
+                .into_response()
+        }
+    };
+
+    let cursor = match q.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Some(cursor) => Some(cursor),
+            None => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(PullResponse { changes: vec![], timestamp: q.since.unwrap_or(0), has_more: false }),
+                    Json(PullResponse {
+                        changes: vec![],
+                        next_cursor: None,
+                        has_more: false,
+                    }),
                 )
-                    .into_response();
+                    .into_response()
             }
-        };
-        match s.storage.is_device_registered(device_id) {
-            Ok(false) => {
-                tracing::warn!("Pull rejected: device {} not registered", device_id);
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(PullResponse { changes: vec![], timestamp: q.since.unwrap_or(0), has_more: false }),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                tracing::error!("is_device_registered: {}", e);
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(PullResponse { changes: vec![], timestamp: q.since.unwrap_or(0), has_more: false }),
-                )
-                    .into_response();
-            }
-            _ => {}
-        }
-    }
-    let since = q.since.unwrap_or(0);
+        },
+        None => None,
+    };
+
     let limit = 500i64;
-    let device_id = q.device_id.clone();
-    let rows = match s.storage.pull(since, limit) {
+    let rows = match s.storage.pull(cursor.as_ref(), limit) {
         Ok(r) => r,
         Err(e) => {
             tracing::error!("pull db: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(PullResponse { changes: vec![], timestamp: since, has_more: false }),
+                Json(PullResponse {
+                    changes: vec![],
+                    next_cursor: cursor,
+                    has_more: false,
+                }),
             )
                 .into_response();
         }
     };
+
     let changes: Vec<EncryptedChange> = rows
-        .into_iter()
-        .map(|(nonce, ct)| EncryptedChange {
-            nonce: BASE64.encode(&nonce),
-            ciphertext: BASE64.encode(&ct),
+        .iter()
+        .map(|row| EncryptedChange {
+            nonce: BASE64.encode(&row.nonce),
+            ciphertext: BASE64.encode(&row.ciphertext),
         })
         .collect();
-    let ts = s.storage.max_received_at().unwrap_or(since);
-    let has_more = (changes.len() as i64) >= limit;
-    if let Some(ref did) = device_id {
-        let _ = s.storage.update_device_last_sync(did, ts);
+
+    let next_cursor = rows.last().map(|row| PullCursor {
+        received_at: row.received_at,
+        change_id: row.id,
+    });
+
+    let has_more = match next_cursor.as_ref() {
+        Some(cursor) => s.storage.has_more_after(cursor).unwrap_or(false),
+        None => false,
+    };
+
+    if let Some(ref cursor) = next_cursor {
+        let _ = s
+            .storage
+            .update_device_last_sync(&device_id, cursor.received_at);
     }
-    (StatusCode::OK, Json(PullResponse { changes, timestamp: ts, has_more })).into_response()
+
+    (
+        StatusCode::OK,
+        Json(PullResponse {
+            changes,
+            next_cursor,
+            has_more,
+        }),
+    )
+        .into_response()
 }
 
 async fn put_media(
     State(s): State<AppState>,
-    axum::extract::Path(hash): axum::extract::Path<String>,
+    headers: HeaderMap,
+    Path(hash): Path<String>,
     body: Bytes,
 ) -> impl IntoResponse {
+    if let Err(status) = require_auth(&headers, &s.storage) {
+        return status;
+    }
     if let Err(e) = s.storage.put_blob(&hash, &body) {
         tracing::error!("put_blob: {}", e);
         return StatusCode::INTERNAL_SERVER_ERROR;
@@ -464,8 +508,12 @@ async fn put_media(
 
 async fn get_media(
     State(s): State<AppState>,
-    axum::extract::Path(hash): axum::extract::Path<String>,
+    headers: HeaderMap,
+    Path(hash): Path<String>,
 ) -> impl IntoResponse {
+    if let Err(status) = require_auth(&headers, &s.storage) {
+        return status.into_response();
+    }
     match s.storage.get_blob(&hash) {
         Ok(Some(data)) => (StatusCode::OK, bytes::Bytes::from(data)).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
@@ -478,11 +526,30 @@ async fn get_media(
 
 async fn head_media(
     State(s): State<AppState>,
-    axum::extract::Path(hash): axum::extract::Path<String>,
+    headers: HeaderMap,
+    Path(hash): Path<String>,
 ) -> impl IntoResponse {
+    if let Err(status) = require_auth(&headers, &s.storage) {
+        return status;
+    }
     if s.storage.has_blob(&hash) {
         StatusCode::OK
     } else {
         StatusCode::NOT_FOUND
     }
+}
+
+fn decode_cursor(raw: &str) -> Option<PullCursor> {
+    let (received_at, change_id) = raw.split_once(':')?;
+    Some(PullCursor {
+        received_at: received_at.parse().ok()?,
+        change_id: change_id.parse().ok()?,
+    })
+}
+
+fn epoch_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
 }

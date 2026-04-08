@@ -2,8 +2,8 @@ use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, M
 use crate::db::connection;
 use crate::error::{AppError, Result};
 use crate::settings;
-use crate::sync::{self, SyncEngine, SyncStatus};
 use crate::sync::metadata;
+use crate::sync::{self, SyncEngine, SyncStatus};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -12,15 +12,16 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConfigureSyncRequest {
     pub server_url: String,
-    pub passphrase: String,
+    pub server_seed_phrase: String,
+    pub sync_passphrase: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ReconnectSyncRequest {
-    pub passphrase: String,
+    pub sync_passphrase: String,
 }
 
-/// Configure sync with server URL and passphrase
+/// Configure sync with server URL, server seed phrase, and sync passphrase
 #[utoipa::path(
     post,
     path = "/v1/sync/configure",
@@ -41,17 +42,30 @@ pub async fn configure_sync(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.server_url.is_empty() {
         return Err(AppError::BadRequest("Server URL is required".to_string()));
     }
-    if request.passphrase.len() < 12 {
-        return Err(AppError::BadRequest("Passphrase must be at least 12 characters".to_string()));
+    if request.server_seed_phrase.len() < 12 {
+        return Err(AppError::BadRequest(
+            "Server seed phrase must be at least 12 characters".to_string(),
+        ));
     }
-    
+    if request.sync_passphrase.len() < 12 {
+        return Err(AppError::BadRequest(
+            "Sync passphrase must be at least 12 characters".to_string(),
+        ));
+    }
+
     tracing::info!("[SYNC-CMD] Configuring sync via command");
     engine
-        .configure(&app, request.server_url, request.passphrase)
+        .configure(
+            &app,
+            request.server_url,
+            request.server_seed_phrase,
+            request.sync_passphrase,
+        )
         .await
         .map_err(|e| {
             tracing::error!("[SYNC-CMD] Configuration failed: {}", e);
@@ -113,7 +127,10 @@ pub async fn get_sync_status(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SyncStatus> {
-    engine.status().await.map_err(|e| AppError::Sync(e.to_string()))
+    engine
+        .status()
+        .await
+        .map_err(|e| AppError::Sync(e.to_string()))
 }
 
 /// Disconnect sync (clear configuration)
@@ -134,10 +151,13 @@ pub async fn disconnect_sync(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    engine.disconnect(&app).await.map_err(|e| AppError::Sync(e.to_string()))
+    engine
+        .disconnect(&app)
+        .await
+        .map_err(|e| AppError::Sync(e.to_string()))
 }
 
-/// Reconnect sync with passphrase
+/// Reconnect sync with sync passphrase
 #[utoipa::path(
     post,
     path = "/v1/sync/reconnect",
@@ -157,13 +177,22 @@ pub async fn reconnect_sync(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SyncStatus> {
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
-    if request.passphrase.len() < 12 {
-        return Err(AppError::BadRequest("Passphrase must be at least 12 characters".to_string()));
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.sync_passphrase.len() < 12 {
+        return Err(AppError::BadRequest(
+            "Sync passphrase must be at least 12 characters".to_string(),
+        ));
     }
-    
-    engine.reconnect(request.passphrase).await.map_err(|e| AppError::Sync(e.to_string()))?;
-    let status = engine.status().await.map_err(|e| AppError::Sync(e.to_string()))?;
+
+    engine
+        .reconnect(request.sync_passphrase)
+        .await
+        .map_err(|e| AppError::Sync(e.to_string()))?;
+    let status = engine
+        .status()
+        .await
+        .map_err(|e| AppError::Sync(e.to_string()))?;
     let _ = app.emit("sync-status", &status);
     Ok(status)
 }
@@ -197,6 +226,8 @@ pub async fn ensure_media_blob(
     let database = connection::get_database(&*db);
     let url = engine.try_get_url();
     let key = engine.try_get_key().await;
+    let device_id = engine.get_device_id().await.ok();
+    let device_token = engine.get_device_token().await.ok().flatten();
     let policy = settings::get_setting(database.clone(), "sync.media_sync_policy")
         .await
         .ok()
@@ -207,6 +238,8 @@ pub async fn ensure_media_blob(
         &media_id,
         url.as_deref(),
         key.as_ref(),
+        device_id.as_deref(),
+        device_token.as_deref(),
         &policy,
     )
     .await
@@ -223,11 +256,11 @@ pub async fn check_sync_triggers(
 ) -> Result<serde_json::Value> {
     let database = connection::get_database(&*db);
     let conn = database.connect().map_err(AppError::LibSQL)?;
-    
+
     // Check _suppress_triggers
     let suppress_triggers = metadata::get_suppress_triggers(database.as_ref()).await?;
     tracing::info!("[SYNC-DIAG] _suppress_triggers = '{}'", suppress_triggers);
-    
+
     // Check outbox count
     let mut rows = conn
         .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -239,10 +272,13 @@ pub async fn check_sync_triggers(
         0
     };
     tracing::info!("[SYNC-DIAG] Outbox count: {}", outbox_count);
-    
+
     // Check if triggers exist
     let mut trigger_rows = conn
-        .query("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE '%_sync_%'", libsql::params![])
+        .query(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE '%_sync_%'",
+            libsql::params![],
+        )
         .await
         .map_err(AppError::LibSQL)?;
     let mut triggers = Vec::new();
@@ -252,10 +288,13 @@ pub async fn check_sync_triggers(
         }
     }
     tracing::info!("[SYNC-DIAG] Found {} sync triggers", triggers.len());
-    
+
     // Check a sample entry to see if _sync_id and _updated_at are set
     let mut entry_rows = conn
-        .query("SELECT id, _sync_id, _updated_at FROM entries LIMIT 1", libsql::params![])
+        .query(
+            "SELECT id, _sync_id, _updated_at FROM entries LIMIT 1",
+            libsql::params![],
+        )
         .await
         .map_err(AppError::LibSQL)?;
     let mut sample_entry: Option<serde_json::Value> = None;
@@ -269,7 +308,7 @@ pub async fn check_sync_triggers(
             "_updated_at": updated_at,
         }));
     }
-    
+
     Ok(serde_json::json!({
         "suppress_triggers": suppress_triggers,
         "outbox_count": outbox_count,
@@ -289,36 +328,48 @@ pub async fn test_sync_trigger(
 ) -> Result<serde_json::Value> {
     let database = connection::get_database(&*db);
     let conn = database.connect().map_err(AppError::LibSQL)?;
-    
+
     // Get first entry
     let mut rows = conn
-        .query("SELECT id, _sync_id, _updated_at FROM entries LIMIT 1", libsql::params![])
+        .query(
+            "SELECT id, _sync_id, _updated_at FROM entries LIMIT 1",
+            libsql::params![],
+        )
         .await
         .map_err(AppError::LibSQL)?;
-    
+
     let entry_id = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
         row.get::<String>(0).map_err(AppError::LibSQL)?
     } else {
         return Err(AppError::BadRequest("No entries found to test".to_string()));
     };
-    
+
     let entry_id_clone = entry_id.clone();
-    
+
     // Get entry details before update
     let mut entry_details = conn
-        .query("SELECT id, _sync_id, _updated_at FROM entries WHERE id = ?1", libsql::params![entry_id_clone.as_str()])
+        .query(
+            "SELECT id, _sync_id, _updated_at FROM entries WHERE id = ?1",
+            libsql::params![entry_id_clone.as_str()],
+        )
         .await
         .map_err(AppError::LibSQL)?;
-    let (sync_id, old_updated_at) = if let Some(row) = entry_details.next().await.map_err(AppError::LibSQL)? {
-        let sync_id: Option<String> = row.get(1).ok();
-        let updated_at: Option<i64> = row.get(2).ok();
-        (sync_id, updated_at)
-    } else {
-        return Err(AppError::BadRequest("Entry not found".to_string()));
-    };
-    
-    tracing::info!("[SYNC-TEST] Testing trigger by updating entry: {} (sync_id: {:?}, old_updated_at: {:?})", entry_id_clone, sync_id, old_updated_at);
-    
+    let (sync_id, old_updated_at) =
+        if let Some(row) = entry_details.next().await.map_err(AppError::LibSQL)? {
+            let sync_id: Option<String> = row.get(1).ok();
+            let updated_at: Option<i64> = row.get(2).ok();
+            (sync_id, updated_at)
+        } else {
+            return Err(AppError::BadRequest("Entry not found".to_string()));
+        };
+
+    tracing::info!(
+        "[SYNC-TEST] Testing trigger by updating entry: {} (sync_id: {:?}, old_updated_at: {:?})",
+        entry_id_clone,
+        sync_id,
+        old_updated_at
+    );
+
     // Check if triggers exist and get their SQL
     let mut trigger_rows = conn
         .query("SELECT name, sql FROM sqlite_master WHERE type='trigger' AND name LIKE '%entries_sync%'", libsql::params![])
@@ -337,61 +388,81 @@ pub async fn test_sync_trigger(
             }
         }
     }
-    tracing::info!("[SYNC-TEST] Found {} entries sync triggers: {:?}", triggers.len(), triggers);
+    tracing::info!(
+        "[SYNC-TEST] Found {} entries sync triggers: {:?}",
+        triggers.len(),
+        triggers
+    );
     for ts in &trigger_sqls {
         tracing::info!("[SYNC-TEST] Trigger SQL: {}", ts);
     }
-    
+
     // Get current outbox count
     let mut outbox_before = conn
         .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
         .await
         .map_err(AppError::LibSQL)?;
-    let count_before: i64 = if let Some(row) = outbox_before.next().await.map_err(AppError::LibSQL)? {
-        row.get(0).unwrap_or(0)
-    } else {
-        0
-    };
-    
+    let count_before: i64 =
+        if let Some(row) = outbox_before.next().await.map_err(AppError::LibSQL)? {
+            row.get(0).unwrap_or(0)
+        } else {
+            0
+        };
+
     // Check _suppress_triggers value directly
     let mut suppress_check = conn
-        .query("SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers'", libsql::params![])
+        .query(
+            "SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers'",
+            libsql::params![],
+        )
         .await
         .map_err(AppError::LibSQL)?;
-    let suppress_value: String = if let Some(row) = suppress_check.next().await.map_err(AppError::LibSQL)? {
-        row.get::<String>(0).unwrap_or_else(|_| "0".to_string())
-    } else {
-        "0".to_string()
-    };
-    tracing::info!("[SYNC-TEST] _suppress_triggers value in DB: '{}'", suppress_value);
-    
+    let suppress_value: String =
+        if let Some(row) = suppress_check.next().await.map_err(AppError::LibSQL)? {
+            row.get::<String>(0).unwrap_or_else(|_| "0".to_string())
+        } else {
+            "0".to_string()
+        };
+    tracing::info!(
+        "[SYNC-TEST] _suppress_triggers value in DB: '{}'",
+        suppress_value
+    );
+
     // Update _updated_at to trigger the sync trigger
     let now_ms = chrono::Utc::now().timestamp_millis();
-    tracing::info!("[SYNC-TEST] Executing: UPDATE entries SET _updated_at = {} WHERE id = '{}'", now_ms, entry_id_clone);
+    tracing::info!(
+        "[SYNC-TEST] Executing: UPDATE entries SET _updated_at = {} WHERE id = '{}'",
+        now_ms,
+        entry_id_clone
+    );
     conn.execute(
         "UPDATE entries SET _updated_at = ?1 WHERE id = ?2",
         libsql::params![now_ms, entry_id_clone.as_str()],
     )
     .await
     .map_err(AppError::LibSQL)?;
-    
+
     tracing::info!("[SYNC-TEST] Updated entry _updated_at to {}", now_ms);
-    
+
     // Immediately check if anything was inserted into outbox
     let mut immediate_check = conn
         .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
         .await
         .map_err(AppError::LibSQL)?;
-    let immediate_count: i64 = if let Some(row) = immediate_check.next().await.map_err(AppError::LibSQL)? {
-        row.get(0).unwrap_or(0)
-    } else {
-        0
-    };
-    tracing::info!("[SYNC-TEST] Immediate outbox count after update: {}", immediate_count);
-    
+    let immediate_count: i64 =
+        if let Some(row) = immediate_check.next().await.map_err(AppError::LibSQL)? {
+            row.get(0).unwrap_or(0)
+        } else {
+            0
+        };
+    tracing::info!(
+        "[SYNC-TEST] Immediate outbox count after update: {}",
+        immediate_count
+    );
+
     // Wait a tiny bit for trigger to fire
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    
+
     // Check outbox count after
     let mut outbox_after = conn
         .query("SELECT COUNT(*) FROM _sync_outbox", libsql::params![])
@@ -402,12 +473,19 @@ pub async fn test_sync_trigger(
     } else {
         0
     };
-    
-    tracing::info!("[SYNC-TEST] Outbox count before: {}, after: {}", count_before, count_after);
-    
+
+    tracing::info!(
+        "[SYNC-TEST] Outbox count before: {}, after: {}",
+        count_before,
+        count_after
+    );
+
     // Check what's in the outbox after
     let mut outbox_items = conn
-        .query("SELECT entity, entity_id, op FROM _sync_outbox", libsql::params![])
+        .query(
+            "SELECT entity, entity_id, op FROM _sync_outbox",
+            libsql::params![],
+        )
         .await
         .map_err(AppError::LibSQL)?;
     let mut outbox_entries = Vec::new();
@@ -421,7 +499,7 @@ pub async fn test_sync_trigger(
             "op": op,
         }));
     }
-    
+
     // Try to manually insert into outbox to verify it works
     let test_entity_id = format!("test_{}", now_ms);
     let manual_insert_result = conn.execute(
@@ -432,13 +510,14 @@ pub async fn test_sync_trigger(
     let manual_insert_works = manual_insert_result.is_ok();
     if manual_insert_works {
         // Clean up test entry
-        let _ = conn.execute(
-            "DELETE FROM _sync_outbox WHERE entity_id = ?1",
-            libsql::params![test_entity_id.as_str()],
-        )
-        .await;
+        let _ = conn
+            .execute(
+                "DELETE FROM _sync_outbox WHERE entity_id = ?1",
+                libsql::params![test_entity_id.as_str()],
+            )
+            .await;
     }
-    
+
     Ok(serde_json::json!({
         "entry_id": entry_id_clone,
         "sync_id": sync_id,

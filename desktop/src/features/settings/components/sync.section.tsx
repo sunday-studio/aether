@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { listen } from "@tauri-apps/api/event";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	getGetSyncStatusQueryKey,
 	useConfigureSync,
@@ -98,10 +97,12 @@ export const SyncSection = () => {
 	const reconnectError = reconnectMutation.error;
 
 	const [serverUrl, setServerUrl] = useState("");
-	const [passphrase, setPassphrase] = useState("");
+	const [serverSeedPhrase, setServerSeedPhrase] = useState("");
+	const [syncPassphrase, setSyncPassphrase] = useState("");
 	const [reconnectPassphrase, setReconnectPassphrase] = useState("");
 
 	const err = configureError || syncError || reconnectError;
+	const errMessage = err ? String(err) : null;
 
 	return (
 		<div className="space-y-10 max-w-xl">
@@ -109,7 +110,8 @@ export const SyncSection = () => {
 				<h3 className="text-lg font-medium">Sync</h3>
 				<p className="text-sm text-(--color-secondary-text)">
 					End-to-end encrypted sync with your own server. Deploy the sync server
-					(Docker) and enter its URL and a passphrase.{" "}
+					(Docker) and enter its URL, the server seed phrase, and your sync
+					passphrase.{" "}
 					<a
 						href="https://github.com/sunday-studio/aether/blob/main/sync-server/README.md"
 						target="_blank"
@@ -152,16 +154,16 @@ export const SyncSection = () => {
 				</div>
 			)}
 
-			{err && (
+			{errMessage && (
 				<div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
-					{err instanceof Error ? err.message : String(err)}
+					{errMessage}
 				</div>
 			)}
 
 			{status?.needs_passphrase && (
 				<div className="rounded-lg border border-(--color-border) bg-(--color-panel) p-4 space-y-3">
 					<p className="text-sm text-(--color-secondary-text)">
-						Re-enter your passphrase to sync (it is not stored).
+						Re-enter your sync passphrase to sync.
 					</p>
 					<div className="flex gap-2">
 						<TextField
@@ -173,7 +175,7 @@ export const SyncSection = () => {
 						<Button
 							onClick={() =>
 								reconnectMutation.mutate({
-									data: { passphrase: reconnectPassphrase },
+									data: { sync_passphrase: reconnectPassphrase },
 								})
 							}
 							label={isReconnecting ? "Reconnecting…" : "Reconnect"}
@@ -224,11 +226,18 @@ export const SyncSection = () => {
 					onChange={(v) => setServerUrl(v)}
 				/>
 				<TextField
-					label="Passphrase"
+					label="Server Seed Phrase"
 					placeholder="min 12 characters"
 					type="password"
-					value={passphrase}
-					onChange={(v) => setPassphrase(v)}
+					value={serverSeedPhrase}
+					onChange={(v) => setServerSeedPhrase(v)}
+				/>
+				<TextField
+					label="Sync Passphrase"
+					placeholder="min 12 characters"
+					type="password"
+					value={syncPassphrase}
+					onChange={(v) => setSyncPassphrase(v)}
 				/>
 
 				<div className="flex items-center justify-end gap-4 mt-4">
@@ -251,11 +260,15 @@ export const SyncSection = () => {
 					<Button
 						onClick={() =>
 							configureMutation.mutate({
-								data: { server_url: serverUrl, passphrase },
+								data: {
+									server_url: serverUrl,
+									server_seed_phrase: serverSeedPhrase,
+									sync_passphrase: syncPassphrase,
+								},
 							})
 						}
 						label={isConfiguring ? "Saving…" : "Save"}
-						tooltipContent="Save server URL and passphrase"
+						tooltipContent="Save server URL and sync credentials"
 						// isDisabled={!serverUrl.trim() || passphrase.length < 12 || isConfiguring}
 					/>
 				</div>

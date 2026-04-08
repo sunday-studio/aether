@@ -4,12 +4,18 @@ use serde::{Deserialize, Serialize};
 pub struct RegisterRequest {
     pub device_id: String,
     pub hostname: Option<String>,
-    pub passphrase: String,
+    pub server_seed_phrase: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RegisterResponse {
+    pub device_token: String,
+    pub salt: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PushRequest {
-    pub device_id: String,
+    pub batch_id: String,
     pub device_hostname: String,
     pub changes: Vec<EncryptedChange>,
 }
@@ -20,9 +26,15 @@ pub struct EncryptedChange {
     pub ciphertext: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullCursor {
+    pub received_at: i64,
+    pub change_id: i64,
+}
+
 #[derive(Debug, Serialize)]
 pub struct PullResponse {
     pub changes: Vec<EncryptedChange>,
-    pub timestamp: i64,
+    pub next_cursor: Option<PullCursor>,
     pub has_more: bool,
 }

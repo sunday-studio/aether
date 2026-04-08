@@ -3,8 +3,11 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
 use rusqlite::{params, Connection, OptionalExtension};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::sync::Mutex;
+
+use crate::models::PullCursor;
 
 /// Device row from the persistent devices table.
 #[derive(Debug, Clone)]
@@ -14,6 +17,19 @@ pub struct DeviceRow {
     pub created_at: i64,
     pub last_seen: i64,
     pub last_sync: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredChange {
+    pub id: i64,
+    pub nonce: Vec<u8>,
+    pub ciphertext: Vec<u8>,
+    pub received_at: i64,
+}
+
+pub enum PushAcceptance {
+    Accepted,
+    Duplicate,
 }
 
 pub struct Storage {
@@ -37,7 +53,10 @@ impl Storage {
             )",
             [],
         )?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_changes_time ON changes(received_at)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_changes_cursor ON changes(received_at, id)",
+            [],
+        )?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS blobs (
@@ -61,10 +80,27 @@ impl Storage {
             "CREATE TABLE IF NOT EXISTS devices (
                 id TEXT PRIMARY KEY NOT NULL,
                 hostname TEXT,
+                device_token_hash TEXT NOT NULL,
+                token_created_at INTEGER NOT NULL,
+                revoked_at INTEGER,
                 created_at INTEGER NOT NULL,
                 last_seen INTEGER NOT NULL,
                 last_sync INTEGER NOT NULL
             )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS processed_push_batches (
+                device_id TEXT NOT NULL,
+                batch_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (device_id, batch_id)
+            )",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_processed_push_batches_created_at ON processed_push_batches(created_at)",
             [],
         )?;
 
@@ -81,7 +117,6 @@ impl Storage {
     pub fn initialize_salt(&self) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
 
-        // Check if salt already exists
         let existing: Option<String> = conn
             .query_row(
                 "SELECT value FROM server_config WHERE key = 'encryption_salt'",
@@ -91,15 +126,10 @@ impl Storage {
             .optional()?;
 
         if existing.is_none() {
-            // Generate 16-byte random salt
             let mut salt = [0u8; 16];
             rand::thread_rng().fill_bytes(&mut salt);
-            let salt_b64 = BASE64.encode(&salt);
-
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+            let salt_b64 = BASE64.encode(salt);
+            let now = epoch_secs();
 
             conn.execute(
                 "INSERT INTO server_config (key, value, created_at) VALUES ('encryption_salt', ?1, ?2)",
@@ -114,7 +144,6 @@ impl Storage {
         Ok(())
     }
 
-    /// Get the encryption salt (base64-encoded).
     pub fn get_salt(&self) -> Result<String, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
@@ -124,52 +153,165 @@ impl Storage {
         )
     }
 
-    pub fn push(&self, device_id: &str, device_hostname: Option<&str>, nonce: &[u8], ciphertext: &[u8]) -> Result<(), rusqlite::Error> {
-        let received_at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+    pub fn register_device(
+        &self,
+        device_id: &str,
+        hostname: Option<&str>,
+        device_token: &str,
+    ) -> Result<(), rusqlite::Error> {
+        let now = epoch_millis();
+        let token_hash = hash_token(device_token);
         let conn = self.conn.lock().unwrap();
-        conn.execute(
-            "INSERT INTO changes (device_id, device_hostname, nonce, ciphertext, received_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![device_id, device_hostname, nonce, ciphertext, received_at],
-        )?;
+        let existing: Option<i64> = conn
+            .query_row(
+                "SELECT 1 FROM devices WHERE id = ?1",
+                params![device_id],
+                |_| Ok(1i64),
+            )
+            .optional()?;
+        if existing.is_some() {
+            conn.execute(
+                "UPDATE devices
+                 SET hostname = ?1, device_token_hash = ?2, token_created_at = ?3, revoked_at = NULL, last_seen = ?3, last_sync = ?3
+                 WHERE id = ?4",
+                params![hostname, token_hash, now, device_id],
+            )?;
+        } else {
+            conn.execute(
+                "INSERT INTO devices (id, hostname, device_token_hash, token_created_at, revoked_at, created_at, last_seen, last_sync)
+                 VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4, ?4)",
+                params![device_id, hostname, token_hash, now],
+            )?;
+        }
         Ok(())
     }
 
-    pub fn pull(&self, since: i64, limit: i64) -> Result<Vec<(Vec<u8>, Vec<u8>)>, rusqlite::Error> {
+    pub fn authenticate_device(
+        &self,
+        device_id: &str,
+        token: &str,
+    ) -> Result<bool, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT nonce, ciphertext FROM changes WHERE received_at > ?1 ORDER BY received_at LIMIT ?2",
+        let stored_hash: Option<String> = conn
+            .query_row(
+                "SELECT device_token_hash FROM devices WHERE id = ?1 AND revoked_at IS NULL",
+                params![device_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(stored_hash
+            .map(|hash| hash == hash_token(token))
+            .unwrap_or(false))
+    }
+
+    pub fn record_push_if_new(
+        &self,
+        device_id: &str,
+        batch_id: &str,
+        device_hostname: Option<&str>,
+        changes: &[(Vec<u8>, Vec<u8>)],
+    ) -> Result<PushAcceptance, rusqlite::Error> {
+        let now = epoch_millis();
+        let conn = self.conn.lock().unwrap();
+        let tx = conn.unchecked_transaction()?;
+        let inserted = tx.execute(
+            "INSERT OR IGNORE INTO processed_push_batches (device_id, batch_id, created_at) VALUES (?1, ?2, ?3)",
+            params![device_id, batch_id, now],
         )?;
-        let rows = stmt.query_map(params![since, limit], |r| {
-            Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, Vec<u8>>(1)?))
-        })?;
+        if inserted == 0 {
+            tx.commit()?;
+            return Ok(PushAcceptance::Duplicate);
+        }
+
+        for (nonce, ciphertext) in changes {
+            tx.execute(
+                "INSERT INTO changes (device_id, device_hostname, nonce, ciphertext, received_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![device_id, device_hostname, nonce, ciphertext, now],
+            )?;
+        }
+
+        tx.execute(
+            "DELETE FROM processed_push_batches WHERE created_at < ?1",
+            params![now - 7 * 24 * 60 * 60 * 1000_i64],
+        )?;
+        tx.commit()?;
+        Ok(PushAcceptance::Accepted)
+    }
+
+    pub fn pull(
+        &self,
+        cursor: Option<&PullCursor>,
+        limit: i64,
+    ) -> Result<Vec<StoredChange>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
         let mut out = Vec::new();
-        for row in rows {
-            out.push(row?);
+        if let Some(cursor) = cursor {
+            let mut stmt = conn.prepare(
+                "SELECT id, nonce, ciphertext, received_at
+                 FROM changes
+                 WHERE (received_at > ?1) OR (received_at = ?1 AND id > ?2)
+                 ORDER BY received_at, id
+                 LIMIT ?3",
+            )?;
+            let rows =
+                stmt.query_map(params![cursor.received_at, cursor.change_id, limit], |r| {
+                    Ok(StoredChange {
+                        id: r.get(0)?,
+                        nonce: r.get(1)?,
+                        ciphertext: r.get(2)?,
+                        received_at: r.get(3)?,
+                    })
+                })?;
+            for row in rows {
+                out.push(row?);
+            }
+        } else {
+            let mut stmt = conn.prepare(
+                "SELECT id, nonce, ciphertext, received_at
+                 FROM changes
+                 ORDER BY received_at, id
+                 LIMIT ?1",
+            )?;
+            let rows = stmt.query_map(params![limit], |r| {
+                Ok(StoredChange {
+                    id: r.get(0)?,
+                    nonce: r.get(1)?,
+                    ciphertext: r.get(2)?,
+                    received_at: r.get(3)?,
+                })
+            })?;
+            for row in rows {
+                out.push(row?);
+            }
         }
         Ok(out)
     }
 
-    pub fn max_received_at(&self) -> Result<i64, rusqlite::Error> {
+    pub fn has_more_after(&self, cursor: &PullCursor) -> Result<bool, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        let v: i64 = conn.query_row(
-            "SELECT COALESCE(MAX(received_at), 0) FROM changes",
-            [],
-            |r| r.get(0),
-        )?;
-        Ok(v)
+        let next: Option<i64> = conn
+            .query_row(
+                "SELECT id
+                 FROM changes
+                 WHERE (received_at > ?1) OR (received_at = ?1 AND id > ?2)
+                 ORDER BY received_at, id
+                 LIMIT 1",
+                params![cursor.received_at, cursor.change_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(next.is_some())
     }
 
-    pub fn put_blob(&self, hash: &str, data: &[u8]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn put_blob(
+        &self,
+        hash: &str,
+        data: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let p = self.blob_dir.join(hash);
         std::fs::write(&p, data)?;
         let conn = self.conn.lock().unwrap();
-        let at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let at = epoch_millis();
         conn.execute(
             "INSERT OR REPLACE INTO blobs (hash, size, uploaded_at) VALUES (?1, ?2, ?3)",
             params![hash, data.len() as i64, at],
@@ -177,7 +319,10 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_blob(&self, hash: &str) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn get_blob(
+        &self,
+        hash: &str,
+    ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
         let p = self.blob_dir.join(hash);
         if p.exists() {
             Ok(Some(std::fs::read(&p)?))
@@ -190,53 +335,31 @@ impl Storage {
         self.blob_dir.join(hash).exists()
     }
 
-    pub fn register_device(&self, device_id: &str, hostname: Option<&str>) -> Result<(), rusqlite::Error> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
-        let conn = self.conn.lock().unwrap();
-        let existing: Option<i64> = conn
-            .query_row("SELECT 1 FROM devices WHERE id = ?1", params![device_id], |_| Ok(1i64))
-            .optional()?;
-        if existing.is_some() {
-            conn.execute(
-                "UPDATE devices SET hostname = ?1, last_seen = ?2, last_sync = ?3 WHERE id = ?4",
-                params![hostname, now, now, device_id],
-            )?;
-        } else {
-            conn.execute(
-                "INSERT INTO devices (id, hostname, created_at, last_seen, last_sync) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![device_id, hostname, now, now, now],
-            )?;
-        }
-        Ok(())
-    }
-
-    pub fn is_device_registered(&self, device_id: &str) -> Result<bool, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
-        let v: Option<i64> = conn
-            .query_row("SELECT 1 FROM devices WHERE id = ?1", params![device_id], |r| r.get(0))
-            .optional()?;
-        Ok(v.is_some())
-    }
-
     pub fn update_device_last_seen(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        conn.execute("UPDATE devices SET last_seen = ?1 WHERE id = ?2", params![ts, device_id])?;
+        conn.execute(
+            "UPDATE devices SET last_seen = ?1 WHERE id = ?2",
+            params![ts, device_id],
+        )?;
         Ok(())
     }
 
     pub fn update_device_last_sync(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        conn.execute("UPDATE devices SET last_sync = ?1 WHERE id = ?2", params![ts, device_id])?;
+        conn.execute(
+            "UPDATE devices SET last_sync = ?1 WHERE id = ?2",
+            params![ts, device_id],
+        )?;
         Ok(())
     }
 
     pub fn list_devices(&self) -> Result<Vec<DeviceRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, hostname, created_at, last_seen, last_sync FROM devices ORDER BY last_seen DESC",
+            "SELECT id, hostname, created_at, last_seen, last_sync
+             FROM devices
+             WHERE revoked_at IS NULL
+             ORDER BY last_seen DESC",
         )?;
         let rows = stmt.query_map([], |r| {
             Ok(DeviceRow {
@@ -253,4 +376,24 @@ impl Storage {
         }
         Ok(out)
     }
+}
+
+fn epoch_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
+fn epoch_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
+}
+
+fn hash_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    hex::encode(hasher.finalize())
 }
