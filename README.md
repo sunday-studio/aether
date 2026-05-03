@@ -7,6 +7,14 @@ The repo contains two main parts:
 - `desktop/` - the Tauri desktop app
 - `sync-server/` - an optional end-to-end encrypted sync server
 
+<table>
+  <tr>
+    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2010.19.59.png" alt="Aether screenshot 1" /></td>
+    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2010.57.44.png" alt="Aether screenshot 2" /></td>
+    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2011.21.36.png" alt="Aether screenshot 3" /></td>
+  </tr>
+</table>
+
 ## What You Need
 
 For local development:
