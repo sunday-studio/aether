@@ -39,9 +39,10 @@ async fn apply_pulled_changes(
     ctx: &apply::ApplyCtx<'_>,
 ) -> Result<()> {
     let apply_started = Instant::now();
+    let conn = db.connect().map_err(AppError::LibSQL)?;
     apply::with_suppress_triggers(db, async {
         for envelope in envelopes {
-            apply::apply_change(db, envelope, Some(ctx))
+            apply::apply_change_with_conn(&conn, envelope, Some(ctx))
                 .await
                 .map_err(|err| {
                     AppError::Sync(format!(

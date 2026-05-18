@@ -23,14 +23,22 @@ pub async fn apply_change(
     change: &ChangeEnvelope,
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    apply_change_with_conn(&conn, change, ctx).await
+}
+
+pub async fn apply_change_with_conn(
+    conn: &Connection,
+    change: &ChangeEnvelope,
+    ctx: Option<&ApplyCtx<'_>>,
+) -> Result<()> {
     tracing::debug!(
         "[SYNC-APPLY] Applying change: {} {} ({:?})",
         change.entity,
         change.id,
         change.op
     );
-    let conn = db.connect().map_err(AppError::LibSQL)?;
-    let local_ts = get_local_updated_at(&conn, &change.entity, &change.id).await?;
+    let local_ts = get_local_updated_at(conn, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
     if let Some(ts) = local_ts {
@@ -50,7 +58,7 @@ pub async fn apply_change(
         ChangeOp::Upsert => {
             if let Some(data) = &change.data {
                 apply_upsert(
-                    &conn,
+                    conn,
                     &change.entity,
                     &change.id,
                     change.updated_at,
@@ -61,7 +69,7 @@ pub async fn apply_change(
             }
         }
         ChangeOp::Delete => {
-            apply_soft_delete(&conn, &change.entity, &change.id, change.updated_at).await?;
+            apply_soft_delete(conn, &change.entity, &change.id, change.updated_at).await?;
         }
     }
     Ok(())
