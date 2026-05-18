@@ -3,6 +3,7 @@ pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod journal_ai;
 pub mod media;
 pub mod settings;
 pub mod sync;
