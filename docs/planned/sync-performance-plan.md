@@ -141,6 +141,12 @@ Create a repeatable local benchmark covering:
 - Concurrent frontend query while sync is running.
 - Two devices syncing against the same local server.
 
+`sync-server/scripts/benchmark-sync-server.mjs` can benchmark register, push, and paged pull against a running sync server:
+
+```sh
+SERVER_SEED_PHRASE="at least twelve chars" CHANGES=500 node sync-server/scripts/benchmark-sync-server.mjs
+```
+
 Target behavior:
 
 - Empty sync is effectively instant locally.
