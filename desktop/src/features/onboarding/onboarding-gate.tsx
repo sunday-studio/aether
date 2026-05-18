@@ -3,11 +3,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import {
 	configureSync,
-	getGetAllSettingsQueryKey,
 	getGetSyncStatusQueryKey,
 	getListProvidersQueryKey,
-	setSetting,
-	useGetAllSettings,
 	useListProviders,
 	validateProvider,
 } from '~/aether-sdk';
@@ -23,6 +20,7 @@ import { OnboardingPreview } from './components/onboarding-preview';
 import { OnboardingStepHeader } from './components/onboarding-step-header';
 import { ProfileStep } from './components/profile-step';
 import { SyncStep } from './components/sync-step';
+import { useSettingsStore } from '~/store/settings-store';
 import {
 	DEFAULT_PROVIDER_KEY,
 	DISPLAY_NAME_KEY,
@@ -58,10 +56,6 @@ function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function saveSetting(key: string, value: string) {
-	return setSetting({ key, value });
-}
-
 function generateRecoverySeed() {
 	const values = new Uint32Array(12);
 	crypto.getRandomValues(values);
@@ -85,12 +79,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const [isStartingModelDownload, setIsStartingModelDownload] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-	const { data: settingsResponse, isLoading } = useGetAllSettings({
-		query: {
-			queryKey: getGetAllSettingsQueryKey(),
-		},
-	});
+	const { settings, setValue, isLoading } = useSettingsStore();
 
 	const { data: providersResponse } = useListProviders({
 		query: {
@@ -102,8 +91,6 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 		queryKey: ['search-embedding-models'],
 		queryFn: listSearchEmbeddingModels,
 	});
-
-	const settings = settingsResponse?.data ?? {};
 	const isComplete = settings[ONBOARDING_COMPLETED_KEY] === 'true';
 	const currentStep = steps[stepIndex];
 	const defaultEmbeddingModel =
@@ -217,19 +204,17 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const saveCoreSettings = async () => {
 		const trimmedName = displayName.trim();
 		if (trimmedName) {
-			await saveSetting(DISPLAY_NAME_KEY, trimmedName);
+			await setValue(DISPLAY_NAME_KEY, trimmedName);
 		}
 		if (recoverySeed) {
-			await saveSetting(RECOVERY_SEED_KEY, recoverySeed);
+			await setValue(RECOVERY_SEED_KEY, recoverySeed);
 		}
 		if (syncChoice === 'yes') {
 			validateSyncStep();
 			await configureSync({
-				data: {
-					server_url: serverUrl.trim(),
-					server_seed_phrase: serverSeedPhrase.trim(),
-					sync_passphrase: syncPassphrase.trim(),
-				},
+				server_url: serverUrl.trim(),
+				server_seed_phrase: serverSeedPhrase.trim(),
+				sync_passphrase: syncPassphrase.trim(),
 			});
 		}
 	};
@@ -246,12 +231,12 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 					throw new Error(`Add a ${providerCopy[provider].keyLabel} first, or choose no AI.`);
 				}
 				if (isConfigured(openaiKey)) {
-					await saveSetting(OPENAI_API_KEY, openaiKey.trim());
+					await setValue(OPENAI_API_KEY, openaiKey.trim());
 				}
 				if (isConfigured(groqKey)) {
-					await saveSetting(GROQ_API_KEY, groqKey.trim());
+					await setValue(GROQ_API_KEY, groqKey.trim());
 				}
-				await saveSetting(DEFAULT_PROVIDER_KEY, provider);
+				await setValue(DEFAULT_PROVIDER_KEY, provider);
 				if (shouldValidateProvider) {
 					await validateProvider({
 						body: JSON.stringify({ provider_name: provider }),
@@ -259,10 +244,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 					});
 				}
 			}
-			await saveSetting(ONBOARDING_COMPLETED_KEY, 'true');
-			await queryClient.invalidateQueries({
-				queryKey: getGetAllSettingsQueryKey(),
-			});
+			await setValue(ONBOARDING_COMPLETED_KEY, 'true');
 			await queryClient.invalidateQueries({ queryKey: getListProvidersQueryKey() });
 			await queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
 		} catch (error) {
@@ -282,8 +264,8 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 			if (!isConfigured(activeApiKey)) {
 				throw new Error(`Add a ${providerCopy[provider].keyLabel} first.`);
 			}
-			await saveSetting(provider === 'openai' ? OPENAI_API_KEY : GROQ_API_KEY, activeApiKey.trim());
-			await saveSetting(DEFAULT_PROVIDER_KEY, provider);
+			await setValue(provider === 'openai' ? OPENAI_API_KEY : GROQ_API_KEY, activeApiKey.trim());
+			await setValue(DEFAULT_PROVIDER_KEY, provider);
 			await validateProvider({
 				body: JSON.stringify({ provider_name: provider }),
 				headers: { 'Content-Type': 'application/json' },
@@ -308,10 +290,10 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 		setStatusMessage(null);
 
 		try {
-			await saveSetting(SEARCH_EMBEDDINGS_ENABLED_KEY, 'true');
-			await saveSetting(SEARCH_EMBEDDINGS_PROVIDER_KEY, 'local');
-			await saveSetting(SEARCH_EMBEDDINGS_MODEL_KEY, defaultEmbeddingModel.name);
-			await saveSetting(SEARCH_EMBEDDINGS_AUTO_INDEX_KEY, 'true');
+			await setValue(SEARCH_EMBEDDINGS_ENABLED_KEY, 'true');
+			await setValue(SEARCH_EMBEDDINGS_PROVIDER_KEY, 'local');
+			await setValue(SEARCH_EMBEDDINGS_MODEL_KEY, defaultEmbeddingModel.name);
+			await setValue(SEARCH_EMBEDDINGS_AUTO_INDEX_KEY, 'true');
 			await downloadSearchEmbeddingModel(defaultEmbeddingModel.name);
 			setStatusMessage('Local search model download started. You can finish onboarding now.');
 		} catch (error) {

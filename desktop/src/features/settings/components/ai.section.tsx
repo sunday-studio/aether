@@ -1,22 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-	CheckCircle2,
-	CircleAlert,
-	Download,
-	HardDrive,
-	KeyRound,
-	RefreshCw,
-	WandSparkles,
-} from 'lucide-react';
+import { CheckCircle2, CircleAlert, Download, HardDrive, KeyRound, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import {
-	getGetAllSettingsQueryKey,
-	getListProvidersQueryKey,
-	setSetting,
-	useGetAllSettings,
-	useListProviders,
-	validateProvider,
-} from '~/aether-sdk';
+import { getListProvidersQueryKey, useListProviders, validateProvider } from '~/aether-sdk';
 import { Button } from '~/components/shared/button';
 import { Select, SelectItem } from '~/components/shared/select';
 import { TextField } from '~/components/shared/text-field';
@@ -28,6 +13,7 @@ import {
 	listSearchEmbeddingModels,
 	reindexSearchDocuments,
 } from '~/lib/search-embedding-models';
+import { useSettingsStore } from '~/store/settings-store';
 import { cn } from '~/utils/cn';
 
 type ProviderChoice = 'openai' | 'groq';
@@ -88,10 +74,7 @@ export const AiSection = () => {
 	const [isIndexingEmbeddings, setIsIndexingEmbeddings] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-	const { data: settingsResponse } = useGetAllSettings({
-		query: { queryKey: getGetAllSettingsQueryKey() },
-	});
+	const { settings, setValue, setValues } = useSettingsStore();
 	const { data: providersResponse } = useListProviders({
 		query: { queryKey: getListProvidersQueryKey() },
 	});
@@ -99,8 +82,6 @@ export const AiSection = () => {
 		queryKey: ['search-embedding-models'],
 		queryFn: listSearchEmbeddingModels,
 	});
-
-	const settings = settingsResponse?.data ?? {};
 	const savedProvider = (settings[DEFAULT_PROVIDER_KEY] as ProviderChoice | undefined) ?? 'openai';
 	const selectedEmbeddingModel =
 		embeddingModels?.find(model => model.name === DEFAULT_SEARCH_EMBEDDING_MODEL) ??
@@ -115,7 +96,6 @@ export const AiSection = () => {
 	const selectedProviderHasSavedKey = selectedProvider === 'openai' ? hasOpenAiKey : hasGroqKey;
 
 	const invalidateAiQueries = async () => {
-		await queryClient.invalidateQueries({ queryKey: getGetAllSettingsQueryKey() });
 		await queryClient.invalidateQueries({ queryKey: getListProvidersQueryKey() });
 	};
 
@@ -125,13 +105,11 @@ export const AiSection = () => {
 		setErrorMessage(null);
 
 		try {
-			if (openaiKey.trim()) {
-				await setSetting({ key: OPENAI_API_KEY, value: openaiKey.trim() });
-			}
-			if (groqKey.trim()) {
-				await setSetting({ key: GROQ_API_KEY, value: groqKey.trim() });
-			}
-			await setSetting({ key: DEFAULT_PROVIDER_KEY, value: selectedProvider });
+			await setValues({
+				[DEFAULT_PROVIDER_KEY]: selectedProvider,
+				...(openaiKey.trim() ? { [OPENAI_API_KEY]: openaiKey.trim() } : {}),
+				...(groqKey.trim() ? { [GROQ_API_KEY]: groqKey.trim() } : {}),
+			});
 			await invalidateAiQueries();
 			setOpenaiKey('');
 			setGroqKey('');
@@ -150,12 +128,12 @@ export const AiSection = () => {
 
 		try {
 			if (activeApiKey.trim()) {
-				await setSetting({
-					key: selectedProvider === 'openai' ? OPENAI_API_KEY : GROQ_API_KEY,
-					value: activeApiKey.trim(),
-				});
+				await setValue(
+					selectedProvider === 'openai' ? OPENAI_API_KEY : GROQ_API_KEY,
+					activeApiKey.trim(),
+				);
 			}
-			await setSetting({ key: DEFAULT_PROVIDER_KEY, value: selectedProvider });
+			await setValue(DEFAULT_PROVIDER_KEY, selectedProvider);
 			await validateProvider({
 				body: JSON.stringify({ provider_name: selectedProvider }),
 				headers: { 'Content-Type': 'application/json' },
@@ -180,10 +158,12 @@ export const AiSection = () => {
 		setErrorMessage(null);
 
 		try {
-			await setSetting({ key: SEARCH_EMBEDDINGS_ENABLED_KEY, value: 'true' });
-			await setSetting({ key: SEARCH_EMBEDDINGS_PROVIDER_KEY, value: 'local' });
-			await setSetting({ key: SEARCH_EMBEDDINGS_MODEL_KEY, value: selectedEmbeddingModel.name });
-			await setSetting({ key: SEARCH_EMBEDDINGS_AUTO_INDEX_KEY, value: 'true' });
+			await setValues({
+				[SEARCH_EMBEDDINGS_ENABLED_KEY]: 'true',
+				[SEARCH_EMBEDDINGS_PROVIDER_KEY]: 'local',
+				[SEARCH_EMBEDDINGS_MODEL_KEY]: selectedEmbeddingModel.name,
+				[SEARCH_EMBEDDINGS_AUTO_INDEX_KEY]: 'true',
+			});
 			await downloadSearchEmbeddingModel(selectedEmbeddingModel.name);
 			await invalidateAiQueries();
 			setStatusMessage('Local search model download started.');
@@ -215,16 +195,13 @@ export const AiSection = () => {
 	return (
 		<div className='w-full space-y-8'>
 			<div>
-				<h3 className='flex items-center gap-2 text-lg font-medium'>
-					<WandSparkles className='size-5' />
-					AI
-				</h3>
+				<h3 className='flex items-center gap-2 text-lg font-medium'>AI</h3>
 				<p className='mt-2 text-sm text-(--color-secondary-text)'>
 					AI is optional for v1. Manage the local search model and hosted transcription keys here.
 				</p>
 			</div>
 
-			<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
+			<div className='rounded-lg bg-(--color-panel) p-4 shadow-xs ring ring-neutral-200/40'>
 				<div className='mb-4 flex flex-wrap items-start justify-between gap-4'>
 					<div>
 						<p className='flex items-center gap-2 text-sm font-medium'>
@@ -254,7 +231,7 @@ export const AiSection = () => {
 				</div>
 
 				<div className='grid gap-3 text-sm md:grid-cols-2'>
-					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+					<div className='flex flex-col justify-between rounded-lg border border-(--color-border) bg-neutral-200/50 p-3'>
 						<p className='font-medium'>{selectedEmbeddingModel?.name ?? 'No model available'}</p>
 						<p className='mt-1 text-xs text-(--color-secondary-text)'>
 							{selectedEmbeddingModel
@@ -266,7 +243,7 @@ export const AiSection = () => {
 								: 'Model catalog unavailable'}
 						</p>
 					</div>
-					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+					<div className='flex flex-col justify-between rounded-lg border border-(--color-border) bg-neutral-200/50 p-3'>
 						<p className='font-medium'>Storage</p>
 						<p className='mt-1 text-xs break-all text-(--color-secondary-text)'>
 							{selectedEmbeddingModel?.modelPath ??
@@ -276,7 +253,7 @@ export const AiSection = () => {
 					</div>
 				</div>
 
-				<div className='mt-4 flex flex-wrap justify-end gap-3'>
+				<div className='mt-4 flex flex-wrap justify-end gap-2'>
 					<Button
 						onClick={() => {
 							void refetchEmbeddingModels();
@@ -313,7 +290,7 @@ export const AiSection = () => {
 				</div>
 			</div>
 
-			<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
+			<div className='rounded-lg bg-(--color-panel) p-4 shadow-xs ring ring-neutral-200/40'>
 				<div className='mb-4 flex items-start justify-between gap-4'>
 					<div>
 						<p className='text-sm font-medium'>Provider status</p>
@@ -324,9 +301,13 @@ export const AiSection = () => {
 					<div
 						className={cn(
 							'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+							activeProvider?.status === 'not_configured' ? 'bg-neutral-200/50' : '',
 							activeProvider?.status === 'ready'
 								? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
-								: 'border-(--color-border) text-(--color-secondary-text)',
+								: '',
+							activeProvider?.status !== 'ready' && activeProvider?.status !== 'not_configured'
+								? 'border-(--color-border) text-(--color-secondary-text)'
+								: '',
 						)}
 					>
 						{activeProvider?.status === 'ready' ? (
