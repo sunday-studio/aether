@@ -20,13 +20,16 @@ This document tracks how agents should verify the Search And RAG Foundation work
 
 ## Next To Test
 
-- [ ] Add backend integration tests for `SearchDocumentRepository::reindex_all`.
-- [ ] Add backend integration tests for `SearchDocumentRepository::reindex_resource`.
-- [ ] Verify deleted entries, tasks, goals, and bookmarks are removed from `search_documents`.
-- [ ] Verify invalid Lexical JSON does not break full reindex.
-- [ ] Verify search index counts match seeded entries, tasks, goals, tags, and bookmarks.
-- [ ] Add Phase 3 keyword-search tests for normalized results from `search_documents`.
-- [ ] Add tests for supported Phase 3 filters: `types`, `date_from`, `date_to`, `limit`, and `offset`.
+- [x] Add backend integration tests for `SearchDocumentRepository::reindex_all`.
+- [x] Add backend integration tests for `SearchDocumentRepository::reindex_resource`.
+- [x] Verify deleted tasks are removed from `search_documents`.
+- [x] Verify invalid Lexical JSON does not break full reindex.
+- [x] Verify search index counts match seeded entries, tasks, goals, tags, and bookmarks.
+- [x] Add Phase 3 keyword-search tests for normalized results from `search_documents`.
+- [x] Add tests for supported Phase 3 filters: `types`, `date_from`, `date_to`, `limit`, and `offset`.
+- [ ] Extend deleted-resource tests to entries, goals, and bookmarks.
+- [ ] Add coverage for `SearchDocumentRepository::delete_resource`.
+- [ ] Add search command tests for `semantic` and `hybrid` unavailable-mode errors.
 - [ ] Add tag-filter tests once tag filtering is implemented.
 - [ ] Add a runtime/in-app API verification path for Tauri commands before UI work.
 

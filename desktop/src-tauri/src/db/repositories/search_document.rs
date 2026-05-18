@@ -66,6 +66,7 @@ impl SearchDocumentRepository {
         conn.execute("DELETE FROM search_documents", libsql::params![])
             .await
             .map_err(AppError::LibSQL)?;
+        drop(conn);
 
         self.reindex_entries().await?;
         self.reindex_tasks().await?;
@@ -241,11 +242,19 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Some(Self::entry_input_from_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(conn);
+
+        let Some(input) = input else {
             return self.delete_resource("entry", resource_id).await;
         };
 
-        self.index_entry_row(row).await
+        self.upsert_document(input).await
     }
 
     async fn reindex_entries(&self) -> Result<()> {
@@ -260,14 +269,21 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
+        let mut inputs = Vec::new();
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            self.index_entry_row(row).await?;
+            inputs.push(Self::entry_input_from_row(row)?);
+        }
+        drop(rows);
+        drop(conn);
+
+        for input in inputs {
+            self.upsert_document(input).await?;
         }
 
         Ok(())
     }
 
-    async fn index_entry_row(&self, row: libsql::Row) -> Result<()> {
+    fn entry_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let document: String = row.get(1).map_err(AppError::LibSQL)?;
         let created_at: String = row.get(2).map_err(AppError::LibSQL)?;
@@ -275,7 +291,7 @@ impl SearchDocumentRepository {
         let text = extract_text_from_lexical_document(&document).unwrap_or_default();
         let title = first_search_line(&text);
 
-        self.upsert_document(SearchDocumentInput {
+        Ok(SearchDocumentInput {
             resource_type: "entry".to_string(),
             resource_id: id,
             chunk_index: 0,
@@ -291,7 +307,6 @@ impl SearchDocumentRepository {
                 updated_at
             },
         })
-        .await
     }
 
     async fn reindex_task(&self, resource_id: &str) -> Result<()> {
@@ -306,11 +321,19 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Some(Self::task_input_from_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(conn);
+
+        let Some(input) = input else {
             return self.delete_resource("task", resource_id).await;
         };
 
-        self.index_task_row(row).await
+        self.upsert_document(input).await
     }
 
     async fn reindex_tasks(&self) -> Result<()> {
@@ -325,21 +348,28 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
+        let mut inputs = Vec::new();
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            self.index_task_row(row).await?;
+            inputs.push(Self::task_input_from_row(row)?);
+        }
+        drop(rows);
+        drop(conn);
+
+        for input in inputs {
+            self.upsert_document(input).await?;
         }
 
         Ok(())
     }
 
-    async fn index_task_row(&self, row: libsql::Row) -> Result<()> {
+    fn task_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let title: String = row.get(1).map_err(AppError::LibSQL)?;
         let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
         let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
         let text = [title.as_str(), description.as_deref().unwrap_or("")].join(" ");
 
-        self.upsert_document(SearchDocumentInput {
+        Ok(SearchDocumentInput {
             resource_type: "task".to_string(),
             resource_id: id,
             chunk_index: 0,
@@ -347,7 +377,6 @@ impl SearchDocumentRepository {
             text,
             source_updated_at: updated_at,
         })
-        .await
     }
 
     async fn reindex_goal(&self, resource_id: &str) -> Result<()> {
@@ -362,11 +391,19 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Some(Self::goal_input_from_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(conn);
+
+        let Some(input) = input else {
             return self.delete_resource("goal", resource_id).await;
         };
 
-        self.index_goal_row(row).await
+        self.upsert_document(input).await
     }
 
     async fn reindex_goals(&self) -> Result<()> {
@@ -381,21 +418,28 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
+        let mut inputs = Vec::new();
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            self.index_goal_row(row).await?;
+            inputs.push(Self::goal_input_from_row(row)?);
+        }
+        drop(rows);
+        drop(conn);
+
+        for input in inputs {
+            self.upsert_document(input).await?;
         }
 
         Ok(())
     }
 
-    async fn index_goal_row(&self, row: libsql::Row) -> Result<()> {
+    fn goal_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let name: String = row.get(1).map_err(AppError::LibSQL)?;
         let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
         let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
         let text = [name.as_str(), description.as_deref().unwrap_or("")].join(" ");
 
-        self.upsert_document(SearchDocumentInput {
+        Ok(SearchDocumentInput {
             resource_type: "goal".to_string(),
             resource_id: id,
             chunk_index: 0,
@@ -403,7 +447,6 @@ impl SearchDocumentRepository {
             text,
             source_updated_at: updated_at,
         })
-        .await
     }
 
     async fn reindex_tag(&self, resource_id: &str) -> Result<()> {
@@ -418,11 +461,19 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Some(Self::tag_input_from_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(conn);
+
+        let Some(input) = input else {
             return self.delete_resource("tag", resource_id).await;
         };
 
-        self.index_tag_row(row).await
+        self.upsert_document(input).await
     }
 
     async fn reindex_tags(&self) -> Result<()> {
@@ -437,19 +488,26 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
+        let mut inputs = Vec::new();
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            self.index_tag_row(row).await?;
+            inputs.push(Self::tag_input_from_row(row)?);
+        }
+        drop(rows);
+        drop(conn);
+
+        for input in inputs {
+            self.upsert_document(input).await?;
         }
 
         Ok(())
     }
 
-    async fn index_tag_row(&self, row: libsql::Row) -> Result<()> {
+    fn tag_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let name: String = row.get(1).map_err(AppError::LibSQL)?;
         let updated_at: String = row.get(2).map_err(AppError::LibSQL)?;
 
-        self.upsert_document(SearchDocumentInput {
+        Ok(SearchDocumentInput {
             resource_type: "tag".to_string(),
             resource_id: id,
             chunk_index: 0,
@@ -457,7 +515,6 @@ impl SearchDocumentRepository {
             text: name,
             source_updated_at: updated_at,
         })
-        .await
     }
 
     async fn reindex_bookmark(&self, resource_id: &str) -> Result<()> {
@@ -472,11 +529,19 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Some(Self::bookmark_input_from_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(conn);
+
+        let Some(input) = input else {
             return self.delete_resource("bookmark", resource_id).await;
         };
 
-        self.index_bookmark_row(row).await
+        self.upsert_document(input).await
     }
 
     async fn reindex_bookmarks(&self) -> Result<()> {
@@ -491,14 +556,21 @@ impl SearchDocumentRepository {
             .await
             .map_err(AppError::LibSQL)?;
 
+        let mut inputs = Vec::new();
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            self.index_bookmark_row(row).await?;
+            inputs.push(Self::bookmark_input_from_row(row)?);
+        }
+        drop(rows);
+        drop(conn);
+
+        for input in inputs {
+            self.upsert_document(input).await?;
         }
 
         Ok(())
     }
 
-    async fn index_bookmark_row(&self, row: libsql::Row) -> Result<()> {
+    fn bookmark_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let url: String = row.get(1).map_err(AppError::LibSQL)?;
         let title: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
@@ -516,7 +588,7 @@ impl SearchDocumentRepository {
         ]
         .join(" ");
 
-        self.upsert_document(SearchDocumentInput {
+        Ok(SearchDocumentInput {
             resource_type: "bookmark".to_string(),
             resource_id: id,
             chunk_index: 0,
@@ -524,7 +596,6 @@ impl SearchDocumentRepository {
             text,
             source_updated_at: updated_at,
         })
-        .await
     }
 
     async fn count_for_type(&self, resource_type: Option<&str>) -> Result<i64> {
@@ -579,4 +650,216 @@ fn matches_date_range(value: &str, date_from: Option<&str>, date_to: Option<&str
     }
 
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+    use libsql::Builder;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static DB_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    async fn test_repo() -> (Arc<Database>, SearchDocumentRepository, PathBuf) {
+        let id = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let db_path = std::env::temp_dir().join(format!(
+            "aether-search-test-{}-{}.db",
+            std::process::id(),
+            id
+        ));
+        let database = Builder::new_local(&db_path)
+            .build()
+            .await
+            .expect("create test database");
+        migrations::run_migrations(&database)
+            .await
+            .expect("run migrations");
+        let database = Arc::new(database);
+        let repo = SearchDocumentRepository::new(database.clone());
+        (database, repo, db_path)
+    }
+
+    async fn seed_search_resources(database: &Database) {
+        let conn = database.connect().expect("connect to test database");
+        let entry_document = r#"{"root":{"children":[{"children":[{"text":"Morning clarity journal entry","type":"text"}],"type":"paragraph"}],"type":"root"}}"#;
+
+        conn.execute(
+            "INSERT INTO entries (id, document, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            libsql::params![
+                "entry-1",
+                entry_document,
+                "2026-05-10T09:00:00Z",
+                "2026-05-11T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed entry");
+
+        conn.execute(
+            "INSERT INTO tasks (id, title, description, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            libsql::params![
+                "task-1",
+                "Plan search testing",
+                "Cover repository indexing",
+                "2026-05-12T09:00:00Z",
+                "2026-05-12T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed task");
+
+        conn.execute(
+            "INSERT INTO goals (id, name, description, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            libsql::params![
+                "goal-1",
+                "Improve recall",
+                "Search across local notes",
+                "2026-05-13T09:00:00Z",
+                "2026-05-13T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed goal");
+
+        conn.execute(
+            "INSERT INTO tags (id, name, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            libsql::params![
+                "tag-1",
+                "reflection",
+                "2026-05-14T09:00:00Z",
+                "2026-05-14T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed tag");
+
+        conn.execute(
+            "INSERT INTO bookmarks (id, url, title, description, site_name, author, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            libsql::params![
+                "bookmark-1",
+                "https://example.com/search",
+                "Search reference",
+                "Useful retrieval notes",
+                "Example",
+                "Aether",
+                "2026-05-15T09:00:00Z",
+                "2026-05-15T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed bookmark");
+    }
+
+    fn cleanup_db(path: PathBuf) {
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    }
+
+    #[tokio::test]
+    async fn reindex_all_indexes_supported_resources() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+
+        let status = repo.reindex_all().await.expect("reindex all resources");
+
+        assert_eq!(status.total_documents, 5);
+        assert_eq!(status.entries, 1);
+        assert_eq!(status.tasks, 1);
+        assert_eq!(status.goals, 1);
+        assert_eq!(status.tags, 1);
+        assert_eq!(status.bookmarks, 1);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn reindex_resource_removes_deleted_source_rows() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let conn = database.connect().expect("connect to test database");
+        conn.execute(
+            "UPDATE tasks SET deleted_at = ?1 WHERE id = ?2",
+            libsql::params!["2026-05-16T09:00:00Z", "task-1"],
+        )
+        .await
+        .expect("soft delete task");
+
+        repo.reindex_resource("task", "task-1")
+            .await
+            .expect("reindex deleted task");
+        let status = repo.status().await.expect("read status");
+
+        assert_eq!(status.total_documents, 4);
+        assert_eq!(status.tasks, 0);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn search_keyword_returns_normalized_filtered_results() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let results = repo
+            .search_keyword(
+                "search",
+                SearchDocumentQuery {
+                    resource_types: Some(vec!["task".to_string(), "bookmark".to_string()]),
+                    date_from: Some("2026-05-12T00:00:00Z".to_string()),
+                    date_to: Some("2026-05-15T23:59:59Z".to_string()),
+                    limit: Some(1),
+                    offset: Some(0),
+                },
+            )
+            .await
+            .expect("search keyword");
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(
+            results[0].resource_type.as_str(),
+            "task" | "bookmark"
+        ));
+        assert_eq!(results[0].match_kind, "keyword");
+        assert!(!results[0].resource_id.is_empty());
+        assert!(!results[0].title.is_empty());
+        assert!(!results[0].preview.is_empty());
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn invalid_lexical_json_does_not_break_reindex_all() {
+        let (database, repo, db_path) = test_repo().await;
+        let conn = database.connect().expect("connect to test database");
+        conn.execute(
+            "INSERT INTO entries (id, document, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            libsql::params![
+                "entry-invalid",
+                "not valid lexical json",
+                "2026-05-10T09:00:00Z",
+                "2026-05-10T09:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed invalid entry");
+
+        let status = repo.reindex_all().await.expect("reindex invalid entry");
+
+        assert_eq!(status.total_documents, 1);
+        assert_eq!(status.entries, 1);
+
+        cleanup_db(db_path);
+    }
 }
