@@ -3,7 +3,7 @@ use crate::utils::models::{
     ensure_models_dir, get_category_dir, ModelCategory, ModelInfo as SharedModelInfo,
 };
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Model information (re-exported for backward compatibility)
 pub type ModelInfo = SharedModelInfo;
@@ -38,13 +38,7 @@ pub fn is_model_downloaded(model_name: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    Ok(model_path
-        .read_dir()
-        .map_err(AppError::Io)?
-        .next()
-        .transpose()
-        .map_err(AppError::Io)?
-        .is_some())
+    has_fastembed_model_files(&model_path)
 }
 
 /// Ensure models directory exists
@@ -66,6 +60,14 @@ pub async fn download_model(
         .iter()
         .find(|m| m.name == model_name)
         .ok_or_else(|| AppError::BadRequest(format!("Unknown model: {}", model_name)))?;
+
+    if model_path.is_file() {
+        tracing::warn!(
+            "Removing legacy embedding model file before creating model directory: {:?}",
+            model_path
+        );
+        std::fs::remove_file(&model_path).map_err(AppError::Io)?;
+    }
 
     std::fs::create_dir_all(&model_path).map_err(AppError::Io)?;
 
@@ -105,9 +107,52 @@ pub fn delete_model(model_name: &str) -> Result<()> {
     let model_path = get_model_path(model_name)?;
 
     if model_path.exists() {
-        std::fs::remove_dir_all(&model_path).map_err(AppError::Io)?;
+        if model_path.is_dir() {
+            std::fs::remove_dir_all(&model_path).map_err(AppError::Io)?;
+        } else {
+            std::fs::remove_file(&model_path).map_err(AppError::Io)?;
+        }
         tracing::info!("Deleted embedding model: {}", model_name);
     }
 
     Ok(())
+}
+
+fn has_fastembed_model_files(path: &Path) -> Result<bool> {
+    let mut stack = vec![path.to_path_buf()];
+    let mut has_onnx = false;
+    let mut has_tokenizer = false;
+
+    while let Some(current_path) = stack.pop() {
+        for entry in std::fs::read_dir(&current_path).map_err(AppError::Io)? {
+            let entry = entry.map_err(AppError::Io)?;
+            let entry_path = entry.path();
+
+            if entry_path.is_dir() {
+                stack.push(entry_path);
+                continue;
+            }
+
+            let file_name = entry_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
+            if entry_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                == Some("onnx")
+            {
+                has_onnx = true;
+            }
+            if file_name == "tokenizer.json" {
+                has_tokenizer = true;
+            }
+
+            if has_onnx && has_tokenizer {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
 }
