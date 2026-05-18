@@ -27,8 +27,8 @@ This document tracks how agents should verify the Search And RAG Foundation work
 - [x] Verify search index counts match seeded entries, tasks, goals, tags, and bookmarks.
 - [x] Add Phase 3 keyword-search tests for normalized results from `search_documents`.
 - [x] Add tests for supported Phase 3 filters: `types`, `date_from`, `date_to`, `limit`, and `offset`.
-- [ ] Extend deleted-resource tests to entries, goals, and bookmarks.
-- [ ] Add coverage for `SearchDocumentRepository::delete_resource`.
+- [x] Extend deleted-resource tests to entries, goals, and bookmarks.
+- [x] Add coverage for `SearchDocumentRepository::delete_resource`.
 - [ ] Add search command tests for `semantic` and `hybrid` unavailable-mode errors.
 - [ ] Add tag-filter tests once tag filtering is implemented.
 - [ ] Add a runtime/in-app API verification path for Tauri commands before UI work.

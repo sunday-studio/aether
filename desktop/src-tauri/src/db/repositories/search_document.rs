@@ -788,6 +788,21 @@ mod tests {
 
         let conn = database.connect().expect("connect to test database");
         conn.execute(
+            "UPDATE entries SET is_deleted = 1, deleted_at = ?1 WHERE id = ?2",
+            libsql::params!["2026-05-16T09:00:00Z", "entry-1"],
+        )
+        .await
+        .expect("soft delete entry");
+
+        repo.reindex_resource("entry", "entry-1")
+            .await
+            .expect("reindex deleted entry");
+        let status = repo.status().await.expect("read entry status");
+
+        assert_eq!(status.total_documents, 4);
+        assert_eq!(status.entries, 0);
+
+        conn.execute(
             "UPDATE tasks SET deleted_at = ?1 WHERE id = ?2",
             libsql::params!["2026-05-16T09:00:00Z", "task-1"],
         )
@@ -797,10 +812,64 @@ mod tests {
         repo.reindex_resource("task", "task-1")
             .await
             .expect("reindex deleted task");
+        let status = repo.status().await.expect("read task status");
+
+        assert_eq!(status.total_documents, 3);
+        assert_eq!(status.tasks, 0);
+
+        conn.execute(
+            "UPDATE goals SET deleted_at = ?1 WHERE id = ?2",
+            libsql::params!["2026-05-16T09:00:00Z", "goal-1"],
+        )
+        .await
+        .expect("soft delete goal");
+
+        repo.reindex_resource("goal", "goal-1")
+            .await
+            .expect("reindex deleted goal");
+        let status = repo.status().await.expect("read goal status");
+
+        assert_eq!(status.total_documents, 2);
+        assert_eq!(status.goals, 0);
+
+        conn.execute(
+            "UPDATE bookmarks SET is_deleted = 1, deleted_at = ?1 WHERE id = ?2",
+            libsql::params!["2026-05-16T09:00:00Z", "bookmark-1"],
+        )
+        .await
+        .expect("soft delete bookmark");
+
+        repo.reindex_resource("bookmark", "bookmark-1")
+            .await
+            .expect("reindex deleted bookmark");
+        let status = repo.status().await.expect("read bookmark status");
+
+        assert_eq!(status.total_documents, 1);
+        assert_eq!(status.bookmarks, 0);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn delete_resource_removes_indexed_documents() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        repo.delete_resource("bookmark", "bookmark-1")
+            .await
+            .expect("delete bookmark search document");
         let status = repo.status().await.expect("read status");
+        let results = repo
+            .search_keyword("reference", SearchDocumentQuery::default())
+            .await
+            .expect("search after delete");
 
         assert_eq!(status.total_documents, 4);
-        assert_eq!(status.tasks, 0);
+        assert_eq!(status.bookmarks, 0);
+        assert!(results
+            .iter()
+            .all(|result| result.resource_id != "bookmark-1"));
 
         cleanup_db(db_path);
     }
