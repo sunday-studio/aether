@@ -27,9 +27,9 @@ const NavigationControlItem = ({
 					to={route.route}
 					className={({ isActive }) =>
 						cn(
-							'flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full text-sm text-(--color-navigation-control-foreground) transition-all duration-300 hover:bg-(--color-navigation-control-hover) hover:text-(--color-navigation-control-active-foreground)',
+							'flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full text-sm text-(--color-navigation-control-foreground) transition-all duration-300 hover:text-(--color-navigation-control-active-foreground)',
 							{
-								'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:bg-(--color-navigation-control-hover)':
+								'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground)':
 									isActive && !isSettings,
 								'hover:bg-transparent': isSettings,
 							},
@@ -59,7 +59,7 @@ const routes = [
 		label: 'Settings',
 		route: '/settings',
 		shortcut: ['⌘', 'S'],
-		icon: <RadialAvatar size='sm' seed={Math.random().toString()} />,
+		icon: <RadialAvatar size={28} seed={Math.random().toString()} />,
 	},
 ];
 

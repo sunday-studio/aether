@@ -1,6 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { useState } from "react";
+import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { useState } from 'react';
 import {
 	getGetSyncStatusQueryKey,
 	useConfigureSync,
@@ -10,10 +10,10 @@ import {
 	useReconnectSync,
 	useSetSetting,
 	useSyncNow,
-} from "~/aether-sdk";
-import type { SyncStatus } from "~/aether-sdk/models";
-import { Button } from "~/components/shared/button";
-import { TextField } from "~/components/shared/text-field";
+} from '~/aether-sdk';
+import type { SyncStatus } from '~/aether-sdk/models';
+import { Button } from '~/components/shared/button';
+import { TextField } from '~/components/shared/text-field';
 
 export const SyncSection = () => {
 	const queryClient = useQueryClient();
@@ -28,16 +28,15 @@ export const SyncSection = () => {
 	const status = statusResponse?.data as SyncStatus | undefined;
 
 	const { data: mediaPolicyResponse } = useGetSetting(
-		{ key: "sync.media_sync_policy" },
+		{ key: 'sync.media_sync_policy' },
 		{
 			query: {
-				queryKey: ["sync", "media_policy"],
+				queryKey: ['sync', 'media_policy'],
 			},
 		},
 	);
 
-	const mediaSyncPolicy =
-		(mediaPolicyResponse?.data?.value as "auto" | "on_demand") ?? "on_demand";
+	const mediaSyncPolicy = (mediaPolicyResponse?.data?.value as 'auto' | 'on_demand') ?? 'on_demand';
 
 	// useEffect(() => {
 	// 	const unlisten = listen<SyncStatus>("sync-status", () => {
@@ -76,7 +75,7 @@ export const SyncSection = () => {
 		mutation: {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-				queryClient.invalidateQueries({ queryKey: ["sync", "media_policy"] });
+				queryClient.invalidateQueries({ queryKey: ['sync', 'media_policy'] });
 			},
 		},
 	});
@@ -96,26 +95,25 @@ export const SyncSection = () => {
 	const syncError = syncNowMutation.error;
 	const reconnectError = reconnectMutation.error;
 
-	const [serverUrl, setServerUrl] = useState("");
-	const [serverSeedPhrase, setServerSeedPhrase] = useState("");
-	const [syncPassphrase, setSyncPassphrase] = useState("");
-	const [reconnectPassphrase, setReconnectPassphrase] = useState("");
+	const [serverUrl, setServerUrl] = useState('');
+	const [serverSeedPhrase, setServerSeedPhrase] = useState('');
+	const [syncPassphrase, setSyncPassphrase] = useState('');
+	const [reconnectPassphrase, setReconnectPassphrase] = useState('');
 
 	const err = configureError || syncError || reconnectError;
 	const errMessage = err ? String(err) : null;
 
 	return (
-		<div className="space-y-10 max-w-xl">
+		<div className='w-full space-y-10'>
 			<div>
-				<h3 className="text-lg font-medium">Sync</h3>
-				<p className="text-sm text-(--color-secondary-text)">
-					End-to-end encrypted sync with your own server. Deploy the sync server
-					(Docker) and enter its URL, the server seed phrase, and your sync
-					passphrase.{" "}
+				<h3 className='text-lg font-medium'>Sync</h3>
+				<p className='text-sm text-(--color-secondary-text)'>
+					End-to-end encrypted sync with your own server. Deploy the sync server (Docker) and enter
+					its URL, the server seed phrase, and your sync passphrase.{' '}
 					<a
-						href="https://github.com/sunday-studio/aether/blob/main/sync-server/README.md"
-						target="_blank"
-						rel="noopener noreferrer"
+						href='https://github.com/sunday-studio/aether/blob/main/docs/reference/sync-server-readme.md'
+						target='_blank'
+						rel='noopener noreferrer'
 					>
 						Setup guide
 					</a>
@@ -123,31 +121,29 @@ export const SyncSection = () => {
 			</div>
 
 			{status && (
-				<div className="rounded-lg border border-(--color-border) bg-(--color-panel) p-4 text-sm">
-					<div className="flex items-center justify-between gap-4">
+				<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4 text-sm'>
+					<div className='flex items-center justify-between gap-4'>
 						<div>
 							<span
 								className={
-									status.connected
-										? "text-(--color-success)"
-										: "text-(--color-secondary-text)"
+									status.connected ? 'text-(--color-success)' : 'text-(--color-secondary-text)'
 								}
 							>
 								{status.connected
 									? status.needs_passphrase
-										? "Reconnect required"
-										: "Connected"
-									: "Not configured"}
+										? 'Reconnect required'
+										: 'Connected'
+									: 'Not configured'}
 							</span>
 							{status.pending_changes > 0 && (
-								<span className="ml-2 text-(--color-secondary-text)">
+								<span className='ml-2 text-(--color-secondary-text)'>
 									{status.pending_changes} pending
 								</span>
 							)}
 						</div>
 						{status.last_sync != null && (
-							<span className="text-(--color-secondary-text)">
-								Last sync: {format(new Date(status.last_sync), "PPp")}
+							<span className='text-(--color-secondary-text)'>
+								Last sync: {format(new Date(status.last_sync), 'PPp')}
 							</span>
 						)}
 					</div>
@@ -155,22 +151,22 @@ export const SyncSection = () => {
 			)}
 
 			{errMessage && (
-				<div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
+				<div className='rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400'>
 					{errMessage}
 				</div>
 			)}
 
 			{status?.needs_passphrase && (
-				<div className="rounded-lg border border-(--color-border) bg-(--color-panel) p-4 space-y-3">
-					<p className="text-sm text-(--color-secondary-text)">
+				<div className='space-y-3 rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
+					<p className='text-sm text-(--color-secondary-text)'>
 						Re-enter your sync passphrase to sync.
 					</p>
-					<div className="flex gap-2">
+					<div className='flex gap-2'>
 						<TextField
-							placeholder="Passphrase"
-							type="password"
+							placeholder='Passphrase'
+							type='password'
 							value={reconnectPassphrase}
-							onChange={(v) => setReconnectPassphrase(v)}
+							onChange={v => setReconnectPassphrase(v)}
 						/>
 						<Button
 							onClick={() =>
@@ -178,8 +174,8 @@ export const SyncSection = () => {
 									data: { sync_passphrase: reconnectPassphrase },
 								})
 							}
-							label={isReconnecting ? "Reconnecting…" : "Reconnect"}
-							tooltipContent="Reconnect with passphrase"
+							label={isReconnecting ? 'Reconnecting…' : 'Reconnect'}
+							tooltipContent='Reconnect with passphrase'
 							isDisabled={reconnectPassphrase.length < 12 || isReconnecting}
 						/>
 					</div>
@@ -187,75 +183,73 @@ export const SyncSection = () => {
 			)}
 
 			{status?.connected && !status?.needs_passphrase && (
-				<div className="flex items-center gap-4">
-					<span className="text-sm">Media:</span>
-					<label className="flex items-center gap-2 cursor-pointer">
+				<div className='flex items-center gap-4'>
+					<span className='text-sm'>Media:</span>
+					<label className='flex cursor-pointer items-center gap-2'>
 						<input
-							type="radio"
-							name="media_policy"
-							checked={mediaSyncPolicy === "auto"}
+							type='radio'
+							name='media_policy'
+							checked={mediaSyncPolicy === 'auto'}
 							onChange={() =>
 								setMediaSyncPolicyMutation.mutate({
-									data: { key: "sync.media_sync_policy", value: "auto" },
+									data: { key: 'sync.media_sync_policy', value: 'auto' },
 								})
 							}
 						/>
-						<span className="text-sm">Auto sync media</span>
+						<span className='text-sm'>Auto sync media</span>
 					</label>
-					<label className="flex items-center gap-2 cursor-pointer">
+					<label className='flex cursor-pointer items-center gap-2'>
 						<input
-							type="radio"
-							name="media_policy"
-							checked={mediaSyncPolicy === "on_demand"}
+							type='radio'
+							name='media_policy'
+							checked={mediaSyncPolicy === 'on_demand'}
 							onChange={() =>
 								setMediaSyncPolicyMutation.mutate({
-									data: { key: "sync.media_sync_policy", value: "on_demand" },
+									data: { key: 'sync.media_sync_policy', value: 'on_demand' },
 								})
 							}
 						/>
-						<span className="text-sm">Download as needed</span>
+						<span className='text-sm'>Download as needed</span>
 					</label>
 				</div>
 			)}
 
-			<div className="flex flex-col gap-4">
+			<div className='flex flex-col gap-4'>
 				<TextField
-					label="Server URL"
-					placeholder="https://your-sync-server:8080"
+					label='Server URL'
+					placeholder='https://your-sync-server:8080'
 					value={serverUrl}
-					onChange={(v) => setServerUrl(v)}
+					onChange={v => setServerUrl(v)}
 				/>
 				<TextField
-					label="Server Seed Phrase"
-					placeholder="min 12 characters"
-					type="password"
+					label='Server Seed Phrase'
+					placeholder='min 12 characters'
+					type='password'
 					value={serverSeedPhrase}
-					onChange={(v) => setServerSeedPhrase(v)}
+					onChange={v => setServerSeedPhrase(v)}
 				/>
 				<TextField
-					label="Sync Passphrase"
-					placeholder="min 12 characters"
-					type="password"
+					label='Sync Passphrase'
+					placeholder='min 12 characters'
+					type='password'
 					value={syncPassphrase}
-					onChange={(v) => setSyncPassphrase(v)}
+					onChange={v => setSyncPassphrase(v)}
 				/>
 
-				<div className="flex items-center justify-end gap-4 mt-4">
+				<div className='mt-4 flex items-center justify-end gap-4'>
 					{status?.connected && !status?.needs_passphrase && (
 						<Button
 							onClick={() => disconnectMutation.mutate(undefined)}
-							label="Disconnect"
-							variant="destructive"
-							tooltipContent="Clear sync configuration"
+							label='Disconnect'
+							variant='destructive'
+							tooltipContent='Clear sync configuration'
 						/>
 					)}
 					<Button
 						onClick={() => syncNowMutation.mutate(undefined)}
-						label={isSyncing ? "Syncing…" : "Sync now"}
-						tooltipContent="Run sync now"
-						isDisabled={
-							!status?.connected || status.needs_passphrase || isSyncing
-						}
+						label={isSyncing ? 'Syncing…' : 'Sync now'}
+						tooltipContent='Run sync now'
+						isDisabled={!status?.connected || status.needs_passphrase || isSyncing}
 					/>
 					<Button
 						onClick={() =>
@@ -267,8 +261,8 @@ export const SyncSection = () => {
 								},
 							})
 						}
-						label={isConfiguring ? "Saving…" : "Save"}
-						tooltipContent="Save server URL and sync credentials"
+						label={isConfiguring ? 'Saving…' : 'Save'}
+						tooltipContent='Save server URL and sync credentials'
 						// isDisabled={!serverUrl.trim() || passphrase.length < 12 || isConfiguring}
 					/>
 				</div>

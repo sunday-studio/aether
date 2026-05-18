@@ -1,72 +1,73 @@
-import { CloudIcon, Palette, SparklesIcon } from "lucide-react";
-import { useState } from "react";
-// import { cn } from "~/utils/cn";
-// import { ModelsSection } from "./components/models.section";
-import { PreferencesSection } from "./components/preferences.section";
-import { SyncSection } from "./components/sync.section";
-import { WhatsNewSection } from "./components/whats-new.section";
-import { cn } from "~/utils/cn";
+import { CloudIcon, Palette, SparklesIcon, WandSparkles } from 'lucide-react';
+import { useState } from 'react';
+import { AiSection } from './components/ai.section';
+import { PreferencesSection } from './components/preferences.section';
+import { SyncSection } from './components/sync.section';
+import { WhatsNewSection } from './components/whats-new.section';
+import { cn } from '~/utils/cn';
+import { RadialAvatar } from '~/components/shared/radiant-avatar';
 
-type AvailableSections = "preferences" | "whats-new" | "sync";
+type AvailableSections = 'preferences' | 'ai' | 'whats-new' | 'sync';
 
 export const SettingsView = () => {
-	const [selectedSection, setSelectedSection] =
-		useState<AvailableSections>("preferences");
+	const [selectedSection, setSelectedSection] = useState<AvailableSections>('preferences');
 
 	const sections: Record<
 		AvailableSections,
 		{ label: string; icon: React.ReactNode; component: React.ReactNode }
 	> = {
 		preferences: {
-			label: "Preferences",
-			icon: <Palette className="size-4" strokeWidth={2.5} />,
+			label: 'Preferences',
+			icon: <Palette className='size-4' strokeWidth={2.5} />,
 			component: <PreferencesSection />,
 		},
 		sync: {
-			label: "Sync",
-			icon: <CloudIcon className="size-4" strokeWidth={2.5} />,
+			label: 'Sync',
+			icon: <CloudIcon className='size-4' strokeWidth={2.5} />,
 			component: <SyncSection />,
 		},
-		// models: {
-		// 	label: "Models",
-		// 	icon: <BrainIcon className="size-4" strokeWidth={2.5} />,
-		// 	component: <ModelsSection />,
-		// },
-		"whats-new": {
+		ai: {
+			label: 'AI',
+			icon: <WandSparkles className='size-4' strokeWidth={2.5} />,
+			component: <AiSection />,
+		},
+		'whats-new': {
 			label: "What's new",
-			icon: <SparklesIcon className="size-4" strokeWidth={2.5} />,
+			icon: <SparklesIcon className='size-4' strokeWidth={2.5} />,
 			component: <WhatsNewSection />,
 		},
 	};
 
 	return (
-		<div className="w-full h-full mx-auto grid grid-cols-24">
-			<div className="col-span-8 py-10 sticky top-0 h-screen flex justify-end pr-15 bg-(--color-background-secondary)">
-				<div className="flex flex-col gap-1 items-start">
-					{Object.entries(sections).map(([section, { label, icon }]) => {
-						const isSelected = selectedSection === section;
-						return (
-							<button
-								key={section}
-								onClick={() => setSelectedSection(section as AvailableSections)}
-								type="button"
-								className={cn(
-									"flex items-center gap-2 cursor-pointer text-sm text-(--color-secondary-text) hover:text-(--color-secondary-text-hover) py-1.5 px-2.5",
-									{
-										"text-(--color-active-text) hover:text-(--color-active-text-hover)":
-											isSelected,
-										"hover:text-(--color-secondary-text-hover)": !isSelected,
-									},
-								)}
-							>
-								{icon}
-								<p className="text-xs">{label}</p>
-							</button>
-						);
-					})}
-				</div>
+		<div className='mx-auto flex h-full w-full flex-col items-center justify-start gap-5 pt-2'>
+			<div className='flex flex-col items-center justify-center gap-1'>
+				<RadialAvatar size={40} seed={Math.random().toString()} />
+				<p className='text-sm text-(--color-secondary-text)'>John Doe</p>
 			</div>
-			<div className="col-span-16 bg-transparent py-10 px-15">
+			<div className='mx-auto flex w-full items-center justify-center gap-1'>
+				{Object.entries(sections).map(([section, { label, icon }]) => {
+					const isSelected = selectedSection === section;
+					return (
+						<button
+							key={section}
+							onClick={() => setSelectedSection(section as AvailableSections)}
+							type='button'
+							className={cn(
+								'flex h-8 cursor-pointer items-center gap-2 rounded-full px-2.5 text-sm text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)',
+								{
+									'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:text-(--color-navigation-control-active-foreground)':
+										isSelected,
+									'bg-neutral-100 hover:text-(--color-navigation-control-foreground)': !isSelected,
+								},
+							)}
+						>
+							{icon}
+							<p className='text-xs'>{label}</p>
+						</button>
+					);
+				})}
+			</div>
+			<div className='mx-auto mt-10 w-full max-w-3xl items-center justify-center bg-transparent'>
 				{sections[selectedSection as AvailableSections].component}
 			</div>
 		</div>

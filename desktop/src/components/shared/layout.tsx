@@ -1,40 +1,27 @@
-import { Outlet, useLocation } from "react-router";
-import { useRegisterShortcuts } from "~/hooks/use-register-shortcuts";
-import { ActivityHeatmap } from "./activity-heatmap";
-import { CommandPalette } from "./command-palette";
-import { NavigationControl } from "./navigation-control";
-import { UpdateNotificationListener } from "./update-notification";
+import { Outlet, useLocation } from 'react-router';
+import { useRegisterShortcuts } from '~/hooks/use-register-shortcuts';
+import { ActivityHeatmap } from './activity-heatmap';
+import { CommandPalette } from './command-palette';
+import { NavigationControl } from './navigation-control';
+import { UpdateNotificationListener } from './update-notification';
 
 export const Layout = () => {
 	const location = useLocation();
 	const isDev = import.meta.env.DEV;
 	const { commandPaletteOpen, setCommandPaletteOpen } = useRegisterShortcuts();
 	return (
-		<div className="w-screen h-screen relative overflow-hidden bg-(--color-background)">
+		<div className='relative h-screen w-screen overflow-hidden bg-(--color-background)'>
 			<div
-				className="h-12 flex bg-transparent items-center justify-center pl-14 pr-3 select-none"
+				className='flex h-12 items-center justify-center bg-transparent pr-3 pl-14 select-none'
 				data-tauri-drag-region
 			>
-				{isDev && <div className="text-sm">{location.pathname}</div>}
+				{isDev && <div className='text-sm'>{location.pathname}</div>}
 			</div>
-			<div
-				className="w-full h-full overflow-y-auto"
-				style={{
-					maskImage: "linear-gradient(to bottom, transparent, black 25px)",
-					WebkitMaskImage:
-						"linear-gradient(to bottom, transparent, black 25px)",
-				}}
-			>
-				<ActivityHeatmap />
-				<NavigationControl />
-				<Outlet />
-			</div>
+			<ActivityHeatmap />
+			<NavigationControl />
+			<Outlet />
 
-			<CommandPalette
-				open={commandPaletteOpen}
-				onOpenChange={setCommandPaletteOpen}
-			/>
-
+			<CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
 			<UpdateNotificationListener />
 		</div>
 	);
