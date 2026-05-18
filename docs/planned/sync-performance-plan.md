@@ -154,13 +154,34 @@ Target behavior:
 - UI queries do not stall while sync waits on remote HTTP or media transfers.
 - Large sync scales predictably with row count and media size.
 
-## Recommended Execution Order
+Latest local server-only benchmark:
 
-1. Add timing logs.
-2. Narrow the local database lock scope.
-3. Reuse one sync HTTP client.
-4. Batch push outbox reads and deletes.
-5. Improve server storage concurrency.
-6. Reduce pull storage round trips.
-7. Add bounded media concurrency.
-8. Run the benchmark and tune from measured results.
+- Date: 2026-05-18.
+- Command: `SERVER_SEED_PHRASE="benchmark seed phrase" CHANGES=500 node sync-server/scripts/benchmark-sync-server.mjs`.
+- Result: register 23.9ms, push 500 changes 7.3ms, pull 500 changes in one page 6.0ms.
+- Interpretation: the plain metadata server path is no longer the likely source of user-visible slowness on a local network; next measurements should focus on desktop apply/build/encrypt/media work and UI database lock wait.
+
+## Completed Work
+
+- Added sync timing logs for desktop and server request phases.
+- Narrowed desktop sync database lock scope around pull, push, and configure network calls.
+- Reused one shared sync HTTP client.
+- Reused local push database connections and wrapped accepted outbox deletion in a transaction.
+- Fetched server pull pages with `limit + 1` rows instead of a separate `has_more` query.
+- Moved sync-server storage work onto blocking tasks and replaced the global storage connection lock with per-operation SQLite connections.
+- Deferred sync-server `last_sync` metadata writes off the push and pull response path.
+- Added bounded concurrent media uploads and skipped uploading media blobs already present on the server.
+- Reused one desktop apply connection per pulled page.
+
+## Remaining Work
+
+- Batch desktop push source-row fetches by entity instead of fetching one source row per outbox item.
+- Measure desktop UI database lock wait while a real sync is running.
+- Add benchmark coverage for media-heavy sync and concurrent frontend queries.
+
+## Next Execution Order
+
+1. Add desktop lock-wait timing around `with_db_access` during sync-triggered UI commands.
+2. Batch push source-row fetches by entity.
+3. Extend the benchmark to exercise desktop push/apply and media sync.
+4. Tune from measured desktop results rather than continuing server hot-path work.
