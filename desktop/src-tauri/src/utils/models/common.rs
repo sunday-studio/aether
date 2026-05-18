@@ -2,6 +2,8 @@ use super::types::ModelCategory;
 use crate::error::{AppError, Result};
 use std::path::PathBuf;
 
+const APP_IDENTIFIER: &str = "com.cas.aether";
+
 /// Get platform-specific base directory for models
 pub fn get_models_base_dir() -> Result<PathBuf> {
     #[cfg(target_os = "macos")]
@@ -11,7 +13,7 @@ pub fn get_models_base_dir() -> Result<PathBuf> {
         Ok(PathBuf::from(home)
             .join("Library")
             .join("Application Support")
-            .join("Aether")
+            .join(APP_IDENTIFIER)
             .join("models"))
     }
 
@@ -22,7 +24,7 @@ pub fn get_models_base_dir() -> Result<PathBuf> {
         Ok(PathBuf::from(home)
             .join(".local")
             .join("share")
-            .join("aether")
+            .join(APP_IDENTIFIER)
             .join("models"))
     }
 
@@ -30,7 +32,7 @@ pub fn get_models_base_dir() -> Result<PathBuf> {
     {
         let appdata = std::env::var("APPDATA")
             .map_err(|_| AppError::Internal("APPDATA environment variable not set".to_string()))?;
-        Ok(PathBuf::from(appdata).join("Aether").join("models"))
+        Ok(PathBuf::from(appdata).join(APP_IDENTIFIER).join("models"))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
