@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Link2, Sparkles, Tag, X } from 'lucide-react';
+import { Check, CheckCircle2, Link2, Sparkles, Tag, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '~/components/shared/button';
 import { TextAreaField } from '~/components/shared/text-field';
@@ -75,6 +75,7 @@ async function updateEntryInsightFields(
 		energy: string;
 		themes: string[];
 		openLoops: string[];
+		state?: string;
 	},
 ) {
 	return invoke<EntryInsightBundle>('update_entry_insight', {
@@ -86,6 +87,7 @@ async function updateEntryInsightFields(
 			energy: fields.energy,
 			themes: fields.themes,
 			openLoops: fields.openLoops,
+			state: fields.state,
 		},
 	});
 }
@@ -168,6 +170,23 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 		onSuccess: bundle => {
 			refreshInsight(bundle);
 			showToast({ title: 'Insight updated' });
+		},
+	});
+
+	const markReviewedMutation = useMutation({
+		mutationFn: () =>
+			updateEntryInsightFields(insightQuery.data?.insight.id ?? '', {
+				summary: summaryDraft,
+				possibleMood: possibleMoodDraft,
+				emotions: textToList(emotionsDraft),
+				energy: energyDraft,
+				themes: textToList(themesDraft),
+				openLoops: textToList(openLoopsDraft),
+				state: 'reviewed',
+			}),
+		onSuccess: bundle => {
+			refreshInsight(bundle);
+			showToast({ title: 'Insight reviewed' });
 		},
 	});
 
@@ -267,14 +286,28 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 								value={openLoopsDraft}
 								onChange={setOpenLoopsDraft}
 							/>
-							<div className='flex justify-end'>
+							<div className='flex justify-end gap-2'>
 								<Button
 									variant='secondary'
 									label='Save'
 									tooltipContent='Save edited AI summary'
 									iconLeft={<Check className='size-3.5' />}
-									isDisabled={saveSummaryMutation.isPending}
+									isDisabled={saveSummaryMutation.isPending || markReviewedMutation.isPending}
 									onClick={() => saveSummaryMutation.mutate()}
+									className='h-8 px-3 py-1.5 text-xs'
+								/>
+								<Button
+									variant='secondary'
+									label={
+										insightQuery.data?.insight.state === 'reviewed' ? 'Reviewed' : 'Mark reviewed'
+									}
+									tooltipContent='Mark insight as reviewed'
+									iconLeft={<CheckCircle2 className='size-3.5' />}
+									isDisabled={
+										markReviewedMutation.isPending ||
+										insightQuery.data?.insight.state === 'reviewed'
+									}
+									onClick={() => markReviewedMutation.mutate()}
 									className='h-8 px-3 py-1.5 text-xs'
 								/>
 							</div>

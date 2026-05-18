@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, CheckCircle2, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '~/components/shared/button';
 import { TextAreaField } from '~/components/shared/text-field';
@@ -42,6 +42,7 @@ async function updateWeeklySummary(
 		completedWork: string[];
 		openLoops: string[];
 		nextFocus: string[];
+		state?: string;
 	},
 ) {
 	return invoke<WeeklyAiSummary>('update_weekly_ai_summary', {
@@ -52,6 +53,7 @@ async function updateWeeklySummary(
 			completedWork: fields.completedWork,
 			openLoops: fields.openLoops,
 			nextFocus: fields.nextFocus,
+			state: fields.state,
 		},
 	});
 }
@@ -126,6 +128,22 @@ export function JournalWeeklyAiSummary() {
 		},
 	});
 
+	const markReviewedMutation = useMutation({
+		mutationFn: () =>
+			updateWeeklySummary(summaryQuery.data?.id ?? '', {
+				summary: summaryDraft,
+				themes: textToList(themesDraft),
+				completedWork: textToList(completedWorkDraft),
+				openLoops: textToList(openLoopsDraft),
+				nextFocus: textToList(nextFocusDraft),
+				state: 'reviewed',
+			}),
+		onSuccess: summary => {
+			refreshSummary(summary);
+			showToast({ title: 'Weekly summary reviewed' });
+		},
+	});
+
 	const hasSummary = Boolean(summaryQuery.data);
 
 	return (
@@ -192,14 +210,25 @@ export function JournalWeeklyAiSummary() {
 									onChange={setNextFocusDraft}
 								/>
 							</div>
-							<div className='flex justify-end'>
+							<div className='flex justify-end gap-2'>
 								<Button
 									variant='secondary'
 									label='Save'
 									tooltipContent='Save edited weekly summary'
 									iconLeft={<Check className='size-3.5' />}
-									isDisabled={saveMutation.isPending}
+									isDisabled={saveMutation.isPending || markReviewedMutation.isPending}
 									onClick={() => saveMutation.mutate()}
+									className='h-8 px-3 py-1.5 text-xs'
+								/>
+								<Button
+									variant='secondary'
+									label={summaryQuery.data?.state === 'reviewed' ? 'Reviewed' : 'Mark reviewed'}
+									tooltipContent='Mark weekly summary as reviewed'
+									iconLeft={<CheckCircle2 className='size-3.5' />}
+									isDisabled={
+										markReviewedMutation.isPending || summaryQuery.data?.state === 'reviewed'
+									}
+									onClick={() => markReviewedMutation.mutate()}
 									className='h-8 px-3 py-1.5 text-xs'
 								/>
 							</div>
