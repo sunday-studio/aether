@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS journal_entry_insights (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     deleted_at TEXT,
+    _sync_id TEXT,
+    _updated_at INTEGER,
+    _deleted INTEGER DEFAULT 0,
+    _extra TEXT DEFAULT '{}',
     UNIQUE(entry_id),
     FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
 );
@@ -34,6 +38,9 @@ CREATE INDEX IF NOT EXISTS idx_journal_entry_insights_state
 
 CREATE INDEX IF NOT EXISTS idx_journal_entry_insights_updated
     ON journal_entry_insights(updated_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entry_insights_sync_id
+    ON journal_entry_insights(_sync_id);
 
 CREATE TABLE IF NOT EXISTS journal_entry_suggestions (
     id TEXT PRIMARY KEY,
@@ -62,6 +69,10 @@ CREATE TABLE IF NOT EXISTS journal_entry_suggestions (
         CHECK(state IN ('pending', 'accepted', 'edited', 'dismissed')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    _sync_id TEXT,
+    _updated_at INTEGER,
+    _deleted INTEGER DEFAULT 0,
+    _extra TEXT DEFAULT '{}',
     FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE,
     FOREIGN KEY(insight_id) REFERENCES journal_entry_insights(id) ON DELETE CASCADE
 );
@@ -80,6 +91,9 @@ CREATE INDEX IF NOT EXISTS idx_journal_entry_suggestions_type
 
 CREATE INDEX IF NOT EXISTS idx_journal_entry_suggestions_target
     ON journal_entry_suggestions(target_resource_type, target_resource_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entry_suggestions_sync_id
+    ON journal_entry_suggestions(_sync_id);
 
 CREATE TABLE IF NOT EXISTS weekly_ai_summaries (
     id TEXT PRIMARY KEY,
@@ -100,6 +114,10 @@ CREATE TABLE IF NOT EXISTS weekly_ai_summaries (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     deleted_at TEXT,
+    _sync_id TEXT,
+    _updated_at INTEGER,
+    _deleted INTEGER DEFAULT 0,
+    _extra TEXT DEFAULT '{}',
     UNIQUE(week_start, week_end)
 );
 
@@ -111,3 +129,75 @@ CREATE INDEX IF NOT EXISTS idx_weekly_ai_summaries_state
 
 CREATE INDEX IF NOT EXISTS idx_weekly_ai_summaries_updated
     ON weekly_ai_summaries(updated_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_ai_summaries_sync_id
+    ON weekly_ai_summaries(_sync_id);
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_insights_sync_insert AFTER INSERT ON journal_entry_insights
+WHEN (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_insights', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_insights_sync_update AFTER UPDATE ON journal_entry_insights
+WHEN NEW._updated_at IS NOT NULL AND (NEW._updated_at != OLD._updated_at OR OLD._updated_at IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_insights', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_insights_sync_delete AFTER UPDATE ON journal_entry_insights
+WHEN NEW._deleted = 1 AND (OLD._deleted = 0 OR OLD._deleted IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_insights', COALESCE(NEW._sync_id, NEW.id), 'delete', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_suggestions_sync_insert AFTER INSERT ON journal_entry_suggestions
+WHEN (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_suggestions', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_suggestions_sync_update AFTER UPDATE ON journal_entry_suggestions
+WHEN NEW._updated_at IS NOT NULL AND (NEW._updated_at != OLD._updated_at OR OLD._updated_at IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_suggestions', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_entry_suggestions_sync_delete AFTER UPDATE ON journal_entry_suggestions
+WHEN NEW._deleted = 1 AND (OLD._deleted = 0 OR OLD._deleted IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('journal_entry_suggestions', COALESCE(NEW._sync_id, NEW.id), 'delete', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS weekly_ai_summaries_sync_insert AFTER INSERT ON weekly_ai_summaries
+WHEN (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('weekly_ai_summaries', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS weekly_ai_summaries_sync_update AFTER UPDATE ON weekly_ai_summaries
+WHEN NEW._updated_at IS NOT NULL AND (NEW._updated_at != OLD._updated_at OR OLD._updated_at IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('weekly_ai_summaries', COALESCE(NEW._sync_id, NEW.id), 'upsert', (strftime('%s','now') * 1000));
+END;
+
+CREATE TRIGGER IF NOT EXISTS weekly_ai_summaries_sync_delete AFTER UPDATE ON weekly_ai_summaries
+WHEN NEW._deleted = 1 AND (OLD._deleted = 0 OR OLD._deleted IS NULL)
+    AND (SELECT COALESCE(value,'0') FROM _sync_meta WHERE key='_suppress_triggers') = '0'
+BEGIN
+    INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at)
+    VALUES ('weekly_ai_summaries', COALESCE(NEW._sync_id, NEW.id), 'delete', (strftime('%s','now') * 1000));
+END;

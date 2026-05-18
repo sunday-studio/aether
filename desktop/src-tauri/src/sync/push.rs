@@ -335,6 +335,9 @@ async fn fetch_row_json(
         "canvases" => fetch_canvases_row(conn, entity_id).await,
         "bookmarks" => fetch_bookmarks_row(conn, entity_id).await,
         "resource_links" => fetch_resource_links_row(conn, entity_id).await,
+        "journal_entry_insights" => fetch_journal_entry_insights_row(conn, entity_id).await,
+        "journal_entry_suggestions" => fetch_journal_entry_suggestions_row(conn, entity_id).await,
+        "weekly_ai_summaries" => fetch_weekly_ai_summaries_row(conn, entity_id).await,
         "media_items" => fetch_media_items_row(conn, entity_id).await,
         "audio_transcriptions" => fetch_audio_transcriptions_row(conn, entity_id).await,
         "entry_tags" => fetch_entry_tags_row(conn, entity_id).await,
@@ -925,6 +928,128 @@ async fn fetch_activities_row(
     Ok(Some((data, ts)))
 }
 
+async fn fetch_journal_entry_insights_row(
+    conn: &Connection,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let mut rows = conn
+        .query(
+            "SELECT id, entry_id, summary, possible_mood, emotions, energy, themes, people, projects, open_loops, provider, model, state, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM journal_entry_insights WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(17).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "entry_id": row.get::<String>(1).ok(),
+        "summary": row.get::<String>(2).ok(),
+        "possible_mood": row.get::<Option<String>>(3).ok().flatten(),
+        "emotions": row.get::<String>(4).ok(),
+        "energy": row.get::<Option<String>>(5).ok().flatten(),
+        "themes": row.get::<String>(6).ok(),
+        "people": row.get::<String>(7).ok(),
+        "projects": row.get::<String>(8).ok(),
+        "open_loops": row.get::<String>(9).ok(),
+        "provider": row.get::<String>(10).ok(),
+        "model": row.get::<Option<String>>(11).ok().flatten(),
+        "state": row.get::<String>(12).ok(),
+        "created_at": row.get::<String>(13).ok(),
+        "updated_at": row.get::<String>(14).ok(),
+        "deleted_at": row.get::<Option<String>>(15).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(16).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(17).ok().flatten(),
+        "_deleted": row.get::<i64>(18).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(19).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_journal_entry_suggestions_row(
+    conn: &Connection,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let mut rows = conn
+        .query(
+            "SELECT id, entry_id, insight_id, suggestion_type, value, edited_value, target_resource_type, target_resource_id, confidence, provider, model, state, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra FROM journal_entry_suggestions WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(15).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "entry_id": row.get::<String>(1).ok(),
+        "insight_id": row.get::<Option<String>>(2).ok().flatten(),
+        "suggestion_type": row.get::<String>(3).ok(),
+        "value": row.get::<String>(4).ok(),
+        "edited_value": row.get::<Option<String>>(5).ok().flatten(),
+        "target_resource_type": row.get::<Option<String>>(6).ok().flatten(),
+        "target_resource_id": row.get::<Option<String>>(7).ok().flatten(),
+        "confidence": row.get::<Option<f64>>(8).ok().flatten(),
+        "provider": row.get::<String>(9).ok(),
+        "model": row.get::<Option<String>>(10).ok().flatten(),
+        "state": row.get::<String>(11).ok(),
+        "created_at": row.get::<String>(12).ok(),
+        "updated_at": row.get::<String>(13).ok(),
+        "_sync_id": row.get::<Option<String>>(14).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(15).ok().flatten(),
+        "_deleted": row.get::<i64>(16).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(17).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
+async fn fetch_weekly_ai_summaries_row(
+    conn: &Connection,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let mut rows = conn
+        .query(
+            "SELECT id, week_start, week_end, summary, themes, completed_work, open_loops, next_focus, source_entry_ids, source_task_ids, source_goal_ids, provider, model, state, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM weekly_ai_summaries WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(18).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "week_start": row.get::<String>(1).ok(),
+        "week_end": row.get::<String>(2).ok(),
+        "summary": row.get::<String>(3).ok(),
+        "themes": row.get::<String>(4).ok(),
+        "completed_work": row.get::<String>(5).ok(),
+        "open_loops": row.get::<String>(6).ok(),
+        "next_focus": row.get::<String>(7).ok(),
+        "source_entry_ids": row.get::<String>(8).ok(),
+        "source_task_ids": row.get::<String>(9).ok(),
+        "source_goal_ids": row.get::<String>(10).ok(),
+        "provider": row.get::<String>(11).ok(),
+        "model": row.get::<Option<String>>(12).ok().flatten(),
+        "state": row.get::<String>(13).ok(),
+        "created_at": row.get::<String>(14).ok(),
+        "updated_at": row.get::<String>(15).ok(),
+        "deleted_at": row.get::<Option<String>>(16).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(17).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(18).ok().flatten(),
+        "_deleted": row.get::<i64>(19).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(20).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
 async fn fetch_updated_at(conn: &Connection, entity: &str, entity_id: &str) -> Result<Option<i64>> {
     let table = match entity {
         "entries" => "entries",
@@ -944,6 +1069,9 @@ async fn fetch_updated_at(conn: &Connection, entity: &str, entity_id: &str) -> R
         "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
         "activities" => "activities",
+        "journal_entry_insights" => "journal_entry_insights",
+        "journal_entry_suggestions" => "journal_entry_suggestions",
+        "weekly_ai_summaries" => "weekly_ai_summaries",
         _ => return Ok(None),
     };
     let sql = format!("SELECT _updated_at FROM {} WHERE _sync_id = ?1", table);
@@ -1032,6 +1160,64 @@ mod tests {
         assert_eq!(data["source_type"], "entry");
         assert_eq!(data["target_type"], "task");
         assert_eq!(data["_sync_id"], "link-1");
+    }
+
+    #[tokio::test]
+    async fn fetches_journal_entry_insight_rows_for_push() {
+        let db = test_db().await;
+        let conn = db.connect().unwrap();
+
+        conn.execute(
+            "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra)
+             VALUES (?1, ?2, ?3, 0, 0, 0, ?4, NULL, ?1, ?5, 0, '{}')",
+            libsql::params![
+                "entry-1",
+                "{}",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+                250_i64,
+            ],
+        )
+        .await
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO journal_entry_insights (id, entry_id, summary, possible_mood, emotions, energy, themes, people, projects, open_loops, provider, model, state, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL, ?16, ?17, 0, ?18)",
+            libsql::params![
+                "insight-1",
+                "entry-1",
+                "Possible weekly pattern",
+                "possibly focused",
+                "[\"focused\"]",
+                "possibly high",
+                "[\"work\"]",
+                "[]",
+                "[]",
+                "[\"follow up\"]",
+                "rules",
+                Option::<String>::None,
+                "reviewed",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+                "insight-1",
+                300_i64,
+                "{}",
+            ],
+        )
+        .await
+        .unwrap();
+
+        let (data, updated_at) = fetch_row_json(&conn, "journal_entry_insights", "insight-1")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated_at, 300);
+        assert_eq!(data["summary"], "Possible weekly pattern");
+        assert_eq!(data["emotions"], "[\"focused\"]");
+        assert_eq!(data["state"], "reviewed");
+        assert_eq!(data["_sync_id"], "insight-1");
     }
 
     #[tokio::test]

@@ -157,6 +157,7 @@ impl AiJournalEnrichmentRepository {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let now = Utc::now();
         let now_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
         let insight_id = match self.get_entry_insight(&input.entry_id).await? {
             Some(existing) => existing.insight.id,
             None => generate_id("aiins"),
@@ -165,9 +166,10 @@ impl AiJournalEnrichmentRepository {
         conn.execute(
             "INSERT INTO journal_entry_insights (
                 id, entry_id, summary, possible_mood, emotions, energy, themes, people,
-                projects, open_loops, provider, model, state, created_at, updated_at, deleted_at
+                projects, open_loops, provider, model, state, created_at, updated_at, deleted_at,
+                _sync_id, _updated_at, _deleted, _extra
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'draft', ?13, ?14, NULL)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'draft', ?13, ?14, NULL, ?1, ?15, 0, '{}')
             ON CONFLICT(entry_id) DO UPDATE SET
                 summary = excluded.summary,
                 possible_mood = excluded.possible_mood,
@@ -181,7 +183,11 @@ impl AiJournalEnrichmentRepository {
                 model = excluded.model,
                 state = 'draft',
                 updated_at = excluded.updated_at,
-                deleted_at = NULL",
+                deleted_at = NULL,
+                _sync_id = COALESCE(journal_entry_insights._sync_id, journal_entry_insights.id),
+                _updated_at = excluded._updated_at,
+                _deleted = 0,
+                _extra = COALESCE(journal_entry_insights._extra, '{}')",
             libsql::params![
                 insight_id.clone(),
                 input.entry_id.clone(),
@@ -197,30 +203,38 @@ impl AiJournalEnrichmentRepository {
                 input.model,
                 now_str,
                 now.to_rfc3339(),
+                now_ms,
             ],
         )
         .await
         .map_err(AppError::LibSQL)?;
 
         conn.execute(
-            "DELETE FROM journal_entry_suggestions WHERE insight_id = ?1 AND state = 'pending'",
-            libsql::params![insight_id.clone()],
+            "UPDATE journal_entry_suggestions
+             SET _deleted = 1, _updated_at = ?2, updated_at = ?3
+             WHERE insight_id = ?1 AND state = 'pending' AND COALESCE(_deleted, 0) = 0",
+            libsql::params![
+                insight_id.clone(),
+                Utc::now().timestamp_millis(),
+                Utc::now().to_rfc3339()
+            ],
         )
         .await
         .map_err(AppError::LibSQL)?;
 
         for suggestion in suggestions {
             let id = generate_id("aisug");
-            let created_at = Utc::now().to_rfc3339();
+            let suggestion_now = Utc::now();
+            let created_at = suggestion_now.to_rfc3339();
             conn.execute(
                 "INSERT INTO journal_entry_suggestions (
                     id, entry_id, insight_id, suggestion_type, value, edited_value,
                     target_resource_type, target_resource_id, confidence, provider, model,
-                    state, created_at, updated_at
+                    state, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra
                 )
-                VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12)",
+                VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12, ?1, ?13, 0, '{}')",
                 libsql::params![
-                    id,
+                    id.clone(),
                     input.entry_id.clone(),
                     insight_id.clone(),
                     suggestion.suggestion_type,
@@ -231,7 +245,8 @@ impl AiJournalEnrichmentRepository {
                     suggestion.provider,
                     suggestion.model,
                     created_at,
-                    Utc::now().to_rfc3339(),
+                    suggestion_now.to_rfc3339(),
+                    suggestion_now.timestamp_millis(),
                 ],
             )
             .await
@@ -250,7 +265,7 @@ impl AiJournalEnrichmentRepository {
                 "SELECT id, entry_id, summary, possible_mood, emotions, energy, themes, people,
                     projects, open_loops, provider, model, state, created_at, updated_at, deleted_at
                  FROM journal_entry_insights
-                 WHERE entry_id = ?1 AND deleted_at IS NULL",
+                 WHERE entry_id = ?1 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
                 libsql::params![entry_id],
             )
             .await
@@ -282,6 +297,7 @@ impl AiJournalEnrichmentRepository {
         }
 
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let now = Utc::now();
         conn.execute(
             "UPDATE journal_entry_insights
              SET summary = COALESCE(?1, summary),
@@ -293,8 +309,10 @@ impl AiJournalEnrichmentRepository {
                  projects = COALESCE(?7, projects),
                  open_loops = COALESCE(?8, open_loops),
                  state = COALESCE(?9, state),
-                 updated_at = ?10
-             WHERE id = ?11 AND deleted_at IS NULL",
+                 updated_at = ?10,
+                 _updated_at = ?11,
+                 _sync_id = COALESCE(_sync_id, id)
+             WHERE id = ?12 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
             libsql::params![
                 patch.summary,
                 patch.possible_mood,
@@ -305,7 +323,8 @@ impl AiJournalEnrichmentRepository {
                 optional_json_array(patch.projects)?,
                 optional_json_array(patch.open_loops)?,
                 patch.state,
-                Utc::now().to_rfc3339(),
+                now.to_rfc3339(),
+                now.timestamp_millis(),
                 insight_id,
             ],
         )
@@ -332,7 +351,7 @@ impl AiJournalEnrichmentRepository {
                     target_resource_type, target_resource_id, confidence, provider, model,
                     state, created_at, updated_at
                  FROM journal_entry_suggestions
-                 WHERE entry_id = ?1
+                 WHERE entry_id = ?1 AND COALESCE(_deleted, 0) = 0
                  ORDER BY created_at ASC, id ASC",
                 libsql::params![entry_id],
             )
@@ -360,11 +379,19 @@ impl AiJournalEnrichmentRepository {
         }
 
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let now = Utc::now();
         conn.execute(
             "UPDATE journal_entry_suggestions
-             SET state = ?1, edited_value = ?2, updated_at = ?3
-             WHERE id = ?4",
-            libsql::params![state, edited_value, Utc::now().to_rfc3339(), suggestion_id],
+             SET state = ?1, edited_value = ?2, updated_at = ?3,
+                 _updated_at = ?4, _sync_id = COALESCE(_sync_id, id)
+             WHERE id = ?5 AND COALESCE(_deleted, 0) = 0",
+            libsql::params![
+                state,
+                edited_value,
+                now.to_rfc3339(),
+                now.timestamp_millis(),
+                suggestion_id
+            ],
         )
         .await
         .map_err(AppError::LibSQL)?;
@@ -385,7 +412,7 @@ impl AiJournalEnrichmentRepository {
                     target_resource_type, target_resource_id, confidence, provider, model,
                     state, created_at, updated_at
                  FROM journal_entry_suggestions
-                 WHERE id = ?1",
+                 WHERE id = ?1 AND COALESCE(_deleted, 0) = 0",
                 libsql::params![suggestion_id],
             )
             .await
@@ -404,6 +431,7 @@ impl AiJournalEnrichmentRepository {
     ) -> Result<WeeklyAiSummary> {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let now = Utc::now();
+        let now_ms = now.timestamp_millis();
         let existing_id = self
             .get_weekly_summary(&input.week_start, &input.week_end)
             .await?
@@ -414,9 +442,10 @@ impl AiJournalEnrichmentRepository {
             "INSERT INTO weekly_ai_summaries (
                 id, week_start, week_end, summary, themes, completed_work, open_loops,
                 next_focus, source_entry_ids, source_task_ids, source_goal_ids,
-                provider, model, state, created_at, updated_at, deleted_at
+                provider, model, state, created_at, updated_at, deleted_at,
+                _sync_id, _updated_at, _deleted, _extra
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 'draft', ?14, ?15, NULL)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 'draft', ?14, ?15, NULL, ?1, ?16, 0, '{}')
             ON CONFLICT(week_start, week_end) DO UPDATE SET
                 summary = excluded.summary,
                 themes = excluded.themes,
@@ -430,7 +459,11 @@ impl AiJournalEnrichmentRepository {
                 model = excluded.model,
                 state = 'draft',
                 updated_at = excluded.updated_at,
-                deleted_at = NULL",
+                deleted_at = NULL,
+                _sync_id = COALESCE(weekly_ai_summaries._sync_id, weekly_ai_summaries.id),
+                _updated_at = excluded._updated_at,
+                _deleted = 0,
+                _extra = COALESCE(weekly_ai_summaries._extra, '{}')",
             libsql::params![
                 existing_id,
                 input.week_start.clone(),
@@ -447,6 +480,7 @@ impl AiJournalEnrichmentRepository {
                 input.model,
                 now.to_rfc3339(),
                 now.to_rfc3339(),
+                now_ms,
             ],
         )
         .await
@@ -469,7 +503,7 @@ impl AiJournalEnrichmentRepository {
                     open_loops, next_focus, source_entry_ids, source_task_ids,
                     source_goal_ids, provider, model, state, created_at, updated_at, deleted_at
                  FROM weekly_ai_summaries
-                 WHERE week_start = ?1 AND week_end = ?2 AND deleted_at IS NULL",
+                 WHERE week_start = ?1 AND week_end = ?2 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
                 libsql::params![week_start, week_end],
             )
             .await
@@ -497,6 +531,7 @@ impl AiJournalEnrichmentRepository {
         }
 
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let now = Utc::now();
         conn.execute(
             "UPDATE weekly_ai_summaries
              SET summary = COALESCE(?1, summary),
@@ -505,8 +540,10 @@ impl AiJournalEnrichmentRepository {
                  open_loops = COALESCE(?4, open_loops),
                  next_focus = COALESCE(?5, next_focus),
                  state = COALESCE(?6, state),
-                 updated_at = ?7
-             WHERE id = ?8 AND deleted_at IS NULL",
+                 updated_at = ?7,
+                 _updated_at = ?8,
+                 _sync_id = COALESCE(_sync_id, id)
+             WHERE id = ?9 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
             libsql::params![
                 patch.summary,
                 optional_json_array(patch.themes)?,
@@ -514,7 +551,8 @@ impl AiJournalEnrichmentRepository {
                 optional_json_array(patch.open_loops)?,
                 optional_json_array(patch.next_focus)?,
                 patch.state,
-                Utc::now().to_rfc3339(),
+                now.to_rfc3339(),
+                now.timestamp_millis(),
                 summary_id,
             ],
         )
@@ -530,7 +568,7 @@ impl AiJournalEnrichmentRepository {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let mut rows = conn
             .query(
-                "SELECT entry_id FROM journal_entry_insights WHERE id = ?1 AND deleted_at IS NULL",
+                "SELECT entry_id FROM journal_entry_insights WHERE id = ?1 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
                 libsql::params![insight_id],
             )
             .await
@@ -551,7 +589,7 @@ impl AiJournalEnrichmentRepository {
                     open_loops, next_focus, source_entry_ids, source_task_ids,
                     source_goal_ids, provider, model, state, created_at, updated_at, deleted_at
                  FROM weekly_ai_summaries
-                 WHERE id = ?1 AND deleted_at IS NULL",
+                 WHERE id = ?1 AND deleted_at IS NULL AND COALESCE(_deleted, 0) = 0",
                 libsql::params![summary_id],
             )
             .await

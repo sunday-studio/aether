@@ -5,7 +5,7 @@
 use crate::error::{AppError, Result};
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp};
-use libsql::Database;
+use libsql::{Connection, Database};
 
 /// Context for apply when running inside a sync (has base_url, key, media policy).
 pub struct ApplyCtx<'a> {
@@ -29,7 +29,8 @@ pub async fn apply_change(
         change.id,
         change.op
     );
-    let local_ts = get_local_updated_at(db, &change.entity, &change.id).await?;
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let local_ts = get_local_updated_at(&conn, &change.entity, &change.id).await?;
 
     // LWW: if local is newer or equal, skip
     if let Some(ts) = local_ts {
@@ -48,11 +49,19 @@ pub async fn apply_change(
     match &change.op {
         ChangeOp::Upsert => {
             if let Some(data) = &change.data {
-                apply_upsert(db, &change.entity, &change.id, change.updated_at, data, ctx).await?;
+                apply_upsert(
+                    &conn,
+                    &change.entity,
+                    &change.id,
+                    change.updated_at,
+                    data,
+                    ctx,
+                )
+                .await?;
             }
         }
         ChangeOp::Delete => {
-            apply_soft_delete(db, &change.entity, &change.id, change.updated_at).await?;
+            apply_soft_delete(&conn, &change.entity, &change.id, change.updated_at).await?;
         }
     }
     Ok(())
@@ -87,11 +96,14 @@ where
     res
 }
 
-async fn get_local_updated_at(db: &Database, entity: &str, entity_id: &str) -> Result<Option<i64>> {
+async fn get_local_updated_at(
+    conn: &Connection,
+    entity: &str,
+    entity_id: &str,
+) -> Result<Option<i64>> {
     let Some(table) = entity_to_table(entity) else {
         return Ok(None);
     };
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let sql = format!("SELECT _updated_at FROM {} WHERE _sync_id = ?1", table);
     let mut rows = conn
         .query(&sql, libsql::params![entity_id])
@@ -124,12 +136,15 @@ fn entity_to_table(entity: &str) -> Option<&'static str> {
         "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
         "activities" => "activities",
+        "journal_entry_insights" => "journal_entry_insights",
+        "journal_entry_suggestions" => "journal_entry_suggestions",
+        "weekly_ai_summaries" => "weekly_ai_summaries",
         _ => return None,
     })
 }
 
 async fn apply_upsert(
-    db: &Database,
+    conn: &Connection,
     entity: &str,
     entity_id: &str,
     updated_at: i64,
@@ -141,38 +156,46 @@ async fn apply_upsert(
         .ok_or_else(|| AppError::Sync("upsert data must be a JSON object".into()))?;
 
     match entity {
-        "entries" => apply_entries_upsert(db, entity_id, updated_at, data).await,
-        "tags" => apply_tags_upsert(db, entity_id, updated_at, data).await,
-        "tasks" => apply_tasks_upsert(db, entity_id, updated_at, data).await,
-        "goals" => apply_goals_upsert(db, entity_id, updated_at, data).await,
-        "canvases" => apply_canvases_upsert(db, entity_id, updated_at, data).await,
-        "bookmarks" => apply_bookmarks_upsert(db, entity_id, updated_at, data).await,
-        "resource_links" => apply_resource_links_upsert(db, entity_id, updated_at, data).await,
-        "media_items" => apply_media_items_upsert(db, entity_id, updated_at, data, ctx).await,
+        "entries" => apply_entries_upsert(conn, entity_id, updated_at, data).await,
+        "tags" => apply_tags_upsert(conn, entity_id, updated_at, data).await,
+        "tasks" => apply_tasks_upsert(conn, entity_id, updated_at, data).await,
+        "goals" => apply_goals_upsert(conn, entity_id, updated_at, data).await,
+        "canvases" => apply_canvases_upsert(conn, entity_id, updated_at, data).await,
+        "bookmarks" => apply_bookmarks_upsert(conn, entity_id, updated_at, data).await,
+        "resource_links" => apply_resource_links_upsert(conn, entity_id, updated_at, data).await,
+        "media_items" => apply_media_items_upsert(conn, entity_id, updated_at, data, ctx).await,
         "audio_transcriptions" => {
-            apply_audio_transcriptions_upsert(db, entity_id, updated_at, data).await
+            apply_audio_transcriptions_upsert(conn, entity_id, updated_at, data).await
         }
-        "entry_tags" => apply_entry_tags_upsert(db, entity_id, updated_at, data).await,
-        "task_tags" => apply_task_tags_upsert(db, entity_id, updated_at, data).await,
-        "goal_tags" => apply_goal_tags_upsert(db, entity_id, updated_at, data).await,
+        "entry_tags" => apply_entry_tags_upsert(conn, entity_id, updated_at, data).await,
+        "task_tags" => apply_task_tags_upsert(conn, entity_id, updated_at, data).await,
+        "goal_tags" => apply_goal_tags_upsert(conn, entity_id, updated_at, data).await,
         "goal_instance_tags" => {
-            apply_goal_instance_tags_upsert(db, entity_id, updated_at, data).await
+            apply_goal_instance_tags_upsert(conn, entity_id, updated_at, data).await
         }
-        "bookmark_tags" => apply_bookmark_tags_upsert(db, entity_id, updated_at, data).await,
-        "goal_instances" => apply_goal_instances_upsert(db, entity_id, updated_at, data).await,
-        "subtasks" => apply_subtasks_upsert(db, entity_id, updated_at, data).await,
-        "activities" => apply_activities_upsert(db, entity_id, updated_at, data).await,
-        _ => store_unknown(db, entity, entity_id, updated_at, data).await,
+        "bookmark_tags" => apply_bookmark_tags_upsert(conn, entity_id, updated_at, data).await,
+        "goal_instances" => apply_goal_instances_upsert(conn, entity_id, updated_at, data).await,
+        "subtasks" => apply_subtasks_upsert(conn, entity_id, updated_at, data).await,
+        "activities" => apply_activities_upsert(conn, entity_id, updated_at, data).await,
+        "journal_entry_insights" => {
+            apply_journal_entry_insights_upsert(conn, entity_id, updated_at, data).await
+        }
+        "journal_entry_suggestions" => {
+            apply_journal_entry_suggestions_upsert(conn, entity_id, updated_at, data).await
+        }
+        "weekly_ai_summaries" => {
+            apply_weekly_ai_summaries_upsert(conn, entity_id, updated_at, data).await
+        }
+        _ => store_unknown(conn, entity, entity_id, updated_at, data).await,
     }
 }
 
 async fn apply_activities_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("activities: object expected".into()))?;
@@ -214,12 +237,11 @@ async fn apply_activities_upsert(
 }
 
 async fn apply_entry_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("entry_tags: object expected".into()))?;
@@ -242,12 +264,11 @@ async fn apply_entry_tags_upsert(
 }
 
 async fn apply_task_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("task_tags: object expected".into()))?;
@@ -270,12 +291,11 @@ async fn apply_task_tags_upsert(
 }
 
 async fn apply_goal_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("goal_tags: object expected".into()))?;
@@ -298,12 +318,11 @@ async fn apply_goal_tags_upsert(
 }
 
 async fn apply_goal_instance_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("goal_instance_tags: object expected".into()))?;
@@ -326,12 +345,11 @@ async fn apply_goal_instance_tags_upsert(
 }
 
 async fn apply_bookmark_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("bookmark_tags: object expected".into()))?;
@@ -354,12 +372,11 @@ async fn apply_bookmark_tags_upsert(
 }
 
 async fn apply_goal_instances_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("goal_instances: object expected".into()))?;
@@ -385,12 +402,11 @@ async fn apply_goal_instances_upsert(
 }
 
 async fn apply_subtasks_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("subtasks: object expected".into()))?;
@@ -416,12 +432,11 @@ async fn apply_subtasks_upsert(
 }
 
 async fn apply_tasks_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("tasks: object expected".into()))?;
@@ -455,12 +470,11 @@ async fn apply_tasks_upsert(
 }
 
 async fn apply_goals_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("goals: object expected".into()))?;
@@ -499,12 +513,11 @@ async fn apply_goals_upsert(
 }
 
 async fn apply_canvases_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("canvases: object expected".into()))?;
@@ -530,12 +543,11 @@ async fn apply_canvases_upsert(
 }
 
 async fn apply_bookmarks_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("bookmarks: object expected".into()))?;
@@ -579,13 +591,12 @@ async fn apply_bookmarks_upsert(
 }
 
 async fn apply_media_items_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
     ctx: Option<&ApplyCtx<'_>>,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("media_items: object expected".into()))?;
@@ -657,12 +668,11 @@ async fn apply_media_items_upsert(
 }
 
 async fn apply_audio_transcriptions_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("audio_transcriptions: object expected".into()))?;
@@ -702,12 +712,11 @@ async fn apply_audio_transcriptions_upsert(
 }
 
 async fn apply_entries_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("entries: object expected".into()))?;
@@ -753,12 +762,11 @@ async fn apply_entries_upsert(
 }
 
 async fn apply_tags_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("tags: object expected".into()))?;
@@ -789,12 +797,11 @@ async fn apply_tags_upsert(
 }
 
 async fn apply_resource_links_upsert(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let obj = data
         .as_object()
         .ok_or_else(|| AppError::Sync("resource_links: object expected".into()))?;
@@ -843,14 +850,223 @@ async fn apply_resource_links_upsert(
     Ok(())
 }
 
+async fn apply_journal_entry_insights_upsert(
+    conn: &Connection,
+    entity_id: &str,
+    updated_at: i64,
+    data: &serde_json::Value,
+) -> Result<()> {
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("journal_entry_insights: object expected".into()))?;
+    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
+    let entry_id = obj
+        .get("entry_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("journal_entry_insights: entry_id is required".into()))?;
+    let summary = obj.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+    let possible_mood = obj.get("possible_mood").and_then(|v| v.as_str());
+    let emotions = json_text_field(obj, "emotions", "[]")?;
+    let energy = obj.get("energy").and_then(|v| v.as_str());
+    let themes = json_text_field(obj, "themes", "[]")?;
+    let people = json_text_field(obj, "people", "[]")?;
+    let projects = json_text_field(obj, "projects", "[]")?;
+    let open_loops = json_text_field(obj, "open_loops", "[]")?;
+    let provider = obj
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("rules");
+    let model = obj.get("model").and_then(|v| v.as_str());
+    let state = obj.get("state").and_then(|v| v.as_str()).unwrap_or("draft");
+    let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
+    let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
+    let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
+    let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
+
+    conn.execute(
+        "INSERT OR REPLACE INTO journal_entry_insights (id, entry_id, summary, possible_mood, emotions, energy, themes, people, projects, open_loops, provider, model, state, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, 0, ?19)",
+        libsql::params![
+            id,
+            entry_id,
+            summary,
+            possible_mood,
+            emotions,
+            energy,
+            themes,
+            people,
+            projects,
+            open_loops,
+            provider,
+            model,
+            state,
+            created_at,
+            updated_at_s,
+            deleted_at,
+            entity_id,
+            updated_at,
+            extra,
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+async fn apply_journal_entry_suggestions_upsert(
+    conn: &Connection,
+    entity_id: &str,
+    updated_at: i64,
+    data: &serde_json::Value,
+) -> Result<()> {
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("journal_entry_suggestions: object expected".into()))?;
+    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
+    let entry_id = obj
+        .get("entry_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("journal_entry_suggestions: entry_id is required".into()))?;
+    let insight_id = obj.get("insight_id").and_then(|v| v.as_str());
+    let suggestion_type = obj
+        .get("suggestion_type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            AppError::Sync("journal_entry_suggestions: suggestion_type is required".into())
+        })?;
+    let value = obj.get("value").and_then(|v| v.as_str()).unwrap_or("");
+    let edited_value = obj.get("edited_value").and_then(|v| v.as_str());
+    let target_resource_type = obj.get("target_resource_type").and_then(|v| v.as_str());
+    let target_resource_id = obj.get("target_resource_id").and_then(|v| v.as_str());
+    let confidence = obj.get("confidence").and_then(|v| v.as_f64());
+    let provider = obj
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("rules");
+    let model = obj.get("model").and_then(|v| v.as_str());
+    let state = obj
+        .get("state")
+        .and_then(|v| v.as_str())
+        .unwrap_or("pending");
+    let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
+    let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
+    let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
+
+    conn.execute(
+        "INSERT OR REPLACE INTO journal_entry_suggestions (id, entry_id, insight_id, suggestion_type, value, edited_value, target_resource_type, target_resource_id, confidence, provider, model, state, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0, ?17)",
+        libsql::params![
+            id,
+            entry_id,
+            insight_id,
+            suggestion_type,
+            value,
+            edited_value,
+            target_resource_type,
+            target_resource_id,
+            confidence,
+            provider,
+            model,
+            state,
+            created_at,
+            updated_at_s,
+            entity_id,
+            updated_at,
+            extra,
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+async fn apply_weekly_ai_summaries_upsert(
+    conn: &Connection,
+    entity_id: &str,
+    updated_at: i64,
+    data: &serde_json::Value,
+) -> Result<()> {
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("weekly_ai_summaries: object expected".into()))?;
+    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
+    let week_start = obj
+        .get("week_start")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("weekly_ai_summaries: week_start is required".into()))?;
+    let week_end = obj
+        .get("week_end")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::Sync("weekly_ai_summaries: week_end is required".into()))?;
+    let summary = obj.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+    let themes = json_text_field(obj, "themes", "[]")?;
+    let completed_work = json_text_field(obj, "completed_work", "[]")?;
+    let open_loops = json_text_field(obj, "open_loops", "[]")?;
+    let next_focus = json_text_field(obj, "next_focus", "[]")?;
+    let source_entry_ids = json_text_field(obj, "source_entry_ids", "[]")?;
+    let source_task_ids = json_text_field(obj, "source_task_ids", "[]")?;
+    let source_goal_ids = json_text_field(obj, "source_goal_ids", "[]")?;
+    let provider = obj
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("rules");
+    let model = obj.get("model").and_then(|v| v.as_str());
+    let state = obj.get("state").and_then(|v| v.as_str()).unwrap_or("draft");
+    let created_at = obj.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
+    let updated_at_s = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
+    let deleted_at = obj.get("deleted_at").and_then(|v| v.as_str());
+    let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
+
+    conn.execute(
+        "INSERT OR REPLACE INTO weekly_ai_summaries (id, week_start, week_end, summary, themes, completed_work, open_loops, next_focus, source_entry_ids, source_task_ids, source_goal_ids, provider, model, state, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, 0, ?20)",
+        libsql::params![
+            id,
+            week_start,
+            week_end,
+            summary,
+            themes,
+            completed_work,
+            open_loops,
+            next_focus,
+            source_entry_ids,
+            source_task_ids,
+            source_goal_ids,
+            provider,
+            model,
+            state,
+            created_at,
+            updated_at_s,
+            deleted_at,
+            entity_id,
+            updated_at,
+            extra,
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+fn json_text_field(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    default: &str,
+) -> Result<String> {
+    match obj.get(key) {
+        Some(serde_json::Value::String(value)) => Ok(value.clone()),
+        Some(value) => serde_json::to_string(value).map_err(AppError::Serialization),
+        None => Ok(default.to_string()),
+    }
+}
+
 async fn store_unknown(
-    db: &Database,
+    conn: &Connection,
     entity: &str,
     entity_id: &str,
     updated_at: i64,
     data: &serde_json::Value,
 ) -> Result<()> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let data_str = serde_json::to_string(data).map_err(AppError::Serialization)?;
     conn.execute(
         "INSERT OR REPLACE INTO _sync_unknown (entity, entity_id, data, updated_at) VALUES (?1, ?2, ?3, ?4)",
@@ -862,7 +1078,7 @@ async fn store_unknown(
 }
 
 async fn apply_soft_delete(
-    db: &Database,
+    conn: &Connection,
     entity: &str,
     entity_id: &str,
     updated_at: i64,
@@ -870,7 +1086,6 @@ async fn apply_soft_delete(
     let Some(table) = entity_to_table(entity) else {
         return Ok(());
     };
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let sql = format!(
         "UPDATE {} SET _deleted = 1, _updated_at = ?1 WHERE _sync_id = ?2",
         table
@@ -963,5 +1178,92 @@ mod tests {
         let row = rows.next().await.unwrap().unwrap();
         assert_eq!(row.get::<i64>(0).unwrap(), 1);
         assert_eq!(row.get::<Option<i64>>(1).unwrap().unwrap(), 200);
+    }
+
+    #[tokio::test]
+    async fn applies_journal_entry_insight_upserts_and_deletes() {
+        let db = test_db().await;
+        let conn = db.connect().unwrap();
+        conn.execute(
+            "INSERT INTO entries (id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra)
+             VALUES (?1, ?2, ?3, 0, 0, 0, ?4, NULL, ?1, ?5, 0, '{}')",
+            libsql::params![
+                "entry-1",
+                "{}",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+                250_i64,
+            ],
+        )
+        .await
+        .unwrap();
+        let upsert = ChangeEnvelope {
+            entity: "journal_entry_insights".into(),
+            id: "insight-1".into(),
+            op: ChangeOp::Upsert,
+            data: Some(serde_json::json!({
+                "id": "insight-1",
+                "entry_id": "entry-1",
+                "summary": "Possible weekly pattern",
+                "possible_mood": "possibly focused",
+                "emotions": ["focused"],
+                "energy": "possibly high",
+                "themes": ["work"],
+                "people": [],
+                "projects": [],
+                "open_loops": ["follow up"],
+                "provider": "rules",
+                "model": null,
+                "state": "reviewed",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "deleted_at": null,
+                "_extra": "{}"
+            })),
+            updated_at: 300,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_change(&db, &upsert, None).await.unwrap();
+
+        {
+            let mut rows = conn
+                .query(
+                    "SELECT summary, emotions, state, _deleted, _updated_at FROM journal_entry_insights WHERE _sync_id = ?1",
+                    libsql::params!["insight-1"],
+                )
+                .await
+                .unwrap();
+            let row = rows.next().await.unwrap().unwrap();
+            assert_eq!(row.get::<String>(0).unwrap(), "Possible weekly pattern");
+            assert_eq!(row.get::<String>(1).unwrap(), "[\"focused\"]");
+            assert_eq!(row.get::<String>(2).unwrap(), "reviewed");
+            assert_eq!(row.get::<i64>(3).unwrap(), 0);
+            assert_eq!(row.get::<Option<i64>>(4).unwrap().unwrap(), 300);
+        }
+
+        let delete = ChangeEnvelope {
+            entity: "journal_entry_insights".into(),
+            id: "insight-1".into(),
+            op: ChangeOp::Delete,
+            data: None,
+            updated_at: 400,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_change(&db, &delete, None).await.unwrap();
+
+        let mut rows = conn
+            .query(
+                "SELECT _deleted, _updated_at FROM journal_entry_insights WHERE _sync_id = ?1",
+                libsql::params!["insight-1"],
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<i64>(0).unwrap(), 1);
+        assert_eq!(row.get::<Option<i64>>(1).unwrap().unwrap(), 400);
     }
 }

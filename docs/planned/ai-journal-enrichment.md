@@ -11,8 +11,8 @@ This document records the planned AI journal enrichment direction. It is not shi
 - Added accept flow for relation suggestions through normal resource links.
 - Added journal settings keys and Settings UI for local rules, external context policy, and future OpenAI journal enrichment.
 - Added review controls for entry insight drafts and weekly summary drafts.
-- External provider generation logic and encrypted sync handlers are still planned work.
-- Sync handlers should be added deliberately before sync triggers are introduced for these tables.
+- Added encrypted sync wiring for entry insights, entry suggestions, and weekly summaries.
+- External provider generation logic is still planned work.
 
 ## Product Direction
 
