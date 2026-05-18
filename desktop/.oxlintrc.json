@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc"],
+	"categories": {
+		"correctness": "warn",
+		"suspicious": "warn"
+	},
+	"env": {
+		"builtin": true,
+		"browser": true,
+		"node": true,
+		"es2024": true
+	},
+	"settings": {
+		"react": {
+			"version": "19.1.0"
+		}
+	},
+	"ignorePatterns": [
+		"dist/**",
+		"node_modules/**",
+		"src/aether-sdk/**",
+		"src/openapi/**",
+		"src-tauri/gen/**",
+		"src-tauri/target/**"
+	],
+	"rules": {
+		"no-console": "off",
+		"react/react-in-jsx-scope": "off"
+	}
+}
