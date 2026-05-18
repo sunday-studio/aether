@@ -160,6 +160,36 @@ async fn require_auth(headers: &HeaderMap, storage: Arc<Storage>) -> Result<Stri
     }
 }
 
+fn update_last_sync_async(
+    storage: Arc<Storage>,
+    device_id: String,
+    ts: i64,
+    context: &'static str,
+) {
+    tokio::spawn(async move {
+        let update_started = Instant::now();
+        let device_id_for_update = device_id.clone();
+        if let Err(e) =
+            storage_blocking(move || storage.update_device_last_sync(&device_id_for_update, ts))
+                .await
+        {
+            tracing::warn!(
+                "[SYNC-SERVER] last_sync update failed context={} device_id={}: {}",
+                context,
+                device_id,
+                e
+            );
+            return;
+        }
+        tracing::info!(
+            "[SYNC-SERVER-TIMING] last_sync_update={}ms context={} device_id={}",
+            update_started.elapsed().as_millis(),
+            context,
+            device_id
+        );
+    });
+}
+
 async fn register(
     State(s): State<AppState>,
     Json(body): Json<RegisterRequest>,
@@ -293,13 +323,7 @@ async fn push(
                 record_started.elapsed().as_millis(),
                 change_count
             );
-            let now = epoch_millis();
-            let storage = s.storage.clone();
-            let device_id_for_update = device_id.clone();
-            let _ = storage_blocking(move || {
-                storage.update_device_last_sync(&device_id_for_update, now)
-            })
-            .await;
+            update_last_sync_async(s.storage.clone(), device_id.clone(), epoch_millis(), "push");
             let receiver_count = s.broadcast.send(device_id.clone()).unwrap_or(0);
             tracing::info!(
                 "Push from device {}: {} changes, notified {} connected devices",
@@ -625,18 +649,11 @@ async fn pull(
     );
 
     if let Some(ref cursor) = next_cursor {
-        let update_started = Instant::now();
-        let storage = s.storage.clone();
-        let device_id_for_update = device_id.clone();
-        let received_at = cursor.received_at;
-        let _ = storage_blocking(move || {
-            storage.update_device_last_sync(&device_id_for_update, received_at)
-        })
-        .await;
-        tracing::info!(
-            "[SYNC-SERVER-TIMING] last_sync_update={}ms device_id={}",
-            update_started.elapsed().as_millis(),
-            device_id
+        update_last_sync_async(
+            s.storage.clone(),
+            device_id.clone(),
+            cursor.received_at,
+            "pull",
         );
     }
 
