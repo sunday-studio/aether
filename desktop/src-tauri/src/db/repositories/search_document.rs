@@ -25,10 +25,19 @@ pub struct SearchDocumentResult {
 #[derive(Debug, Clone, Default)]
 pub struct SearchDocumentQuery {
     pub resource_types: Option<Vec<String>>,
+    pub tag_ids: Option<Vec<String>>,
     pub date_from: Option<String>,
     pub date_to: Option<String>,
     pub limit: Option<u32>,
     pub offset: Option<u32>,
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchDocumentPage {
+    pub results: Vec<SearchDocumentResult>,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -105,13 +114,17 @@ impl SearchDocumentRepository {
         &self,
         query: &str,
         filters: SearchDocumentQuery,
-    ) -> Result<Vec<SearchDocumentResult>> {
+    ) -> Result<SearchDocumentPage> {
         if query.trim().is_empty() {
-            return Ok(Vec::new());
+            return Ok(SearchDocumentPage {
+                results: Vec::new(),
+                next_cursor: None,
+                has_more: false,
+            });
         }
 
         let limit = filters.limit.unwrap_or(50).min(100) as usize;
-        let offset = filters.offset.unwrap_or(0) as usize;
+        let offset = search_offset(filters.cursor.as_deref(), filters.offset)?;
         let escaped_query = escape_fts_query(query);
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let mut rows = conn
@@ -152,6 +165,14 @@ impl SearchDocumentRepository {
                 continue;
             }
 
+            let resource_id: String = row.get(2).map_err(AppError::LibSQL)?;
+            if !self
+                .matches_tags(&conn, &resource_type, &resource_id, &filters.tag_ids)
+                .await?
+            {
+                continue;
+            }
+
             let text: String = row.get(4).map_err(AppError::LibSQL)?;
             let rank: f64 = row.get(8).unwrap_or(0.0);
             let score = if rank < 0.0 {
@@ -163,7 +184,7 @@ impl SearchDocumentRepository {
             results.push(SearchDocumentResult {
                 id: row.get(0).map_err(AppError::LibSQL)?,
                 resource_type,
-                resource_id: row.get(2).map_err(AppError::LibSQL)?,
+                resource_id,
                 title: row.get(3).map_err(AppError::LibSQL)?,
                 preview: truncate_preview(&text, 220),
                 score,
@@ -175,7 +196,73 @@ impl SearchDocumentRepository {
             });
         }
 
-        Ok(results.into_iter().skip(offset).take(limit).collect())
+        let mut page_results: Vec<_> = results.into_iter().skip(offset).take(limit + 1).collect();
+        let has_more = page_results.len() > limit;
+        if has_more {
+            page_results.truncate(limit);
+        }
+        let next_cursor = if has_more {
+            Some(crate::commands::common::cursor::encode(
+                &(offset + page_results.len()).to_string(),
+            ))
+        } else {
+            None
+        };
+
+        Ok(SearchDocumentPage {
+            results: page_results,
+            next_cursor,
+            has_more,
+        })
+    }
+
+    async fn matches_tags(
+        &self,
+        conn: &libsql::Connection,
+        resource_type: &str,
+        resource_id: &str,
+        tag_ids: &Option<Vec<String>>,
+    ) -> Result<bool> {
+        let Some(tag_ids) = tag_ids else {
+            return Ok(true);
+        };
+        if tag_ids.is_empty() {
+            return Ok(true);
+        }
+        if resource_type == "tag" {
+            return Ok(tag_ids.iter().any(|tag_id| tag_id == resource_id));
+        }
+
+        let table = match resource_type {
+            "entry" => "entry_tags",
+            "task" => "task_tags",
+            "goal" => "goal_tags",
+            "bookmark" => "bookmark_tags",
+            _ => return Ok(false),
+        };
+        let id_column = match resource_type {
+            "entry" => "entry_id",
+            "task" => "task_id",
+            "goal" => "goal_id",
+            "bookmark" => "bookmark_id",
+            _ => return Ok(false),
+        };
+
+        for tag_id in tag_ids {
+            let query = format!(
+                "SELECT 1 FROM {} WHERE {} = ?1 AND tag_id = ?2 LIMIT 1",
+                table, id_column
+            );
+            let mut rows = conn
+                .query(&query, libsql::params![resource_id, tag_id.as_str()])
+                .await
+                .map_err(AppError::LibSQL)?;
+            if rows.next().await.map_err(AppError::LibSQL)?.is_some() {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     pub async fn upsert_document(&self, input: SearchDocumentInput) -> Result<()> {
@@ -652,6 +739,17 @@ fn matches_date_range(value: &str, date_from: Option<&str>, date_to: Option<&str
     true
 }
 
+fn search_offset(cursor: Option<&str>, offset: Option<u32>) -> Result<usize> {
+    let Some(cursor) = cursor else {
+        return Ok(offset.unwrap_or(0) as usize);
+    };
+
+    let decoded = crate::commands::common::cursor::decode(cursor)?;
+    decoded.parse::<usize>().map_err(|e| {
+        AppError::BadRequest(format!("Invalid search cursor offset '{}': {}", decoded, e))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -755,6 +853,13 @@ mod tests {
         )
         .await
         .expect("seed bookmark");
+
+        conn.execute(
+            "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)",
+            libsql::params!["bookmark-1", "tag-1"],
+        )
+        .await
+        .expect("seed bookmark tag");
     }
 
     fn cleanup_db(path: PathBuf) {
@@ -868,6 +973,7 @@ mod tests {
         assert_eq!(status.total_documents, 4);
         assert_eq!(status.bookmarks, 0);
         assert!(results
+            .results
             .iter()
             .all(|result| result.resource_id != "bookmark-1"));
 
@@ -885,24 +991,87 @@ mod tests {
                 "search",
                 SearchDocumentQuery {
                     resource_types: Some(vec!["task".to_string(), "bookmark".to_string()]),
+                    tag_ids: None,
                     date_from: Some("2026-05-12T00:00:00Z".to_string()),
                     date_to: Some("2026-05-15T23:59:59Z".to_string()),
                     limit: Some(1),
                     offset: Some(0),
+                    cursor: None,
                 },
             )
             .await
             .expect("search keyword");
 
-        assert_eq!(results.len(), 1);
+        assert_eq!(results.results.len(), 1);
         assert!(matches!(
-            results[0].resource_type.as_str(),
+            results.results[0].resource_type.as_str(),
             "task" | "bookmark"
         ));
-        assert_eq!(results[0].match_kind, "keyword");
-        assert!(!results[0].resource_id.is_empty());
-        assert!(!results[0].title.is_empty());
-        assert!(!results[0].preview.is_empty());
+        assert_eq!(results.results[0].match_kind, "keyword");
+        assert!(!results.results[0].resource_id.is_empty());
+        assert!(!results.results[0].title.is_empty());
+        assert!(!results.results[0].preview.is_empty());
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn search_keyword_filters_results_by_tag() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let results = repo
+            .search_keyword(
+                "search",
+                SearchDocumentQuery {
+                    tag_ids: Some(vec!["tag-1".to_string()]),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search keyword by tag");
+
+        assert_eq!(results.results.len(), 1);
+        assert_eq!(results.results[0].resource_type, "bookmark");
+        assert_eq!(results.results[0].resource_id, "bookmark-1");
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn search_keyword_returns_cursor_for_next_page() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let first_page = repo
+            .search_keyword(
+                "search",
+                SearchDocumentQuery {
+                    limit: Some(1),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search first page");
+        let second_page = repo
+            .search_keyword(
+                "search",
+                SearchDocumentQuery {
+                    limit: Some(1),
+                    cursor: first_page.next_cursor.clone(),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search second page");
+
+        assert_eq!(first_page.results.len(), 1);
+        assert!(first_page.has_more);
+        assert!(first_page.next_cursor.is_some());
+        assert_eq!(second_page.results.len(), 1);
+        assert_ne!(first_page.results[0].id, second_page.results[0].id);
 
         cleanup_db(db_path);
     }

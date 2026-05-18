@@ -1967,7 +1967,7 @@
           {
             "name": "offset",
             "in": "query",
-            "description": "Pagination offset",
+            "description": "Legacy pagination offset",
             "required": false,
             "schema": {
               "type": "integer",
@@ -1979,7 +1979,7 @@
           {
             "name": "cursor",
             "in": "query",
-            "description": "Reserved cursor pagination token",
+            "description": "Opaque pagination cursor",
             "required": false,
             "schema": {
               "type": "string",
@@ -4829,12 +4829,20 @@
         "required": [
           "results",
           "total",
+          "hasMore",
           "query",
           "mode"
         ],
         "properties": {
+          "hasMore": {
+            "type": "boolean"
+          },
           "mode": {
             "type": "string"
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           },
           "query": {
             "type": "string"

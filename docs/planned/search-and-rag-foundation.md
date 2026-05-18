@@ -34,7 +34,8 @@ Build one reliable local retrieval layer:
 
 - [x] Build FTS over `search_documents`.
 - [x] Replace raw per-table search with normalized search results.
-- [ ] Support filters: `q`, `types`, `tags`, `date_from`, `date_to`, `limit`, `cursor`.
+- [x] Support filters: `q`, `types`, `tags`, `date_from`, `date_to`, and `limit`.
+- [x] Add cursor pagination while keeping `offset` as a legacy fallback.
 - [x] Return `resourceType`, `resourceId`, `title`, `preview`, `score`, `matchKind`, `highlights`, and timestamps.
 - [x] Make `mode=keyword` the default.
 

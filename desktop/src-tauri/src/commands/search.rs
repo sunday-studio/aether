@@ -1,6 +1,6 @@
 use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
-use crate::db::{connection, DbState};
 use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository};
+use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -40,6 +40,8 @@ pub struct ReindexResourceRequest {
 pub struct SearchResponse {
     pub results: Vec<SearchResultResponse>,
     pub total: usize,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
     pub query: String,
     pub mode: String,
 }
@@ -72,8 +74,8 @@ pub struct SearchResultResponse {
         ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
         ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
         ("limit" = Option<u32>, Query, description = "Maximum number of results (default: 50, max: 100)"),
-        ("offset" = Option<u32>, Query, description = "Pagination offset"),
-        ("cursor" = Option<String>, Query, description = "Reserved cursor pagination token"),
+        ("offset" = Option<u32>, Query, description = "Legacy pagination offset"),
+        ("cursor" = Option<String>, Query, description = "Opaque pagination cursor"),
         ("mode" = Option<String>, Query, description = "Search mode: keyword, semantic, or hybrid (default: keyword)")
     ),
     responses(
@@ -90,9 +92,12 @@ pub async fn search_resources(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SearchResponse> {
     let _guard = connection::with_db_access(&*state).await;
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.q.trim().is_empty() {
-        return Err(AppError::BadRequest("Query parameter 'q' is required and cannot be empty".to_string()));
+        return Err(AppError::BadRequest(
+            "Query parameter 'q' is required and cannot be empty".to_string(),
+        ));
     }
 
     let resource_types = if let Some(ref types_str) = params.types {
@@ -110,25 +115,10 @@ pub async fn search_resources(
         None
     };
 
-    if params.tags.as_ref().is_some_and(|tags| !tags.trim().is_empty()) {
-        tracing::debug!("Search tag filtering is reserved for a later phase");
-    }
+    let tag_ids = parse_tag_ids(params.tags.as_deref());
 
     let requested_mode = params.mode.as_deref().unwrap_or("keyword").to_string();
-    let mode = match requested_mode.as_str() {
-        "keyword" | "fuzzy" => "keyword",
-        "semantic" | "similar" => {
-            return Err(AppError::BadRequest(
-                "Semantic search is not available until embeddings are indexed".to_string(),
-            ));
-        }
-        "hybrid" => {
-            return Err(AppError::BadRequest(
-                "Hybrid search is not available until embeddings are indexed".to_string(),
-            ));
-        }
-        _ => "keyword",
-    };
+    let mode = resolve_search_mode(&requested_mode)?;
 
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
     let results = repo
@@ -136,16 +126,19 @@ pub async fn search_resources(
             &params.q,
             SearchDocumentQuery {
                 resource_types,
+                tag_ids,
                 date_from: params.date_from,
                 date_to: params.date_to,
                 limit: params.limit,
                 offset: params.offset,
+                cursor: params.cursor,
             },
         )
         .await?;
-    let total = results.len();
+    let total = results.results.len();
     let response = SearchResponse {
         results: results
+            .results
             .into_iter()
             .map(|result| SearchResultResponse {
                 id: result.id,
@@ -162,11 +155,36 @@ pub async fn search_resources(
             })
             .collect(),
         total,
+        next_cursor: results.next_cursor,
+        has_more: results.has_more,
         query: params.q,
         mode: mode.to_string(),
     };
 
     Ok(response)
+}
+
+fn parse_tag_ids(tags: Option<&str>) -> Option<Vec<String>> {
+    tags.map(|tags| {
+        tags.split(',')
+            .map(|tag| tag.trim().to_string())
+            .filter(|tag| !tag.is_empty())
+            .collect::<Vec<_>>()
+    })
+    .filter(|tags| !tags.is_empty())
+}
+
+fn resolve_search_mode(requested_mode: &str) -> Result<&'static str> {
+    match requested_mode {
+        "keyword" | "fuzzy" => Ok("keyword"),
+        "semantic" | "similar" => Err(AppError::BadRequest(
+            "Semantic search is not available until embeddings are indexed".to_string(),
+        )),
+        "hybrid" => Err(AppError::BadRequest(
+            "Hybrid search is not available until embeddings are indexed".to_string(),
+        )),
+        _ => Ok("keyword"),
+    }
 }
 
 /// Rebuild the local search document index
@@ -211,7 +229,8 @@ pub async fn reindex_search_resource(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.resource_type.trim().is_empty() || request.resource_id.trim().is_empty() {
         return Err(AppError::BadRequest(
             "resourceType and resourceId are required".to_string(),
@@ -243,4 +262,31 @@ pub async fn get_search_index_status(
     let _guard = connection::with_db_access(&*state).await;
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
     repo.status().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn semantic_search_mode_is_unavailable_until_embeddings_are_indexed() {
+        let error = resolve_search_mode("semantic").expect_err("semantic should be unavailable");
+
+        assert!(matches!(
+            error,
+            AppError::BadRequest(message)
+                if message == "Semantic search is not available until embeddings are indexed"
+        ));
+    }
+
+    #[test]
+    fn hybrid_search_mode_is_unavailable_until_embeddings_are_indexed() {
+        let error = resolve_search_mode("hybrid").expect_err("hybrid should be unavailable");
+
+        assert!(matches!(
+            error,
+            AppError::BadRequest(message)
+                if message == "Hybrid search is not available until embeddings are indexed"
+        ));
+    }
 }

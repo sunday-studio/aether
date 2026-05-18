@@ -27,11 +27,12 @@ This document tracks how agents should verify the Search And RAG Foundation work
 - [x] Verify search index counts match seeded entries, tasks, goals, tags, and bookmarks.
 - [x] Add Phase 3 keyword-search tests for normalized results from `search_documents`.
 - [x] Add tests for supported Phase 3 filters: `types`, `date_from`, `date_to`, `limit`, and `offset`.
+- [x] Add cursor pagination tests for keyword search.
 - [x] Extend deleted-resource tests to entries, goals, and bookmarks.
 - [x] Add coverage for `SearchDocumentRepository::delete_resource`.
-- [ ] Add search command tests for `semantic` and `hybrid` unavailable-mode errors.
-- [ ] Add tag-filter tests once tag filtering is implemented.
-- [ ] Add a runtime/in-app API verification path for Tauri commands before UI work.
+- [x] Add search command tests for `semantic` and `hybrid` unavailable-mode errors.
+- [x] Add tag-filter tests once tag filtering is implemented.
+- [x] Add a runtime/in-app API verification path for Tauri commands before UI work.
 
 ## Curl Note
 
@@ -43,3 +44,17 @@ When UI/runtime work starts, verify these routes through the app layer:
 - `POST /v1/search/index/resource`
 - `GET /v1/search/index/status`
 - `GET /v1/search`
+
+## Runtime/In-App Verification Path
+
+Use this path before building the search UI:
+
+- Start the desktop app with `npm run dev` from `desktop/`.
+- Create or confirm at least one journal entry, task, goal, tag, and bookmark with unique searchable words.
+- Trigger `POST /v1/search/index/reindex` through the frontend API client.
+- Confirm `GET /v1/search/index/status` reports non-zero counts for indexed resource types.
+- Call `GET /v1/search?q=<word>&mode=keyword&limit=1` through the frontend API client.
+- Confirm the response includes `results`, `nextCursor`, `hasMore`, `resourceType`, `resourceId`, `title`, `preview`, `score`, and `matchKind`.
+- Call the same search with `cursor=<nextCursor>` when `hasMore` is true and confirm the next page does not repeat the first result.
+- Call `GET /v1/search?q=<word>&tags=<tag-id>` and confirm untagged resources are excluded.
+- Call `GET /v1/search?q=<word>&mode=semantic` and `mode=hybrid`; both should return unavailable-mode `400` errors until embeddings are indexed.
