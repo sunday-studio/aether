@@ -15,13 +15,39 @@ import { TextField } from '~/components/shared/text-field';
 import { useSettingsStore } from '~/store/settings-store';
 
 function getErrorMessage(error: unknown) {
+	if (typeof error === 'string') {
+		return error;
+	}
+	if (error instanceof Error) {
+		return error.message;
+	}
 	if (error && typeof error === 'object' && 'data' in error) {
 		const data = (error as { data?: unknown }).data;
+		if (typeof data === 'string') {
+			return data;
+		}
 		if (data && typeof data === 'object' && 'message' in data) {
 			return String((data as { message?: unknown }).message);
 		}
+		if (data && typeof data === 'object' && 'error' in data) {
+			return String((data as { error?: unknown }).error);
+		}
+		if (data && typeof data === 'object') {
+			try {
+				return JSON.stringify(data);
+			} catch {
+				return String(data);
+			}
+		}
 	}
-	return error instanceof Error ? error.message : String(error);
+	if (error && typeof error === 'object' && 'message' in error) {
+		return String((error as { message?: unknown }).message);
+	}
+	try {
+		return JSON.stringify(error);
+	} catch {
+		return String(error);
+	}
 }
 
 export const SyncSection = () => {

@@ -75,6 +75,29 @@ const queryParamsNormalizers: Record<string, QueryParamsNormalizer> = {
 	get_all_links_for_graph: params => normalizeNumericQueryParams(params, ["limit"]),
 };
 
+function getErrorMessage(error: unknown): string {
+	if (typeof error === "string") {
+		return error;
+	}
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (error && typeof error === "object") {
+		if ("message" in error) {
+			return String((error as { message?: unknown }).message);
+		}
+		if ("error" in error) {
+			return String((error as { error?: unknown }).error);
+		}
+		try {
+			return JSON.stringify(error);
+		} catch {
+			return String(error);
+		}
+	}
+	return String(error);
+}
+
 // Route to command mapping
 const routeToCommand: Record<string, string> = {
 	// Tags
@@ -378,25 +401,21 @@ export const customFetch = async <T>(
 	} catch (error) {
 		// Map Tauri errors to HTTP status codes
 		let status = 500;
-		let errorData: unknown = error;
+		const message = getErrorMessage(error);
 
-		if (error && typeof error === "object" && "message" in error) {
-			const message = String(error.message);
-			if (message.includes("not found") || message.includes("NotFound")) {
-				status = 404;
-			} else if (
-				message.includes("bad request") ||
-				message.includes("BadRequest")
-			) {
-				status = 400;
-			} else if (message.includes("conflict") || message.includes("Conflict")) {
-				status = 409;
-			}
-			errorData = { message };
+		if (message.includes("not found") || message.includes("NotFound")) {
+			status = 404;
+		} else if (
+			message.includes("bad request") ||
+			message.includes("BadRequest")
+		) {
+			status = 400;
+		} else if (message.includes("conflict") || message.includes("Conflict")) {
+			status = 409;
 		}
 
 		throw {
-			data: errorData,
+			data: { message },
 			status,
 			headers: new Headers({ "content-type": "application/json" }),
 		} as T;
