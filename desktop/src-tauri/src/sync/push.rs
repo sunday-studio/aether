@@ -9,7 +9,7 @@ use crate::sync::encryption;
 use crate::sync::media;
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
-use libsql::Database;
+use libsql::{Connection, Database};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 
@@ -207,6 +207,7 @@ async fn read_outbox_and_build(
     let mut to_delete = Vec::new();
     let mut skipped_missing: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
+    let last_sync = metadata::get_last_sync(&db).await?.unwrap_or(0);
     for ((entity, entity_id), (op, _queued_at)) in seen {
         let change_op = if op == "delete" {
             ChangeOp::Delete
@@ -215,7 +216,7 @@ async fn read_outbox_and_build(
         };
 
         let (data, updated_at) = if change_op == ChangeOp::Upsert {
-            match fetch_row_json(&db, &entity, &entity_id).await? {
+            match fetch_row_json(&conn, &entity, &entity_id).await? {
                 Some((d, ts)) => (Some(d), ts),
                 None => {
                     *skipped_missing.entry(entity.clone()).or_insert(0) += 1;
@@ -224,12 +225,12 @@ async fn read_outbox_and_build(
                 }
             }
         } else {
-            (None, metadata::get_last_sync(&db).await?.unwrap_or(0))
+            (None, last_sync)
         };
 
         // For delete we need updated_at; use last_sync or fetch _updated_at.
         let updated_at = if change_op == ChangeOp::Delete {
-            fetch_updated_at(&db, &entity, &entity_id)
+            fetch_updated_at(&conn, &entity, &entity_id)
                 .await?
                 .unwrap_or(updated_at)
         } else {
@@ -262,37 +263,36 @@ async fn read_outbox_and_build(
 }
 
 async fn fetch_row_json(
-    db: &Database,
+    conn: &Connection,
     entity: &str,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
     match entity {
-        "entries" => fetch_entries_row(db, entity_id).await,
-        "tags" => fetch_tags_row(db, entity_id).await,
-        "tasks" => fetch_tasks_row(db, entity_id).await,
-        "goals" => fetch_goals_row(db, entity_id).await,
-        "canvases" => fetch_canvases_row(db, entity_id).await,
-        "bookmarks" => fetch_bookmarks_row(db, entity_id).await,
-        "resource_links" => fetch_resource_links_row(db, entity_id).await,
-        "media_items" => fetch_media_items_row(db, entity_id).await,
-        "audio_transcriptions" => fetch_audio_transcriptions_row(db, entity_id).await,
-        "entry_tags" => fetch_entry_tags_row(db, entity_id).await,
-        "task_tags" => fetch_task_tags_row(db, entity_id).await,
-        "goal_tags" => fetch_goal_tags_row(db, entity_id).await,
-        "goal_instance_tags" => fetch_goal_instance_tags_row(db, entity_id).await,
-        "bookmark_tags" => fetch_bookmark_tags_row(db, entity_id).await,
-        "goal_instances" => fetch_goal_instances_row(db, entity_id).await,
-        "subtasks" => fetch_subtasks_row(db, entity_id).await,
-        "activities" => fetch_activities_row(db, entity_id).await,
+        "entries" => fetch_entries_row(conn, entity_id).await,
+        "tags" => fetch_tags_row(conn, entity_id).await,
+        "tasks" => fetch_tasks_row(conn, entity_id).await,
+        "goals" => fetch_goals_row(conn, entity_id).await,
+        "canvases" => fetch_canvases_row(conn, entity_id).await,
+        "bookmarks" => fetch_bookmarks_row(conn, entity_id).await,
+        "resource_links" => fetch_resource_links_row(conn, entity_id).await,
+        "media_items" => fetch_media_items_row(conn, entity_id).await,
+        "audio_transcriptions" => fetch_audio_transcriptions_row(conn, entity_id).await,
+        "entry_tags" => fetch_entry_tags_row(conn, entity_id).await,
+        "task_tags" => fetch_task_tags_row(conn, entity_id).await,
+        "goal_tags" => fetch_goal_tags_row(conn, entity_id).await,
+        "goal_instance_tags" => fetch_goal_instance_tags_row(conn, entity_id).await,
+        "bookmark_tags" => fetch_bookmark_tags_row(conn, entity_id).await,
+        "goal_instances" => fetch_goal_instances_row(conn, entity_id).await,
+        "subtasks" => fetch_subtasks_row(conn, entity_id).await,
+        "activities" => fetch_activities_row(conn, entity_id).await,
         _ => Ok(None),
     }
 }
 
 async fn fetch_entry_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT entry_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM entry_tags WHERE _sync_id = ?1",
@@ -317,10 +317,9 @@ async fn fetch_entry_tags_row(
 }
 
 async fn fetch_task_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT task_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM task_tags WHERE _sync_id = ?1",
@@ -345,10 +344,9 @@ async fn fetch_task_tags_row(
 }
 
 async fn fetch_goal_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT goal_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM goal_tags WHERE _sync_id = ?1",
@@ -373,10 +371,9 @@ async fn fetch_goal_tags_row(
 }
 
 async fn fetch_goal_instance_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT goal_instance_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM goal_instance_tags WHERE _sync_id = ?1",
@@ -401,10 +398,9 @@ async fn fetch_goal_instance_tags_row(
 }
 
 async fn fetch_bookmark_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT bookmark_id, tag_id, _sync_id, _updated_at, _deleted, _extra FROM bookmark_tags WHERE _sync_id = ?1",
@@ -429,10 +425,9 @@ async fn fetch_bookmark_tags_row(
 }
 
 async fn fetch_goal_instances_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goal_instances WHERE _sync_id = ?1",
@@ -463,10 +458,9 @@ async fn fetch_goal_instances_row(
 }
 
 async fn fetch_subtasks_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, title, is_completed, task_id, order_index, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM subtasks WHERE _sync_id = ?1",
@@ -497,10 +491,9 @@ async fn fetch_subtasks_row(
 }
 
 async fn fetch_entries_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM entries WHERE _sync_id = ?1",
@@ -544,10 +537,9 @@ async fn fetch_entries_row(
 }
 
 async fn fetch_tags_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM tags WHERE _sync_id = ?1",
@@ -585,10 +577,9 @@ async fn fetch_tags_row(
 }
 
 async fn fetch_tasks_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM tasks WHERE _sync_id = ?1",
@@ -621,10 +612,9 @@ async fn fetch_tasks_row(
 }
 
 async fn fetch_goals_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goals WHERE _sync_id = ?1",
@@ -659,10 +649,9 @@ async fn fetch_goals_row(
 }
 
 async fn fetch_canvases_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM canvases WHERE _sync_id = ?1",
@@ -691,10 +680,9 @@ async fn fetch_canvases_row(
 }
 
 async fn fetch_bookmarks_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM bookmarks WHERE _sync_id = ?1",
@@ -733,10 +721,9 @@ async fn fetch_bookmarks_row(
 }
 
 async fn fetch_media_items_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra FROM media_items WHERE _sync_id = ?1",
@@ -781,10 +768,9 @@ async fn fetch_media_items_row(
 }
 
 async fn fetch_audio_transcriptions_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra FROM audio_transcriptions WHERE _sync_id = ?1",
@@ -817,10 +803,9 @@ async fn fetch_audio_transcriptions_row(
 }
 
 async fn fetch_resource_links_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, source_type, source_id, target_type, target_id, link_text, created_at, _sync_id, _updated_at, _deleted, _extra FROM resource_links WHERE _sync_id = ?1",
@@ -850,10 +835,9 @@ async fn fetch_resource_links_row(
 }
 
 async fn fetch_activities_row(
-    db: &Database,
+    conn: &Connection,
     entity_id: &str,
 ) -> Result<Option<(serde_json::Value, i64)>> {
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
             "SELECT id, action_type, entity_type, entity_id, created_at, metadata, _sync_id, _updated_at, _deleted, _extra FROM activities WHERE _sync_id = ?1",
@@ -881,7 +865,7 @@ async fn fetch_activities_row(
     Ok(Some((data, ts)))
 }
 
-async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Result<Option<i64>> {
+async fn fetch_updated_at(conn: &Connection, entity: &str, entity_id: &str) -> Result<Option<i64>> {
     let table = match entity {
         "entries" => "entries",
         "tags" => "tags",
@@ -902,7 +886,6 @@ async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Resul
         "activities" => "activities",
         _ => return Ok(None),
     };
-    let conn = db.connect().map_err(AppError::LibSQL)?;
     let sql = format!("SELECT _updated_at FROM {} WHERE _sync_id = ?1", table);
     let mut rows = conn
         .query(&sql, libsql::params![entity_id])
@@ -985,7 +968,7 @@ mod tests {
         .await
         .unwrap();
 
-        let (data, updated_at) = fetch_row_json(&db, "resource_links", "link-1")
+        let (data, updated_at) = fetch_row_json(&conn, "resource_links", "link-1")
             .await
             .unwrap()
             .unwrap();
@@ -1019,7 +1002,7 @@ mod tests {
         .await
         .unwrap();
 
-        let (data, updated_at) = fetch_row_json(&db, "activities", "activity-1")
+        let (data, updated_at) = fetch_row_json(&conn, "activities", "activity-1")
             .await
             .unwrap()
             .unwrap();
