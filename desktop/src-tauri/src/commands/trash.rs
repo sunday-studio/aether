@@ -1,4 +1,5 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
+use crate::db::models::Task;
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use crate::utils::log_restore;
@@ -10,7 +11,7 @@ use tauri::State;
     path = "/v1/trash/tasks",
     tag = "Trash",
     responses(
-        (status = 200, description = "List of deleted tasks", body = Vec<crate::db::models::Task>),
+        (status = 200, description = "List of deleted tasks", body = Vec<Task>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -20,7 +21,7 @@ pub async fn get_trashed_tasks(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<Vec<crate::db::models::Task>> {
+) -> Result<Vec<Task>> {
     let _guard = connection::with_db_access(&*state).await;
     let conn = connection::get_database(&*state)
         .connect()
@@ -66,7 +67,7 @@ pub async fn get_trashed_tasks(
             .flatten()
             .map(|dt| dt.with_timezone(&chrono::Utc));
 
-        tasks.push(crate::db::models::Task {
+        tasks.push(Task {
             id,
             title,
             description,

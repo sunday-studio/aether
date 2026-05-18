@@ -6,8 +6,8 @@ use crate::commands::bookmark as bookmark_commands;
 use crate::commands::canvas as canvas_commands;
 use crate::commands::common::{
     PaginatedBookmarks, PaginatedCanvases, PaginatedEntries, PaginatedGoalInstances,
-    PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTasksWithSubtasks,
-    PaginatedTranscriptions,
+    PaginatedGoalInstancesWithTasks, PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks,
+    PaginatedTasksWithSubtasks, PaginatedTranscriptions,
 };
 use crate::commands::embeddings as embedding_commands;
 use crate::commands::entry as entry_commands;
@@ -22,8 +22,8 @@ use crate::commands::{
     audio as audio_commands, sync as sync_commands, transcription as transcription_commands,
 };
 use crate::db::models::{
-    Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem,
-    ResourceLink, SubTask, Tag, Task, TaskWithSubtasks,
+    Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance,
+    GoalInstanceWithTasks, MediaItem, ResourceLink, SubTask, Tag, Task, TaskWithSubtasks,
 };
 use crate::utils::metadata::extractor::ExtractedMetadata;
 
@@ -155,6 +155,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         SubTask,
         Goal,
         GoalInstance,
+        GoalInstanceWithTasks,
         Activity,
         ResourceLink,
         Canvas,
@@ -169,6 +170,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         PaginatedTasksWithSubtasks,
         PaginatedGoals,
         PaginatedGoalInstances,
+        PaginatedGoalInstancesWithTasks,
         PaginatedLinks,
         PaginatedCanvases,
         PaginatedBookmarks,
@@ -188,12 +190,14 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         goal_commands::CreateGoalRequest,
         goal_commands::UpdateGoalRequest,
         search_commands::SearchRequest,
+        search_commands::SearchResultResponse,
         search_commands::SearchResponse,
         search_commands::SearchContextResponse,
         search_commands::ReindexResourceRequest,
         crate::db::repositories::SearchIndexStatus,
         embedding_commands::IndexSearchEmbeddingsRequest,
         embedding_commands::IndexSearchResourceEmbeddingsRequest,
+        crate::db::repositories::SearchEmbeddingModelStatus,
         crate::db::repositories::SearchEmbeddingStatus,
         crate::db::repositories::EntryInsightBundle,
         crate::db::repositories::JournalEntryInsight,

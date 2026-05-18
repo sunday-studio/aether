@@ -53,7 +53,7 @@ pub struct ModelInfo {
 /// Start transcription for an audio file
 #[utoipa::path(
     post,
-    path = "/v1/transcription",
+    path = "/v1/transcription/{mediaId}",
     tag = "Transcription",
     params(
         ("mediaId" = String, Path, description = "Media ID"),
@@ -208,10 +208,7 @@ pub async fn get_transcription_by_id(
     post,
     path = "/v1/transcription/set-active",
     tag = "Transcription",
-    params(
-        ("transcriptionId" = String, Path, description = "Transcription ID"),
-        ("mediaId" = String, Path, description = "Media ID")
-    ),
+    request_body = SetActiveTranscriptionRequest,
     responses(
         (status = 200, description = "Transcription set as active"),
         (status = 400, description = "Bad request"),
@@ -355,9 +352,7 @@ pub async fn list_providers(
     post,
     path = "/v1/transcription/validate-provider",
     tag = "Transcription",
-    params(
-        ("providerName" = String, Path, description = "Provider name")
-    ),
+    request_body = ValidateProviderRequest,
     responses(
         (status = 200, description = "Validation result", body = bool),
         (status = 400, description = "Bad request"),
@@ -433,7 +428,7 @@ pub async fn list_available_models(
 /// Download a Whisper model
 #[utoipa::path(
     post,
-    path = "/v1/transcription/models/download",
+    path = "/v1/transcription/models/{modelSize}/download",
     tag = "Transcription",
     params(
         ("modelSize" = String, Path, description = "Model size")
@@ -473,7 +468,7 @@ pub async fn download_model(
 /// Verify model integrity
 #[utoipa::path(
     post,
-    path = "/v1/transcription/models/verify",
+    path = "/v1/transcription/models/{modelSize}/verify",
     tag = "Transcription",
     params(
         ("modelSize" = String, Path, description = "Model size")

@@ -201,7 +201,7 @@ pub async fn reconnect_sync(
 /// No-op when sync.media_sync_policy is "auto" or sync is not configured.
 #[utoipa::path(
     post,
-    path = "/v1/sync/media/:mediaId/ensure",
+    path = "/v1/sync/media/{mediaId}/ensure",
     tag = "Sync",
     params(
         ("mediaId" = String, Path, description = "Media ID")

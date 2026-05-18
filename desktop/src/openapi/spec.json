@@ -54,17 +54,97 @@
         }
       }
     },
-    "/v1/audio": {
+    "/v1/ai/journal/entry/enrich": {
       "post": {
         "tags": [
-          "Audio"
+          "AI Journal"
         ],
-        "summary": "Save audio recording to filesystem and database",
-        "operationId": "save_audio_recording",
+        "summary": "Generate an editable local AI insight draft for one journal entry.",
+        "operationId": "enrich_journal_entry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrichJournalEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Editable entry insight draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryInsightBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Entry not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/entry/insight": {
+      "patch": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Update editable fields for an entry insight draft.",
+        "operationId": "update_entry_insight",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEntryInsightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated entry insight draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryInsightBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Insight not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/entry/insights": {
+      "get": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Get the current editable insight draft and suggestions for one journal entry.",
+        "operationId": "get_entry_insights",
         "parameters": [
           {
-            "name": "entryId",
-            "in": "path",
+            "name": "entry_id",
+            "in": "query",
             "description": "Entry ID",
             "required": true,
             "schema": {
@@ -72,6 +152,273 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Editable entry insight draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryInsightBundle"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Insight not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/suggestion": {
+      "patch": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Update the review state for one AI suggestion.",
+        "operationId": "update_ai_suggestion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiSuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated suggestion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSuggestionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/suggestion/accept-relation": {
+      "post": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Accept a relation suggestion by creating a normal resource link.",
+        "operationId": "accept_ai_relation_suggestion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptAiRelationSuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted relation suggestion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptAiRelationSuggestionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/suggestion/accept-tag": {
+      "post": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Accept a tag suggestion by creating or reusing a real tag and attaching it to the entry.",
+        "operationId": "accept_ai_tag_suggestion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptAiTagSuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted tag suggestion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptAiTagSuggestionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/ai/journal/weekly-summary": {
+      "get": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Get an editable weekly summary draft.",
+        "operationId": "get_weekly_ai_summary",
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "description": "Week start ISO 8601 value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "description": "Week end ISO 8601 value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Editable weekly summary draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyAiSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Weekly summary not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Generate an editable local weekly summary draft.",
+        "operationId": "generate_weekly_ai_summary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyAiSummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Editable weekly summary draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyAiSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "AI Journal"
+        ],
+        "summary": "Update editable fields for a weekly summary draft.",
+        "operationId": "update_weekly_ai_summary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWeeklyAiSummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated weekly summary draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyAiSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Weekly summary not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/audio": {
+      "post": {
+        "tags": [
+          "Audio"
+        ],
+        "summary": "Save audio recording to filesystem and database",
+        "operationId": "save_audio_recording",
         "requestBody": {
           "description": "Audio recording data",
           "content": {
@@ -2215,7 +2562,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.repositories.SearchIndexStatus"
+                  "$ref": "#/components/schemas/SearchIndexStatus"
                 }
               }
             }
@@ -2269,7 +2616,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/crate.db.repositories.SearchIndexStatus"
+                  "$ref": "#/components/schemas/SearchIndexStatus"
                 }
               }
             }
@@ -2535,7 +2882,7 @@
         }
       }
     },
-    "/v1/sync/media/:mediaId/ensure": {
+    "/v1/sync/media/{mediaId}/ensure": {
       "post": {
         "tags": [
           "Sync"
@@ -3446,54 +3793,6 @@
         }
       }
     },
-    "/v1/transcription": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Start transcription for an audio file",
-        "operationId": "start_transcription",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "providerName",
-            "in": "query",
-            "description": "Provider name (optional)",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transcription ID",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
     "/v1/transcription/by-id/{transcriptionId}": {
       "get": {
         "tags": [
@@ -3564,7 +3863,38 @@
         }
       }
     },
-    "/v1/transcription/models/download": {
+    "/v1/transcription/models/{modelSize}": {
+      "delete": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Delete a downloaded model",
+        "operationId": "delete_model",
+        "parameters": [
+          {
+            "name": "modelSize",
+            "in": "path",
+            "description": "Model size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model deleted successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/transcription/models/{modelSize}/download": {
       "post": {
         "tags": [
           "Transcription"
@@ -3602,7 +3932,7 @@
         }
       }
     },
-    "/v1/transcription/models/verify": {
+    "/v1/transcription/models/{modelSize}/verify": {
       "post": {
         "tags": [
           "Transcription"
@@ -3630,37 +3960,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/models/{modelSize}": {
-      "delete": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Delete a downloaded model",
-        "operationId": "delete_model",
-        "parameters": [
-          {
-            "name": "modelSize",
-            "in": "path",
-            "description": "Model size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Model deleted successfully"
           },
           "400": {
             "description": "Bad request"
@@ -3705,26 +4004,16 @@
         ],
         "summary": "Set active transcription",
         "operationId": "set_active_transcription",
-        "parameters": [
-          {
-            "name": "transcriptionId",
-            "in": "path",
-            "description": "Transcription ID",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveTranscriptionRequest"
+              }
             }
           },
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Transcription set as active"
@@ -3745,17 +4034,16 @@
         ],
         "summary": "Validate provider configuration",
         "operationId": "validate_provider",
-        "parameters": [
-          {
-            "name": "providerName",
-            "in": "path",
-            "description": "Provider name",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateProviderRequest"
+              }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Validation result",
@@ -3834,6 +4122,52 @@
             "description": "Internal server error"
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Transcription"
+        ],
+        "summary": "Start transcription for an audio file",
+        "operationId": "start_transcription",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "Media ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerName",
+            "in": "query",
+            "description": "Provider name (optional)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcription ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
       }
     },
     "/v1/trash/tasks": {
@@ -3851,7 +4185,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Task"
+                    "$ref": "#/components/schemas/Task"
                   }
                 }
               }
@@ -3897,6 +4231,66 @@
   },
   "components": {
     "schemas": {
+      "AcceptAiRelationSuggestionRequest": {
+        "type": "object",
+        "required": [
+          "suggestionId"
+        ],
+        "properties": {
+          "linkText": {
+            "type": "string",
+            "nullable": true
+          },
+          "suggestionId": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptAiRelationSuggestionResponse": {
+        "type": "object",
+        "required": [
+          "suggestion",
+          "link"
+        ],
+        "properties": {
+          "link": {
+            "$ref": "#/components/schemas/ResourceLink"
+          },
+          "suggestion": {
+            "$ref": "#/components/schemas/JournalEntrySuggestion"
+          }
+        }
+      },
+      "AcceptAiTagSuggestionRequest": {
+        "type": "object",
+        "required": [
+          "suggestionId"
+        ],
+        "properties": {
+          "editedValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "suggestionId": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptAiTagSuggestionResponse": {
+        "type": "object",
+        "required": [
+          "suggestion",
+          "tag"
+        ],
+        "properties": {
+          "suggestion": {
+            "$ref": "#/components/schemas/JournalEntrySuggestion"
+          },
+          "tag": {
+            "$ref": "#/components/schemas/Tag"
+          }
+        }
+      },
       "Activity": {
         "type": "object",
         "description": "Activity model for tracking user actions and audit logging",
@@ -3952,6 +4346,17 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "AiSuggestionResponse": {
+        "type": "object",
+        "required": [
+          "suggestion"
+        ],
+        "properties": {
+          "suggestion": {
+            "$ref": "#/components/schemas/JournalEntrySuggestion"
           }
         }
       },
@@ -4335,6 +4740,21 @@
           }
         }
       },
+      "EnrichJournalEntryRequest": {
+        "type": "object",
+        "required": [
+          "entryId"
+        ],
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "Entry": {
         "type": "object",
         "description": "Entry model",
@@ -4382,6 +4802,24 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "EntryInsightBundle": {
+        "type": "object",
+        "required": [
+          "insight",
+          "suggestions"
+        ],
+        "properties": {
+          "insight": {
+            "$ref": "#/components/schemas/JournalEntryInsight"
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JournalEntrySuggestion"
+            }
           }
         }
       },
@@ -4522,6 +4960,48 @@
           }
         }
       },
+      "GoalInstanceWithTasks": {
+        "type": "object",
+        "description": "Goal instance with its tasks (for goal view)",
+        "required": [
+          "id",
+          "goalId",
+          "periodStart",
+          "status",
+          "createdAt",
+          "tasks"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "goalId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskWithSubtasks"
+            }
+          }
+        }
+      },
       "IndexSearchEmbeddingsRequest": {
         "type": "object",
         "properties": {
@@ -4546,6 +5026,161 @@
             "type": "string"
           },
           "resourceType": {
+            "type": "string"
+          }
+        }
+      },
+      "JournalEntryInsight": {
+        "type": "object",
+        "required": [
+          "id",
+          "entryId",
+          "summary",
+          "emotions",
+          "themes",
+          "people",
+          "projects",
+          "openLoops",
+          "provider",
+          "state",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "emotions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "energy": {
+            "type": "string",
+            "nullable": true
+          },
+          "entryId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "openLoops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "possibleMood": {
+            "type": "string",
+            "nullable": true
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JournalEntrySuggestion": {
+        "type": "object",
+        "required": [
+          "id",
+          "entryId",
+          "suggestionType",
+          "value",
+          "provider",
+          "state",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "entryId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "insightId": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "provider": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "suggestionType": {
+            "type": "string"
+          },
+          "targetResourceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetResourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "value": {
             "type": "string"
           }
         }
@@ -5090,6 +5725,27 @@
           }
         }
       },
+      "SearchEmbeddingModelStatus": {
+        "type": "object",
+        "required": [
+          "modelName",
+          "dimensions",
+          "totalEmbeddings"
+        ],
+        "properties": {
+          "dimensions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "totalEmbeddings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "SearchEmbeddingStatus": {
         "type": "object",
         "required": [
@@ -5225,6 +5881,61 @@
           "total": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "SearchResultResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "resourceType",
+          "resourceId",
+          "title",
+          "preview",
+          "score",
+          "matchKind",
+          "highlights",
+          "sourceUpdatedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "matchKind": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "sourceUpdatedAt": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
           }
         }
       },
@@ -5528,6 +6239,25 @@
           }
         }
       },
+      "UpdateAiSuggestionRequest": {
+        "type": "object",
+        "required": [
+          "suggestionId",
+          "state"
+        ],
+        "properties": {
+          "editedValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string"
+          },
+          "suggestionId": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateBookmarkRequest": {
         "type": "object",
         "properties": {
@@ -5582,6 +6312,68 @@
           },
           "name": {
             "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateEntryInsightRequest": {
+        "type": "object",
+        "required": [
+          "insightId"
+        ],
+        "properties": {
+          "emotions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "energy": {
+            "type": "string",
+            "nullable": true
+          },
+          "insightId": {
+            "type": "string"
+          },
+          "openLoops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "possibleMood": {
+            "type": "string",
+            "nullable": true
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         }
@@ -5711,6 +6503,53 @@
           }
         }
       },
+      "UpdateWeeklyAiSummaryRequest": {
+        "type": "object",
+        "required": [
+          "summaryId"
+        ],
+        "properties": {
+          "completedWork": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "nextFocus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "openLoops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "summaryId": {
+            "type": "string"
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        }
+      },
       "ValidateProviderRequest": {
         "type": "object",
         "description": "Request to validate provider",
@@ -5719,6 +6558,124 @@
         ],
         "properties": {
           "providerName": {
+            "type": "string"
+          }
+        }
+      },
+      "WeeklyAiSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "weekStart",
+          "weekEnd",
+          "summary",
+          "themes",
+          "completedWork",
+          "openLoops",
+          "nextFocus",
+          "sourceEntryIds",
+          "sourceTaskIds",
+          "sourceGoalIds",
+          "provider",
+          "state",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "completedWork": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "nextFocus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "openLoops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider": {
+            "type": "string"
+          },
+          "sourceEntryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceGoalIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceTaskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "weekEnd": {
+            "type": "string"
+          },
+          "weekStart": {
+            "type": "string"
+          }
+        }
+      },
+      "WeeklyAiSummaryRequest": {
+        "type": "object",
+        "required": [
+          "startDate",
+          "endDate"
+        ],
+        "properties": {
+          "endDate": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
             "type": "string"
           }
         }
@@ -5757,6 +6714,10 @@
     {
       "name": "Search",
       "description": "Search endpoints"
+    },
+    {
+      "name": "AI Journal",
+      "description": "AI journal enrichment endpoints"
     },
     {
       "name": "Links",

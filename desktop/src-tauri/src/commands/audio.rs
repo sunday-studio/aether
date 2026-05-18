@@ -30,9 +30,6 @@ pub struct SaveAudioRecordingRequest {
     path = "/v1/audio",
     tag = "Audio",
     request_body(content = serde_json::Value, description = "Audio recording data"),
-    params(
-        ("entryId" = String, Path, description = "Entry ID"),
-    ),
     responses(
         (status = 200, description = "Media ID of saved audio", body = String),
         (status = 400, description = "Bad request"),

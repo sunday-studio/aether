@@ -9,6 +9,7 @@ import type { EntryWithTags } from '~/types/models';
 import { extractFirstSentence } from '../journal.domain.ts';
 // import { EntryAudio } from "./entry-audio";
 import { JournalActionsDropdown } from './journal-actions-dropdown';
+import { JournalAiInsights } from './journal-ai-insights';
 import { JournalEditor } from './journal-editor';
 
 interface JournalGridItemProps {
@@ -111,6 +112,7 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 						id={entry.id ?? ''}
 						onChange={(document: string) => onUpdateEntry(entry.id ?? '', document)}
 					/>
+					<JournalAiInsights entryId={entry.id ?? ''} />
 				</div>
 			)}
 		</div>

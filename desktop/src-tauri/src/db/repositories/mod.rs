@@ -32,7 +32,8 @@ pub use media::MediaRepository;
 pub use search::{ResourceType, SearchRepository, SearchResult};
 pub use search_document::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
 pub use search_embedding::{
-    SearchEmbeddingInput, SearchEmbeddingRepository, SearchEmbeddingStatus,
+    SearchEmbeddingInput, SearchEmbeddingModelStatus, SearchEmbeddingRepository,
+    SearchEmbeddingStatus,
 };
 pub use settings::SettingsRepository;
 pub use tag::TagRepository;

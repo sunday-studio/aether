@@ -2,7 +2,7 @@ use crate::commands::params::{
     EmptyPathParams, EmptyRequest, RelatedSearchQueryParams, SearchQueryParams,
     WeekContextQueryParams,
 };
-use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository};
+use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
@@ -364,7 +364,7 @@ fn resolve_search_mode(requested_mode: &str) -> Result<&'static str> {
     path = "/v1/search/index/reindex",
     tag = "Search",
     responses(
-        (status = 200, description = "Search index rebuilt", body = crate::db::repositories::SearchIndexStatus),
+        (status = 200, description = "Search index rebuilt", body = SearchIndexStatus),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -374,7 +374,7 @@ pub async fn reindex_search(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::repositories::SearchIndexStatus> {
+) -> Result<SearchIndexStatus> {
     let _guard = connection::with_db_access(&*state).await;
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
     repo.reindex_all().await
@@ -419,7 +419,7 @@ pub async fn reindex_search_resource(
     path = "/v1/search/index/status",
     tag = "Search",
     responses(
-        (status = 200, description = "Search index status", body = crate::db::repositories::SearchIndexStatus),
+        (status = 200, description = "Search index status", body = SearchIndexStatus),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -429,7 +429,7 @@ pub async fn get_search_index_status(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<crate::commands::params::EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
-) -> Result<crate::db::repositories::SearchIndexStatus> {
+) -> Result<SearchIndexStatus> {
     let _guard = connection::with_db_access(&*state).await;
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
     repo.status().await
