@@ -188,8 +188,14 @@ impl SyncEngine {
             let p = self.passphrase.lock().unwrap().clone();
             (u, p)
         };
-        let url = url.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
-        let pass = pass.ok_or_else(|| AppError::Sync("sync not configured".into()))?;
+        let Some(url) = url else {
+            tracing::debug!("[SYNC] Sync skipped because no server URL is configured");
+            return self.status().await;
+        };
+        let Some(pass) = pass else {
+            tracing::debug!("[SYNC] Sync skipped because no passphrase is loaded");
+            return self.status().await;
+        };
 
         let already = {
             let mut g = self.is_syncing.lock().unwrap();
@@ -390,6 +396,23 @@ mod tests {
         let db = Builder::new_local(path).build().await.unwrap();
         migrations::run_migrations(&db).await.unwrap();
         db
+    }
+
+    #[tokio::test]
+    async fn sync_without_configuration_returns_disconnected_status() {
+        let db = test_db().await;
+        let state = crate::DbState {
+            database: Arc::new(Mutex::new(Arc::new(db))),
+            db_access: Arc::new(tokio::sync::Mutex::new(())),
+        };
+        let engine = SyncEngine::new(state);
+
+        let status = engine.sync().await.unwrap();
+
+        assert!(!status.connected);
+        assert!(!status.needs_passphrase);
+        assert_eq!(status.pending_changes, 0);
+        assert_eq!(status.last_sync, None);
     }
 
     #[tokio::test]
