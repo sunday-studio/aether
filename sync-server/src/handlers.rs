@@ -125,22 +125,25 @@ where
         .map_err(|e| e.to_string())
 }
 
-fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, StatusCode> {
+async fn require_auth(headers: &HeaderMap, storage: Arc<Storage>) -> Result<String, StatusCode> {
     let started = Instant::now();
     let device_id = authenticated_device_id(headers)
         .filter(|id| valid_device_id(id))
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        .to_string();
     let token = bearer_token(headers)
         .filter(|token| !token.is_empty())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-    match storage.authenticate_device(device_id, token) {
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        .to_string();
+    let device_id_for_auth = device_id.clone();
+    match storage_blocking(move || storage.authenticate_device(&device_id_for_auth, &token)).await {
         Ok(true) => {
             tracing::info!(
                 "[SYNC-SERVER-TIMING] auth={}ms device_id={}",
                 started.elapsed().as_millis(),
                 device_id
             );
-            Ok(device_id.to_string())
+            Ok(device_id)
         }
         Ok(false) => {
             tracing::info!(
@@ -229,7 +232,7 @@ async fn push(
     headers: HeaderMap,
     Json(body): Json<PushRequest>,
 ) -> impl IntoResponse {
-    let device_id = match require_auth(&headers, &s.storage) {
+    let device_id = match require_auth(&headers, s.storage.clone()).await {
         Ok(id) => id,
         Err(status) => return (status, "unauthorized").into_response(),
     };
@@ -332,7 +335,7 @@ async fn ws_handler(
     Query(query): Query<WsQuery>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    let device_id = match require_auth(&headers, &s.storage) {
+    let device_id = match require_auth(&headers, s.storage.clone()).await {
         Ok(id) => id,
         Err(status) => return (status, "unauthorized").into_response(),
     };
@@ -473,7 +476,7 @@ struct DevicesResponse {
 }
 
 async fn get_devices(State(s): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
-    if let Err(status) = require_auth(&headers, &s.storage) {
+    if let Err(status) = require_auth(&headers, s.storage.clone()).await {
         return (
             status,
             Json(DevicesResponse {
@@ -520,7 +523,7 @@ async fn pull(
     headers: HeaderMap,
     Query(q): Query<PullQuery>,
 ) -> impl IntoResponse {
-    let device_id = match require_auth(&headers, &s.storage) {
+    let device_id = match require_auth(&headers, s.storage.clone()).await {
         Ok(id) => id,
         Err(status) => {
             return (
@@ -644,7 +647,7 @@ async fn put_media(
     Path(hash): Path<String>,
     body: Bytes,
 ) -> impl IntoResponse {
-    if let Err(status) = require_auth(&headers, &s.storage) {
+    if let Err(status) = require_auth(&headers, s.storage.clone()).await {
         return status;
     }
     if !valid_media_hash(&hash) {
@@ -673,7 +676,7 @@ async fn get_media(
     headers: HeaderMap,
     Path(hash): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(status) = require_auth(&headers, &s.storage) {
+    if let Err(status) = require_auth(&headers, s.storage.clone()).await {
         return status.into_response();
     }
     if !valid_media_hash(&hash) {
@@ -705,7 +708,7 @@ async fn head_media(
     headers: HeaderMap,
     Path(hash): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(status) = require_auth(&headers, &s.storage) {
+    if let Err(status) = require_auth(&headers, s.storage.clone()).await {
         return status;
     }
     if !valid_media_hash(&hash) {
