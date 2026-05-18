@@ -1,11 +1,14 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use libsql::{Builder, Database};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::error::{AppError, Result};
+
+const DB_ACCESS_WAIT_LOG_THRESHOLD: Duration = Duration::from_millis(25);
 
 #[derive(Clone)]
 pub struct DbState {
@@ -72,8 +75,25 @@ pub async fn initialize(app_handle: Option<&AppHandle>) -> Result<DbState> {
 }
 
 /// Acquire exclusive access to the database. Hold the guard for the duration of the operation.
-pub async fn with_db_access(state: &DbState) -> tokio::sync::MutexGuard<'_, ()> {
-    state.db_access.lock().await
+#[track_caller]
+pub fn with_db_access(
+    state: &DbState,
+) -> impl std::future::Future<Output = tokio::sync::MutexGuard<'_, ()>> + '_ {
+    let caller = std::panic::Location::caller();
+    async move {
+        let started = Instant::now();
+        let guard = state.db_access.lock().await;
+        let waited = started.elapsed();
+        if waited >= DB_ACCESS_WAIT_LOG_THRESHOLD {
+            tracing::info!(
+                "[DB-TIMING] db_access_wait={}ms caller={}:{}",
+                waited.as_millis(),
+                caller.file(),
+                caller.line()
+            );
+        }
+        guard
+    }
 }
 
 /// Get current database instance (for use in handlers and repositories)
