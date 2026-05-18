@@ -7,7 +7,9 @@ use crate::db::repositories::{
 };
 use crate::db::{connection, DbState, EntryRepository, TagRepository};
 use crate::error::{AppError, Result};
-use crate::journal_ai::providers::RulesJournalAiProvider;
+use crate::journal_ai::{
+    providers::RulesJournalAiProvider, resolve_provider, JournalAiProviderKind,
+};
 use crate::utils::search_text::extract_text_from_lexical_document;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -154,6 +156,7 @@ pub async fn enrich_journal_entry(
     let request =
         request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
+    let provider = resolve_provider(db.clone(), request.mode.as_deref()).await?;
     let entry = EntryRepository::new(db.clone())
         .find_by_id(&request.entry_id)
         .await?
@@ -165,7 +168,11 @@ pub async fn enrich_journal_entry(
         .find_related("entry", &entry.id, Some(5))
         .await
         .unwrap_or_default();
-    let draft = RulesJournalAiProvider::build_entry_draft(&entry.id, &text, &tags, related);
+    let draft = match provider {
+        JournalAiProviderKind::Rules => {
+            RulesJournalAiProvider::build_entry_draft(&entry.id, &text, &tags, related)
+        }
+    };
 
     AiJournalEnrichmentRepository::new(db)
         .upsert_entry_bundle(draft.insight, draft.suggestions)
@@ -432,14 +439,17 @@ pub async fn generate_weekly_ai_summary(
     }
 
     let db = connection::get_database(&*state);
+    let provider = resolve_provider(db.clone(), request.mode.as_deref()).await?;
     let context = SearchDocumentRepository::new(db.clone())
         .list_context_by_date_range(&request.start_date, &request.end_date, Some(80))
         .await?;
-    let draft = RulesJournalAiProvider::build_weekly_summary_draft(
-        &request.start_date,
-        &request.end_date,
-        context,
-    );
+    let draft = match provider {
+        JournalAiProviderKind::Rules => RulesJournalAiProvider::build_weekly_summary_draft(
+            &request.start_date,
+            &request.end_date,
+            context,
+        ),
+    };
 
     AiJournalEnrichmentRepository::new(db)
         .upsert_weekly_summary(draft.summary)

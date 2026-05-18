@@ -17,10 +17,17 @@ import { useSettingsStore } from '~/store/settings-store';
 import { cn } from '~/utils/cn';
 
 type ProviderChoice = 'openai' | 'groq';
+type JournalAiProviderChoice = 'rules' | 'openai';
+type JournalAiContextPolicy = 'selected_context' | 'full_period_context' | 'summaries_only';
 
 const DEFAULT_PROVIDER_KEY = 'transcription.default_provider';
 const OPENAI_API_KEY = 'transcription.openai.api_key';
 const GROQ_API_KEY = 'transcription.groq.api_key';
+const JOURNAL_AI_ENABLED_KEY = 'ai.enrichment.enabled';
+const JOURNAL_AI_PROVIDER_KEY = 'ai.provider';
+const JOURNAL_AI_CONTEXT_POLICY_KEY = 'ai.external_context_policy';
+const JOURNAL_AI_OPENAI_API_KEY = 'ai.openai.api_key';
+const JOURNAL_AI_OPENAI_MODEL_KEY = 'ai.openai.model';
 const SEARCH_EMBEDDINGS_ENABLED_KEY = 'search.embeddings.enabled';
 const SEARCH_EMBEDDINGS_PROVIDER_KEY = 'search.embeddings.provider';
 const SEARCH_EMBEDDINGS_MODEL_KEY = 'search.embeddings.model';
@@ -67,6 +74,11 @@ function providerStatusLabel(status?: string) {
 export const AiSection = () => {
 	const queryClient = useQueryClient();
 	const [provider, setProvider] = useState<ProviderChoice | null>(null);
+	const [journalAiProvider, setJournalAiProvider] = useState<JournalAiProviderChoice | null>(null);
+	const [journalAiContextPolicy, setJournalAiContextPolicy] =
+		useState<JournalAiContextPolicy | null>(null);
+	const [journalAiOpenaiKey, setJournalAiOpenaiKey] = useState('');
+	const [journalAiOpenaiModel, setJournalAiOpenaiModel] = useState('');
 	const [openaiKey, setOpenaiKey] = useState('');
 	const [groqKey, setGroqKey] = useState('');
 	const [isSaving, setIsSaving] = useState(false);
@@ -83,6 +95,14 @@ export const AiSection = () => {
 		queryFn: listSearchEmbeddingModels,
 	});
 	const savedProvider = (settings[DEFAULT_PROVIDER_KEY] as ProviderChoice | undefined) ?? 'openai';
+	const savedJournalAiProvider =
+		(settings[JOURNAL_AI_PROVIDER_KEY] as JournalAiProviderChoice | undefined) ?? 'rules';
+	const savedJournalAiContextPolicy =
+		(settings[JOURNAL_AI_CONTEXT_POLICY_KEY] as JournalAiContextPolicy | undefined) ??
+		'selected_context';
+	const selectedJournalAiProvider = journalAiProvider ?? savedJournalAiProvider;
+	const selectedJournalAiContextPolicy =
+		journalAiContextPolicy ?? savedJournalAiContextPolicy;
 	const selectedEmbeddingModel =
 		embeddingModels?.find(model => model.name === DEFAULT_SEARCH_EMBEDDING_MODEL) ??
 		embeddingModels?.[0];
@@ -92,6 +112,7 @@ export const AiSection = () => {
 	const activeProvider = providerStatuses.get(selectedProvider);
 	const hasOpenAiKey = isConfigured(settings[OPENAI_API_KEY]);
 	const hasGroqKey = isConfigured(settings[GROQ_API_KEY]);
+	const hasJournalAiOpenAiKey = isConfigured(settings[JOURNAL_AI_OPENAI_API_KEY]);
 	const activeApiKey = selectedProvider === 'openai' ? openaiKey : groqKey;
 	const selectedProviderHasSavedKey = selectedProvider === 'openai' ? hasOpenAiKey : hasGroqKey;
 
@@ -107,13 +128,22 @@ export const AiSection = () => {
 		try {
 			await setValues({
 				[DEFAULT_PROVIDER_KEY]: selectedProvider,
+				[JOURNAL_AI_ENABLED_KEY]: 'true',
+				[JOURNAL_AI_PROVIDER_KEY]: selectedJournalAiProvider,
+				[JOURNAL_AI_CONTEXT_POLICY_KEY]: selectedJournalAiContextPolicy,
+				[JOURNAL_AI_OPENAI_MODEL_KEY]: journalAiOpenaiModel.trim() || 'gpt-4.1-mini',
 				...(openaiKey.trim() ? { [OPENAI_API_KEY]: openaiKey.trim() } : {}),
 				...(groqKey.trim() ? { [GROQ_API_KEY]: groqKey.trim() } : {}),
+				...(journalAiOpenaiKey.trim()
+					? { [JOURNAL_AI_OPENAI_API_KEY]: journalAiOpenaiKey.trim() }
+					: {}),
 			});
 			await invalidateAiQueries();
 			setOpenaiKey('');
 			setGroqKey('');
-			setStatusMessage('AI transcription settings saved.');
+			setJournalAiOpenaiKey('');
+			setJournalAiOpenaiModel('');
+			setStatusMessage('AI settings saved.');
 		} catch (error) {
 			setErrorMessage(getErrorMessage(error));
 		} finally {
@@ -286,6 +316,79 @@ export const AiSection = () => {
 						tooltipContent='Download the local search model'
 						isDisabled={isStartingModelDownload || Boolean(selectedEmbeddingModel?.isDownloaded)}
 						iconLeft={<Download className='size-4' />}
+					/>
+				</div>
+			</div>
+
+			<div className='rounded-lg bg-(--color-panel) p-4 shadow-xs ring ring-neutral-200/40'>
+				<div className='mb-4 flex items-start justify-between gap-4'>
+					<div>
+						<p className='text-sm font-medium'>Journal insights</p>
+						<p className='mt-1 max-w-xl text-xs leading-5 text-(--color-secondary-text)'>
+							Local rules are available now. External journal AI settings are saved for the
+							provider integration slice.
+						</p>
+					</div>
+					<div
+						className={cn(
+							'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+							selectedJournalAiProvider === 'rules'
+								? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+								: 'border-(--color-border) text-(--color-secondary-text)',
+						)}
+					>
+						{selectedJournalAiProvider === 'rules' ? (
+							<CheckCircle2 className='size-3.5' />
+						) : (
+							<CircleAlert className='size-3.5' />
+						)}
+						{selectedJournalAiProvider === 'rules' ? 'Local' : 'External'}
+					</div>
+				</div>
+
+				<div className='grid gap-4 sm:grid-cols-2'>
+					<Select
+						label='Journal enrichment provider'
+						placeholder='Choose provider'
+						value={selectedJournalAiProvider}
+						onChange={value => setJournalAiProvider(value as JournalAiProviderChoice)}
+						items={[
+							{ label: 'Local rules', value: 'rules' },
+							{ label: 'OpenAI', value: 'openai' },
+						]}
+					>
+						<SelectItem id='rules'>Local rules</SelectItem>
+						<SelectItem id='openai'>OpenAI</SelectItem>
+					</Select>
+
+					<Select
+						label='External context'
+						placeholder='Choose context'
+						value={selectedJournalAiContextPolicy}
+						onChange={value => setJournalAiContextPolicy(value as JournalAiContextPolicy)}
+						items={[
+							{ label: 'Selected context', value: 'selected_context' },
+							{ label: 'Full period context', value: 'full_period_context' },
+							{ label: 'Summaries only', value: 'summaries_only' },
+						]}
+					>
+						<SelectItem id='selected_context'>Selected context</SelectItem>
+						<SelectItem id='full_period_context'>Full period context</SelectItem>
+						<SelectItem id='summaries_only'>Summaries only</SelectItem>
+					</Select>
+
+					<TextField
+						label='Journal OpenAI API Key'
+						placeholder={hasJournalAiOpenAiKey ? 'Key saved' : 'sk-...'}
+						type='password'
+						value={journalAiOpenaiKey}
+						onChange={value => setJournalAiOpenaiKey(value)}
+					/>
+					<TextField
+						label='Journal OpenAI model'
+						placeholder={(settings[JOURNAL_AI_OPENAI_MODEL_KEY] as string | undefined) ?? 'gpt-4.1-mini'}
+						value={journalAiOpenaiModel}
+						onChange={value => setJournalAiOpenaiModel(value)}
 					/>
 				</div>
 			</div>
