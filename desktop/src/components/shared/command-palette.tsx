@@ -130,7 +130,7 @@ export const CommandPalette = ({ open, onOpenChange }: CommandPaletteProps) => {
 		enabled: open && debouncedSearchQuery.length >= 2,
 		queryFn: async () => {
 			const response = await customFetch<{ data: SearchResponse; status: number }>(
-				`/v1/search?q=${encodeURIComponent(debouncedSearchQuery)}&mode=keyword&limit=8`,
+				`/v1/search?q=${encodeURIComponent(debouncedSearchQuery)}&mode=hybrid&limit=8`,
 				{ method: 'GET' },
 			);
 
