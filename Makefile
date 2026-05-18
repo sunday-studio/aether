@@ -22,6 +22,7 @@ help:
 	@printf "  make dev                Run the desktop app through Tauri\n"
 	@printf "  make dev-web            Run the desktop frontend only\n"
 	@printf "  make dev-sync-server    Run the sync server locally\n"
+	@printf "  make seed-v1-demo       Seed local Tauri dev DB with v1 demo data\n"
 	@printf "  make sync-server-up     Run sync server with Docker Compose\n"
 	@printf "  make sync-server-down   Stop sync server Docker Compose stack\n\n"
 	@printf "Build and verification\n"
@@ -48,7 +49,7 @@ setup-rust:
 setup-sync-server:
 	cd $(SYNC_SERVER_DIR) && $(CARGO) fetch
 
-.PHONY: dev dev-web dev-desktop dev-sync-server
+.PHONY: dev dev-web dev-desktop dev-sync-server seed-v1-demo
 dev: dev-desktop
 
 dev-desktop:
@@ -59,6 +60,9 @@ dev-web:
 
 dev-sync-server:
 	cd $(SYNC_SERVER_DIR) && DATA_ROOT=./data $(CARGO) run
+
+seed-v1-demo:
+	cd $(DESKTOP_DIR) && $(PNPM) run seed:v1-demo
 
 .PHONY: build build-desktop build-desktop-app build-sync-server
 build: build-desktop build-sync-server

@@ -12,6 +12,7 @@
 		"lint:fix": "oxlint . --fix",
 		"format": "oxfmt src index.html orval.config.ts vite.config.ts tsconfig.json tsconfig.node.json package.json .oxfmtrc.json .oxlintrc.json --write",
 		"format:check": "oxfmt src index.html orval.config.ts vite.config.ts tsconfig.json tsconfig.node.json package.json .oxfmtrc.json .oxlintrc.json --check",
+		"seed:v1-demo": "node ./scripts/seed-v1-demo-data.mjs",
 		"check": "pnpm run lint",
 		"preview": "vite preview",
 		"tauri": "tauri",
