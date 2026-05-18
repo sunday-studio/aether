@@ -1,7 +1,8 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest};
 use crate::db::repositories::{
     AiJournalEnrichmentRepository, EntryInsightBundle, JournalEntryInsightInput,
-    JournalEntrySuggestion, JournalEntrySuggestionInput, SearchDocumentRepository,
+    JournalEntrySuggestion, JournalEntrySuggestionInput, SearchDocumentRepository, WeeklyAiSummary,
+    WeeklyAiSummaryInput,
 };
 use crate::db::models::Tag;
 use crate::db::{connection, DbState, EntryRepository, TagRepository};
@@ -27,6 +28,22 @@ pub struct EnrichJournalEntryRequest {
 #[serde(rename_all = "camelCase")]
 pub struct EntryInsightQueryParams {
     pub entry_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WeeklyAiSummaryRequest {
+    pub start_date: String,
+    pub end_date: String,
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeeklyAiSummaryQueryParams {
+    pub start_date: String,
+    pub end_date: String,
 }
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -230,9 +247,146 @@ pub async fn accept_ai_tag_suggestion(
     Ok(AcceptAiTagSuggestionResponse { suggestion, tag })
 }
 
+/// Generate an editable local weekly summary draft.
+#[utoipa::path(
+    post,
+    path = "/v1/ai/journal/weekly-summary",
+    tag = "AI Journal",
+    request_body = WeeklyAiSummaryRequest,
+    responses(
+        (status = 200, description = "Editable weekly summary draft", body = WeeklyAiSummary),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn generate_weekly_ai_summary(
+    state: State<'_, DbState>,
+    request_data: Option<WeeklyAiSummaryRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<WeeklyAiSummary> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.start_date.trim().is_empty() || request.end_date.trim().is_empty() {
+        return Err(AppError::BadRequest(
+            "startDate and endDate are required".to_string(),
+        ));
+    }
+
+    let db = connection::get_database(&*state);
+    let context = SearchDocumentRepository::new(db.clone())
+        .list_context_by_date_range(&request.start_date, &request.end_date, Some(80))
+        .await?;
+    let input = build_weekly_rules_draft(&request.start_date, &request.end_date, context);
+
+    AiJournalEnrichmentRepository::new(db)
+        .upsert_weekly_summary(input)
+        .await
+}
+
+/// Get an editable weekly summary draft.
+#[utoipa::path(
+    get,
+    path = "/v1/ai/journal/weekly-summary",
+    tag = "AI Journal",
+    params(
+        ("start_date" = String, Query, description = "Week start ISO 8601 value"),
+        ("end_date" = String, Query, description = "Week end ISO 8601 value")
+    ),
+    responses(
+        (status = 200, description = "Editable weekly summary draft", body = WeeklyAiSummary),
+        (status = 404, description = "Weekly summary not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn get_weekly_ai_summary(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    query_params: Option<WeeklyAiSummaryQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<WeeklyAiSummary> {
+    let _guard = connection::with_db_access(&*state).await;
+    let params =
+        query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".into()))?;
+    AiJournalEnrichmentRepository::new(connection::get_database(&*state))
+        .get_weekly_summary(&params.start_date, &params.end_date)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "No weekly summary for {} through {}",
+                params.start_date, params.end_date
+            ))
+        })
+}
+
 struct RulesDraft {
     insight: JournalEntryInsightInput,
     suggestions: Vec<JournalEntrySuggestionInput>,
+}
+
+fn build_weekly_rules_draft(
+    start_date: &str,
+    end_date: &str,
+    context: Vec<crate::db::repositories::search_document::SearchDocumentResult>,
+) -> WeeklyAiSummaryInput {
+    let mut source_entry_ids = Vec::new();
+    let mut source_task_ids = Vec::new();
+    let mut source_goal_ids = Vec::new();
+    let mut completed_work = Vec::new();
+    let mut open_loops = Vec::new();
+    let mut themes = Vec::new();
+
+    for result in &context {
+        match result.resource_type.as_str() {
+            "entry" => push_unique(&mut source_entry_ids, &result.resource_id),
+            "task" => {
+                push_unique(&mut source_task_ids, &result.resource_id);
+                push_unique(&mut completed_work, &result.title);
+            }
+            "goal" => push_unique(&mut source_goal_ids, &result.resource_id),
+            "tag" => push_unique(&mut themes, &result.title),
+            _ => {}
+        }
+
+        let lower = result.preview.to_lowercase();
+        if lower.contains("need to")
+            || lower.contains("follow up")
+            || lower.contains("remember to")
+            || lower.contains("todo")
+        {
+            push_unique(&mut open_loops, &result.preview);
+        }
+    }
+
+    let summary = if context.is_empty() {
+        "No indexed journal context was found for this week yet.".to_string()
+    } else {
+        format!(
+            "Draft summary for {} through {} based on {} indexed items.",
+            start_date,
+            end_date,
+            context.len()
+        )
+    };
+    let next_focus = open_loops.iter().take(3).cloned().collect();
+
+    WeeklyAiSummaryInput {
+        week_start: start_date.to_string(),
+        week_end: end_date.to_string(),
+        summary,
+        themes: themes.into_iter().take(8).collect(),
+        completed_work: completed_work.into_iter().take(8).collect(),
+        open_loops: open_loops.into_iter().take(8).collect(),
+        next_focus,
+        source_entry_ids,
+        source_task_ids,
+        source_goal_ids,
+        provider: RULES_PROVIDER.to_string(),
+        model: None,
+    }
 }
 
 fn build_rules_draft(

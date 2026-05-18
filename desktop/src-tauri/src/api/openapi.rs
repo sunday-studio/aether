@@ -90,6 +90,8 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         ai_journal_commands::get_entry_insights,
         ai_journal_commands::update_ai_suggestion,
         ai_journal_commands::accept_ai_tag_suggestion,
+        ai_journal_commands::generate_weekly_ai_summary,
+        ai_journal_commands::get_weekly_ai_summary,
         // Link endpoints
         link_commands::create_link,
         link_commands::get_backlinks,
@@ -199,6 +201,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         ai_journal_commands::AiSuggestionResponse,
         ai_journal_commands::AcceptAiTagSuggestionRequest,
         ai_journal_commands::AcceptAiTagSuggestionResponse,
+        ai_journal_commands::WeeklyAiSummaryRequest,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,

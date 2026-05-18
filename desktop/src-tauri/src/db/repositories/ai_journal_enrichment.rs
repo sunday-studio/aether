@@ -101,6 +101,22 @@ pub struct JournalEntrySuggestionInput {
     pub model: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct WeeklyAiSummaryInput {
+    pub week_start: String,
+    pub week_end: String,
+    pub summary: String,
+    pub themes: Vec<String>,
+    pub completed_work: Vec<String>,
+    pub open_loops: Vec<String>,
+    pub next_focus: Vec<String>,
+    pub source_entry_ids: Vec<String>,
+    pub source_task_ids: Vec<String>,
+    pub source_goal_ids: Vec<String>,
+    pub provider: String,
+    pub model: Option<String>,
+}
+
 pub struct AiJournalEnrichmentRepository {
     database: Arc<Database>,
 }
@@ -304,6 +320,90 @@ impl AiJournalEnrichmentRepository {
             Ok(None)
         }
     }
+
+    pub async fn upsert_weekly_summary(
+        &self,
+        input: WeeklyAiSummaryInput,
+    ) -> Result<WeeklyAiSummary> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let now = Utc::now();
+        let existing_id = self
+            .get_weekly_summary(&input.week_start, &input.week_end)
+            .await?
+            .map(|summary| summary.id)
+            .unwrap_or_else(|| generate_id("aiweek"));
+
+        conn.execute(
+            "INSERT INTO weekly_ai_summaries (
+                id, week_start, week_end, summary, themes, completed_work, open_loops,
+                next_focus, source_entry_ids, source_task_ids, source_goal_ids,
+                provider, model, state, created_at, updated_at, deleted_at
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 'draft', ?14, ?15, NULL)
+            ON CONFLICT(week_start, week_end) DO UPDATE SET
+                summary = excluded.summary,
+                themes = excluded.themes,
+                completed_work = excluded.completed_work,
+                open_loops = excluded.open_loops,
+                next_focus = excluded.next_focus,
+                source_entry_ids = excluded.source_entry_ids,
+                source_task_ids = excluded.source_task_ids,
+                source_goal_ids = excluded.source_goal_ids,
+                provider = excluded.provider,
+                model = excluded.model,
+                state = 'draft',
+                updated_at = excluded.updated_at,
+                deleted_at = NULL",
+            libsql::params![
+                existing_id,
+                input.week_start.clone(),
+                input.week_end.clone(),
+                input.summary,
+                to_json_array(&input.themes)?,
+                to_json_array(&input.completed_work)?,
+                to_json_array(&input.open_loops)?,
+                to_json_array(&input.next_focus)?,
+                to_json_array(&input.source_entry_ids)?,
+                to_json_array(&input.source_task_ids)?,
+                to_json_array(&input.source_goal_ids)?,
+                input.provider,
+                input.model,
+                now.to_rfc3339(),
+                now.to_rfc3339(),
+            ],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+
+        self.get_weekly_summary(&input.week_start, &input.week_end)
+            .await?
+            .ok_or_else(|| AppError::Internal("Weekly AI summary was not created".to_string()))
+    }
+
+    pub async fn get_weekly_summary(
+        &self,
+        week_start: &str,
+        week_end: &str,
+    ) -> Result<Option<WeeklyAiSummary>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, week_start, week_end, summary, themes, completed_work,
+                    open_loops, next_focus, source_entry_ids, source_task_ids,
+                    source_goal_ids, provider, model, state, created_at, updated_at, deleted_at
+                 FROM weekly_ai_summaries
+                 WHERE week_start = ?1 AND week_end = ?2 AND deleted_at IS NULL",
+                libsql::params![week_start, week_end],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Ok(Some(row_to_weekly_summary(row)?))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 fn row_to_insight(row: libsql::Row) -> Result<JournalEntryInsight> {
@@ -343,6 +443,28 @@ fn row_to_suggestion(row: libsql::Row) -> Result<JournalEntrySuggestion> {
         state: row.get(11).map_err(AppError::LibSQL)?,
         created_at: parse_date(row.get::<String>(12).map_err(AppError::LibSQL)?)?,
         updated_at: parse_date(row.get::<String>(13).map_err(AppError::LibSQL)?)?,
+    })
+}
+
+fn row_to_weekly_summary(row: libsql::Row) -> Result<WeeklyAiSummary> {
+    Ok(WeeklyAiSummary {
+        id: row.get(0).map_err(AppError::LibSQL)?,
+        week_start: row.get(1).map_err(AppError::LibSQL)?,
+        week_end: row.get(2).map_err(AppError::LibSQL)?,
+        summary: row.get(3).map_err(AppError::LibSQL)?,
+        themes: from_json_array(row.get::<String>(4).map_err(AppError::LibSQL)?)?,
+        completed_work: from_json_array(row.get::<String>(5).map_err(AppError::LibSQL)?)?,
+        open_loops: from_json_array(row.get::<String>(6).map_err(AppError::LibSQL)?)?,
+        next_focus: from_json_array(row.get::<String>(7).map_err(AppError::LibSQL)?)?,
+        source_entry_ids: from_json_array(row.get::<String>(8).map_err(AppError::LibSQL)?)?,
+        source_task_ids: from_json_array(row.get::<String>(9).map_err(AppError::LibSQL)?)?,
+        source_goal_ids: from_json_array(row.get::<String>(10).map_err(AppError::LibSQL)?)?,
+        provider: row.get(11).map_err(AppError::LibSQL)?,
+        model: row.get(12).map_err(AppError::LibSQL)?,
+        state: row.get(13).map_err(AppError::LibSQL)?,
+        created_at: parse_date(row.get::<String>(14).map_err(AppError::LibSQL)?)?,
+        updated_at: parse_date(row.get::<String>(15).map_err(AppError::LibSQL)?)?,
+        deleted_at: parse_optional_date(row.get(16).map_err(AppError::LibSQL)?)?,
     })
 }
 

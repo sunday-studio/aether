@@ -6,7 +6,8 @@ This document records the planned AI journal enrichment direction. It is not shi
 
 - Added local tables for entry insights, entry suggestions, and weekly AI summaries in `010_ai_journal_enrichment.sql`.
 - Added first local `rules` backend path for entry insight drafts and suggestion state updates.
-- External provider logic, weekly summary commands, UI review flows, and encrypted sync handlers are still planned work.
+- Added local weekly summary draft generation from indexed context.
+- External provider logic, UI review flows, edit commands, and encrypted sync handlers are still planned work.
 - Sync handlers should be added deliberately before sync triggers are introduced for these tables.
 
 ## Product Direction
