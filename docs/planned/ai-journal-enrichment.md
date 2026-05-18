@@ -2,6 +2,12 @@
 
 This document records the planned AI journal enrichment direction. It is not shipped behavior yet.
 
+## Implementation Status
+
+- Added local tables for entry insights, entry suggestions, and weekly AI summaries in `010_ai_journal_enrichment.sql`.
+- Provider logic, Tauri commands, UI review flows, and encrypted sync handlers are still planned work.
+- Sync handlers should be added deliberately before sync triggers are introduced for these tables.
+
 ## Product Direction
 
 Aether should use AI first as a quiet enrichment layer for journal work, not as a general chat surface. The first planned release should support daily entry insights, weekly summaries, and suggested relationships between journal entries, tasks, and goals.
@@ -142,4 +148,3 @@ Each device can rebuild local indexes and embeddings from synced source data.
 - Sync pushes and pulls user-visible AI artifacts without syncing temporary jobs or raw provider data.
 - The frontend renders pending suggestions and supports accept, edit, and dismiss.
 - UI copy avoids diagnostic claims and presents AI output as suggested, possible, and editable.
-
