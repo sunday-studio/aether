@@ -6,3 +6,4 @@ This directory holds planned features and product surfaces that are not yet impl
 
 - [AI Journal Enrichment](./ai-journal-enrichment.md)
 - [Features Planned But Not Implemented](./features-not-implemented.md)
+- [Search And RAG Foundation](./search-and-rag-foundation.md)
