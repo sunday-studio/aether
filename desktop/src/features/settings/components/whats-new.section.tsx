@@ -65,7 +65,7 @@ export const WhatsNewSection = () => {
 				</p>
 				<h3 className='mt-2 text-2xl font-semibold'>What's new</h3>
 				<p className='mt-2 text-sm text-(--color-secondary-text)'>
-					Review updates, release notes, and install preferences before the app restarts.
+					Check updates and release notes.
 				</p>
 			</div>
 
@@ -130,9 +130,7 @@ export const WhatsNewSection = () => {
 							<div className='mb-4 flex items-center justify-between gap-3'>
 								<div>
 									<p className='text-sm font-medium'>Release notes</p>
-									<p className='text-xs text-(--color-secondary-text)'>
-										Read first, install when you are ready.
-									</p>
+									<p className='text-xs text-(--color-secondary-text)'>Review before updating.</p>
 								</div>
 								<Button
 									onClick={() => skipVersion(info.latestVersion)}
@@ -151,7 +149,7 @@ export const WhatsNewSection = () => {
 						<div className='rounded-2xl border border-dashed border-(--color-border) bg-(--color-background) p-5'>
 							<p className='text-sm font-medium'>No pending update</p>
 							<p className='mt-1 text-sm text-(--color-secondary-text)'>
-								{lastCheckMessage ?? 'Manual checks appear here when you ask Aether to look.'}
+								{lastCheckMessage ?? 'Check for updates when you are ready.'}
 							</p>
 						</div>
 					</div>
@@ -169,13 +167,13 @@ export const WhatsNewSection = () => {
 					<div>
 						<h4 className='text-sm font-medium'>Update preferences</h4>
 						<p className='mt-1 text-xs text-(--color-secondary-text)'>
-							Control whether Aether checks quietly or waits for you.
+							Choose how updates are checked.
 						</p>
 					</div>
 
 					<PreferenceToggle
 						label='Automatic update checks'
-						description='Check for updates when the app gains focus.'
+						description='Check when the app opens.'
 						checked={prefs.autoCheck}
 						onChange={checked => handlePreferenceChange('autoCheck', checked)}
 					/>

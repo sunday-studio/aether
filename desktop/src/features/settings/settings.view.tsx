@@ -17,7 +17,7 @@ function getAvailableSection(value: string | null): AvailableSections {
 }
 
 export const SettingsView = () => {
-	const { getValue, settings } = useSettingsStore();
+	const { getValue } = useSettingsStore();
 	const user = getValue('user.display_name');
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [selectedSection, setSelectedSection] = useState<AvailableSections>(

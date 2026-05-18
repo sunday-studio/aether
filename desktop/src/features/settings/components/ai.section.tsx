@@ -229,7 +229,7 @@ export const AiSection = () => {
 			<div>
 				<h3 className='flex items-center gap-2 text-lg font-medium'>AI</h3>
 				<p className='mt-2 text-sm text-(--color-secondary-text)'>
-					AI is optional for v1. Manage the local search model and hosted transcription keys here.
+					AI is optional. Set up local search, journal insights, and transcription.
 				</p>
 			</div>
 
@@ -241,8 +241,7 @@ export const AiSection = () => {
 							Local search model
 						</p>
 						<p className='mt-1 max-w-xl text-xs leading-5 text-(--color-secondary-text)'>
-							Download a local embedding model for semantic search and related context. It runs on
-							this device and is not synced.
+							Used for local search. Stored on this device.
 						</p>
 					</div>
 					<div
@@ -280,7 +279,7 @@ export const AiSection = () => {
 						<p className='mt-1 text-xs break-all text-(--color-secondary-text)'>
 							{selectedEmbeddingModel?.modelPath ??
 								selectedEmbeddingModel?.modelsDirectory ??
-								'Download the model to create the local model directory.'}
+								'Not downloaded yet.'}
 						</p>
 					</div>
 				</div>
@@ -327,8 +326,7 @@ export const AiSection = () => {
 					<div>
 						<p className='text-sm font-medium'>Journal insights</p>
 						<p className='mt-1 max-w-xl text-xs leading-5 text-(--color-secondary-text)'>
-							Local rules stay on this device. OpenAI uses the selected context and requires
-							your saved journal key.
+							Choose local suggestions or OpenAI.
 						</p>
 					</div>
 					<div
@@ -350,7 +348,7 @@ export const AiSection = () => {
 
 				<div className='grid gap-4 sm:grid-cols-2'>
 					<Select
-						label='Journal enrichment provider'
+						label='Provider'
 						placeholder='Choose provider'
 						value={selectedJournalAiProvider}
 						onChange={value => setJournalAiProvider(value as JournalAiProviderChoice)}
@@ -364,7 +362,7 @@ export const AiSection = () => {
 					</Select>
 
 					<Select
-						label='External context'
+						label='Context'
 						placeholder='Choose context'
 						value={selectedJournalAiContextPolicy}
 						onChange={value => setJournalAiContextPolicy(value as JournalAiContextPolicy)}
@@ -380,14 +378,14 @@ export const AiSection = () => {
 					</Select>
 
 					<TextField
-						label='Journal OpenAI API Key'
+						label='OpenAI API Key'
 						placeholder={hasJournalAiOpenAiKey ? 'Key saved' : 'sk-...'}
 						type='password'
 						value={journalAiOpenaiKey}
 						onChange={value => setJournalAiOpenaiKey(value)}
 					/>
 					<TextField
-						label='Journal OpenAI model'
+						label='OpenAI model'
 						placeholder={
 							(settings[JOURNAL_AI_OPENAI_MODEL_KEY] as string | undefined) ??
 							DEFAULT_JOURNAL_AI_OPENAI_MODEL
@@ -403,7 +401,7 @@ export const AiSection = () => {
 					<div>
 						<p className='text-sm font-medium'>Provider status</p>
 						<p className='text-xs text-(--color-secondary-text)'>
-							Default provider: {providerCopy[savedProvider]?.label ?? savedProvider}
+							Transcription: {providerCopy[savedProvider]?.label ?? savedProvider}
 						</p>
 					</div>
 					<div
@@ -477,8 +475,7 @@ export const AiSection = () => {
 
 				<p className='flex items-start gap-2 text-xs leading-5 text-(--color-secondary-text)'>
 					<KeyRound className='mt-0.5 size-3.5 shrink-0' />
-					Keys are stored through the encrypted settings path. Leave a field blank to keep the
-					existing saved key unchanged.
+					Leave a key blank to keep the saved one.
 				</p>
 			</div>
 
@@ -497,7 +494,7 @@ export const AiSection = () => {
 				<Button
 					onClick={saveKeysAndProvider}
 					label={isSaving ? 'Saving...' : 'Save'}
-					tooltipContent='Save AI transcription settings'
+					tooltipContent='Save AI settings'
 					isDisabled={isSaving}
 				/>
 				<Button

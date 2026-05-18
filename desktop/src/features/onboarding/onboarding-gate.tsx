@@ -313,7 +313,10 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	};
 
 	return (
-		<div className='min-h-screen w-screen overflow-y-auto bg-[linear-gradient(135deg,var(--color-background),var(--color-background-secondary))] px-5 py-8 text-(--color-foreground)'>
+		<div
+			data-tauri-drag-region
+			className='min-h-screen w-screen overflow-y-auto bg-[linear-gradient(135deg,var(--color-background),var(--color-background-secondary))] px-5 py-8 text-(--color-foreground)'
+		>
 			<div className='mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl grid-cols-1 items-center gap-6 lg:grid-cols-[0.92fr_1.08fr]'>
 				<OnboardingPreview items={previewItems} />
 

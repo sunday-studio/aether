@@ -12,7 +12,10 @@ export const Layout = () => {
 	const isDev = import.meta.env.DEV;
 	const { commandPaletteOpen, setCommandPaletteOpen } = useRegisterShortcuts();
 	return (
-		<div className='relative h-screen w-screen overflow-hidden bg-(--color-background)'>
+		<div
+			data-tauri-drag-region
+			className='relative h-screen w-screen overflow-hidden bg-(--color-background)'
+		>
 			<div
 				className='flex h-12 items-center justify-center bg-transparent pr-3 pl-14 select-none'
 				data-tauri-drag-region
@@ -23,6 +26,7 @@ export const Layout = () => {
 			<NavigationControl />
 			<UpdateAvailableButton />
 			<Outlet />
+
 			<CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
 		</div>
 	);

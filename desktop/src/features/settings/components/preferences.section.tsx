@@ -23,15 +23,13 @@ export const PreferencesSection = () => {
 		<div className='w-full space-y-6'>
 			<div className='mb-10'>
 				<h3 className='text-lg font-medium'>Preferences</h3>
-				<p className='text-sm text-(--color-secondary-text)'>Customize your preferences here.</p>
+				<p className='text-sm text-(--color-secondary-text)'>Choose how Aether looks.</p>
 			</div>
 
 			<div className='flex items-center justify-between'>
 				<div>
-					<h4 className='text-md font-medium'>Interface mode</h4>
-					<p className='text-sm text-(--color-secondary-text)'>
-						Select your preferred interface color mode.
-					</p>
+					<h4 className='text-md'>Interface mode</h4>
+					<p className='text-xs text-(--color-secondary-text)'>Light, dark, or system.</p>
 				</div>
 
 				<div>
@@ -54,10 +52,8 @@ export const PreferencesSection = () => {
 
 			<div className={containerStyles({ isDisabled: isDarkMode })}>
 				<div>
-					<h4 className='text-md font-medium'>Light mode</h4>
-					<p className='text-sm text-(--color-secondary-text)'>
-						Select your preferred light theme.
-					</p>
+					<h4 className='text-md'>Light mode</h4>
+					<p className='text-xs text-(--color-secondary-text)'>Theme for light mode.</p>
 				</div>
 
 				<div>
@@ -79,8 +75,8 @@ export const PreferencesSection = () => {
 
 			<div className={containerStyles({ isDisabled: isLightMode })}>
 				<div>
-					<h4 className='text-md font-medium'>Dark mode</h4>
-					<p className='text-sm text-(--color-secondary-text)'>Select your preferred dark theme.</p>
+					<h4 className='text-md'>Dark mode</h4>
+					<p className='text-xs text-(--color-secondary-text)'>Theme for dark mode.</p>
 				</div>
 
 				<div>

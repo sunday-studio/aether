@@ -133,9 +133,7 @@ export const SyncSection = () => {
 			<div>
 				<h3 className='text-lg font-medium'>Sync</h3>
 				<p className='text-sm text-(--color-secondary-text)'>
-					End-to-end encrypted sync with your own server. Deploy the sync server (Docker) and enter
-					its URL, the server seed phrase used to enroll devices, and your private sync passphrase
-					for encrypting local payloads.{' '}
+					Sync with your own encrypted server.{' '}
 					<a
 						href='https://github.com/sunday-studio/aether/blob/main/docs/reference/sync-server-readme.md'
 						target='_blank'
@@ -255,10 +253,7 @@ export const SyncSection = () => {
 					value={serverSeedPhrase}
 					onChange={v => setServerSeedPhrase(v)}
 				/>
-				<p className='-mt-2 text-xs text-(--color-secondary-text)'>
-					This must match the seed phrase configured on the sync server. It registers this device
-					with the server; it is not your data encryption passphrase.
-				</p>
+				<p className='-mt-2 text-xs text-(--color-secondary-text)'>Must match your server.</p>
 				<TextField
 					label='Sync Passphrase'
 					placeholder='min 12 characters'
@@ -267,8 +262,7 @@ export const SyncSection = () => {
 					onChange={v => setSyncPassphrase(v)}
 				/>
 				<p className='-mt-2 text-xs text-(--color-secondary-text)'>
-					This stays personal to your devices and protects the data before it reaches the server.
-					Keep it somewhere safe because the server cannot recover it.
+					Encrypts your data. The server cannot recover it.
 				</p>
 
 				<div className='mt-4 flex items-center justify-end gap-4'>
