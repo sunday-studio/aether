@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
 	ArrowLeft,
 	ArrowRight,
@@ -6,7 +6,9 @@ import {
 	CheckCircle2,
 	Cloud,
 	Copy,
+	Download,
 	ExternalLink,
+	HardDrive,
 	KeyRound,
 	Server,
 	Sparkles,
@@ -27,6 +29,12 @@ import {
 } from '~/aether-sdk';
 import { Button } from '~/components/shared/button';
 import { TextField } from '~/components/shared/text-field';
+import {
+	DEFAULT_SEARCH_EMBEDDING_MODEL,
+	downloadSearchEmbeddingModel,
+	formatModelSize,
+	listSearchEmbeddingModels,
+} from '~/lib/search-embedding-models';
 import { cn } from '~/utils/cn';
 
 const ONBOARDING_COMPLETED_KEY = 'app.onboarding_completed';
@@ -35,6 +43,10 @@ const RECOVERY_SEED_KEY = 'user.recovery_seed_phrase';
 const DEFAULT_PROVIDER_KEY = 'transcription.default_provider';
 const OPENAI_API_KEY = 'transcription.openai.api_key';
 const GROQ_API_KEY = 'transcription.groq.api_key';
+const SEARCH_EMBEDDINGS_ENABLED_KEY = 'search.embeddings.enabled';
+const SEARCH_EMBEDDINGS_PROVIDER_KEY = 'search.embeddings.provider';
+const SEARCH_EMBEDDINGS_MODEL_KEY = 'search.embeddings.model';
+const SEARCH_EMBEDDINGS_AUTO_INDEX_KEY = 'search.embeddings.auto_index';
 const SYNC_GUIDE_URL =
 	'https://github.com/sunday-studio/aether/blob/main/docs/reference/sync-server-readme.md';
 
@@ -141,6 +153,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const [openaiKey, setOpenaiKey] = useState('');
 	const [groqKey, setGroqKey] = useState('');
 	const [isSaving, setIsSaving] = useState(false);
+	const [isStartingModelDownload, setIsStartingModelDownload] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -155,10 +168,17 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 			queryKey: getListProvidersQueryKey(),
 		},
 	});
+	const { data: embeddingModels } = useQuery({
+		queryKey: ['search-embedding-models'],
+		queryFn: listSearchEmbeddingModels,
+	});
 
 	const settings = settingsResponse?.data ?? {};
 	const isComplete = settings[ONBOARDING_COMPLETED_KEY] === 'true';
 	const currentStep = steps[stepIndex];
+	const defaultEmbeddingModel =
+		embeddingModels?.find(model => model.name === DEFAULT_SEARCH_EMBEDDING_MODEL) ??
+		embeddingModels?.[0];
 	const activeApiKey = provider === 'openai' ? openaiKey : groqKey;
 	const hasAnyApiKey = isConfigured(openaiKey) || isConfigured(groqKey);
 	const providerStatuses = new Map(
@@ -198,16 +218,32 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 			},
 			{
 				label: 'AI',
-				value:
-					aiChoice === 'yes'
-						? providerCopy[provider].label
-						: aiChoice === 'no'
-							? 'Off for now'
-							: 'Optional',
-				active: aiChoice !== null,
+				value: defaultEmbeddingModel?.isDownloaded
+					? 'Local search ready'
+					: isStartingModelDownload
+						? 'Local model download started'
+						: aiChoice === 'yes'
+							? providerCopy[provider].label
+							: aiChoice === 'no'
+								? 'Off for now'
+								: 'Optional',
+				active:
+					aiChoice !== null ||
+					Boolean(defaultEmbeddingModel?.isDownloaded) ||
+					isStartingModelDownload,
 			},
 		],
-		[aiChoice, displayName, provider, recoverySeed, serverUrl, stepIndex, syncChoice],
+		[
+			aiChoice,
+			defaultEmbeddingModel?.isDownloaded,
+			displayName,
+			isStartingModelDownload,
+			provider,
+			recoverySeed,
+			serverUrl,
+			stepIndex,
+			syncChoice,
+		],
 	);
 
 	if (isLoading) {
@@ -329,6 +365,30 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 			setErrorMessage(getErrorMessage(error));
 		} finally {
 			setIsSaving(false);
+		}
+	};
+
+	const startEmbeddingModelDownload = async () => {
+		if (!defaultEmbeddingModel) {
+			setErrorMessage('No local search model is available yet.');
+			return;
+		}
+
+		setIsStartingModelDownload(true);
+		setErrorMessage(null);
+		setStatusMessage(null);
+
+		try {
+			await saveSetting(SEARCH_EMBEDDINGS_ENABLED_KEY, 'true');
+			await saveSetting(SEARCH_EMBEDDINGS_PROVIDER_KEY, 'local');
+			await saveSetting(SEARCH_EMBEDDINGS_MODEL_KEY, defaultEmbeddingModel.name);
+			await saveSetting(SEARCH_EMBEDDINGS_AUTO_INDEX_KEY, 'true');
+			await downloadSearchEmbeddingModel(defaultEmbeddingModel.name);
+			setStatusMessage('Local search model download started. You can finish onboarding now.');
+		} catch (error) {
+			setErrorMessage(getErrorMessage(error));
+		} finally {
+			setIsStartingModelDownload(false);
 		}
 	};
 
@@ -619,9 +679,48 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 											<div>
 												<h3 className='text-3xl font-medium'>Use AI in Aether?</h3>
 												<p className='mt-3 max-w-xl text-sm leading-6 text-(--color-secondary-text)'>
-													AI configuration is optional. Add provider keys now if you want the app
-													ready for AI-backed features as they come online.
+													AI configuration is optional. Local search intelligence can run on this
+													device, and hosted transcription only works when you add a provider key.
 												</p>
+											</div>
+											<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-4'>
+												<div className='flex flex-wrap items-start justify-between gap-4'>
+													<div className='min-w-0 flex-1'>
+														<div className='flex items-center gap-2'>
+															<HardDrive className='size-4 text-(--color-active-text)' />
+															<p className='text-sm font-medium'>Offline search model</p>
+														</div>
+														<p className='mt-2 text-xs leading-5 text-(--color-secondary-text)'>
+															Download a local model for related notes and semantic search. It runs
+															on this device, is about{' '}
+															{defaultEmbeddingModel
+																? formatModelSize(defaultEmbeddingModel.fileSize)
+																: '100 MB'}
+															, and can be skipped.
+														</p>
+														{defaultEmbeddingModel?.isDownloaded && (
+															<p className='mt-2 truncate text-xs text-(--color-secondary-text)'>
+																Downloaded at {defaultEmbeddingModel.modelPath}
+															</p>
+														)}
+													</div>
+													<Button
+														onClick={startEmbeddingModelDownload}
+														label={
+															defaultEmbeddingModel?.isDownloaded
+																? 'Downloaded'
+																: isStartingModelDownload
+																	? 'Starting...'
+																	: 'Download now'
+														}
+														tooltipContent='Download the local search model'
+														isDisabled={
+															isStartingModelDownload ||
+															Boolean(defaultEmbeddingModel?.isDownloaded)
+														}
+														iconLeft={<Download className='size-4' />}
+													/>
+												</div>
 											</div>
 											<div className='grid gap-3 md:grid-cols-2'>
 												<ChoiceButton

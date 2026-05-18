@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/theme-context';
 import { UpdaterProvider } from './context/updater-context';
 import { OnboardingGate } from './features/onboarding/onboarding-gate';
 import { router } from './features/router';
+import { SearchEmbeddingNotificationListener } from './components/shared/search-embedding-notification';
 import { initQueryClient } from './utils/query-client';
 
 import './app.css';
@@ -34,6 +35,7 @@ function App() {
 				<ThemeProvider>
 					<UpdaterProvider>
 						<Toaster />
+						<SearchEmbeddingNotificationListener />
 						<ReactQueryDevtools buttonPosition='top-right' initialIsOpen={false} />
 						<OnboardingGate>
 							<RouterProvider router={router} />

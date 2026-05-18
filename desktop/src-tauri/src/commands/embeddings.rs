@@ -6,11 +6,12 @@ use crate::db::{connection, DbState};
 use crate::error::Result;
 use crate::utils::embeddings::model_manager;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
 const DEFAULT_SEARCH_EMBEDDING_MODEL: &str = "local-hash-384";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
     pub name: String,
     pub size: String,
@@ -18,6 +19,17 @@ pub struct ModelInfo {
     pub file_size: u64,
     pub download_url: Option<String>,
     pub is_downloaded: bool,
+    pub model_path: Option<String>,
+    pub models_directory: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchEmbeddingModelDownloadEvent {
+    pub model_name: String,
+    pub progress: Option<f32>,
+    pub model_path: Option<String>,
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
@@ -48,6 +60,11 @@ pub async fn list_embedding_models(
 
     for model in models {
         let is_downloaded = model_manager::is_model_downloaded(&model.name).unwrap_or(false);
+        let model_path = model_manager::get_model_path(&model.name).ok();
+        let models_directory = model_path
+            .as_ref()
+            .and_then(|path| path.parent())
+            .map(|path| path.display().to_string());
 
         result.push(ModelInfo {
             name: model.name,
@@ -56,6 +73,10 @@ pub async fn list_embedding_models(
             file_size: model.file_size,
             download_url: model.download_url,
             is_downloaded,
+            model_path: model_path
+                .filter(|_| is_downloaded)
+                .map(|path| path.display().to_string()),
+            models_directory,
         });
     }
 
@@ -65,7 +86,7 @@ pub async fn list_embedding_models(
 /// Download an embedding model
 #[tauri::command]
 pub async fn download_embedding_model(
-    _app: AppHandle,
+    app: AppHandle,
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<ModelNamePathParams>,
@@ -73,15 +94,70 @@ pub async fn download_embedding_model(
     let model_name = path_params
         .and_then(|p| Some(p.model_name))
         .ok_or_else(|| crate::error::AppError::BadRequest("Model name is required".to_string()))?;
-    // Download with progress events
-    // TODO: Implement progress events for Tauri 2
-    model_manager::download_model(
-        &model_name,
-        None, // Progress callback disabled for now
-    )
-    .await?;
+    if model_manager::is_model_downloaded(&model_name).unwrap_or(false) {
+        let model_path = model_manager::get_model_path(&model_name)
+            .ok()
+            .map(|path| path.display().to_string());
+        let _ = app.emit(
+            "search-embedding-model-ready",
+            SearchEmbeddingModelDownloadEvent {
+                model_name: model_name.clone(),
+                progress: Some(100.0),
+                model_path,
+                message: Some("Model already downloaded".to_string()),
+            },
+        );
+        return Ok(format!("Model {} is already downloaded", model_name));
+    }
 
-    Ok(format!("Model {} downloaded successfully", model_name))
+    let started_model_name = model_name.clone();
+    let download_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let progress_app = download_app.clone();
+        let progress_model_name = model_name.clone();
+        let result = model_manager::download_model(
+            &model_name,
+            Some(Box::new(move |progress| {
+                let _ = progress_app.emit(
+                    "search-embedding-model-download-progress",
+                    SearchEmbeddingModelDownloadEvent {
+                        model_name: progress_model_name.clone(),
+                        progress: Some(progress),
+                        model_path: None,
+                        message: None,
+                    },
+                );
+            })),
+        )
+        .await;
+
+        match result {
+            Ok(model_path) => {
+                let _ = download_app.emit(
+                    "search-embedding-model-ready",
+                    SearchEmbeddingModelDownloadEvent {
+                        model_name,
+                        progress: Some(100.0),
+                        model_path: Some(model_path.display().to_string()),
+                        message: Some("Local search model downloaded".to_string()),
+                    },
+                );
+            }
+            Err(error) => {
+                let _ = download_app.emit(
+                    "search-embedding-model-download-failed",
+                    SearchEmbeddingModelDownloadEvent {
+                        model_name,
+                        progress: None,
+                        model_path: None,
+                        message: Some(error.to_string()),
+                    },
+                );
+            }
+        }
+    });
+
+    Ok(format!("Model {} download started", started_model_name))
 }
 
 /// Verify embedding model integrity

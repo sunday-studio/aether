@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 // =============================================================================
 
 type RequestDataNormalizer = (data: unknown) => unknown;
+type QueryParamsNormalizer = (params: Record<string, string>) => Record<string, unknown>;
 
 function toTagIdsBody(data: unknown): { tag_ids: string[] } {
 	const ids = Array.isArray(data)
@@ -36,6 +37,42 @@ const requestDataNormalizers: Record<string, RequestDataNormalizer> = {
 	remove_tags_from_task: toTagIdsBody,
 	remove_tags_from_goal: toTagIdsBody,
 	remove_tags_from_bookmark: toTagIdsBody,
+};
+
+function normalizeNumericQueryParams(
+	params: Record<string, string>,
+	keys: string[],
+): Record<string, unknown> {
+	const normalized: Record<string, unknown> = { ...params };
+
+	for (const key of keys) {
+		const value = params[key];
+		if (value === undefined || value.trim() === "") continue;
+
+		const numericValue = Number(value);
+		if (Number.isFinite(numericValue)) {
+			normalized[key] = numericValue;
+		}
+	}
+
+	return normalized;
+}
+
+const queryParamsNormalizers: Record<string, QueryParamsNormalizer> = {
+	search_resources: params => normalizeNumericQueryParams(params, ["limit", "offset"]),
+	find_related_resources: params => normalizeNumericQueryParams(params, ["limit"]),
+	retrieve_context: params => normalizeNumericQueryParams(params, ["limit", "offset"]),
+	retrieve_week_context: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_entries: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_goals: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_goal_instances: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_inbox_tasks: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_overdue_tasks: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_all_tags: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_canvases: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_transcriptions: params => normalizeNumericQueryParams(params, ["limit"]),
+	search_linkable_resources: params => normalizeNumericQueryParams(params, ["limit"]),
+	get_all_links_for_graph: params => normalizeNumericQueryParams(params, ["limit"]),
 };
 
 // Route to command mapping
@@ -101,6 +138,10 @@ const routeToCommand: Record<string, string> = {
 	"GET /v1/search/related": "find_related_resources",
 	"GET /v1/search/context": "retrieve_context",
 	"GET /v1/search/week-context": "retrieve_week_context",
+	"GET /v1/search/embedding-models": "list_embedding_models",
+	"POST /v1/search/embedding-models/:modelName/download": "download_embedding_model",
+	"POST /v1/search/embedding-models/:modelName/verify": "verify_embedding_model",
+	"DELETE /v1/search/embedding-models/:modelName": "delete_embedding_model",
 	"POST /v1/search/embeddings/index": "index_search_embeddings",
 	"POST /v1/search/embeddings/resource": "index_search_resource_embeddings",
 	"GET /v1/search/embeddings/status": "get_search_embedding_status",
@@ -308,7 +349,8 @@ export const customFetch = async <T>(
 	}
 
 	if (Object.keys(match.queryParams).length > 0) {
-		args.queryParams = match.queryParams;
+		const normalizer = queryParamsNormalizers[match.command];
+		args.queryParams = normalizer ? normalizer(match.queryParams) : match.queryParams;
 	}
 
 	if (Object.keys(match.params).length > 0) {

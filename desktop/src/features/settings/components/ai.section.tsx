@@ -1,5 +1,13 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, CircleAlert, KeyRound, WandSparkles } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+	CheckCircle2,
+	CircleAlert,
+	Download,
+	HardDrive,
+	KeyRound,
+	RefreshCw,
+	WandSparkles,
+} from 'lucide-react';
 import { useState } from 'react';
 import {
 	getGetAllSettingsQueryKey,
@@ -12,6 +20,14 @@ import {
 import { Button } from '~/components/shared/button';
 import { Select, SelectItem } from '~/components/shared/select';
 import { TextField } from '~/components/shared/text-field';
+import {
+	DEFAULT_SEARCH_EMBEDDING_MODEL,
+	downloadSearchEmbeddingModel,
+	formatModelSize,
+	indexSearchEmbeddings,
+	listSearchEmbeddingModels,
+	reindexSearchDocuments,
+} from '~/lib/search-embedding-models';
 import { cn } from '~/utils/cn';
 
 type ProviderChoice = 'openai' | 'groq';
@@ -19,6 +35,10 @@ type ProviderChoice = 'openai' | 'groq';
 const DEFAULT_PROVIDER_KEY = 'transcription.default_provider';
 const OPENAI_API_KEY = 'transcription.openai.api_key';
 const GROQ_API_KEY = 'transcription.groq.api_key';
+const SEARCH_EMBEDDINGS_ENABLED_KEY = 'search.embeddings.enabled';
+const SEARCH_EMBEDDINGS_PROVIDER_KEY = 'search.embeddings.provider';
+const SEARCH_EMBEDDINGS_MODEL_KEY = 'search.embeddings.model';
+const SEARCH_EMBEDDINGS_AUTO_INDEX_KEY = 'search.embeddings.auto_index';
 
 const providerCopy: Record<
 	ProviderChoice,
@@ -64,6 +84,8 @@ export const AiSection = () => {
 	const [openaiKey, setOpenaiKey] = useState('');
 	const [groqKey, setGroqKey] = useState('');
 	const [isSaving, setIsSaving] = useState(false);
+	const [isStartingModelDownload, setIsStartingModelDownload] = useState(false);
+	const [isIndexingEmbeddings, setIsIndexingEmbeddings] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -73,9 +95,16 @@ export const AiSection = () => {
 	const { data: providersResponse } = useListProviders({
 		query: { queryKey: getListProvidersQueryKey() },
 	});
+	const { data: embeddingModels, refetch: refetchEmbeddingModels } = useQuery({
+		queryKey: ['search-embedding-models'],
+		queryFn: listSearchEmbeddingModels,
+	});
 
 	const settings = settingsResponse?.data ?? {};
 	const savedProvider = (settings[DEFAULT_PROVIDER_KEY] as ProviderChoice | undefined) ?? 'openai';
+	const selectedEmbeddingModel =
+		embeddingModels?.find(model => model.name === DEFAULT_SEARCH_EMBEDDING_MODEL) ??
+		embeddingModels?.[0];
 	const selectedProvider = provider ?? savedProvider;
 	const providers = providersResponse?.data ?? [];
 	const providerStatuses = new Map(providers.map(item => [item.name, item]));
@@ -140,6 +169,49 @@ export const AiSection = () => {
 		}
 	};
 
+	const startEmbeddingModelDownload = async () => {
+		if (!selectedEmbeddingModel) {
+			setErrorMessage('No local search model is available yet.');
+			return;
+		}
+
+		setIsStartingModelDownload(true);
+		setStatusMessage(null);
+		setErrorMessage(null);
+
+		try {
+			await setSetting({ key: SEARCH_EMBEDDINGS_ENABLED_KEY, value: 'true' });
+			await setSetting({ key: SEARCH_EMBEDDINGS_PROVIDER_KEY, value: 'local' });
+			await setSetting({ key: SEARCH_EMBEDDINGS_MODEL_KEY, value: selectedEmbeddingModel.name });
+			await setSetting({ key: SEARCH_EMBEDDINGS_AUTO_INDEX_KEY, value: 'true' });
+			await downloadSearchEmbeddingModel(selectedEmbeddingModel.name);
+			await invalidateAiQueries();
+			setStatusMessage('Local search model download started.');
+		} catch (error) {
+			setErrorMessage(getErrorMessage(error));
+		} finally {
+			setIsStartingModelDownload(false);
+		}
+	};
+
+	const rebuildEmbeddings = async () => {
+		if (!selectedEmbeddingModel) return;
+
+		setIsIndexingEmbeddings(true);
+		setStatusMessage(null);
+		setErrorMessage(null);
+
+		try {
+			await reindexSearchDocuments();
+			const status = await indexSearchEmbeddings(selectedEmbeddingModel.name);
+			setStatusMessage(`${status.totalEmbeddings} local search embeddings indexed.`);
+		} catch (error) {
+			setErrorMessage(getErrorMessage(error));
+		} finally {
+			setIsIndexingEmbeddings(false);
+		}
+	};
+
 	return (
 		<div className='w-full space-y-8'>
 			<div>
@@ -148,9 +220,97 @@ export const AiSection = () => {
 					AI
 				</h3>
 				<p className='mt-2 text-sm text-(--color-secondary-text)'>
-					AI is optional for v1. Add hosted transcription keys here when you want journal audio
-					transcription.
+					AI is optional for v1. Manage the local search model and hosted transcription keys here.
 				</p>
+			</div>
+
+			<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
+				<div className='mb-4 flex flex-wrap items-start justify-between gap-4'>
+					<div>
+						<p className='flex items-center gap-2 text-sm font-medium'>
+							<HardDrive className='size-4' />
+							Local search model
+						</p>
+						<p className='mt-1 max-w-xl text-xs leading-5 text-(--color-secondary-text)'>
+							Download a local embedding model for semantic search and related context. It runs on
+							this device and is not synced.
+						</p>
+					</div>
+					<div
+						className={cn(
+							'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+							selectedEmbeddingModel?.isDownloaded
+								? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+								: 'border-(--color-border) text-(--color-secondary-text)',
+						)}
+					>
+						{selectedEmbeddingModel?.isDownloaded ? (
+							<CheckCircle2 className='size-3.5' />
+						) : (
+							<CircleAlert className='size-3.5' />
+						)}
+						{selectedEmbeddingModel?.isDownloaded ? 'Downloaded' : 'Not downloaded'}
+					</div>
+				</div>
+
+				<div className='grid gap-3 text-sm md:grid-cols-2'>
+					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+						<p className='font-medium'>{selectedEmbeddingModel?.name ?? 'No model available'}</p>
+						<p className='mt-1 text-xs text-(--color-secondary-text)'>
+							{selectedEmbeddingModel
+								? `${formatModelSize(selectedEmbeddingModel.fileSize)}${
+										selectedEmbeddingModel.dimensions
+											? `, ${selectedEmbeddingModel.dimensions} dimensions`
+											: ''
+									}`
+								: 'Model catalog unavailable'}
+						</p>
+					</div>
+					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+						<p className='font-medium'>Storage</p>
+						<p className='mt-1 text-xs break-all text-(--color-secondary-text)'>
+							{selectedEmbeddingModel?.modelPath ??
+								selectedEmbeddingModel?.modelsDirectory ??
+								'Download the model to create the local model directory.'}
+						</p>
+					</div>
+				</div>
+
+				<div className='mt-4 flex flex-wrap justify-end gap-3'>
+					<Button
+						onClick={() => {
+							void refetchEmbeddingModels();
+						}}
+						label='Refresh'
+						tooltipContent='Refresh local model status'
+						variant='secondary'
+						iconLeft={<RefreshCw className='size-4' />}
+					/>
+					<Button
+						onClick={rebuildEmbeddings}
+						label={isIndexingEmbeddings ? 'Indexing...' : 'Rebuild embeddings'}
+						tooltipContent='Rebuild local search embeddings'
+						variant='secondary'
+						isDisabled={
+							isIndexingEmbeddings ||
+							isStartingModelDownload ||
+							!selectedEmbeddingModel?.isDownloaded
+						}
+					/>
+					<Button
+						onClick={startEmbeddingModelDownload}
+						label={
+							selectedEmbeddingModel?.isDownloaded
+								? 'Downloaded'
+								: isStartingModelDownload
+									? 'Starting...'
+									: 'Download now'
+						}
+						tooltipContent='Download the local search model'
+						isDisabled={isStartingModelDownload || Boolean(selectedEmbeddingModel?.isDownloaded)}
+						iconLeft={<Download className='size-4' />}
+					/>
+				</div>
 			</div>
 
 			<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
