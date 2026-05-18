@@ -8,6 +8,30 @@ use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+pub struct SearchDocumentResult {
+    pub id: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub title: String,
+    pub preview: String,
+    pub score: f64,
+    pub match_kind: String,
+    pub highlights: Vec<String>,
+    pub source_updated_at: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SearchDocumentQuery {
+    pub resource_types: Option<Vec<String>>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
 pub struct SearchDocumentInput {
     pub resource_type: String,
     pub resource_id: String,
@@ -74,6 +98,83 @@ impl SearchDocumentRepository {
             tags: self.count_for_type(Some("tag")).await?,
             bookmarks: self.count_for_type(Some("bookmark")).await?,
         })
+    }
+
+    pub async fn search_keyword(
+        &self,
+        query: &str,
+        filters: SearchDocumentQuery,
+    ) -> Result<Vec<SearchDocumentResult>> {
+        if query.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let limit = filters.limit.unwrap_or(50).min(100) as usize;
+        let offset = filters.offset.unwrap_or(0) as usize;
+        let escaped_query = escape_fts_query(query);
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT
+                    d.id,
+                    d.resource_type,
+                    d.resource_id,
+                    d.title,
+                    d.text,
+                    d.source_updated_at,
+                    d.created_at,
+                    d.updated_at,
+                    bm25(search_documents_fts) AS rank
+                 FROM search_documents_fts
+                 JOIN search_documents d ON d.rowid = search_documents_fts.rowid
+                 WHERE search_documents_fts MATCH ?1
+                 ORDER BY rank
+                 LIMIT 500",
+                libsql::params![escaped_query],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            let resource_type: String = row.get(1).map_err(AppError::LibSQL)?;
+            if !matches_resource_type(&filters.resource_types, &resource_type) {
+                continue;
+            }
+
+            let source_updated_at: String = row.get(5).map_err(AppError::LibSQL)?;
+            if !matches_date_range(
+                &source_updated_at,
+                filters.date_from.as_deref(),
+                filters.date_to.as_deref(),
+            ) {
+                continue;
+            }
+
+            let text: String = row.get(4).map_err(AppError::LibSQL)?;
+            let rank: f64 = row.get(8).unwrap_or(0.0);
+            let score = if rank < 0.0 {
+                1.0 / (1.0 + rank.abs())
+            } else {
+                1.0 / (1.0 + rank)
+            };
+
+            results.push(SearchDocumentResult {
+                id: row.get(0).map_err(AppError::LibSQL)?,
+                resource_type,
+                resource_id: row.get(2).map_err(AppError::LibSQL)?,
+                title: row.get(3).map_err(AppError::LibSQL)?,
+                preview: truncate_preview(&text, 220),
+                score,
+                match_kind: "keyword".to_string(),
+                highlights: Vec::new(),
+                source_updated_at,
+                created_at: row.get(6).map_err(AppError::LibSQL)?,
+                updated_at: row.get(7).map_err(AppError::LibSQL)?,
+            });
+        }
+
+        Ok(results.into_iter().skip(offset).take(limit).collect())
     }
 
     pub async fn upsert_document(&self, input: SearchDocumentInput) -> Result<()> {
@@ -451,4 +552,31 @@ impl SearchDocumentRepository {
 
 fn text_hash(text: &str) -> String {
     hex::encode(Sha256::digest(text.as_bytes()))
+}
+
+fn escape_fts_query(query: &str) -> String {
+    query.replace('"', "\"\"")
+}
+
+fn matches_resource_type(resource_types: &Option<Vec<String>>, resource_type: &str) -> bool {
+    resource_types
+        .as_ref()
+        .map(|types| types.iter().any(|item| item == resource_type))
+        .unwrap_or(true)
+}
+
+fn matches_date_range(value: &str, date_from: Option<&str>, date_to: Option<&str>) -> bool {
+    if let Some(date_from) = date_from {
+        if value < date_from {
+            return false;
+        }
+    }
+
+    if let Some(date_to) = date_to {
+        if value > date_to {
+            return false;
+        }
+    }
+
+    true
 }

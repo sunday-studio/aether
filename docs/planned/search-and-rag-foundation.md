@@ -32,11 +32,11 @@ Build one reliable local retrieval layer:
 
 ## Phase 3: Keyword Search
 
-- [ ] Build FTS over `search_documents`.
-- [ ] Replace raw per-table search with normalized search results.
+- [x] Build FTS over `search_documents`.
+- [x] Replace raw per-table search with normalized search results.
 - [ ] Support filters: `q`, `types`, `tags`, `date_from`, `date_to`, `limit`, `cursor`.
-- [ ] Return `resourceType`, `resourceId`, `title`, `preview`, `score`, `matchKind`, `highlights`, and timestamps.
-- [ ] Make `mode=keyword` the default.
+- [x] Return `resourceType`, `resourceId`, `title`, `preview`, `score`, `matchKind`, `highlights`, and timestamps.
+- [x] Make `mode=keyword` the default.
 
 ## Phase 4: Embedding Storage
 

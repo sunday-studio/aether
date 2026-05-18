@@ -27,4 +27,4 @@ pub use canvas::CanvasRepository;
 pub use bookmark::BookmarkRepository;
 pub use link::LinkRepository;
 pub use search::{SearchRepository, SearchResult, ResourceType};
-pub use search_document::{SearchDocumentRepository, SearchIndexStatus};
+pub use search_document::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};

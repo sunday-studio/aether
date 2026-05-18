@@ -1,7 +1,6 @@
 use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
 use crate::db::{connection, DbState};
-use crate::db::repositories::search::{SearchRepository, ResourceType, SearchResult};
-use crate::db::repositories::SearchDocumentRepository;
+use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -16,9 +15,15 @@ pub struct SearchRequest {
     #[serde(default)]
     pub tags: Option<String>,
     #[serde(default)]
+    pub date_from: Option<String>,
+    #[serde(default)]
+    pub date_to: Option<String>,
+    #[serde(default)]
     pub limit: Option<u32>,
     #[serde(default)]
     pub offset: Option<u32>,
+    #[serde(default)]
+    pub cursor: Option<String>,
     #[serde(default)]
     pub mode: Option<String>,
 }
@@ -39,96 +44,20 @@ pub struct SearchResponse {
     pub mode: String,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase", tag = "type")]
-pub enum SearchResultResponse {
-    Entry {
-        id: String,
-        #[serde(flatten)]
-        entry: crate::db::models::Entry,
-        score: f64,
-        highlights: Vec<String>,
-    },
-    Task {
-        id: String,
-        #[serde(flatten)]
-        task: crate::db::models::Task,
-        score: f64,
-        highlights: Vec<String>,
-    },
-    SubTask {
-        id: String,
-        #[serde(flatten)]
-        subtask: crate::db::models::SubTask,
-        score: f64,
-        highlights: Vec<String>,
-    },
-    Goal {
-        id: String,
-        #[serde(flatten)]
-        goal: crate::db::models::Goal,
-        score: f64,
-        highlights: Vec<String>,
-    },
-    Tag {
-        id: String,
-        #[serde(flatten)]
-        tag: crate::db::models::Tag,
-        score: f64,
-        highlights: Vec<String>,
-    },
-    Bookmark {
-        id: String,
-        #[serde(flatten)]
-        bookmark: crate::db::models::Bookmark,
-        score: f64,
-        highlights: Vec<String>,
-    },
-}
-
-impl From<SearchResult> for SearchResultResponse {
-    fn from(result: SearchResult) -> Self {
-        match result {
-            SearchResult::Entry { entry, score, highlights } => SearchResultResponse::Entry {
-                id: entry.id.clone(),
-                entry,
-                score,
-                highlights,
-            },
-            SearchResult::Task { task, score, highlights } => SearchResultResponse::Task {
-                id: task.id.clone(),
-                task,
-                score,
-                highlights,
-            },
-            SearchResult::SubTask { subtask, score, highlights } => SearchResultResponse::SubTask {
-                id: subtask.id.clone(),
-                subtask,
-                score,
-                highlights,
-            },
-            SearchResult::Goal { goal, score, highlights } => SearchResultResponse::Goal {
-                id: goal.id.clone(),
-                goal,
-                score,
-                highlights,
-            },
-            SearchResult::Tag { tag, score, highlights } => SearchResultResponse::Tag {
-                id: tag.id.clone(),
-                tag,
-                score,
-                highlights,
-            },
-            SearchResult::Bookmark { bookmark, score, highlights } => {
-                SearchResultResponse::Bookmark {
-                    id: bookmark.id.clone(),
-                    bookmark,
-                    score,
-                    highlights,
-                }
-            }
-        }
-    }
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResultResponse {
+    pub id: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub title: String,
+    pub preview: String,
+    pub score: f64,
+    pub match_kind: String,
+    pub highlights: Vec<String>,
+    pub source_updated_at: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 /// Search across all resources
@@ -138,11 +67,14 @@ impl From<SearchResult> for SearchResultResponse {
     tag = "Search",
     params(
         ("q" = String, Query, description = "Search query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,subtask,goal,tag"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,goal,tag,bookmark"),
         ("tags" = Option<String>, Query, description = "Comma-separated tag IDs to filter by"),
+        ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
+        ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
         ("limit" = Option<u32>, Query, description = "Maximum number of results (default: 50, max: 100)"),
         ("offset" = Option<u32>, Query, description = "Pagination offset"),
-        ("mode" = Option<String>, Query, description = "Search mode: fuzzy, similar, or hybrid (default: fuzzy)")
+        ("cursor" = Option<String>, Query, description = "Reserved cursor pagination token"),
+        ("mode" = Option<String>, Query, description = "Search mode: keyword, semantic, or hybrid (default: keyword)")
     ),
     responses(
         (status = 200, description = "Search results", body = SearchResponse),
@@ -163,11 +95,11 @@ pub async fn search_resources(
         return Err(AppError::BadRequest("Query parameter 'q' is required and cannot be empty".to_string()));
     }
 
-    // Parse resource types
-    let types = if let Some(ref types_str) = params.types {
-        let type_vec: Vec<ResourceType> = types_str
+    let resource_types = if let Some(ref types_str) = params.types {
+        let type_vec: Vec<String> = types_str
             .split(',')
-            .filter_map(|s| ResourceType::from_str(s.trim()))
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| matches!(s.as_str(), "entry" | "task" | "goal" | "tag" | "bookmark"))
             .collect();
         if type_vec.is_empty() {
             None
@@ -178,64 +110,60 @@ pub async fn search_resources(
         None
     };
 
-    // Parse tag IDs
-    let tag_ids = if let Some(ref tags_str) = params.tags {
-        let tag_vec: Vec<String> = tags_str
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
-        if tag_vec.is_empty() {
-            None
-        } else {
-            Some(tag_vec)
+    if params.tags.as_ref().is_some_and(|tags| !tags.trim().is_empty()) {
+        tracing::debug!("Search tag filtering is reserved for a later phase");
+    }
+
+    let requested_mode = params.mode.as_deref().unwrap_or("keyword").to_string();
+    let mode = match requested_mode.as_str() {
+        "keyword" | "fuzzy" => "keyword",
+        "semantic" | "similar" => {
+            return Err(AppError::BadRequest(
+                "Semantic search is not available until embeddings are indexed".to_string(),
+            ));
         }
-    } else {
-        None
-    };
-
-    let mode = params.mode.as_deref().unwrap_or("fuzzy").to_string();
-
-    let repo = SearchRepository::new(connection::get_database(&*state));
-    let results: Vec<SearchResult> = match mode.as_str() {
         "hybrid" => {
-            repo.search_hybrid(
-                &params.q,
-                types,
-                tag_ids,
-                params.limit,
-                params.offset,
-            )
-            .await?
+            return Err(AppError::BadRequest(
+                "Hybrid search is not available until embeddings are indexed".to_string(),
+            ));
         }
-        "similar" => {
-            repo.search_fuzzy(
-                &params.q,
-                types,
-                tag_ids,
-                params.limit,
-                params.offset,
-            )
-            .await?
-        }
-        _ => {
-            repo.search_fuzzy(
-                &params.q,
-                types,
-                tag_ids,
-                params.limit,
-                params.offset,
-            )
-            .await?
-        }
+        _ => "keyword",
     };
 
+    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
+    let results = repo
+        .search_keyword(
+            &params.q,
+            SearchDocumentQuery {
+                resource_types,
+                date_from: params.date_from,
+                date_to: params.date_to,
+                limit: params.limit,
+                offset: params.offset,
+            },
+        )
+        .await?;
     let total = results.len();
     let response = SearchResponse {
-        results: results.into_iter().map(SearchResultResponse::from).collect(),
+        results: results
+            .into_iter()
+            .map(|result| SearchResultResponse {
+                id: result.id,
+                resource_type: result.resource_type,
+                resource_id: result.resource_id,
+                title: result.title,
+                preview: result.preview,
+                score: result.score,
+                match_kind: result.match_kind,
+                highlights: result.highlights,
+                source_updated_at: result.source_updated_at,
+                created_at: result.created_at,
+                updated_at: result.updated_at,
+            })
+            .collect(),
         total,
         query: params.q,
-        mode,
+        mode: mode.to_string(),
     };
 
     Ok(response)

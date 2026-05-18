@@ -92,9 +92,15 @@ pub struct SearchQueryParams {
     #[serde(default)]
     pub tags: Option<String>,
     #[serde(default)]
+    pub date_from: Option<String>,
+    #[serde(default)]
+    pub date_to: Option<String>,
+    #[serde(default)]
     pub limit: Option<u32>,
     #[serde(default)]
     pub offset: Option<u32>,
+    #[serde(default)]
+    pub cursor: Option<String>,
     #[serde(default)]
     pub mode: Option<String>,
 }

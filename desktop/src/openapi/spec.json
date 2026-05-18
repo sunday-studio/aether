@@ -1915,7 +1915,7 @@
           {
             "name": "types",
             "in": "query",
-            "description": "Comma-separated resource types: entry,task,subtask,goal,tag",
+            "description": "Comma-separated resource types: entry,task,goal,tag,bookmark",
             "required": false,
             "schema": {
               "type": "string",
@@ -1926,6 +1926,26 @@
             "name": "tags",
             "in": "query",
             "description": "Comma-separated tag IDs to filter by",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "Filter source_updated_at at or after this ISO 8601 value",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "Filter source_updated_at at or before this ISO 8601 value",
             "required": false,
             "schema": {
               "type": "string",
@@ -1957,9 +1977,19 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "description": "Reserved cursor pagination token",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
             "name": "mode",
             "in": "query",
-            "description": "Search mode: fuzzy, similar, or hybrid (default: fuzzy)",
+            "description": "Search mode: keyword, semantic, or hybrid (default: keyword)",
             "required": false,
             "schema": {
               "type": "string",
@@ -4753,6 +4783,18 @@
           "q"
         ],
         "properties": {
+          "cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateTo": {
+            "type": "string",
+            "nullable": true
+          },
           "limit": {
             "type": "integer",
             "format": "int32",
