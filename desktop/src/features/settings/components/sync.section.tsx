@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	getGetSyncStatusQueryKey,
 	useConfigureSync,
@@ -54,20 +54,32 @@ export const SyncSection = () => {
 	const queryClient = useQueryClient();
 	const syncStatusQueryKey = getGetSyncStatusQueryKey();
 	const { getValue, setValue } = useSettingsStore();
+	const [shouldCheckSyncStatus, setShouldCheckSyncStatus] = useState(true);
 
 	const { data: statusResponse } = useGetSyncStatus({
 		query: {
-			refetchInterval: 30_000,
+			enabled: shouldCheckSyncStatus,
+			refetchInterval: query => {
+				const status = (query.state.data as { data?: SyncStatus } | undefined)?.data;
+				return status?.server_url ? 30_000 : false;
+			},
 		},
 	});
 
 	const status = statusResponse?.data as SyncStatus | undefined;
+
+	useEffect(() => {
+		if (status && !status.server_url) {
+			setShouldCheckSyncStatus(false);
+		}
+	}, [status]);
 
 	const mediaSyncPolicy = getValue('sync.media_sync_policy', 'on_demand') as 'auto' | 'on_demand';
 
 	const syncNowMutation = useSyncNow({
 		mutation: {
 			onSuccess: () => {
+				setShouldCheckSyncStatus(true);
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 			},
 		},
@@ -76,6 +88,7 @@ export const SyncSection = () => {
 	const configureMutation = useConfigureSync({
 		mutation: {
 			onSuccess: () => {
+				setShouldCheckSyncStatus(true);
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 			},
 		},
@@ -84,6 +97,7 @@ export const SyncSection = () => {
 	const disconnectMutation = useDisconnectSync({
 		mutation: {
 			onSuccess: () => {
+				setShouldCheckSyncStatus(true);
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 			},
 		},
@@ -92,6 +106,7 @@ export const SyncSection = () => {
 	const reconnectMutation = useReconnectSync({
 		mutation: {
 			onSuccess: () => {
+				setShouldCheckSyncStatus(true);
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 			},
 		},

@@ -6072,6 +6072,10 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "server_url": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

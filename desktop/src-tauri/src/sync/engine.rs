@@ -19,6 +19,7 @@ pub struct SyncStatus {
     pub pending_changes: u32,
     pub last_sync: Option<i64>,
     pub needs_passphrase: bool,
+    pub server_url: Option<String>,
 }
 
 pub struct SyncEngine {
@@ -298,7 +299,8 @@ impl SyncEngine {
         let db = get_database(&self.db);
         let conn = db.connect().map_err(AppError::LibSQL)?;
 
-        let has_server_url = self.server_url.lock().unwrap().is_some();
+        let server_url = self.server_url.lock().unwrap().clone();
+        let has_server_url = server_url.is_some();
         let has_device_token = metadata::get_device_token(db.as_ref()).await?.is_some();
         let connected = has_server_url && has_device_token;
         let needs_passphrase = connected && self.passphrase.lock().unwrap().is_none();
@@ -318,6 +320,7 @@ impl SyncEngine {
             pending_changes: pending as u32,
             last_sync: metadata::get_last_sync(&db).await.ok().flatten(),
             needs_passphrase,
+            server_url,
         })
     }
 
@@ -413,6 +416,7 @@ mod tests {
         assert!(!status.needs_passphrase);
         assert_eq!(status.pending_changes, 0);
         assert_eq!(status.last_sync, None);
+        assert_eq!(status.server_url, None);
     }
 
     #[tokio::test]
