@@ -5,11 +5,13 @@ This document records the planned AI journal enrichment direction. It is not shi
 ## Implementation Status
 
 - Added local tables for entry insights, entry suggestions, and weekly AI summaries in `010_ai_journal_enrichment.sql`.
-- Added first local `rules` backend path for entry insight drafts and suggestion state updates.
+- Added backend provider structure with the first local `rules` path for entry insight drafts and suggestion state updates.
 - Added local weekly summary draft generation from indexed context.
 - Added edit commands for entry insights and weekly summaries.
 - Added accept flow for relation suggestions through normal resource links.
-- External provider logic, UI review flows, and encrypted sync handlers are still planned work.
+- Added journal settings keys and Settings UI for local rules, external context policy, and future OpenAI journal enrichment.
+- Added review controls for entry insight drafts and weekly summary drafts.
+- External provider generation logic and encrypted sync handlers are still planned work.
 - Sync handlers should be added deliberately before sync triggers are introduced for these tables.
 
 ## Product Direction
@@ -99,6 +101,7 @@ Planned Tauri commands:
 - `update_entry_insight(insight_id, patch)`
 - `update_ai_suggestion(suggestion_id, state, edited_value?)`
 - `accept_ai_tag_suggestion(suggestion_id)`
+- `accept_ai_relation_suggestion(suggestion_id)`
 - `generate_weekly_ai_summary(start_date, end_date, mode?)`
 - `get_weekly_ai_summary(start_date, end_date)`
 - `update_weekly_ai_summary(summary_id, patch)`
@@ -150,5 +153,5 @@ Each device can rebuild local indexes and embeddings from synced source data.
 - Accepting a relation suggestion creates a normal resource link.
 - Weekly summary context includes entries, accepted insights, tasks, goals, and activity counts for the requested date range.
 - Sync pushes and pulls user-visible AI artifacts without syncing temporary jobs or raw provider data.
-- The frontend renders pending suggestions and supports accept, edit, and dismiss.
+- The frontend renders pending suggestions and supports accept, dismiss, edit, and reviewed states.
 - UI copy avoids diagnostic claims and presents AI output as suggested, possible, and editable.
