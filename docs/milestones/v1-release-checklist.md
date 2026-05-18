@@ -10,12 +10,14 @@ This is the working list to run before cutting v1. The intent is to ship a small
 - Keep Settings.
 - Keep self-hosted encrypted Sync.
 - Keep Updater.
+- Keep command palette search.
+- Keep local search model setup for semantic search.
 - Keep resource links if they stay scoped to v1-ready resources.
 - Hide journal audio recording and transcription for v1 until the flow is stable.
 - Hide Canvas for v1.
 - Hide Bookmarks for v1.
 - Hide Graph for v1 unless the visualization and route behavior are finished.
-- Hide backend-only diagnostic and model-management features unless there is a complete user-facing flow.
+- Hide backend-only diagnostic and transcription model-management features unless there is a complete user-facing flow.
 
 ## 2. First-Run Onboarding
 
@@ -31,11 +33,12 @@ This is the working list to run before cutting v1. The intent is to ship a small
 ## 3. AI And Transcription Readiness
 
 - Make configured AI provider status visible.
+- Make local search model download/status visible.
 - Validate configured provider credentials from the UI.
 - Keep journal audio recording and transcription entry points hidden for v1.
 - Leave audio/transcription backend code available for a later stabilization pass.
-- Defer full local model download UI unless it is intentionally added to v1.
-- Leave embeddings management backend-only for v1.
+- Keep local embedding model setup scoped to search.
+- Leave local transcription model management backend-only for v1.
 
 ## 4. Updater
 
@@ -69,15 +72,15 @@ This is the working list to run before cutting v1. The intent is to ship a small
 - Remove Bookmarks and Graph destinations from command palette and resource navigation.
 - Hide placeholder routes.
 - Ensure bottom navigation exposes only v1 features.
-- Ensure command palette does not advertise unfinished destinations.
+- Ensure command palette search only opens v1-ready destinations.
 - Ensure app startup has a clear path through onboarding or the main app.
 
 ## 7. Backend-Frontend Gap Cleanup
 
 - Decide for each backend capability whether it is exposed, hidden, or deferred.
 - Bookmarks: backend exists, frontend is currently placeholder-level, so keep hidden for v1.
-- Search: backend exists, global search UI is deferred, so keep command palette search hidden for v1.
-- Embeddings: backend commands exist, no visible frontend management, so defer.
+- Search: command palette search is exposed for v1; full search-results pages remain later work.
+- Embeddings: local search model setup is exposed for search; transcription model management remains deferred.
 - Transcription provider/model management: backend exists, frontend exposure is partial, so keep model management hidden and keep journal audio/transcription UI disabled for v1 while AI key setup stays visible.
 - Sync diagnostics: backend exists, keep hidden for v1.
 
@@ -103,4 +106,6 @@ This is the working list to run before cutting v1. The intent is to ship a small
 - Smoke sync configure, sync now, reconnect, and media policy.
 - Smoke updater settings and manual check.
 - Smoke updater discovery, global update button, signed download, install, and restart.
+- Smoke local search model download and embedding rebuild.
+- Smoke command palette hybrid search.
 - Restart the app and confirm persisted onboarding/settings state.

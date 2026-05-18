@@ -16,14 +16,6 @@ The backend supports bookmark CRUD, metadata extraction, tagging, archive state,
 
 The backend supports graph/link retrieval and the frontend has a graph visualization route. The current experience is not polished enough for v1, so the route is hidden until labels, empty states, navigation, and resource-opening behavior are designed and implemented.
 
-### Global Search
-
-The backend has fuzzy/hybrid search and linkable-resource search. Resource-link autocomplete uses backend search, but command-palette/global search is hidden as an internal capability for v1.
-
-### Embeddings Management
-
-The Rust backend exposes embedding model list, download, verify, and delete commands. There is no meaningful frontend management surface. Defer this until there is a clear user-facing AI/search feature that needs it.
-
 ### Transcription Provider And Model Management
 
 The backend can list providers, validate provider configuration, manage local Whisper models, save journal audio, and run transcription jobs. AI key setup stays visible for v1, but the visible journal audio/transcription UI is hidden and full provider/model management is not a complete settings surface.
@@ -40,7 +32,7 @@ Add a first-launch onboarding gate before the main app. It should collect a disp
 
 ### Navigation Cleanup
 
-The v1 navigation should expose only finished surfaces. Canvas, Bookmarks, and Graph routes are hidden, placeholder destinations are not advertised, and the command palette should stay scoped to finished views.
+The v1 navigation should expose only finished surfaces. Canvas, Bookmarks, and Graph routes are hidden, placeholder destinations are not advertised, and command palette search should stay scoped to indexed, v1-ready resources.
 
 ### Backend-Frontend Gap Cleanup
 
@@ -54,7 +46,7 @@ AI journal enrichment is planned as a local-first, editable suggestion layer for
 
 ### Local Model Downloads
 
-Local Whisper model download and verification exists at the backend level. A later product surface could let users manage local transcription models, but that should be designed as a full settings flow.
+Local search model download is now part of onboarding and Settings. Local Whisper model download and verification exists at the backend level; a later product surface could let users manage local transcription models, but that should be designed as a full settings flow.
 
 ### Rich Bookmark Experience
 
@@ -62,7 +54,7 @@ A later milestone can make bookmarks a real saved-resource feature with list, fi
 
 ### Search And Semantic Recall
 
-Search can grow into a command palette, global results view, and semantic recall experience once embeddings and indexing behavior are productized.
+Search now includes command palette results, local embeddings, and hybrid ranking. A later milestone can add a full search results view and deeper semantic recall workflows.
 
 ### Canvas Return
 

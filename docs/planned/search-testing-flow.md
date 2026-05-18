@@ -30,9 +30,12 @@ This document tracks how agents should verify the Search And RAG Foundation work
 - [x] Add cursor pagination tests for keyword search.
 - [x] Extend deleted-resource tests to entries, goals, and bookmarks.
 - [x] Add coverage for `SearchDocumentRepository::delete_resource`.
-- [x] Add search command tests for `semantic` and `hybrid` unavailable-mode errors.
+- [x] Add search command tests for `semantic` and `hybrid` mode resolution.
 - [x] Add tag-filter tests once tag filtering is implemented.
 - [x] Add a runtime/in-app API verification path for Tauri commands before UI work.
+- [x] Add semantic search tests over `search_embeddings`.
+- [x] Add hybrid search tests that merge keyword and semantic results.
+- [x] Add ranking boost tests for title, tags, pinned entries, incomplete tasks, and current goals.
 
 ## Curl Note
 
@@ -57,7 +60,9 @@ Use this path before building the search UI:
 - Confirm the response includes `results`, `nextCursor`, `hasMore`, `resourceType`, `resourceId`, `title`, `preview`, `score`, and `matchKind`.
 - Call the same search with `cursor=<nextCursor>` when `hasMore` is true and confirm the next page does not repeat the first result.
 - Call `GET /v1/search?q=<word>&tags=<tag-id>` and confirm untagged resources are excluded.
-- Call `GET /v1/search?q=<word>&mode=semantic` and `mode=hybrid`; both should return unavailable-mode `400` errors until embeddings are indexed.
+- Rebuild embeddings from Settings.
+- Call `GET /v1/search?q=<word>&mode=semantic` and confirm results return `matchKind=semantic`.
+- Call `GET /v1/search?q=<word>&mode=hybrid` and confirm results return `matchKind=hybrid`.
 
 ## Phase 4 Embedding Storage Test Flow
 
@@ -71,8 +76,8 @@ Use this path before building the search UI:
 
 - [x] Verify full embedding indexing generates local vectors for `search_documents`.
 - [x] Verify resource embedding indexing clears embeddings when the search document is missing.
-- [x] Verify semantic and hybrid search still fail gracefully until real embedding search is implemented.
-- [ ] Verify a real local model provider once an inference runtime is selected.
+- [x] Verify semantic and hybrid search use indexed embeddings.
+- [x] Verify a real local model provider once an inference runtime is selected.
 
 ## Phase 7 Retrieval API Test Flow
 
