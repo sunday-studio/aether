@@ -3,6 +3,7 @@ use crate::db::repositories::{
     AiJournalEnrichmentRepository, EntryInsightBundle, JournalEntryInsightInput,
     JournalEntrySuggestion, JournalEntrySuggestionInput, SearchDocumentRepository,
 };
+use crate::db::models::Tag;
 use crate::db::{connection, DbState, EntryRepository, TagRepository};
 use crate::error::{AppError, Result};
 use crate::utils::search_text::{
@@ -37,10 +38,25 @@ pub struct UpdateAiSuggestionRequest {
     pub edited_value: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptAiTagSuggestionRequest {
+    pub suggestion_id: String,
+    #[serde(default)]
+    pub edited_value: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AiSuggestionResponse {
     pub suggestion: JournalEntrySuggestion,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptAiTagSuggestionResponse {
+    pub suggestion: JournalEntrySuggestion,
+    pub tag: Tag,
 }
 
 /// Generate an editable local AI insight draft for one journal entry.
@@ -146,6 +162,72 @@ pub async fn update_ai_suggestion(
         )
         .await?;
     Ok(AiSuggestionResponse { suggestion })
+}
+
+/// Accept a tag suggestion by creating or reusing a real tag and attaching it to the entry.
+#[utoipa::path(
+    post,
+    path = "/v1/ai/journal/suggestion/accept-tag",
+    tag = "AI Journal",
+    request_body = AcceptAiTagSuggestionRequest,
+    responses(
+        (status = 200, description = "Accepted tag suggestion", body = AcceptAiTagSuggestionResponse),
+        (status = 400, description = "Bad request"),
+        (status = 404, description = "Suggestion not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn accept_ai_tag_suggestion(
+    state: State<'_, DbState>,
+    request_data: Option<AcceptAiTagSuggestionRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<AcceptAiTagSuggestionResponse> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let db = connection::get_database(&*state);
+    let repo = AiJournalEnrichmentRepository::new(db.clone());
+    let existing = repo
+        .get_suggestion(&request.suggestion_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Suggestion {} not found", request.suggestion_id)))?;
+    if existing.suggestion_type != "tag" {
+        return Err(AppError::BadRequest(
+            "Only tag suggestions can be accepted with this command".to_string(),
+        ));
+    }
+
+    let tag_name = request
+        .edited_value
+        .clone()
+        .or(existing.edited_value.clone())
+        .unwrap_or_else(|| existing.value.clone())
+        .trim()
+        .to_string();
+    if tag_name.is_empty() {
+        return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
+    }
+
+    let tag_repo = TagRepository::new(db.clone());
+    let (tags, _, _) = tag_repo.find_all(None, None).await?;
+    let tag = match tags
+        .into_iter()
+        .find(|tag| tag.name.eq_ignore_ascii_case(&tag_name))
+    {
+        Some(tag) => tag,
+        None => tag_repo.create(tag_name).await?,
+    };
+
+    EntryRepository::new(db.clone())
+        .add_tags(&existing.entry_id, vec![tag.id.clone()])
+        .await?;
+    let suggestion = repo
+        .update_suggestion_state(&existing.id, "accepted", request.edited_value)
+        .await?;
+
+    Ok(AcceptAiTagSuggestionResponse { suggestion, tag })
 }
 
 struct RulesDraft {

@@ -334,6 +334,7 @@ pub fn run() {
             ai_journal::enrich_journal_entry,
             ai_journal::get_entry_insights,
             ai_journal::update_ai_suggestion,
+            ai_journal::accept_ai_tag_suggestion,
             // Link commands
             link::create_link,
             link::get_backlinks,
