@@ -122,6 +122,29 @@ impl SearchEmbeddingRepository {
         self.status().await
     }
 
+    pub async fn refresh_existing_resource_embeddings(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Result<()> {
+        let documents = self
+            .load_documents(Some(resource_type), Some(resource_id))
+            .await?;
+        if documents.is_empty() {
+            self.delete_for_resource(resource_type, resource_id).await?;
+            return Ok(());
+        }
+
+        let model_names = self.load_indexed_model_names().await?;
+        for model_name in model_names {
+            for document in documents.clone() {
+                self.index_document_embedding(document, &model_name).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn find_by_document_and_model(
         &self,
         search_document_id: &str,
@@ -249,6 +272,26 @@ impl SearchEmbeddingRepository {
         }
 
         Ok(documents)
+    }
+
+    async fn load_indexed_model_names(&self) -> Result<Vec<String>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT DISTINCT model_name
+                 FROM search_embeddings
+                 ORDER BY model_name",
+                libsql::params![],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let mut model_names = Vec::new();
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            model_names.push(row.get(0).map_err(AppError::LibSQL)?);
+        }
+
+        Ok(model_names)
     }
 
     async fn index_document_embedding(
@@ -497,6 +540,46 @@ mod tests {
             .expect("index missing resource");
 
         assert_eq!(status.total_embeddings, 0);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn refresh_existing_resource_embeddings_updates_stale_vectors() {
+        let (_database, document_repo, embedding_repo, db_path) = test_repos().await;
+        seed_search_document(&document_repo).await;
+        embedding_repo
+            .index_all_embeddings("local-hash-384")
+            .await
+            .expect("index all embeddings");
+        let original = embedding_repo
+            .find_by_document_and_model("entry:entry-1:0", "local-hash-384")
+            .await
+            .expect("find original embedding")
+            .expect("original embedding exists");
+
+        document_repo
+            .upsert_document(SearchDocumentInput {
+                resource_type: "entry".to_string(),
+                resource_id: "entry-1".to_string(),
+                chunk_index: 0,
+                title: "Entry one updated".to_string(),
+                text: "Changed search document text".to_string(),
+                source_updated_at: "2026-05-18T10:00:00Z".to_string(),
+            })
+            .await
+            .expect("update search document");
+        embedding_repo
+            .refresh_existing_resource_embeddings("entry", "entry-1")
+            .await
+            .expect("refresh resource embeddings");
+        let refreshed = embedding_repo
+            .find_by_document_and_model("entry:entry-1:0", "local-hash-384")
+            .await
+            .expect("find refreshed embedding")
+            .expect("refreshed embedding exists");
+
+        assert_ne!(refreshed.text_hash, original.text_hash);
 
         cleanup_db(db_path);
     }

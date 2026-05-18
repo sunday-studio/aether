@@ -4,7 +4,9 @@ use crate::commands::params::{
     TaskIdPathParams, TaskSubtaskPathParams,
 };
 use crate::db::models::{SubTask, TaskWithSubtasks};
-use crate::db::{connection, DbState, SearchDocumentRepository, TaskRepository};
+use crate::db::{
+    connection, DbState, SearchDocumentRepository, SearchEmbeddingRepository, TaskRepository,
+};
 use crate::error::{AppError, Result};
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
@@ -14,6 +16,27 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tauri::State;
 use utoipa::ToSchema;
+
+async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("task", task_id)
+        .await
+    {
+        tracing::warn!("Failed to reindex task {} for search: {}", task_id, e);
+        return;
+    }
+
+    if let Err(e) = SearchEmbeddingRepository::new(db)
+        .refresh_existing_resource_embeddings("task", task_id)
+        .await
+    {
+        tracing::warn!(
+            "Failed to refresh task {} search embeddings: {}",
+            task_id,
+            e
+        );
+    }
+}
 
 /// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
 fn deserialize_clearable_datetime<'de, D>(
@@ -153,12 +176,7 @@ pub async fn create_task(
         repo.add_tags(&task.id, request.tag_ids).await?;
     }
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("task", &task.id)
-        .await
-    {
-        tracing::warn!("Failed to reindex task {} for search: {}", task.id, e);
-    }
+    reindex_task_search(db.clone(), &task.id).await;
 
     if let Err(e) = log_create(db.clone(), "task".to_string(), task.id.clone()).await {
         tracing::warn!("Failed to log task creation activity: {}", e);
@@ -337,12 +355,7 @@ pub async fn update_task(
         }
     }
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("task", &task.id)
-        .await
-    {
-        tracing::warn!("Failed to reindex task {} for search: {}", task.id, e);
-    }
+    reindex_task_search(db.clone(), &task.id).await;
 
     // Log activity - check if completion changed
     if let Some(new_completed) = request.is_completed {
@@ -400,12 +413,7 @@ pub async fn delete_task(
     let repo = TaskRepository::new(db.clone());
     repo.delete(&id).await?;
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("task", &id)
-        .await
-    {
-        tracing::warn!("Failed to remove task {} from search index: {}", id, e);
-    }
+    reindex_task_search(db.clone(), &id).await;
 
     // Log activity
     if let Err(e) = log_delete(db.clone(), "task".to_string(), id.clone()).await {

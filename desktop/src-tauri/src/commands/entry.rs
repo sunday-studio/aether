@@ -4,7 +4,9 @@ use crate::commands::params::{
 };
 use crate::db::models::Entry;
 use crate::db::repositories::LinkRepository;
-use crate::db::{connection, DbState, EntryRepository, SearchDocumentRepository};
+use crate::db::{
+    connection, DbState, EntryRepository, SearchDocumentRepository, SearchEmbeddingRepository,
+};
 use crate::error::{AppError, Result};
 use crate::utils::link_parser::extract_links_from_lexical_content;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
@@ -15,6 +17,27 @@ use utoipa::ToSchema;
 
 fn default_created_at() -> chrono::DateTime<Utc> {
     Utc::now()
+}
+
+async fn reindex_entry_search(db: std::sync::Arc<libsql::Database>, entry_id: &str) {
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("entry", entry_id)
+        .await
+    {
+        tracing::warn!("Failed to reindex entry {} for search: {}", entry_id, e);
+        return;
+    }
+
+    if let Err(e) = SearchEmbeddingRepository::new(db)
+        .refresh_existing_resource_embeddings("entry", entry_id)
+        .await
+    {
+        tracing::warn!(
+            "Failed to refresh entry {} search embeddings: {}",
+            entry_id,
+            e
+        );
+    }
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -183,12 +206,7 @@ pub async fn create_entry(
         }
     }
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("entry", &entry.id)
-        .await
-    {
-        tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
-    }
+    reindex_entry_search(db.clone(), &entry.id).await;
 
     // Log activity
     if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
@@ -238,12 +256,7 @@ pub async fn bulk_create_entries(
 
     // Log activities for each created entry
     for entry in &entries {
-        if let Err(e) = SearchDocumentRepository::new(db.clone())
-            .reindex_resource("entry", &entry.id)
-            .await
-        {
-            tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
-        }
+        reindex_entry_search(db.clone(), &entry.id).await;
 
         if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
             tracing::warn!(
@@ -359,12 +372,7 @@ pub async fn update_entry(
         }
     }
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("entry", &entry.id)
-        .await
-    {
-        tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
-    }
+    reindex_entry_search(db.clone(), &entry.id).await;
 
     // Log activity
     if let Err(e) = log_update(db.clone(), "entry".to_string(), entry.id.clone()).await {
@@ -410,12 +418,7 @@ pub async fn delete_entry(
     let link_repo = LinkRepository::new(db.clone());
     let _ = link_repo.delete_by_source("entry", &id).await;
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("entry", &id)
-        .await
-    {
-        tracing::warn!("Failed to remove entry {} from search index: {}", id, e);
-    }
+    reindex_entry_search(db.clone(), &id).await;
 
     // Log activity
     if let Err(e) = log_delete(db.clone(), "entry".to_string(), id.clone()).await {
