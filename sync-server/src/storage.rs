@@ -5,7 +5,6 @@ use rand::RngCore;
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use crate::models::PullCursor;
 
@@ -33,14 +32,15 @@ pub enum PushAcceptance {
 }
 
 pub struct Storage {
-    conn: Mutex<Connection>,
+    db_path: PathBuf,
     blob_dir: std::path::PathBuf,
 }
 
 impl Storage {
     pub fn new(db_path: &Path, data_root: &Path) -> Result<Self, rusqlite::Error> {
         std::fs::create_dir_all(db_path.parent().unwrap_or(Path::new("."))).ok();
-        let conn = Connection::open(db_path)?;
+        let db_path = db_path.to_path_buf();
+        let conn = open_connection(&db_path)?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS changes (
@@ -107,15 +107,16 @@ impl Storage {
         let blob_dir = data_root.join("blobs");
         std::fs::create_dir_all(&blob_dir).ok();
 
-        Ok(Self {
-            conn: Mutex::new(conn),
-            blob_dir,
-        })
+        Ok(Self { db_path, blob_dir })
+    }
+
+    fn connect(&self) -> Result<Connection, rusqlite::Error> {
+        open_connection(&self.db_path)
     }
 
     /// Initialize encryption salt on first startup. Generates a 16-byte random salt if none exists.
     pub fn initialize_salt(&self) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
 
         let existing: Option<String> = conn
             .query_row(
@@ -145,7 +146,7 @@ impl Storage {
     }
 
     pub fn get_salt(&self) -> Result<String, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         conn.query_row(
             "SELECT value FROM server_config WHERE key = 'encryption_salt'",
             [],
@@ -161,7 +162,7 @@ impl Storage {
     ) -> Result<(), rusqlite::Error> {
         let now = epoch_millis();
         let token_hash = hash_token(device_token);
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let existing: Option<i64> = conn
             .query_row(
                 "SELECT 1 FROM devices WHERE id = ?1",
@@ -191,7 +192,7 @@ impl Storage {
         device_id: &str,
         token: &str,
     ) -> Result<bool, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let stored_hash: Option<String> = conn
             .query_row(
                 "SELECT device_token_hash FROM devices WHERE id = ?1 AND revoked_at IS NULL",
@@ -212,7 +213,7 @@ impl Storage {
         changes: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<PushAcceptance, rusqlite::Error> {
         let now = epoch_millis();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let tx = conn.unchecked_transaction()?;
         let inserted = tx.execute(
             "INSERT OR IGNORE INTO processed_push_batches (device_id, batch_id, created_at) VALUES (?1, ?2, ?3)",
@@ -243,7 +244,7 @@ impl Storage {
         cursor: Option<&PullCursor>,
         limit: i64,
     ) -> Result<Vec<StoredChange>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let mut out = Vec::new();
         if let Some(cursor) = cursor {
             let mut stmt = conn.prepare(
@@ -288,7 +289,7 @@ impl Storage {
     }
 
     pub fn has_more_after(&self, cursor: &PullCursor) -> Result<bool, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let next: Option<i64> = conn
             .query_row(
                 "SELECT id
@@ -310,7 +311,7 @@ impl Storage {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let p = self.blob_path(hash)?;
         std::fs::write(&p, data)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let at = epoch_millis();
         conn.execute(
             "INSERT OR REPLACE INTO blobs (hash, size, uploaded_at) VALUES (?1, ?2, ?3)",
@@ -347,7 +348,7 @@ impl Storage {
     }
 
     pub fn update_device_last_seen(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         conn.execute(
             "UPDATE devices SET last_seen = ?1 WHERE id = ?2",
             params![ts, device_id],
@@ -356,7 +357,7 @@ impl Storage {
     }
 
     pub fn update_device_last_sync(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         conn.execute(
             "UPDATE devices SET last_sync = ?1 WHERE id = ?2",
             params![ts, device_id],
@@ -365,7 +366,7 @@ impl Storage {
     }
 
     pub fn list_devices(&self) -> Result<Vec<DeviceRow>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.connect()?;
         let mut stmt = conn.prepare(
             "SELECT id, hostname, created_at, last_seen, last_sync
              FROM devices
@@ -387,6 +388,14 @@ impl Storage {
         }
         Ok(out)
     }
+}
+
+fn open_connection(db_path: &Path) -> Result<Connection, rusqlite::Error> {
+    let conn = Connection::open(db_path)?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))?;
+    conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    Ok(conn)
 }
 
 fn epoch_secs() -> i64 {
