@@ -5,15 +5,14 @@ import {
 	getGetSyncStatusQueryKey,
 	useConfigureSync,
 	useDisconnectSync,
-	useGetSetting,
 	useGetSyncStatus,
 	useReconnectSync,
-	useSetSetting,
 	useSyncNow,
 } from '~/aether-sdk';
 import type { SyncStatus } from '~/aether-sdk/models';
 import { Button } from '~/components/shared/button';
 import { TextField } from '~/components/shared/text-field';
+import { useSettingsStore } from '~/store/settings-store';
 
 function getErrorMessage(error: unknown) {
 	if (error && typeof error === 'object' && 'data' in error) {
@@ -28,6 +27,7 @@ function getErrorMessage(error: unknown) {
 export const SyncSection = () => {
 	const queryClient = useQueryClient();
 	const syncStatusQueryKey = getGetSyncStatusQueryKey();
+	const { getValue, setValue } = useSettingsStore();
 
 	const { data: statusResponse } = useGetSyncStatus({
 		query: {
@@ -37,16 +37,7 @@ export const SyncSection = () => {
 
 	const status = statusResponse?.data as SyncStatus | undefined;
 
-	const { data: mediaPolicyResponse } = useGetSetting(
-		{ key: 'sync.media_sync_policy' },
-		{
-			query: {
-				queryKey: ['sync', 'media_policy'],
-			},
-		},
-	);
-
-	const mediaSyncPolicy = (mediaPolicyResponse?.data?.value as 'auto' | 'on_demand') ?? 'on_demand';
+	const mediaSyncPolicy = getValue('sync.media_sync_policy', 'on_demand') as 'auto' | 'on_demand';
 
 	const syncNowMutation = useSyncNow({
 		mutation: {
@@ -68,15 +59,6 @@ export const SyncSection = () => {
 		mutation: {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-			},
-		},
-	});
-
-	const setMediaSyncPolicyMutation = useSetSetting({
-		mutation: {
-			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-				queryClient.invalidateQueries({ queryKey: ['sync', 'media_policy'] });
 			},
 		},
 	});
@@ -197,11 +179,11 @@ export const SyncSection = () => {
 							type='radio'
 							name='media_policy'
 							checked={mediaSyncPolicy === 'auto'}
-							onChange={() =>
-								setMediaSyncPolicyMutation.mutate({
-									data: { key: 'sync.media_sync_policy', value: 'auto' },
-								})
-							}
+							onChange={() => {
+								void setValue('sync.media_sync_policy', 'auto').then(() =>
+									queryClient.invalidateQueries({ queryKey: syncStatusQueryKey }),
+								);
+							}}
 						/>
 						<span className='text-sm'>Auto sync media</span>
 					</label>
@@ -210,11 +192,11 @@ export const SyncSection = () => {
 							type='radio'
 							name='media_policy'
 							checked={mediaSyncPolicy === 'on_demand'}
-							onChange={() =>
-								setMediaSyncPolicyMutation.mutate({
-									data: { key: 'sync.media_sync_policy', value: 'on_demand' },
-								})
-							}
+							onChange={() => {
+								void setValue('sync.media_sync_policy', 'on_demand').then(() =>
+									queryClient.invalidateQueries({ queryKey: syncStatusQueryKey }),
+								);
+							}}
 						/>
 						<span className='text-sm'>Download as needed</span>
 					</label>
