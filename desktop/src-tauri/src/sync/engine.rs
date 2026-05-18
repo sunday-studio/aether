@@ -150,11 +150,14 @@ impl SyncEngine {
         sync_passphrase: String,
     ) -> Result<()> {
         tracing::info!("[SYNC] Configuring sync with server URL: {}", server_url);
-        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
 
-        let device_id = metadata::get_device_id(&db).await?;
-        let device_hostname = metadata::get_device_hostname(&db).await?;
+        let (device_id, device_hostname) = {
+            let _guard = with_db_access(&self.db).await;
+            let device_id = metadata::get_device_id(&db).await?;
+            let device_hostname = metadata::get_device_hostname(&db).await?;
+            (device_id, device_hostname)
+        };
         let enrollment = register::register_with_server(
             &server_url,
             &device_id,
@@ -163,11 +166,14 @@ impl SyncEngine {
         )
         .await?;
 
-        let salt = metadata::decode_server_salt(&enrollment.salt)?;
-        metadata::configure_key(&db, &sync_passphrase, &salt).await?;
-        metadata::set_server_url(&db, &server_url).await?;
-        metadata::set_device_token(&db, &enrollment.device_token).await?;
-        metadata::clear_pull_cursor(&db).await?;
+        {
+            let _guard = with_db_access(&self.db).await;
+            let salt = metadata::decode_server_salt(&enrollment.salt)?;
+            metadata::configure_key(&db, &sync_passphrase, &salt).await?;
+            metadata::set_server_url(&db, &server_url).await?;
+            metadata::set_device_token(&db, &enrollment.device_token).await?;
+            metadata::clear_pull_cursor(&db).await?;
+        }
 
         *self.server_url.lock().unwrap() = Some(server_url);
         *self.passphrase.lock().unwrap() = Some(sync_passphrase.clone());
