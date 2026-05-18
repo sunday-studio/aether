@@ -56,6 +56,8 @@ Build one reliable local retrieval layer:
 
 ## Phase 6: Hybrid Search
 
+Blocked until a real local embedding provider/inference runtime is selected. The current `local-hash-384` generator is only suitable for exercising storage and indexing paths; it should not power user-facing semantic ranking.
+
 - [ ] Implement `mode=semantic`.
 - [ ] Implement `mode=hybrid`.
 - [ ] Merge keyword and semantic results by resource id.
@@ -72,6 +74,8 @@ Build one reliable local retrieval layer:
 
 ## Phase 8: Product Search UI
 
+Deferred until the backend retrieval layer is accepted.
+
 - [ ] Add real command-palette/global search.
 - [ ] Group or label results by resource type.
 - [ ] Show useful titles and previews.
@@ -80,11 +84,13 @@ Build one reliable local retrieval layer:
 
 ## Acceptance Checklist
 
-- [ ] Journal search matches visible text, not JSON internals.
-- [ ] Entries, tasks, goals, tags, and bookmarks return through one result shape.
-- [ ] Updated resources update the search index.
-- [ ] Deleted resources never appear.
-- [ ] Search works offline.
-- [ ] Embeddings are optional and rebuildable.
-- [ ] Search indexes, FTS tables, embedding rows, and jobs are not synced.
-- [ ] AI/RAG code can retrieve context through retrieval APIs without direct table-specific queries.
+- [x] Journal search matches visible text, not JSON internals.
+- [x] Entries, tasks, goals, tags, and bookmarks return through one result shape.
+- [x] Updated resources update the search index.
+- [x] Deleted resources never appear.
+- [x] Search works offline.
+- [x] Embeddings are optional and rebuildable.
+- [x] Search indexes, FTS tables, embedding rows, and jobs are not synced.
+- [x] AI/RAG code can retrieve context through retrieval APIs without direct table-specific queries.
+- [ ] Semantic and hybrid ranking use a real local embedding model.
+- [ ] Product search UI is built on the retrieval layer.
