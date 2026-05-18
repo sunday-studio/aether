@@ -66,9 +66,27 @@ async function enrichJournalEntry(entryId: string) {
 	});
 }
 
-async function updateEntryInsight(insightId: string, summary: string) {
+async function updateEntryInsightFields(
+	insightId: string,
+	fields: {
+		summary: string;
+		possibleMood: string;
+		emotions: string[];
+		energy: string;
+		themes: string[];
+		openLoops: string[];
+	},
+) {
 	return invoke<EntryInsightBundle>('update_entry_insight', {
-		requestData: { insightId, summary },
+		requestData: {
+			insightId,
+			summary: fields.summary,
+			possibleMood: fields.possibleMood,
+			emotions: fields.emotions,
+			energy: fields.energy,
+			themes: fields.themes,
+			openLoops: fields.openLoops,
+		},
 	});
 }
 
@@ -94,6 +112,11 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
 	const [summaryDraft, setSummaryDraft] = useState('');
+	const [possibleMoodDraft, setPossibleMoodDraft] = useState('');
+	const [emotionsDraft, setEmotionsDraft] = useState('');
+	const [energyDraft, setEnergyDraft] = useState('');
+	const [themesDraft, setThemesDraft] = useState('');
+	const [openLoopsDraft, setOpenLoopsDraft] = useState('');
 
 	const insightQuery = useQuery({
 		queryKey: insightQueryKey(entryId),
@@ -103,14 +126,25 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 	});
 
 	useEffect(() => {
-		if (insightQuery.data?.insight.summary !== undefined) {
-			setSummaryDraft(insightQuery.data.insight.summary);
+		const insight = insightQuery.data?.insight;
+		if (insight) {
+			setSummaryDraft(insight.summary);
+			setPossibleMoodDraft(insight.possibleMood ?? '');
+			setEmotionsDraft(listToText(insight.emotions));
+			setEnergyDraft(insight.energy ?? '');
+			setThemesDraft(listToText(insight.themes));
+			setOpenLoopsDraft(listToText(insight.openLoops));
 		}
-	}, [insightQuery.data?.insight.summary]);
+	}, [insightQuery.data?.insight]);
 
 	const refreshInsight = (bundle: EntryInsightBundle) => {
 		queryClient.setQueryData(insightQueryKey(entryId), bundle);
 		setSummaryDraft(bundle.insight.summary);
+		setPossibleMoodDraft(bundle.insight.possibleMood ?? '');
+		setEmotionsDraft(listToText(bundle.insight.emotions));
+		setEnergyDraft(bundle.insight.energy ?? '');
+		setThemesDraft(listToText(bundle.insight.themes));
+		setOpenLoopsDraft(listToText(bundle.insight.openLoops));
 	};
 
 	const generateMutation = useMutation({
@@ -122,7 +156,15 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 	});
 
 	const saveSummaryMutation = useMutation({
-		mutationFn: () => updateEntryInsight(insightQuery.data?.insight.id ?? '', summaryDraft),
+		mutationFn: () =>
+			updateEntryInsightFields(insightQuery.data?.insight.id ?? '', {
+				summary: summaryDraft,
+				possibleMood: possibleMoodDraft,
+				emotions: textToList(emotionsDraft),
+				energy: energyDraft,
+				themes: textToList(themesDraft),
+				openLoops: textToList(openLoopsDraft),
+			}),
 		onSuccess: bundle => {
 			refreshInsight(bundle);
 			showToast({ title: 'Insight updated' });
@@ -198,6 +240,33 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 								value={summaryDraft}
 								onChange={setSummaryDraft}
 							/>
+							<div className='grid gap-3 md:grid-cols-2'>
+								<TextAreaField
+									label='Possible mood'
+									value={possibleMoodDraft}
+									onChange={setPossibleMoodDraft}
+								/>
+								<TextAreaField
+									label='Energy'
+									value={energyDraft}
+									onChange={setEnergyDraft}
+								/>
+								<TextAreaField
+									label='Emotions'
+									value={emotionsDraft}
+									onChange={setEmotionsDraft}
+								/>
+								<TextAreaField
+									label='Themes'
+									value={themesDraft}
+									onChange={setThemesDraft}
+								/>
+							</div>
+							<TextAreaField
+								label='Open loops'
+								value={openLoopsDraft}
+								onChange={setOpenLoopsDraft}
+							/>
 							<div className='flex justify-end'>
 								<Button
 									variant='secondary'
@@ -238,6 +307,17 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 			)}
 		</div>
 	);
+}
+
+function listToText(values: string[]) {
+	return values.join('\n');
+}
+
+function textToList(value: string) {
+	return value
+		.split(/\n|,/)
+		.map(item => item.trim())
+		.filter(Boolean);
 }
 
 function InsightChips({ insight }: { insight: JournalEntryInsight }) {

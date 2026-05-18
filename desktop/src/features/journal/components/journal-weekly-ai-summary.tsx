@@ -34,9 +34,25 @@ async function generateWeeklySummary(startDate: string, endDate: string) {
 	});
 }
 
-async function updateWeeklySummary(summaryId: string, summary: string) {
+async function updateWeeklySummary(
+	summaryId: string,
+	fields: {
+		summary: string;
+		themes: string[];
+		completedWork: string[];
+		openLoops: string[];
+		nextFocus: string[];
+	},
+) {
 	return invoke<WeeklyAiSummary>('update_weekly_ai_summary', {
-		requestData: { summaryId, summary },
+		requestData: {
+			summaryId,
+			summary: fields.summary,
+			themes: fields.themes,
+			completedWork: fields.completedWork,
+			openLoops: fields.openLoops,
+			nextFocus: fields.nextFocus,
+		},
 	});
 }
 
@@ -44,6 +60,10 @@ export function JournalWeeklyAiSummary() {
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
 	const [summaryDraft, setSummaryDraft] = useState('');
+	const [themesDraft, setThemesDraft] = useState('');
+	const [completedWorkDraft, setCompletedWorkDraft] = useState('');
+	const [openLoopsDraft, setOpenLoopsDraft] = useState('');
+	const [nextFocusDraft, setNextFocusDraft] = useState('');
 	const weekRange = useMemo(() => {
 		const now = new Date();
 		const start = startOfWeek(now, { weekStartsOn: 1 });
@@ -64,14 +84,23 @@ export function JournalWeeklyAiSummary() {
 	});
 
 	useEffect(() => {
-		if (summaryQuery.data?.summary !== undefined) {
-			setSummaryDraft(summaryQuery.data.summary);
+		const summary = summaryQuery.data;
+		if (summary) {
+			setSummaryDraft(summary.summary);
+			setThemesDraft(listToText(summary.themes));
+			setCompletedWorkDraft(listToText(summary.completedWork));
+			setOpenLoopsDraft(listToText(summary.openLoops));
+			setNextFocusDraft(listToText(summary.nextFocus));
 		}
-	}, [summaryQuery.data?.summary]);
+	}, [summaryQuery.data]);
 
 	const refreshSummary = (summary: WeeklyAiSummary) => {
 		queryClient.setQueryData(queryKey, summary);
 		setSummaryDraft(summary.summary);
+		setThemesDraft(listToText(summary.themes));
+		setCompletedWorkDraft(listToText(summary.completedWork));
+		setOpenLoopsDraft(listToText(summary.openLoops));
+		setNextFocusDraft(listToText(summary.nextFocus));
 	};
 
 	const generateMutation = useMutation({
@@ -83,7 +112,14 @@ export function JournalWeeklyAiSummary() {
 	});
 
 	const saveMutation = useMutation({
-		mutationFn: () => updateWeeklySummary(summaryQuery.data?.id ?? '', summaryDraft),
+		mutationFn: () =>
+			updateWeeklySummary(summaryQuery.data?.id ?? '', {
+				summary: summaryDraft,
+				themes: textToList(themesDraft),
+				completedWork: textToList(completedWorkDraft),
+				openLoops: textToList(openLoopsDraft),
+				nextFocus: textToList(nextFocusDraft),
+			}),
 		onSuccess: summary => {
 			refreshSummary(summary);
 			showToast({ title: 'Weekly summary updated' });
@@ -134,6 +170,28 @@ export function JournalWeeklyAiSummary() {
 								value={summaryDraft}
 								onChange={setSummaryDraft}
 							/>
+							<div className='grid gap-3 md:grid-cols-2'>
+								<TextAreaField
+									label='Themes'
+									value={themesDraft}
+									onChange={setThemesDraft}
+								/>
+								<TextAreaField
+									label='Completed'
+									value={completedWorkDraft}
+									onChange={setCompletedWorkDraft}
+								/>
+								<TextAreaField
+									label='Open loops'
+									value={openLoopsDraft}
+									onChange={setOpenLoopsDraft}
+								/>
+								<TextAreaField
+									label='Next focus'
+									value={nextFocusDraft}
+									onChange={setNextFocusDraft}
+								/>
+							</div>
 							<div className='flex justify-end'>
 								<Button
 									variant='secondary'
@@ -152,6 +210,17 @@ export function JournalWeeklyAiSummary() {
 			)}
 		</div>
 	);
+}
+
+function listToText(values: string[]) {
+	return values.join('\n');
+}
+
+function textToList(value: string) {
+	return value
+		.split(/\n|,/)
+		.map(item => item.trim())
+		.filter(Boolean);
 }
 
 function WeeklySummaryLists({ summary }: { summary: WeeklyAiSummary }) {
