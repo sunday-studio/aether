@@ -60,7 +60,7 @@ Build one reliable local retrieval layer:
 - [x] Implement `mode=hybrid`.
 - [x] Merge keyword and semantic results by resource id.
 - [x] Start with simple scoring: keyword weight higher than semantic.
-- [ ] Add small boosts for exact title/name matches, tags, pinned entries, incomplete tasks, and current goals.
+- [x] Add small boosts for exact title/name matches, tags, pinned entries, incomplete tasks, and current goals.
 
 ## Phase 7: RAG Retrieval APIs
 

@@ -189,7 +189,7 @@ impl SearchDocumentRepository {
                 1.0 / (1.0 + rank)
             };
 
-            results.push(SearchDocumentResult {
+            let mut result = SearchDocumentResult {
                 id: row.get(0).map_err(AppError::LibSQL)?,
                 resource_type,
                 resource_id,
@@ -201,7 +201,9 @@ impl SearchDocumentRepository {
                 source_updated_at,
                 created_at: row.get(6).map_err(AppError::LibSQL)?,
                 updated_at: row.get(7).map_err(AppError::LibSQL)?,
-            });
+            };
+            self.apply_ranking_boosts(&conn, query, &mut result).await?;
+            results.push(result);
         }
 
         let mut page_results: Vec<_> = results.into_iter().skip(offset).take(limit + 1).collect();
@@ -293,7 +295,7 @@ impl SearchDocumentRepository {
             let text: String = row.get(4).map_err(AppError::LibSQL)?;
             let score = cosine_similarity(&query_embedding, &vector);
 
-            results.push(SearchDocumentResult {
+            let mut result = SearchDocumentResult {
                 id: row.get(0).map_err(AppError::LibSQL)?,
                 resource_type,
                 resource_id,
@@ -305,7 +307,9 @@ impl SearchDocumentRepository {
                 source_updated_at,
                 created_at: row.get(6).map_err(AppError::LibSQL)?,
                 updated_at: row.get(7).map_err(AppError::LibSQL)?,
-            });
+            };
+            self.apply_ranking_boosts(&conn, query, &mut result).await?;
+            results.push(result);
         }
 
         results.sort_by(|left, right| {
@@ -518,6 +522,158 @@ impl SearchDocumentRepository {
         }
 
         Ok(false)
+    }
+
+    async fn apply_ranking_boosts(
+        &self,
+        conn: &libsql::Connection,
+        query: &str,
+        result: &mut SearchDocumentResult,
+    ) -> Result<()> {
+        let normalized_query = normalize_search_text(query).to_lowercase();
+        let normalized_title = result.title.to_lowercase();
+
+        if !normalized_query.is_empty() && normalized_title == normalized_query {
+            result.score += 0.25;
+        } else if !normalized_query.is_empty() && normalized_title.contains(&normalized_query) {
+            result.score += 0.12;
+        }
+
+        if self
+            .resource_has_matching_tag(
+                conn,
+                &result.resource_type,
+                &result.resource_id,
+                &normalized_query,
+            )
+            .await?
+        {
+            result.score += 0.08;
+        }
+
+        match result.resource_type.as_str() {
+            "entry" if self.entry_is_pinned(conn, &result.resource_id).await? => {
+                result.score += 0.05;
+            }
+            "task" if self.task_is_incomplete(conn, &result.resource_id).await? => {
+                result.score += 0.05;
+            }
+            "goal"
+                if self
+                    .goal_has_current_instance(conn, &result.resource_id)
+                    .await? =>
+            {
+                result.score += 0.05;
+            }
+            _ => {}
+        }
+
+        result.score = result.score.min(1.0);
+        Ok(())
+    }
+
+    async fn resource_has_matching_tag(
+        &self,
+        conn: &libsql::Connection,
+        resource_type: &str,
+        resource_id: &str,
+        normalized_query: &str,
+    ) -> Result<bool> {
+        if normalized_query.is_empty() {
+            return Ok(false);
+        }
+
+        let (table, id_column) = match resource_type {
+            "entry" => ("entry_tags", "entry_id"),
+            "task" => ("task_tags", "task_id"),
+            "goal" => ("goal_tags", "goal_id"),
+            "bookmark" => ("bookmark_tags", "bookmark_id"),
+            "tag" => return Ok(false),
+            _ => return Ok(false),
+        };
+        let query = format!(
+            "SELECT t.name
+             FROM tags t
+             JOIN {} rt ON rt.tag_id = t.id
+             WHERE rt.{} = ?1 AND t.deleted_at IS NULL",
+            table, id_column
+        );
+        let mut rows = conn
+            .query(&query, libsql::params![resource_id])
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            let tag_name: String = row.get(0).map_err(AppError::LibSQL)?;
+            let normalized_tag = tag_name.to_lowercase();
+            if normalized_tag == normalized_query || normalized_query.contains(&normalized_tag) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    async fn entry_is_pinned(&self, conn: &libsql::Connection, resource_id: &str) -> Result<bool> {
+        let mut rows = conn
+            .query(
+                "SELECT is_pinned FROM entries WHERE id = ?1 AND deleted_at IS NULL LIMIT 1",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        Ok(rows
+            .next()
+            .await
+            .map_err(AppError::LibSQL)?
+            .map(|row| row.get::<i64>(0).unwrap_or(0) != 0)
+            .unwrap_or(false))
+    }
+
+    async fn task_is_incomplete(
+        &self,
+        conn: &libsql::Connection,
+        resource_id: &str,
+    ) -> Result<bool> {
+        let mut rows = conn
+            .query(
+                "SELECT is_completed FROM tasks WHERE id = ?1 AND deleted_at IS NULL LIMIT 1",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        Ok(rows
+            .next()
+            .await
+            .map_err(AppError::LibSQL)?
+            .map(|row| row.get::<i64>(0).unwrap_or(1) == 0)
+            .unwrap_or(false))
+    }
+
+    async fn goal_has_current_instance(
+        &self,
+        conn: &libsql::Connection,
+        resource_id: &str,
+    ) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let mut rows = conn
+            .query(
+                "SELECT 1
+                 FROM goal_instances
+                 WHERE goal_id = ?1
+                   AND deleted_at IS NULL
+                   AND status = 'active'
+                   AND period_start <= ?2
+                   AND (period_end IS NULL OR period_end >= ?2)
+                 LIMIT 1",
+                libsql::params![resource_id, now],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        Ok(rows.next().await.map_err(AppError::LibSQL)?.is_some())
     }
 
     pub async fn upsert_document(&self, input: SearchDocumentInput) -> Result<()> {
@@ -1478,6 +1634,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ranking_boosts_apply_domain_signals() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        let conn = database.connect().expect("connect to test database");
+        conn.execute(
+            "UPDATE entries SET is_pinned = 1 WHERE id = ?1",
+            libsql::params!["entry-1"],
+        )
+        .await
+        .expect("pin entry");
+        conn.execute(
+            "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at)
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
+            libsql::params![
+                "goal-instance-1",
+                "goal-1",
+                "2026-01-01T00:00:00Z",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z"
+            ],
+        )
+        .await
+        .expect("seed current goal instance");
+
+        let mut task_result = test_search_result("task", "task-1", "Plan search testing", 0.1);
+        repo.apply_ranking_boosts(&conn, "Plan search testing", &mut task_result)
+            .await
+            .expect("boost task");
+        assert!(task_result.score > 0.39);
+
+        let mut bookmark_result =
+            test_search_result("bookmark", "bookmark-1", "Search reference", 0.1);
+        repo.apply_ranking_boosts(&conn, "reflection", &mut bookmark_result)
+            .await
+            .expect("boost bookmark tag");
+        assert!(bookmark_result.score >= 0.18);
+
+        let mut entry_result = test_search_result("entry", "entry-1", "Morning clarity", 0.1);
+        repo.apply_ranking_boosts(&conn, "clarity", &mut entry_result)
+            .await
+            .expect("boost pinned entry");
+        assert!(entry_result.score >= 0.15);
+
+        let mut goal_result = test_search_result("goal", "goal-1", "Improve recall", 0.1);
+        repo.apply_ranking_boosts(&conn, "recall", &mut goal_result)
+            .await
+            .expect("boost current goal");
+        assert!(goal_result.score >= 0.15);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
     async fn find_related_returns_results_without_source_resource() {
         let (database, repo, db_path) = test_repo().await;
         seed_search_resources(&database).await;
@@ -1494,6 +1704,27 @@ mod tests {
             .all(|result| result.resource_type != "task" || result.resource_id != "task-1"));
 
         cleanup_db(db_path);
+    }
+
+    fn test_search_result(
+        resource_type: &str,
+        resource_id: &str,
+        title: &str,
+        score: f64,
+    ) -> SearchDocumentResult {
+        SearchDocumentResult {
+            id: format!("{}:{}:0", resource_type, resource_id),
+            resource_type: resource_type.to_string(),
+            resource_id: resource_id.to_string(),
+            title: title.to_string(),
+            preview: title.to_string(),
+            score,
+            match_kind: "test".to_string(),
+            highlights: Vec::new(),
+            source_updated_at: "2026-05-18T00:00:00Z".to_string(),
+            created_at: "2026-05-18T00:00:00Z".to_string(),
+            updated_at: "2026-05-18T00:00:00Z".to_string(),
+        }
     }
 
     #[tokio::test]
