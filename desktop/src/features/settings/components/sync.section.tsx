@@ -1,13 +1,13 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useEffect, useState } from 'react';
 import {
 	getGetSyncStatusQueryKey,
-	useConfigureSync,
-	useDisconnectSync,
+	configureSync,
+	disconnectSync,
+	reconnectSync,
 	useGetSyncStatus,
-	useReconnectSync,
-	useSyncNow,
+	syncNow,
 } from '~/aether-sdk';
 import type { SyncStatus } from '~/aether-sdk/models';
 import { Button } from '~/components/shared/button';
@@ -76,39 +76,35 @@ export const SyncSection = () => {
 
 	const mediaSyncPolicy = getValue('sync.media_sync_policy', 'on_demand') as 'auto' | 'on_demand';
 
-	const syncNowMutation = useSyncNow({
-		mutation: {
-			onSuccess: () => {
-				setShouldCheckSyncStatus(true);
-				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-			},
+	const syncNowMutation = useMutation({
+		mutationFn: () => syncNow(),
+		onSuccess: () => {
+			setShouldCheckSyncStatus(true);
+			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 		},
 	});
 
-	const configureMutation = useConfigureSync({
-		mutation: {
-			onSuccess: () => {
-				setShouldCheckSyncStatus(true);
-				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-			},
+	const configureMutation = useMutation({
+		mutationFn: configureSync,
+		onSuccess: () => {
+			setShouldCheckSyncStatus(true);
+			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 		},
 	});
 
-	const disconnectMutation = useDisconnectSync({
-		mutation: {
-			onSuccess: () => {
-				setShouldCheckSyncStatus(true);
-				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-			},
+	const disconnectMutation = useMutation({
+		mutationFn: () => disconnectSync(),
+		onSuccess: () => {
+			setShouldCheckSyncStatus(true);
+			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 		},
 	});
 
-	const reconnectMutation = useReconnectSync({
-		mutation: {
-			onSuccess: () => {
-				setShouldCheckSyncStatus(true);
-				queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-			},
+	const reconnectMutation = useMutation({
+		mutationFn: reconnectSync,
+		onSuccess: () => {
+			setShouldCheckSyncStatus(true);
+			queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
 		},
 	});
 
@@ -202,7 +198,7 @@ export const SyncSection = () => {
 						<Button
 							onClick={() =>
 								reconnectMutation.mutate({
-									data: { sync_passphrase: reconnectPassphrase },
+									sync_passphrase: reconnectPassphrase,
 								})
 							}
 							label={isReconnecting ? 'Reconnecting…' : 'Reconnect'}
@@ -293,11 +289,9 @@ export const SyncSection = () => {
 					<Button
 						onClick={() =>
 							configureMutation.mutate({
-								data: {
-									server_url: serverUrl,
-									server_seed_phrase: serverSeedPhrase,
-									sync_passphrase: syncPassphrase,
-								},
+								server_url: serverUrl,
+								server_seed_phrase: serverSeedPhrase,
+								sync_passphrase: syncPassphrase,
 							})
 						}
 						label={isConfiguring ? 'Saving…' : 'Save'}
