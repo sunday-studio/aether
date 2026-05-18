@@ -41,10 +41,10 @@ Build one reliable local retrieval layer:
 
 ## Phase 4: Embedding Storage
 
-- [ ] Add `search_embeddings` tied to `search_documents`.
-- [ ] Store model name, dimensions, vector, `text_hash`, and timestamps.
-- [ ] Do not sync embeddings.
-- [ ] Rebuild embeddings per device from synced source data.
+- [x] Add `search_embeddings` tied to `search_documents`.
+- [x] Store model name, dimensions, vector, `text_hash`, and timestamps.
+- [x] Do not sync embeddings.
+- [x] Rebuild embeddings per device from synced source data.
 
 ## Phase 5: Real Local Embeddings
 

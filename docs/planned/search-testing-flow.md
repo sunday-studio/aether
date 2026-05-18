@@ -58,3 +58,11 @@ Use this path before building the search UI:
 - Call the same search with `cursor=<nextCursor>` when `hasMore` is true and confirm the next page does not repeat the first result.
 - Call `GET /v1/search?q=<word>&tags=<tag-id>` and confirm untagged resources are excluded.
 - Call `GET /v1/search?q=<word>&mode=semantic` and `mode=hybrid`; both should return unavailable-mode `400` errors until embeddings are indexed.
+
+## Phase 4 Embedding Storage Test Flow
+
+- [x] Verify `search_embeddings` is local derived storage with no sync columns or triggers.
+- [x] Verify embeddings are scoped by `search_document_id` and `model_name`.
+- [x] Verify vector byte storage round trips to `Vec<f32>`.
+- [x] Verify dimension mismatches are rejected.
+- [x] Verify deleting a `search_documents` row removes related embeddings.

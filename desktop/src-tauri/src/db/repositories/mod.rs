@@ -14,6 +14,7 @@ pub mod canvas;
 pub mod bookmark;
 pub mod link;
 pub mod search_document;
+pub mod search_embedding;
 
 pub use entry::EntryRepository;
 pub use tag::TagRepository;
@@ -28,3 +29,4 @@ pub use bookmark::BookmarkRepository;
 pub use link::LinkRepository;
 pub use search::{SearchRepository, SearchResult, ResourceType};
 pub use search_document::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
+pub use search_embedding::{SearchEmbeddingInput, SearchEmbeddingRepository, SearchEmbeddingStatus};
