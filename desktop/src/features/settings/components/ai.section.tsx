@@ -28,6 +28,7 @@ const JOURNAL_AI_PROVIDER_KEY = 'ai.provider';
 const JOURNAL_AI_CONTEXT_POLICY_KEY = 'ai.external_context_policy';
 const JOURNAL_AI_OPENAI_API_KEY = 'ai.openai.api_key';
 const JOURNAL_AI_OPENAI_MODEL_KEY = 'ai.openai.model';
+const DEFAULT_JOURNAL_AI_OPENAI_MODEL = 'gpt-5.4-mini';
 const SEARCH_EMBEDDINGS_ENABLED_KEY = 'search.embeddings.enabled';
 const SEARCH_EMBEDDINGS_PROVIDER_KEY = 'search.embeddings.provider';
 const SEARCH_EMBEDDINGS_MODEL_KEY = 'search.embeddings.model';
@@ -131,7 +132,8 @@ export const AiSection = () => {
 				[JOURNAL_AI_ENABLED_KEY]: 'true',
 				[JOURNAL_AI_PROVIDER_KEY]: selectedJournalAiProvider,
 				[JOURNAL_AI_CONTEXT_POLICY_KEY]: selectedJournalAiContextPolicy,
-				[JOURNAL_AI_OPENAI_MODEL_KEY]: journalAiOpenaiModel.trim() || 'gpt-4.1-mini',
+				[JOURNAL_AI_OPENAI_MODEL_KEY]:
+					journalAiOpenaiModel.trim() || DEFAULT_JOURNAL_AI_OPENAI_MODEL,
 				...(openaiKey.trim() ? { [OPENAI_API_KEY]: openaiKey.trim() } : {}),
 				...(groqKey.trim() ? { [GROQ_API_KEY]: groqKey.trim() } : {}),
 				...(journalAiOpenaiKey.trim()
@@ -325,8 +327,8 @@ export const AiSection = () => {
 					<div>
 						<p className='text-sm font-medium'>Journal insights</p>
 						<p className='mt-1 max-w-xl text-xs leading-5 text-(--color-secondary-text)'>
-							Local rules are available now. External journal AI settings are saved for the
-							provider integration slice.
+							Local rules stay on this device. OpenAI uses the selected context and requires
+							your saved journal key.
 						</p>
 					</div>
 					<div
@@ -386,7 +388,10 @@ export const AiSection = () => {
 					/>
 					<TextField
 						label='Journal OpenAI model'
-						placeholder={(settings[JOURNAL_AI_OPENAI_MODEL_KEY] as string | undefined) ?? 'gpt-4.1-mini'}
+						placeholder={
+							(settings[JOURNAL_AI_OPENAI_MODEL_KEY] as string | undefined) ??
+							DEFAULT_JOURNAL_AI_OPENAI_MODEL
+						}
 						value={journalAiOpenaiModel}
 						onChange={value => setJournalAiOpenaiModel(value)}
 					/>

@@ -30,7 +30,7 @@ async function getWeeklySummary(startDate: string, endDate: string) {
 
 async function generateWeeklySummary(startDate: string, endDate: string) {
 	return invoke<WeeklyAiSummary>('generate_weekly_ai_summary', {
-		requestData: { startDate, endDate, mode: 'rules' },
+		requestData: { startDate, endDate },
 	});
 }
 
@@ -169,7 +169,7 @@ export function JournalWeeklyAiSummary() {
 						<Button
 							variant='ghost'
 							label={hasSummary ? 'Regenerate' : 'Generate'}
-							tooltipContent='Generate local weekly summary draft'
+							tooltipContent='Generate weekly summary draft'
 							iconLeft={<Sparkles className='size-3.5' />}
 							isDisabled={generateMutation.isPending}
 							onClick={() => generateMutation.mutate()}

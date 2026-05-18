@@ -8,7 +8,8 @@ use crate::db::repositories::{
 use crate::db::{connection, DbState, EntryRepository, TagRepository};
 use crate::error::{AppError, Result};
 use crate::journal_ai::{
-    providers::RulesJournalAiProvider, resolve_provider, JournalAiProviderKind,
+    providers::{OpenAiJournalAiProvider, RulesJournalAiProvider},
+    resolve_provider, JournalAiProviderKind,
 };
 use crate::utils::search_text::extract_text_from_lexical_document;
 use serde::{Deserialize, Serialize};
@@ -171,6 +172,11 @@ pub async fn enrich_journal_entry(
     let draft = match provider {
         JournalAiProviderKind::Rules => {
             RulesJournalAiProvider::build_entry_draft(&entry.id, &text, &tags, related)
+        }
+        JournalAiProviderKind::OpenAi { api_key, model } => {
+            OpenAiJournalAiProvider::new(api_key, model)
+                .build_entry_draft(&entry.id, &text, &tags, related)
+                .await?
         }
     };
 
@@ -449,6 +455,11 @@ pub async fn generate_weekly_ai_summary(
             &request.end_date,
             context,
         ),
+        JournalAiProviderKind::OpenAi { api_key, model } => {
+            OpenAiJournalAiProvider::new(api_key, model)
+                .build_weekly_summary_draft(&request.start_date, &request.end_date, context)
+                .await?
+        }
     };
 
     AiJournalEnrichmentRepository::new(db)

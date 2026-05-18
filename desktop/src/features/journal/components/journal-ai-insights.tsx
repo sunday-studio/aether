@@ -62,7 +62,7 @@ async function getEntryInsights(entryId: string) {
 
 async function enrichJournalEntry(entryId: string) {
 	return invoke<EntryInsightBundle>('enrich_journal_entry', {
-		requestData: { entryId, mode: 'rules' },
+		requestData: { entryId },
 	});
 }
 
@@ -240,7 +240,7 @@ export function JournalAiInsights({ entryId }: JournalAiInsightsProps) {
 						<Button
 							variant='ghost'
 							label={hasInsight ? 'Regenerate' : 'Generate'}
-							tooltipContent='Generate local insight draft'
+							tooltipContent='Generate insight draft'
 							iconLeft={<Sparkles className='size-3.5' />}
 							isDisabled={generateMutation.isPending}
 							onClick={() => generateMutation.mutate()}
