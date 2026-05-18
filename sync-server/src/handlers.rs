@@ -386,7 +386,12 @@ async fn handle_websocket(
             devices.len()
         );
     }
-    let _ = storage.update_device_last_seen(&my_device_id, now);
+    let storage_for_seen = storage.clone();
+    let device_id_for_seen = my_device_id.clone();
+    let _ = storage_blocking(move || {
+        storage_for_seen.update_device_last_seen(&device_id_for_seen, now)
+    })
+    .await;
 
     let (mut sender, mut receiver) = socket.split();
 
@@ -402,7 +407,12 @@ async fn handle_websocket(
                     if let Some(device) = devices.get_mut(&device_id_for_recv) {
                         device.last_seen = now;
                     }
-                    let _ = storage_for_recv.update_device_last_seen(&device_id_for_recv, now);
+                    let storage_for_seen = storage_for_recv.clone();
+                    let device_id_for_seen = device_id_for_recv.clone();
+                    let _ = storage_blocking(move || {
+                        storage_for_seen.update_device_last_seen(&device_id_for_seen, now)
+                    })
+                    .await;
                 }
                 Ok(Message::Close(_)) => break,
                 Err(e) => {
