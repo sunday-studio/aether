@@ -5,3 +5,4 @@ services:
     volumes: ["./data:/data"]
     environment:
       DATA_ROOT: /data
+      SERVER_SEED_PHRASE: ${SERVER_SEED_PHRASE:?set SERVER_SEED_PHRASE}

@@ -123,6 +123,7 @@ fn entity_to_table(entity: &str) -> Option<&'static str> {
         "bookmarks" => "bookmarks",
         "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
+        "activities" => "activities",
         _ => return None,
     })
 }
@@ -160,8 +161,56 @@ async fn apply_upsert(
         "bookmark_tags" => apply_bookmark_tags_upsert(db, entity_id, updated_at, data).await,
         "goal_instances" => apply_goal_instances_upsert(db, entity_id, updated_at, data).await,
         "subtasks" => apply_subtasks_upsert(db, entity_id, updated_at, data).await,
+        "activities" => apply_activities_upsert(db, entity_id, updated_at, data).await,
         _ => store_unknown(db, entity, entity_id, updated_at, data).await,
     }
+}
+
+async fn apply_activities_upsert(
+    db: &Database,
+    entity_id: &str,
+    updated_at: i64,
+    data: &serde_json::Value,
+) -> Result<()> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let obj = data
+        .as_object()
+        .ok_or_else(|| AppError::Sync("activities: object expected".into()))?;
+    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or(entity_id);
+    let action_type = obj
+        .get("action_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let entity_type = obj
+        .get("entity_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let entity_id_val = obj.get("entity_id").and_then(|v| v.as_str()).unwrap_or("");
+    let created_at = obj
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("1970-01-01T00:00:00Z");
+    let metadata = obj.get("metadata").and_then(|v| v.as_str());
+    let extra = obj.get("_extra").and_then(|v| v.as_str()).unwrap_or("{}");
+
+    conn.execute(
+        "INSERT OR REPLACE INTO activities (id, action_type, entity_type, entity_id, created_at, metadata, _sync_id, _updated_at, _deleted, _extra)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9)",
+        libsql::params![
+            id,
+            action_type,
+            entity_type,
+            entity_id_val,
+            created_at,
+            metadata,
+            entity_id,
+            updated_at,
+            extra,
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
 }
 
 async fn apply_entry_tags_upsert(

@@ -1,4 +1,4 @@
-import { CloudIcon, Palette, SparklesIcon, WandSparkles } from 'lucide-react';
+import { Antenna, CloudIcon, Palette, WandSparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { AiSection } from './components/ai.section';
@@ -7,6 +7,7 @@ import { SyncSection } from './components/sync.section';
 import { WhatsNewSection } from './components/whats-new.section';
 import { cn } from '~/utils/cn';
 import { RadialAvatar } from '~/components/shared/radiant-avatar';
+import { useSettingsStore } from '~/store/settings-store';
 
 type AvailableSections = 'preferences' | 'ai' | 'whats-new' | 'sync';
 
@@ -16,6 +17,8 @@ function getAvailableSection(value: string | null): AvailableSections {
 }
 
 export const SettingsView = () => {
+	const { getValue, settings } = useSettingsStore();
+	const user = getValue('user.display_name');
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [selectedSection, setSelectedSection] = useState<AvailableSections>(
 		getAvailableSection(searchParams.get('section')),
@@ -51,16 +54,15 @@ export const SettingsView = () => {
 		},
 		'whats-new': {
 			label: "What's new",
-			icon: <SparklesIcon className='size-4' strokeWidth={2.5} />,
+			icon: <Antenna className='size-4' strokeWidth={2.5} />,
 			component: <WhatsNewSection />,
 		},
 	};
-
 	return (
-		<div className='mx-auto flex h-full w-full flex-col items-center justify-start gap-5 pt-2'>
-			<div className='flex flex-col items-center justify-center gap-1'>
-				<RadialAvatar size={40} seed={Math.random().toString()} />
-				<p className='text-sm text-(--color-secondary-text)'>John Doe</p>
+		<div className='mx-auto flex h-[calc(100vh-3rem)] w-full flex-col items-center justify-start gap-5 overflow-y-auto px-4 pt-2 pb-24'>
+			<div className='flex flex-col items-center justify-center gap-2'>
+				<RadialAvatar size={40} seed={user} />
+				<p className='text-sm text-(--color-secondary-text)'>{user}</p>
 			</div>
 			<div className='mx-auto flex w-full items-center justify-center gap-1'>
 				{Object.entries(sections).map(([section, { label, icon }]) => {
@@ -73,7 +75,8 @@ export const SettingsView = () => {
 							className={cn(
 								'flex h-8 cursor-pointer items-center gap-2 rounded-full px-2.5 text-sm text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)',
 								{
-									'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:text-(--color-navigation-control-active-foreground)':
+									// text-(--color-navigation-control-active-foreground)
+									'bg-(--color-navigation-control-active) text-white inset-shadow-sm inset-shadow-green-600/50 hover:text-(--color-navigation-control-active-foreground)':
 										isSelected,
 									'bg-neutral-100 hover:text-(--color-navigation-control-foreground)': !isSelected,
 								},
@@ -85,7 +88,7 @@ export const SettingsView = () => {
 					);
 				})}
 			</div>
-			<div className='mx-auto mt-10 w-full max-w-3xl items-center justify-center bg-transparent'>
+			<div className='mx-auto mt-10 w-full max-w-2xl items-center justify-center bg-transparent'>
 				{sections[selectedSection as AvailableSections].component}
 			</div>
 		</div>

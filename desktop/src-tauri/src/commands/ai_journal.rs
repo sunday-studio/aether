@@ -1,10 +1,10 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest};
+use crate::db::models::{ResourceLink, Tag};
 use crate::db::repositories::{
     AiJournalEnrichmentRepository, EntryInsightBundle, JournalEntryInsightInput,
-    JournalEntrySuggestion, JournalEntrySuggestionInput, SearchDocumentRepository, WeeklyAiSummary,
-    WeeklyAiSummaryInput,
+    JournalEntryInsightPatch, JournalEntrySuggestion, JournalEntrySuggestionInput, LinkRepository,
+    SearchDocumentRepository, WeeklyAiSummary, WeeklyAiSummaryInput, WeeklyAiSummaryPatch,
 };
-use crate::db::models::Tag;
 use crate::db::{connection, DbState, EntryRepository, TagRepository};
 use crate::error::{AppError, Result};
 use crate::utils::search_text::{
@@ -57,10 +57,60 @@ pub struct UpdateAiSuggestionRequest {
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateEntryInsightRequest {
+    pub insight_id: String,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub possible_mood: Option<String>,
+    #[serde(default)]
+    pub emotions: Option<Vec<String>>,
+    #[serde(default)]
+    pub energy: Option<String>,
+    #[serde(default)]
+    pub themes: Option<Vec<String>>,
+    #[serde(default)]
+    pub people: Option<Vec<String>>,
+    #[serde(default)]
+    pub projects: Option<Vec<String>>,
+    #[serde(default)]
+    pub open_loops: Option<Vec<String>>,
+    #[serde(default)]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateWeeklyAiSummaryRequest {
+    pub summary_id: String,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub themes: Option<Vec<String>>,
+    #[serde(default)]
+    pub completed_work: Option<Vec<String>>,
+    #[serde(default)]
+    pub open_loops: Option<Vec<String>>,
+    #[serde(default)]
+    pub next_focus: Option<Vec<String>>,
+    #[serde(default)]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AcceptAiTagSuggestionRequest {
     pub suggestion_id: String,
     #[serde(default)]
     pub edited_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptAiRelationSuggestionRequest {
+    pub suggestion_id: String,
+    #[serde(default)]
+    pub link_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -74,6 +124,13 @@ pub struct AiSuggestionResponse {
 pub struct AcceptAiTagSuggestionResponse {
     pub suggestion: JournalEntrySuggestion,
     pub tag: Tag,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptAiRelationSuggestionResponse {
+    pub suggestion: JournalEntrySuggestion,
+    pub link: ResourceLink,
 }
 
 /// Generate an editable local AI insight draft for one journal entry.
@@ -148,6 +205,47 @@ pub async fn get_entry_insights(
         .ok_or_else(|| AppError::NotFound(format!("No insight for entry {}", params.entry_id)))
 }
 
+/// Update editable fields for an entry insight draft.
+#[utoipa::path(
+    patch,
+    path = "/v1/ai/journal/entry/insight",
+    tag = "AI Journal",
+    request_body = UpdateEntryInsightRequest,
+    responses(
+        (status = 200, description = "Updated entry insight draft", body = EntryInsightBundle),
+        (status = 400, description = "Bad request"),
+        (status = 404, description = "Insight not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn update_entry_insight(
+    state: State<'_, DbState>,
+    request_data: Option<UpdateEntryInsightRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<EntryInsightBundle> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    AiJournalEnrichmentRepository::new(connection::get_database(&*state))
+        .update_entry_insight(
+            &request.insight_id,
+            JournalEntryInsightPatch {
+                summary: request.summary,
+                possible_mood: request.possible_mood,
+                emotions: request.emotions,
+                energy: request.energy,
+                themes: request.themes,
+                people: request.people,
+                projects: request.projects,
+                open_loops: request.open_loops,
+                state: request.state,
+            },
+        )
+        .await
+}
+
 /// Update the review state for one AI suggestion.
 #[utoipa::path(
     patch,
@@ -172,11 +270,7 @@ pub async fn update_ai_suggestion(
     let request =
         request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let suggestion = AiJournalEnrichmentRepository::new(connection::get_database(&*state))
-        .update_suggestion_state(
-            &request.suggestion_id,
-            &request.state,
-            request.edited_value,
-        )
+        .update_suggestion_state(&request.suggestion_id, &request.state, request.edited_value)
         .await?;
     Ok(AiSuggestionResponse { suggestion })
 }
@@ -209,7 +303,9 @@ pub async fn accept_ai_tag_suggestion(
     let existing = repo
         .get_suggestion(&request.suggestion_id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Suggestion {} not found", request.suggestion_id)))?;
+        .ok_or_else(|| {
+            AppError::NotFound(format!("Suggestion {} not found", request.suggestion_id))
+        })?;
     if existing.suggestion_type != "tag" {
         return Err(AppError::BadRequest(
             "Only tag suggestions can be accepted with this command".to_string(),
@@ -245,6 +341,69 @@ pub async fn accept_ai_tag_suggestion(
         .await?;
 
     Ok(AcceptAiTagSuggestionResponse { suggestion, tag })
+}
+
+/// Accept a relation suggestion by creating a normal resource link.
+#[utoipa::path(
+    post,
+    path = "/v1/ai/journal/suggestion/accept-relation",
+    tag = "AI Journal",
+    request_body = AcceptAiRelationSuggestionRequest,
+    responses(
+        (status = 200, description = "Accepted relation suggestion", body = AcceptAiRelationSuggestionResponse),
+        (status = 400, description = "Bad request"),
+        (status = 404, description = "Suggestion not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn accept_ai_relation_suggestion(
+    state: State<'_, DbState>,
+    request_data: Option<AcceptAiRelationSuggestionRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<AcceptAiRelationSuggestionResponse> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let db = connection::get_database(&*state);
+    let repo = AiJournalEnrichmentRepository::new(db.clone());
+    let existing = repo
+        .get_suggestion(&request.suggestion_id)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!("Suggestion {} not found", request.suggestion_id))
+        })?;
+    if !matches!(
+        existing.suggestion_type.as_str(),
+        "related_entry" | "related_task" | "related_goal"
+    ) {
+        return Err(AppError::BadRequest(
+            "Only relation suggestions can be accepted with this command".to_string(),
+        ));
+    }
+
+    let target_type = existing.target_resource_type.clone().ok_or_else(|| {
+        AppError::BadRequest("Relation suggestion has no target type".to_string())
+    })?;
+    let target_id = existing
+        .target_resource_id
+        .clone()
+        .ok_or_else(|| AppError::BadRequest("Relation suggestion has no target id".to_string()))?;
+    let link = LinkRepository::new(db.clone())
+        .create(
+            "entry".to_string(),
+            existing.entry_id.clone(),
+            target_type,
+            target_id,
+            request.link_text.or(Some(existing.value.clone())),
+        )
+        .await?;
+    let suggestion = repo
+        .update_suggestion_state(&existing.id, "accepted", existing.edited_value)
+        .await?;
+
+    Ok(AcceptAiRelationSuggestionResponse { suggestion, link })
 }
 
 /// Generate an editable local weekly summary draft.
@@ -320,6 +479,44 @@ pub async fn get_weekly_ai_summary(
                 params.start_date, params.end_date
             ))
         })
+}
+
+/// Update editable fields for a weekly summary draft.
+#[utoipa::path(
+    patch,
+    path = "/v1/ai/journal/weekly-summary",
+    tag = "AI Journal",
+    request_body = UpdateWeeklyAiSummaryRequest,
+    responses(
+        (status = 200, description = "Updated weekly summary draft", body = WeeklyAiSummary),
+        (status = 400, description = "Bad request"),
+        (status = 404, description = "Weekly summary not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn update_weekly_ai_summary(
+    state: State<'_, DbState>,
+    request_data: Option<UpdateWeeklyAiSummaryRequest>,
+    _query_params: Option<EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<WeeklyAiSummary> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    AiJournalEnrichmentRepository::new(connection::get_database(&*state))
+        .update_weekly_summary(
+            &request.summary_id,
+            WeeklyAiSummaryPatch {
+                summary: request.summary,
+                themes: request.themes,
+                completed_work: request.completed_work,
+                open_loops: request.open_loops,
+                next_focus: request.next_focus,
+                state: request.state,
+            },
+        )
+        .await
 }
 
 struct RulesDraft {

@@ -9,5 +9,5 @@ services:
     volumes:
       - ./data:/data
     environment:
-      - SERVER_PASSPHRASE=${SERVER_PASSPHRASE}
+      - SERVER_SEED_PHRASE=${SERVER_SEED_PHRASE}
     restart: unless-stopped

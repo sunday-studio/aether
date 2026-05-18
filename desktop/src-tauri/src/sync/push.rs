@@ -158,6 +158,8 @@ async fn read_outbox_and_build(
 
     let mut envelopes = Vec::new();
     let mut to_delete = Vec::new();
+    let mut skipped_missing: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for ((entity, entity_id), (op, _queued_at)) in seen {
         let change_op = if op == "delete" {
             ChangeOp::Delete
@@ -168,7 +170,11 @@ async fn read_outbox_and_build(
         let (data, updated_at) = if change_op == ChangeOp::Upsert {
             match fetch_row_json(&db, &entity, &entity_id).await? {
                 Some((d, ts)) => (Some(d), ts),
-                None => continue, // row already deleted, skip
+                None => {
+                    *skipped_missing.entry(entity.clone()).or_insert(0) += 1;
+                    to_delete.push((entity, entity_id));
+                    continue;
+                }
             }
         } else {
             (None, metadata::get_last_sync(&db).await?.unwrap_or(0))
@@ -198,6 +204,13 @@ async fn read_outbox_and_build(
         to_delete.push((entity, entity_id));
     }
 
+    if !skipped_missing.is_empty() {
+        tracing::warn!(
+            "[SYNC-PUSH] Dropping stale outbox rows with no source row: {:?}",
+            skipped_missing
+        );
+    }
+
     Ok((envelopes, to_delete))
 }
 
@@ -223,6 +236,7 @@ async fn fetch_row_json(
         "bookmark_tags" => fetch_bookmark_tags_row(db, entity_id).await,
         "goal_instances" => fetch_goal_instances_row(db, entity_id).await,
         "subtasks" => fetch_subtasks_row(db, entity_id).await,
+        "activities" => fetch_activities_row(db, entity_id).await,
         _ => Ok(None),
     }
 }
@@ -788,6 +802,38 @@ async fn fetch_resource_links_row(
     Ok(Some((data, ts)))
 }
 
+async fn fetch_activities_row(
+    db: &Database,
+    entity_id: &str,
+) -> Result<Option<(serde_json::Value, i64)>> {
+    let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut rows = conn
+        .query(
+            "SELECT id, action_type, entity_type, entity_id, created_at, metadata, _sync_id, _updated_at, _deleted, _extra FROM activities WHERE _sync_id = ?1",
+            libsql::params![entity_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let row = match rows.next().await.map_err(AppError::LibSQL)? {
+        Some(r) => r,
+        None => return Ok(None),
+    };
+    let ts = row.get::<Option<i64>>(7).ok().flatten().unwrap_or(0);
+    let data = serde_json::json!({
+        "id": row.get::<String>(0).ok(),
+        "action_type": row.get::<String>(1).ok(),
+        "entity_type": row.get::<String>(2).ok(),
+        "entity_id": row.get::<String>(3).ok(),
+        "created_at": row.get::<String>(4).ok(),
+        "metadata": row.get::<Option<String>>(5).ok().flatten(),
+        "_sync_id": row.get::<Option<String>>(6).ok().flatten(),
+        "_updated_at": row.get::<Option<i64>>(7).ok().flatten(),
+        "_deleted": row.get::<i64>(8).map(|v| v != 0).unwrap_or(false),
+        "_extra": row.get::<Option<String>>(9).ok().flatten().unwrap_or_else(|| "{}".into()),
+    });
+    Ok(Some((data, ts)))
+}
+
 async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Result<Option<i64>> {
     let table = match entity {
         "entries" => "entries",
@@ -806,6 +852,7 @@ async fn fetch_updated_at(db: &Database, entity: &str, entity_id: &str) -> Resul
         "bookmarks" => "bookmarks",
         "resource_links" => "resource_links",
         "bookmark_tags" => "bookmark_tags",
+        "activities" => "activities",
         _ => return Ok(None),
     };
     let conn = db.connect().map_err(AppError::LibSQL)?;
@@ -890,5 +937,39 @@ mod tests {
         assert_eq!(data["source_type"], "entry");
         assert_eq!(data["target_type"], "task");
         assert_eq!(data["_sync_id"], "link-1");
+    }
+
+    #[tokio::test]
+    async fn fetches_activity_rows_for_push() {
+        let db = test_db().await;
+        let conn = db.connect().unwrap();
+
+        conn.execute(
+            "INSERT INTO activities (id, action_type, entity_type, entity_id, created_at, metadata, _sync_id, _updated_at, _deleted, _extra)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9)",
+            libsql::params![
+                "activity-1",
+                "create",
+                "entry",
+                "entry-1",
+                "2026-01-01T00:00:00Z",
+                "{\"source\":\"test\"}",
+                "activity-1",
+                456_i64,
+                "{}",
+            ],
+        )
+        .await
+        .unwrap();
+
+        let (data, updated_at) = fetch_row_json(&db, "activities", "activity-1")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated_at, 456);
+        assert_eq!(data["action_type"], "create");
+        assert_eq!(data["entity_type"], "entry");
+        assert_eq!(data["_sync_id"], "activity-1");
     }
 }

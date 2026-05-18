@@ -90,6 +90,19 @@ pub struct JournalEntryInsightInput {
     pub model: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct JournalEntryInsightPatch {
+    pub summary: Option<String>,
+    pub possible_mood: Option<String>,
+    pub emotions: Option<Vec<String>>,
+    pub energy: Option<String>,
+    pub themes: Option<Vec<String>>,
+    pub people: Option<Vec<String>>,
+    pub projects: Option<Vec<String>>,
+    pub open_loops: Option<Vec<String>>,
+    pub state: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct JournalEntrySuggestionInput {
     pub suggestion_type: String,
@@ -115,6 +128,16 @@ pub struct WeeklyAiSummaryInput {
     pub source_goal_ids: Vec<String>,
     pub provider: String,
     pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WeeklyAiSummaryPatch {
+    pub summary: Option<String>,
+    pub themes: Option<Vec<String>>,
+    pub completed_work: Option<Vec<String>>,
+    pub open_loops: Option<Vec<String>>,
+    pub next_focus: Option<Vec<String>>,
+    pub state: Option<String>,
 }
 
 pub struct AiJournalEnrichmentRepository {
@@ -242,6 +265,60 @@ impl AiJournalEnrichmentRepository {
             insight,
             suggestions,
         }))
+    }
+
+    pub async fn update_entry_insight(
+        &self,
+        insight_id: &str,
+        patch: JournalEntryInsightPatch,
+    ) -> Result<EntryInsightBundle> {
+        if let Some(state) = patch.state.as_deref() {
+            if !matches!(state, "draft" | "reviewed" | "dismissed") {
+                return Err(AppError::BadRequest(format!(
+                    "Unsupported insight state: {}",
+                    state
+                )));
+            }
+        }
+
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        conn.execute(
+            "UPDATE journal_entry_insights
+             SET summary = COALESCE(?1, summary),
+                 possible_mood = COALESCE(?2, possible_mood),
+                 emotions = COALESCE(?3, emotions),
+                 energy = COALESCE(?4, energy),
+                 themes = COALESCE(?5, themes),
+                 people = COALESCE(?6, people),
+                 projects = COALESCE(?7, projects),
+                 open_loops = COALESCE(?8, open_loops),
+                 state = COALESCE(?9, state),
+                 updated_at = ?10
+             WHERE id = ?11 AND deleted_at IS NULL",
+            libsql::params![
+                patch.summary,
+                patch.possible_mood,
+                optional_json_array(patch.emotions)?,
+                patch.energy,
+                optional_json_array(patch.themes)?,
+                optional_json_array(patch.people)?,
+                optional_json_array(patch.projects)?,
+                optional_json_array(patch.open_loops)?,
+                patch.state,
+                Utc::now().to_rfc3339(),
+                insight_id,
+            ],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+
+        let entry_id = self
+            .get_entry_id_for_insight(insight_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Insight {} not found", insight_id)))?;
+        self.get_entry_insight(&entry_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Insight {} not found", insight_id)))
     }
 
     pub async fn list_entry_suggestions(
@@ -404,6 +481,88 @@ impl AiJournalEnrichmentRepository {
             Ok(None)
         }
     }
+
+    pub async fn update_weekly_summary(
+        &self,
+        summary_id: &str,
+        patch: WeeklyAiSummaryPatch,
+    ) -> Result<WeeklyAiSummary> {
+        if let Some(state) = patch.state.as_deref() {
+            if !matches!(state, "draft" | "reviewed" | "dismissed") {
+                return Err(AppError::BadRequest(format!(
+                    "Unsupported weekly summary state: {}",
+                    state
+                )));
+            }
+        }
+
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        conn.execute(
+            "UPDATE weekly_ai_summaries
+             SET summary = COALESCE(?1, summary),
+                 themes = COALESCE(?2, themes),
+                 completed_work = COALESCE(?3, completed_work),
+                 open_loops = COALESCE(?4, open_loops),
+                 next_focus = COALESCE(?5, next_focus),
+                 state = COALESCE(?6, state),
+                 updated_at = ?7
+             WHERE id = ?8 AND deleted_at IS NULL",
+            libsql::params![
+                patch.summary,
+                optional_json_array(patch.themes)?,
+                optional_json_array(patch.completed_work)?,
+                optional_json_array(patch.open_loops)?,
+                optional_json_array(patch.next_focus)?,
+                patch.state,
+                Utc::now().to_rfc3339(),
+                summary_id,
+            ],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+
+        self.get_weekly_summary_by_id(summary_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("Weekly summary {} not found", summary_id)))
+    }
+
+    async fn get_entry_id_for_insight(&self, insight_id: &str) -> Result<Option<String>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT entry_id FROM journal_entry_insights WHERE id = ?1 AND deleted_at IS NULL",
+                libsql::params![insight_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Ok(Some(row.get(0).map_err(AppError::LibSQL)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn get_weekly_summary_by_id(&self, summary_id: &str) -> Result<Option<WeeklyAiSummary>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, week_start, week_end, summary, themes, completed_work,
+                    open_loops, next_focus, source_entry_ids, source_task_ids,
+                    source_goal_ids, provider, model, state, created_at, updated_at, deleted_at
+                 FROM weekly_ai_summaries
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                libsql::params![summary_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            Ok(Some(row_to_weekly_summary(row)?))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 fn row_to_insight(row: libsql::Row) -> Result<JournalEntryInsight> {
@@ -470,6 +629,12 @@ fn row_to_weekly_summary(row: libsql::Row) -> Result<WeeklyAiSummary> {
 
 fn to_json_array(values: &[String]) -> Result<String> {
     serde_json::to_string(values).map_err(AppError::Serialization)
+}
+
+fn optional_json_array(values: Option<Vec<String>>) -> Result<Option<String>> {
+    values
+        .map(|items| serde_json::to_string(&items).map_err(AppError::Serialization))
+        .transpose()
 }
 
 fn from_json_array(value: String) -> Result<Vec<String>> {

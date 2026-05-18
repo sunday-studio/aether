@@ -1,11 +1,11 @@
-@import "./colors.css";
+@import './colors.css';
 
 /* 
   The @theme {} syntax is not valid CSS and is meant for Tailwind or PostCSS extensions.
   Replace it with :root for base (default) variables.
 */
 
-[data-theme="light-classic"] {
+[data-theme='light-classic'] {
 	--color-background: oklch(1 0 0);
 	--color-background-secondary: var(--color-neutral-100);
 	--color-foreground: oklch(0.09 0 0);
@@ -21,7 +21,7 @@
 	--color-accent-foreground: oklch(0.25 0 0);
 	--color-destructive: oklch(0.577 0.245 27.325);
 	--color-destructive-foreground: oklch(0.98 0 0);
-	--color-border: oklch(0.9 0 0);
+	--color-border: var(--color-neutral-200);
 	--color-input: oklch(0.9 0 0);
 	--color-ring: var(--color-neutral-50);
 	--radius: 0.625rem;
@@ -76,7 +76,7 @@
 	--color-tasklist-label-end: var(--color-neutral-200);
 }
 
-[data-theme="dark-lime"] {
+[data-theme='dark-lime'] {
 	--color-background: var(--green-dark-1);
 	--color-background-secondary: var(--green-dark-2);
 	--color-foreground: var(--green-4);

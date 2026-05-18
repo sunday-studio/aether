@@ -4,7 +4,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::models::PullCursor;
@@ -308,7 +308,7 @@ impl Storage {
         hash: &str,
         data: &[u8],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let p = self.blob_dir.join(hash);
+        let p = self.blob_path(hash)?;
         std::fs::write(&p, data)?;
         let conn = self.conn.lock().unwrap();
         let at = epoch_millis();
@@ -323,7 +323,7 @@ impl Storage {
         &self,
         hash: &str,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-        let p = self.blob_dir.join(hash);
+        let p = self.blob_path(hash)?;
         if p.exists() {
             Ok(Some(std::fs::read(&p)?))
         } else {
@@ -332,7 +332,18 @@ impl Storage {
     }
 
     pub fn has_blob(&self, hash: &str) -> bool {
-        self.blob_dir.join(hash).exists()
+        self.blob_path(hash).is_ok_and(|path| path.exists())
+    }
+
+    fn blob_path(&self, hash: &str) -> Result<PathBuf, std::io::Error> {
+        if valid_media_hash(hash) {
+            Ok(self.blob_dir.join(hash))
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "invalid media hash",
+            ))
+        }
     }
 
     pub fn update_device_last_seen(&self, device_id: &str, ts: i64) -> Result<(), rusqlite::Error> {
@@ -396,4 +407,44 @@ fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+pub(crate) fn valid_media_hash(hash: &str) -> bool {
+    hash.len() == "sha256:".len() + 64
+        && hash
+            .strip_prefix("sha256:")
+            .is_some_and(|suffix| suffix.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{valid_media_hash, Storage};
+
+    #[test]
+    fn validates_media_hashes_before_building_blob_paths() {
+        let root = std::env::temp_dir().join(format!(
+            "aether-sync-storage-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).expect("tempdir");
+        let storage = Storage::new(&root.join("sync.db"), &root).expect("storage should open");
+        let valid_hash = format!("sha256:{}", "1".repeat(64));
+
+        storage
+            .put_blob(&valid_hash, b"encrypted")
+            .expect("valid hash should be accepted");
+        assert!(storage.has_blob(&valid_hash));
+        assert!(storage.get_blob(&valid_hash).expect("read").is_some());
+
+        assert!(!storage.has_blob("../sync.db"));
+        assert!(storage.put_blob("../sync.db", b"bad").is_err());
+        assert!(storage.get_blob("../sync.db").is_err());
+        assert!(valid_media_hash(&valid_hash));
+        assert!(!valid_media_hash("sha256:abc"));
+        drop(storage);
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

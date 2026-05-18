@@ -20,6 +20,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let server_seed_phrase = std::env::var("SERVER_SEED_PHRASE")
         .or_else(|_| std::env::var("SERVER_PASSPHRASE"))
         .map_err(|_| "SERVER_SEED_PHRASE is required")?;
+    if server_seed_phrase.trim().len() < 12 {
+        return Err("SERVER_SEED_PHRASE must be at least 12 non-whitespace characters".into());
+    }
     let (broadcast_tx, _) = broadcast::channel::<String>(16);
 
     let app = handlers::router(

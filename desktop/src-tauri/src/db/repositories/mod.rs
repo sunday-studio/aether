@@ -20,8 +20,8 @@ pub mod transcription;
 pub use activity::ActivityRepository;
 pub use ai_journal_enrichment::{
     AiJournalEnrichmentRepository, EntryInsightBundle, JournalEntryInsight,
-    JournalEntryInsightInput, JournalEntrySuggestion, JournalEntrySuggestionInput, WeeklyAiSummary,
-    WeeklyAiSummaryInput,
+    JournalEntryInsightInput, JournalEntryInsightPatch, JournalEntrySuggestion,
+    JournalEntrySuggestionInput, WeeklyAiSummary, WeeklyAiSummaryInput, WeeklyAiSummaryPatch,
 };
 pub use bookmark::BookmarkRepository;
 pub use canvas::CanvasRepository;

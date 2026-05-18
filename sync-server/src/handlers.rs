@@ -2,7 +2,7 @@ use axum::{
     body::Bytes,
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, Query, State,
+        DefaultBodyLimit, Path, Query, State,
     },
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
@@ -21,8 +21,17 @@ use tokio::sync::{broadcast, RwLock};
 use crate::models::{
     EncryptedChange, PullCursor, PullResponse, PushRequest, RegisterRequest, RegisterResponse,
 };
-use crate::storage::{DeviceRow, PushAcceptance, Storage};
+use crate::storage::{valid_media_hash, DeviceRow, PushAcceptance, Storage};
 use subtle::ConstantTimeEq;
+
+const MAX_DEVICE_ID_LEN: usize = 128;
+const MAX_HOSTNAME_LEN: usize = 255;
+const MAX_BATCH_ID_LEN: usize = 128;
+const MAX_CHANGES_PER_PUSH: usize = 1_000;
+const MAX_NONCE_BYTES: usize = 24;
+const MAX_CIPHERTEXT_BYTES: usize = 1_048_576;
+const MAX_API_BODY_BYTES: usize = 8 * 1024 * 1024;
+const MAX_MEDIA_BODY_BYTES: usize = 256 * 1024 * 1024;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ConnectedDevice {
@@ -72,8 +81,12 @@ pub fn router(
         .route("/devices", get(get_devices))
         .route(
             "/media/:hash",
-            get(get_media).put(put_media).head(head_media),
+            get(get_media)
+                .put(put_media)
+                .head(head_media)
+                .layer(DefaultBodyLimit::max(MAX_MEDIA_BODY_BYTES)),
         )
+        .layer(DefaultBodyLimit::max(MAX_API_BODY_BYTES))
         .with_state(state)
 }
 
@@ -101,7 +114,7 @@ fn authenticated_device_id(headers: &HeaderMap) -> Option<&str> {
 
 fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, StatusCode> {
     let device_id = authenticated_device_id(headers)
-        .filter(|id| !id.is_empty())
+        .filter(|id| valid_device_id(id))
         .ok_or(StatusCode::UNAUTHORIZED)?;
     let token = bearer_token(headers)
         .filter(|token| !token.is_empty())
@@ -120,6 +133,17 @@ async fn register(
     State(s): State<AppState>,
     Json(body): Json<RegisterRequest>,
 ) -> impl IntoResponse {
+    if !valid_device_id(&body.device_id) {
+        return (StatusCode::BAD_REQUEST, "invalid device_id").into_response();
+    }
+    if body
+        .hostname
+        .as_deref()
+        .is_some_and(|hostname| hostname.len() > MAX_HOSTNAME_LEN)
+    {
+        return (StatusCode::BAD_REQUEST, "hostname too long").into_response();
+    }
+
     if !verify_passphrase(&body.server_seed_phrase, &s.server_seed_phrase) {
         tracing::warn!(
             "Register rejected: wrong server seed phrase for device {}",
@@ -169,6 +193,15 @@ async fn push(
     if body.batch_id.trim().is_empty() {
         return (StatusCode::BAD_REQUEST, "missing batch_id").into_response();
     }
+    if !valid_batch_id(&body.batch_id) {
+        return (StatusCode::BAD_REQUEST, "invalid batch_id").into_response();
+    }
+    if body.device_hostname.len() > MAX_HOSTNAME_LEN {
+        return (StatusCode::BAD_REQUEST, "hostname too long").into_response();
+    }
+    if body.changes.len() > MAX_CHANGES_PER_PUSH {
+        return (StatusCode::PAYLOAD_TOO_LARGE, "too many changes").into_response();
+    }
 
     let mut decoded_changes = Vec::with_capacity(body.changes.len());
     for ec in &body.changes {
@@ -182,6 +215,12 @@ async fn push(
                 return (StatusCode::BAD_REQUEST, "invalid ciphertext base64").into_response()
             }
         };
+        if nonce.is_empty() || nonce.len() > MAX_NONCE_BYTES {
+            return (StatusCode::BAD_REQUEST, "invalid nonce length").into_response();
+        }
+        if ct.is_empty() || ct.len() > MAX_CIPHERTEXT_BYTES {
+            return (StatusCode::BAD_REQUEST, "invalid ciphertext length").into_response();
+        }
         decoded_changes.push((nonce, ct));
     }
 
@@ -229,6 +268,12 @@ async fn ws_handler(
         Err(status) => return (status, "unauthorized").into_response(),
     };
     let hostname = query.hostname.clone();
+    if hostname
+        .as_deref()
+        .is_some_and(|hostname| hostname.len() > MAX_HOSTNAME_LEN)
+    {
+        return (StatusCode::BAD_REQUEST, "hostname too long").into_response();
+    }
     let rx = s.broadcast.subscribe();
     let connected_devices = s.connected_devices.clone();
     let storage = s.storage.clone();
@@ -499,6 +544,9 @@ async fn put_media(
     if let Err(status) = require_auth(&headers, &s.storage) {
         return status;
     }
+    if !valid_media_hash(&hash) {
+        return StatusCode::BAD_REQUEST;
+    }
     if let Err(e) = s.storage.put_blob(&hash, &body) {
         tracing::error!("put_blob: {}", e);
         return StatusCode::INTERNAL_SERVER_ERROR;
@@ -513,6 +561,9 @@ async fn get_media(
 ) -> impl IntoResponse {
     if let Err(status) = require_auth(&headers, &s.storage) {
         return status.into_response();
+    }
+    if !valid_media_hash(&hash) {
+        return StatusCode::BAD_REQUEST.into_response();
     }
     match s.storage.get_blob(&hash) {
         Ok(Some(data)) => (StatusCode::OK, bytes::Bytes::from(data)).into_response(),
@@ -532,6 +583,9 @@ async fn head_media(
     if let Err(status) = require_auth(&headers, &s.storage) {
         return status;
     }
+    if !valid_media_hash(&hash) {
+        return StatusCode::BAD_REQUEST;
+    }
     if s.storage.has_blob(&hash) {
         StatusCode::OK
     } else {
@@ -547,9 +601,65 @@ fn decode_cursor(raw: &str) -> Option<PullCursor> {
     })
 }
 
+fn valid_device_id(device_id: &str) -> bool {
+    !device_id.trim().is_empty()
+        && device_id.len() <= MAX_DEVICE_ID_LEN
+        && device_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn valid_batch_id(batch_id: &str) -> bool {
+    !batch_id.trim().is_empty()
+        && batch_id.len() <= MAX_BATCH_ID_LEN
+        && batch_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
 fn epoch_millis() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{decode_cursor, valid_batch_id, valid_device_id};
+
+    #[test]
+    fn decodes_cursor_pair() {
+        let cursor = decode_cursor("1700000000000:42").expect("cursor should decode");
+
+        assert_eq!(cursor.received_at, 1_700_000_000_000);
+        assert_eq!(cursor.change_id, 42);
+    }
+
+    #[test]
+    fn rejects_invalid_cursors() {
+        assert!(decode_cursor("").is_none());
+        assert!(decode_cursor("1700000000000").is_none());
+        assert!(decode_cursor("abc:42").is_none());
+        assert!(decode_cursor("1700000000000:abc").is_none());
+    }
+
+    #[test]
+    fn validates_device_ids() {
+        assert!(valid_device_id("device-123_abc"));
+        assert!(!valid_device_id(""));
+        assert!(!valid_device_id("   "));
+        assert!(!valid_device_id("../device"));
+        assert!(!valid_device_id("device id"));
+        assert!(!valid_device_id(&"a".repeat(129)));
+    }
+
+    #[test]
+    fn validates_batch_ids() {
+        assert!(valid_batch_id("batch-123_abc"));
+        assert!(!valid_batch_id(""));
+        assert!(!valid_batch_id("../batch"));
+        assert!(!valid_batch_id("batch id"));
+        assert!(!valid_batch_id(&"a".repeat(129)));
+    }
 }

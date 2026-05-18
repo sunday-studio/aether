@@ -13,19 +13,22 @@ Offline-first, end-to-end encrypted sync. Your data is encrypted on the client; 
 1. **Deploy the sync server** (Docker):
 
    ```bash
+   export SERVER_SEED_PHRASE="replace-with-a-long-random-server-seed"
    cd sync-server && docker compose up -d
    ```
 
 2. **In Aether**: Settings → Sync. Enter:
    - **Server URL**: `http://your-host:8080`
-   - **Passphrase**: min 12 characters (used to derive the encryption key).
+   - **Server seed phrase**: the same `SERVER_SEED_PHRASE` used when starting the server.
+   - **Sync passphrase**: min 12 characters, used locally to derive the encryption key.
 
 3. **Save** to configure. **Sync now** to run immediately.
 
 ## Security
 
 - Key derived from passphrase + salt (Argon2id). Salt and `key_check` hash stored in `_sync_meta`.
-- Passphrase is not sent to the server. It is kept in memory on the client only.
+- The sync passphrase is not sent to the server. It is kept in memory on the client only.
+- The server seed phrase is sent only during device registration. The server uses it to decide whether to issue a per-device token.
 - Use HTTPS in production (put the server behind TLS).
 
 ## Media sync

@@ -4,8 +4,10 @@ import { ActivityHeatmap } from './activity-heatmap';
 import { CommandPalette } from './command-palette';
 import { NavigationControl } from './navigation-control';
 import { UpdateAvailableButton } from './update-available-button';
+import { useSettingsStore } from '~/store/settings-store';
 
 export const Layout = () => {
+	useSettingsStore();
 	const location = useLocation();
 	const isDev = import.meta.env.DEV;
 	const { commandPaletteOpen, setCommandPaletteOpen } = useRegisterShortcuts();
@@ -21,7 +23,6 @@ export const Layout = () => {
 			<NavigationControl />
 			<UpdateAvailableButton />
 			<Outlet />
-
 			<CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
 		</div>
 	);

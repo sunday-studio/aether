@@ -202,7 +202,7 @@ export const AiSection = () => {
 			</div>
 
 			<div className='rounded-lg bg-(--color-panel) p-4 shadow-xs ring ring-neutral-200/40'>
-				<div className='mb-4 flex flex-wrap items-start justify-between gap-4'>
+				<div className='mb-4 flex items-center justify-between gap-4'>
 					<div>
 						<p className='flex items-center gap-2 text-sm font-medium'>
 							<HardDrive className='size-4' />
@@ -217,7 +217,7 @@ export const AiSection = () => {
 						className={cn(
 							'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
 							selectedEmbeddingModel?.isDownloaded
-								? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+								? 'border-emerald-500/30 bg-emerald-500/30 text-emerald-700'
 								: 'border-(--color-border) text-(--color-secondary-text)',
 						)}
 					>
@@ -231,7 +231,7 @@ export const AiSection = () => {
 				</div>
 
 				<div className='grid gap-3 text-sm md:grid-cols-2'>
-					<div className='flex flex-col justify-between rounded-lg border border-(--color-border) bg-neutral-200/50 p-3'>
+					<div className='flex flex-col justify-between rounded-lg border border-(--color-border)/30 bg-neutral-200/50 p-3'>
 						<p className='font-medium'>{selectedEmbeddingModel?.name ?? 'No model available'}</p>
 						<p className='mt-1 text-xs text-(--color-secondary-text)'>
 							{selectedEmbeddingModel
@@ -243,7 +243,7 @@ export const AiSection = () => {
 								: 'Model catalog unavailable'}
 						</p>
 					</div>
-					<div className='flex flex-col justify-between rounded-lg border border-(--color-border) bg-neutral-200/50 p-3'>
+					<div className='flex flex-col justify-between rounded-lg border border-(--color-border)/30 bg-neutral-200/50 p-3'>
 						<p className='font-medium'>Storage</p>
 						<p className='mt-1 text-xs break-all text-(--color-secondary-text)'>
 							{selectedEmbeddingModel?.modelPath ??
@@ -300,7 +300,7 @@ export const AiSection = () => {
 					</div>
 					<div
 						className={cn(
-							'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+							'inline-flex items-center gap-1.5 rounded-full border border-(--color-border)/70 px-2.5 py-1 text-xs',
 							activeProvider?.status === 'not_configured' ? 'bg-neutral-200/50' : '',
 							activeProvider?.status === 'ready'
 								? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
@@ -320,13 +320,13 @@ export const AiSection = () => {
 				</div>
 
 				<div className='grid gap-3 text-sm sm:grid-cols-2'>
-					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+					<div className='rounded-lg border border-(--color-border)/30 bg-neutral-200/50 p-3'>
 						<p className='font-medium'>OpenAI</p>
 						<p className='mt-1 text-xs text-(--color-secondary-text)'>
 							{hasOpenAiKey ? 'Key saved' : 'No key saved'}
 						</p>
 					</div>
-					<div className='rounded-lg border border-(--color-border) bg-(--color-background) p-3'>
+					<div className='rounded-lg border border-(--color-border)/30 bg-neutral-200/50 p-3'>
 						<p className='font-medium'>Groq</p>
 						<p className='mt-1 text-xs text-(--color-secondary-text)'>
 							{hasGroqKey ? 'Key saved' : 'No key saved'}

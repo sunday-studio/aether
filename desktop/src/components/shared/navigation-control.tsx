@@ -3,6 +3,7 @@ import { NavLink } from 'react-router';
 import { cn } from '~/utils/cn';
 import { RadialAvatar } from './radiant-avatar';
 import { Tooltip } from './tooltip';
+import { useSettingsStore } from '~/store/settings-store';
 
 const NavigationControlItem = ({
 	route,
@@ -42,28 +43,32 @@ const NavigationControlItem = ({
 		/>
 	);
 };
-const routes = [
-	{
-		label: 'Journal',
-		route: '/',
-		shortcut: ['⌘', 'J'],
-		icon: <Egg className='size-5.5' />,
-	},
-	{
-		label: 'Tasks',
-		route: '/tasks',
-		shortcut: ['⌘', 'T'],
-		icon: <BadgeCheck className='size-5.5' />,
-	},
-	{
-		label: 'Settings',
-		route: '/settings',
-		shortcut: ['⌘', 'S'],
-		icon: <RadialAvatar size={28} seed={Math.random().toString()} />,
-	},
-];
 
 export const NavigationControl = () => {
+	const { getValue } = useSettingsStore();
+	const user = getValue('user.display_name');
+
+	const routes = [
+		{
+			label: 'Journal',
+			route: '/',
+			shortcut: ['⌘', 'J'],
+			icon: <Egg className='size-5.5' />,
+		},
+		{
+			label: 'Tasks',
+			route: '/tasks',
+			shortcut: ['⌘', 'T'],
+			icon: <BadgeCheck className='size-5.5' />,
+		},
+		{
+			label: 'Settings',
+			route: '/settings',
+			shortcut: ['⌘', 'S'],
+			icon: <RadialAvatar size={28} seed={user} />,
+		},
+	];
+
 	return (
 		<div className='navigation-control absolute right-1/2 bottom-5 left-1/2 z-50 w-fit -translate-x-1/2 rounded-full bg-(--color-card) p-1.5'>
 			<ul className='relative flex items-center justify-center gap-1'>

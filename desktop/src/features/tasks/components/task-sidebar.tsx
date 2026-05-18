@@ -1,11 +1,11 @@
-import { Plus } from "lucide-react";
-import { NavLink } from "react-router";
-import { cn } from "tailwind-variants";
-import { useGetGoals } from "~/aether-sdk";
-import type { Goal } from "~/aether-sdk/models";
-import { Tooltip } from "~/components/shared/tooltip";
-import { GoalFormDialog } from "./goals/goal-form-dialog";
-import { TaskActionButton } from "./task-item/task-shared-components";
+import { Plus } from 'lucide-react';
+import { NavLink } from 'react-router';
+import { cn } from 'tailwind-variants';
+import { useGetGoals } from '~/aether-sdk';
+import type { Goal } from '~/aether-sdk/models';
+import { Tooltip } from '~/components/shared/tooltip';
+import { GoalFormDialog } from './goals/goal-form-dialog';
+import { TaskActionButton } from './task-item/task-shared-components';
 
 const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 	return (
@@ -13,11 +13,20 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 			to={route}
 			end
 			className={({ isActive }) => {
+				// return cn(
+				// 	'group relative -mx-1.5 rounded-md px-1.5 py-1 text-xs leading-[12px] text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)',
+				// 	{
+				// 		'text-(--color-active-text) before:absolute before:top-1/2 before:left-[-10px] before:block before:h-2 before:w-2 before:-translate-y-1/2 before:-skew-y-3 before:rounded-full before:bg-(--color-active-text)':
+				// 			isActive,
+				// 	},
+				// );
+
 				return cn(
-					"group relative text-xs py-1 leading-[12px] px-1.5 -mx-1.5 rounded-md text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)",
+					'flex h-8 cursor-pointer items-center gap-2 rounded-full px-2.5 text-xs text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)',
 					{
-						"before:absolute before:top-1/2 before:left-[-10px] before:-translate-y-1/2 before:block before:-skew-y-3 before:h-2 before:w-2 before:rounded-full before:bg-(--color-active-text) text-(--color-active-text)":
+						'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:text-(--color-navigation-control-active-foreground)':
 							isActive,
+						'bg-neutral-100 hover:text-(--color-navigation-control-foreground)': !isActive,
 					},
 				);
 			}}
@@ -33,31 +42,27 @@ const GoalsList = () => {
 	const goals: Goal[] = goalsResponse?.data?.items ?? [];
 
 	return (
-		<div className="w-full">
-			<div className=" py-2 flex items-center justify-between gap-2">
-				<p className="text-sm text-(--color-primary-text) font-medium">Goals</p>
-				<div className="w-full h-px bg-(--color-divider)"></div>
+		<div className='w-full'>
+			<div className='flex items-center justify-between gap-2 py-2'>
+				<p className='text-sm font-medium text-(--color-primary-text)'>Goals</p>
+				<div className='h-px w-full bg-(--color-divider)'></div>
 				<GoalFormDialog
 					trigger={
 						<Tooltip
 							trigger={
-								<TaskActionButton className="bg-transparent hover:bg-neutral-200 cursor-pointer">
+								<TaskActionButton className='cursor-pointer bg-transparent hover:bg-neutral-200'>
 									<Plus size={14} strokeWidth={3} />
 								</TaskActionButton>
 							}
-							content="Create a new goal"
-							shortcuts={["⌘", "G"]}
+							content='Create a new goal'
+							shortcuts={['⌘', 'G']}
 						/>
 					}
 				/>
 			</div>
-			<ul className="flex flex-col gap-1 items-start">
-				{goals.map((goal) => (
-					<NavigationItem
-						key={goal.id}
-						route={`/tasks/goal/${goal.id}`}
-						label={goal.name ?? ""}
-					/>
+			<ul className='flex flex-col items-start gap-1'>
+				{goals.map(goal => (
+					<NavigationItem key={goal.id} route={`/tasks/goal/${goal.id}`} label={goal.name ?? ''} />
 				))}
 			</ul>
 		</div>
@@ -66,12 +71,13 @@ const GoalsList = () => {
 
 export const TaskSidebar = () => {
 	return (
-		<div className="flex flex-col gap-4 justify-start items-start pr-5 mt-5">
-			<div className="flex flex-col gap-1 items-start">
-				<NavigationItem route="/tasks" label="Inbox" />
-				<NavigationItem route="/tasks/overdue" label="Overdue" />
+		<div className='mt-5 flex flex-col items-start justify-start gap-4 pr-5'>
+			<div className='flex items-start gap-1'>
+				<NavigationItem route='/tasks' label='Inbox' />
+				<NavigationItem route='/tasks/overdue' label='Overdue' />
+				<NavigationItem route='/tasks/overdue' label='Overdue' />
 			</div>
-			<GoalsList />
+			{/* <GoalsList /> */}
 		</div>
 	);
 };

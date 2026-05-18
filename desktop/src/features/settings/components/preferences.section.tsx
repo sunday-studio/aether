@@ -20,13 +20,13 @@ export const PreferencesSection = () => {
 	const isDarkMode = interfaceTheme === 'dark';
 
 	return (
-		<div className='w-full space-y-10'>
-			<div>
+		<div className='w-full space-y-6'>
+			<div className='mb-10'>
 				<h3 className='text-lg font-medium'>Preferences</h3>
 				<p className='text-sm text-(--color-secondary-text)'>Customize your preferences here.</p>
 			</div>
 
-			<div className='flex items-center justify-between gap-4'>
+			<div className='flex items-center justify-between'>
 				<div>
 					<h4 className='text-md font-medium'>Interface mode</h4>
 					<p className='text-sm text-(--color-secondary-text)'>

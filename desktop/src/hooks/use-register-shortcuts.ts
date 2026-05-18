@@ -23,16 +23,20 @@ const shortcuts = {
 	NAVIGATE_TO_SETTINGS: `${Key.Meta}+s`,
 };
 
+const hotkeyOptions = {
+	preventDefault: true,
+};
+
 export const useRegisterShortcuts = () => {
 	const navigate = useNavigate();
 	const { createEntry } = useCreateJournalEntry();
 	const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
 
-	useHotkeys(shortcuts.CREATE_NEW_ENTRY, createEntry);
-	useHotkeys(shortcuts.OPEN_COMMAND_PALETTE, () => setCommandPaletteOpen(true));
-	useHotkeys(shortcuts.NAVIGATE_TO_JOURNAL, () => navigate('/'));
-	useHotkeys(shortcuts.NAVIGATE_TO_TASKS, () => navigate('/tasks'));
-	useHotkeys(shortcuts.NAVIGATE_TO_SETTINGS, () => navigate('/settings'));
+	useHotkeys(shortcuts.CREATE_NEW_ENTRY, createEntry, hotkeyOptions);
+	useHotkeys(shortcuts.OPEN_COMMAND_PALETTE, () => setCommandPaletteOpen(true), hotkeyOptions);
+	useHotkeys(shortcuts.NAVIGATE_TO_JOURNAL, () => navigate('/'), hotkeyOptions);
+	useHotkeys(shortcuts.NAVIGATE_TO_TASKS, () => navigate('/tasks'), hotkeyOptions);
+	useHotkeys(shortcuts.NAVIGATE_TO_SETTINGS, () => navigate('/settings'), hotkeyOptions);
 
 	return { commandPaletteOpen, setCommandPaletteOpen };
 };

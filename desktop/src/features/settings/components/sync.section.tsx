@@ -103,6 +103,7 @@ export const SyncSection = () => {
 						href='https://github.com/sunday-studio/aether/blob/main/docs/reference/sync-server-readme.md'
 						target='_blank'
 						rel='noopener noreferrer'
+						className='text-(--color-link)'
 					>
 						Setup guide
 					</a>
@@ -110,9 +111,9 @@ export const SyncSection = () => {
 			</div>
 
 			{status && (
-				<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4 text-sm'>
+				<div className='rounded-2xl border border-(--color-border) bg-(--color-panel) p-4 text-sm'>
 					<div className='flex items-center justify-between gap-4'>
-						<div>
+						<div className=''>
 							<span
 								className={
 									status.connected ? 'text-(--color-success)' : 'text-(--color-secondary-text)'

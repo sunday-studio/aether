@@ -333,10 +333,13 @@ pub fn run() {
             // AI journal commands
             ai_journal::enrich_journal_entry,
             ai_journal::get_entry_insights,
+            ai_journal::update_entry_insight,
             ai_journal::update_ai_suggestion,
             ai_journal::accept_ai_tag_suggestion,
+            ai_journal::accept_ai_relation_suggestion,
             ai_journal::generate_weekly_ai_summary,
             ai_journal::get_weekly_ai_summary,
+            ai_journal::update_weekly_ai_summary,
             // Link commands
             link::create_link,
             link::get_backlinks,

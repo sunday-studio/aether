@@ -186,7 +186,7 @@ impl PaginationQueryParams {
     pub fn normalize_limit(&self) -> Option<u32> {
         self.limit.map(|l| l.min(1000))
     }
-    
+
     /// Check if pagination is requested (either limit or cursor is provided)
     pub fn is_pagination_requested(&self) -> bool {
         self.limit.is_some() || self.cursor.is_some()
