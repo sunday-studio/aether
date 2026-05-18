@@ -1,15 +1,14 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { Suspense } from "react";
-import { RouterProvider } from "react-router";
-import { Toaster } from "sonner";
-import { UpdateNotificationListener } from "./components/shared/update-notification";
-import { ThemeProvider } from "./context/theme-context";
-import { router } from "./features/router";
-import { useSyncDataRefresh } from "./hooks/use-sync-data-refresh";
-import { initQueryClient } from "./utils/query-client";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { Suspense } from 'react';
+import { RouterProvider } from 'react-router';
+import { Toaster } from 'sonner';
+import { ThemeProvider } from './context/theme-context';
+import { OnboardingGate } from './features/onboarding/onboarding-gate';
+import { router } from './features/router';
+import { initQueryClient } from './utils/query-client';
 
-import "./app.css";
+import './app.css';
 
 const queryClient = initQueryClient();
 
@@ -33,11 +32,10 @@ function App() {
 			<QueryClientProvider client={queryClient}>
 				<ThemeProvider>
 					<Toaster />
-					<ReactQueryDevtools
-						buttonPosition="top-right"
-						initialIsOpen={false}
-					/>
-					<RouterProvider router={router} />
+					<ReactQueryDevtools buttonPosition='top-right' initialIsOpen={false} />
+					<OnboardingGate>
+						<RouterProvider router={router} />
+					</OnboardingGate>
 				</ThemeProvider>
 			</QueryClientProvider>
 		</Suspense>

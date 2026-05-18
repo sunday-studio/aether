@@ -1,8 +1,8 @@
-import { BadgeCheck, Egg } from "lucide-react";
-import { NavLink } from "react-router";
-import { cn } from "~/utils/cn";
-import { RadialAvatar } from "./radiant-avatar";
-import { Tooltip } from "./tooltip";
+import { BadgeCheck, Egg } from 'lucide-react';
+import { NavLink } from 'react-router';
+import { cn } from '~/utils/cn';
+import { RadialAvatar } from './radiant-avatar';
+import { Tooltip } from './tooltip';
 
 const NavigationControlItem = ({
 	route,
@@ -14,12 +14,12 @@ const NavigationControlItem = ({
 		icon: React.ReactNode;
 	};
 }) => {
-	const isSettings = route.route === "/settings";
+	const isSettings = route.route === '/settings';
 
 	return (
 		<Tooltip
 			key={route.label}
-			contentClassName="text-xs"
+			contentClassName='text-xs'
 			content={route.label}
 			shortcuts={route.shortcut}
 			trigger={
@@ -27,11 +27,11 @@ const NavigationControlItem = ({
 					to={route.route}
 					className={({ isActive }) =>
 						cn(
-							"text-sm flex shrink-0 items-center text-(--color-navigation-control-foreground) justify-center w-9.5 h-9.5 rounded-full hover:bg-(--color-navigation-control-hover) transition-all duration-300 hover:text-(--color-navigation-control-active-foreground)",
+							'flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full text-sm text-(--color-navigation-control-foreground) transition-all duration-300 hover:bg-(--color-navigation-control-hover) hover:text-(--color-navigation-control-active-foreground)',
 							{
-								"bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:bg-(--color-navigation-control-hover)":
+								'bg-(--color-navigation-control-active) text-(--color-navigation-control-active-foreground) hover:bg-(--color-navigation-control-hover)':
 									isActive && !isSettings,
-								"hover:bg-transparent": isSettings,
+								'hover:bg-transparent': isSettings,
 							},
 						)
 					}
@@ -44,48 +44,30 @@ const NavigationControlItem = ({
 };
 const routes = [
 	{
-		label: "Journal",
-		route: "/",
-		shortcut: ["⌘", "J"],
-		icon: <Egg className="size-5.5" />,
+		label: 'Journal',
+		route: '/',
+		shortcut: ['⌘', 'J'],
+		icon: <Egg className='size-5.5' />,
 	},
 	{
-		label: "Tasks",
-		route: "/tasks",
-		shortcut: ["⌘", "T"],
-		icon: <BadgeCheck className="size-5.5" />,
+		label: 'Tasks',
+		route: '/tasks',
+		shortcut: ['⌘', 'T'],
+		icon: <BadgeCheck className='size-5.5' />,
 	},
-	// {
-	// 	label: "Bookmarks",
-	// 	route: "/bookmarks",
-	// 	shortcut: ["⌘", "B"],
-	// 	icon: <Bookmark className="size-5.5" />,
-	// },
-	// {
-	// 	label: "Canvas",
-	// 	route: "/canvas",
-	// 	shortcut: ["⌘", "C"],
-	// 	icon: <Atom className="size-5.5" />,
-	// },
-	// {
-	// 	label: "Graph",
-	// 	route: "/graph",
-	// 	shortcut: ["⌘", "G"],
-	// 	icon: <Network className="size-5.5" />,
-	// },
 	{
-		label: "Settings",
-		route: "/settings",
-		shortcut: ["⌘", "S"],
-		icon: <RadialAvatar size="sm" seed={Math.random().toString()} />,
+		label: 'Settings',
+		route: '/settings',
+		shortcut: ['⌘', 'S'],
+		icon: <RadialAvatar size='sm' seed={Math.random().toString()} />,
 	},
 ];
 
 export const NavigationControl = () => {
 	return (
-		<div className="bg-(--color-card) p-1.5 rounded-full absolute bottom-5 left-1/2 right-1/2 -translate-x-1/2 navigation-control w-fit z-50">
-			<ul className="flex items-center justify-center gap-1 relative">
-				{routes.map((route) => (
+		<div className='navigation-control absolute right-1/2 bottom-5 left-1/2 z-50 w-fit -translate-x-1/2 rounded-full bg-(--color-card) p-1.5'>
+			<ul className='relative flex items-center justify-center gap-1'>
+				{routes.map(route => (
 					<NavigationControlItem key={route.label} route={route} />
 				))}
 			</ul>

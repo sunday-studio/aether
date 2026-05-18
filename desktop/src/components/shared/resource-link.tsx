@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router";
-import { cn } from "~/utils/cn";
+import { useNavigate } from 'react-router';
+import { cn } from '~/utils/cn';
 
 interface ResourceLinkProps {
 	targetType: string;
@@ -8,32 +8,24 @@ interface ResourceLinkProps {
 	className?: string;
 }
 
-export function ResourceLink({
-	targetType,
-	targetId,
-	linkText,
-	className,
-}: ResourceLinkProps) {
+export function ResourceLink({ targetType, targetId, linkText, className }: ResourceLinkProps) {
 	const navigate = useNavigate();
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.preventDefault();
 		// Navigate to the resource based on type
 		switch (targetType) {
-			case "entry":
-				navigate(`/entry/${targetId}`);
+			case 'entry':
+				navigate('/');
 				break;
-			case "task":
-				navigate(`/tasks/${targetId}`);
+			case 'task':
+				navigate('/tasks');
 				break;
-			case "goal":
+			case 'goal':
 				navigate(`/tasks/goal/${targetId}`);
 				break;
-			case "canvas":
-				navigate(`/canvas/${targetId}`);
-				break;
-			case "bookmark":
-				navigate(`/bookmarks/${targetId}`);
+			case 'canvas':
+			case 'bookmark':
 				break;
 			default:
 				break;
@@ -45,17 +37,17 @@ export function ResourceLink({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium",
-				"bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-				"hover:bg-blue-200 dark:hover:bg-blue-800",
-				"cursor-pointer transition-colors",
+				'inline-flex items-center rounded px-1.5 py-0.5 text-sm font-medium',
+				'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+				'hover:bg-blue-200 dark:hover:bg-blue-800',
+				'cursor-pointer transition-colors',
 				className,
 			)}
 			onClick={handleClick}
-			role="button"
+			role='button'
 			tabIndex={0}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
+			onKeyDown={e => {
+				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
 					handleClick(e as unknown as React.MouseEvent);
 				}
