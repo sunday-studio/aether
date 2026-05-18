@@ -1,7 +1,6 @@
 // Integration tests for the Rust backend
 // These tests verify that the API endpoints work correctly
 
-use desktop_lib::db;
 use desktop_lib::error::Result;
 use serde_json::json;
 use std::time::Duration;

@@ -35,6 +35,9 @@ pub enum AppError {
 
     #[error("Sync error: {0}")]
     Sync(String),
+
+    #[error("HTTP error: {0}")]
+    Http(#[from] reqwest::Error),
 }
 
 impl Serialize for AppError {

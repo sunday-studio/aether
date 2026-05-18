@@ -48,13 +48,10 @@ fn extract_links_from_node(node: &Value, links: &mut Vec<ExtractedLink>) -> Resu
                 }
             }
 
-            // Recursively process children
-            if let Some(children) = map.get("children") {
-                if let Value::Array(children_array) = children {
-                    for child in children_array {
-                        extract_links_from_node(child, links)?;
-                    }
-                }
+            // Recursively process all nested values. Lexical documents usually wrap content
+            // under a top-level `root` object before the child nodes appear.
+            for value in map.values() {
+                extract_links_from_node(value, links)?;
             }
         }
         Value::Array(arr) => {
@@ -120,39 +117,18 @@ fn extract_text_from_node(node: &Value, text: &mut String) -> Result<()> {
 /// This is used as a fallback to extract links from text content
 pub fn find_link_patterns_in_text(text: &str) -> Vec<String> {
     let mut links = Vec::new();
-    let mut chars = text.chars().peekable();
-    let mut buffer = String::new();
-    let mut in_link = false;
-    let mut bracket_count: i32 = 0;
+    let mut remaining = text;
 
-    while let Some(ch) = chars.next() {
-        if ch == '[' {
-            bracket_count += 1;
-            if bracket_count == 2 && !in_link {
-                in_link = true;
-                buffer.clear();
-                continue;
-            }
-        } else if ch == ']' {
-            if in_link && bracket_count >= 2 {
-                bracket_count -= 1;
-                if bracket_count == 0 {
-                    // Found a complete [[link]]
-                    if !buffer.is_empty() {
-                        links.push(buffer.trim().to_string());
-                    }
-                    buffer.clear();
-                    in_link = false;
-                    continue;
-                }
-            } else {
-                bracket_count = bracket_count.saturating_sub(1);
-            }
+    while let Some(start) = remaining.find("[[") {
+        let after_start = &remaining[start + 2..];
+        let Some(end) = after_start.find("]]") else {
+            break;
+        };
+        let link = after_start[..end].trim();
+        if !link.is_empty() {
+            links.push(link.to_string());
         }
-
-        if in_link {
-            buffer.push(ch);
-        }
+        remaining = &after_start[end + 2..];
     }
 
     links

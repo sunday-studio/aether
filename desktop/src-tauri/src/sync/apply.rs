@@ -926,18 +926,20 @@ mod tests {
         apply_change(&db, &upsert, None).await.unwrap();
 
         let conn = db.connect().unwrap();
-        let mut rows = conn
-            .query(
-                "SELECT source_type, target_type, _deleted, _updated_at FROM resource_links WHERE _sync_id = ?1",
-                libsql::params!["link-1"],
-            )
-            .await
-            .unwrap();
-        let row = rows.next().await.unwrap().unwrap();
-        assert_eq!(row.get::<String>(0).unwrap(), "entry");
-        assert_eq!(row.get::<String>(1).unwrap(), "task");
-        assert_eq!(row.get::<i64>(2).unwrap(), 0);
-        assert_eq!(row.get::<Option<i64>>(3).unwrap().unwrap(), 100);
+        {
+            let mut rows = conn
+                .query(
+                    "SELECT source_type, target_type, _deleted, _updated_at FROM resource_links WHERE _sync_id = ?1",
+                    libsql::params!["link-1"],
+                )
+                .await
+                .unwrap();
+            let row = rows.next().await.unwrap().unwrap();
+            assert_eq!(row.get::<String>(0).unwrap(), "entry");
+            assert_eq!(row.get::<String>(1).unwrap(), "task");
+            assert_eq!(row.get::<i64>(2).unwrap(), 0);
+            assert_eq!(row.get::<Option<i64>>(3).unwrap().unwrap(), 100);
+        }
 
         let delete = ChangeEnvelope {
             entity: "resource_links".into(),
