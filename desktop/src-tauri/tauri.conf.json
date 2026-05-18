@@ -4,9 +4,9 @@
 	"version": "0.1.0",
 	"identifier": "com.cas.aether",
 	"build": {
-		"beforeDevCommand": "bun run dev",
+		"beforeDevCommand": "pnpm run dev",
 		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "bun run build",
+		"beforeBuildCommand": "pnpm run build",
 		"frontendDist": "../dist"
 	},
 	"app": {
@@ -42,9 +42,7 @@
 	},
 	"plugins": {
 		"updater": {
-			"endpoints": [
-				"https://github.com/sunday-studio/aether/releases/latest/download/latest.json"
-			],
+			"endpoints": ["https://github.com/sunday-studio/aether/releases/latest/download/latest.json"],
 			"pubkey": "REPLACE_WITH_PUBLIC_KEY"
 		}
 	}

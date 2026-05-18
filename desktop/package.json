@@ -2,6 +2,7 @@
 	"name": "Aether",
 	"private": true,
 	"version": "0.1.0",
+	"packageManager": "pnpm@10.24.0",
 	"type": "module",
 	"scripts": {
 		"generate:sdk": "orval --config ./orval.config.ts",
@@ -11,7 +12,7 @@
 		"lint:fix": "oxlint . --fix",
 		"format": "oxfmt src index.html orval.config.ts vite.config.ts tsconfig.json tsconfig.node.json package.json .oxfmtrc.json .oxlintrc.json --write",
 		"format:check": "oxfmt src index.html orval.config.ts vite.config.ts tsconfig.json tsconfig.node.json package.json .oxfmtrc.json .oxlintrc.json --check",
-		"check": "npm run lint",
+		"check": "pnpm run lint",
 		"preview": "vite preview",
 		"tauri": "tauri",
 		"tauri:dev": "tauri dev"
@@ -38,10 +39,9 @@
 		"@tanstack/react-query-devtools": "^5.90.2",
 		"@tanstack/react-query-persist-client": "^5.90.12",
 		"@tanstack/react-virtual": "^3.13.13",
-		"@tauri-apps/api": "^2",
-		"@tauri-apps/plugin-http": "~2",
-		"@tauri-apps/plugin-opener": "^2.5.2",
-		"@tauri-apps/plugin-updater": "^2.9.0",
+		"@tauri-apps/api": "2.9.1",
+		"@tauri-apps/plugin-opener": "2.5.2",
+		"@tauri-apps/plugin-updater": "2.9.0",
 		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",
 		"date-fns": "^4.1.0",
@@ -67,7 +67,7 @@
 		"zod": "^4.2.1"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^2",
+		"@tauri-apps/cli": "2.9.3",
 		"@types/react": "^19.1.8",
 		"@types/react-dom": "^19.1.6",
 		"@vitejs/plugin-react": "^4.6.0",

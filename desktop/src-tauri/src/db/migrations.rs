@@ -78,7 +78,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     }
 
     // Find migrations directory
-    // Execution context: app is started from desktop/ directory via `bun tauri dev`
+    // Execution context: app is started from desktop/ directory via `pnpm tauri dev`
     // When Tauri runs, the working directory is typically desktop/src-tauri/
     // Migrations are located at: desktop/src-tauri/migrations/
     

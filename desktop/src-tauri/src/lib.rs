@@ -47,7 +47,7 @@ pub fn run() {
                 .unwrap_or_else(|_| {
                     // Default: info level globally, debug for our crate (includes activity logging)
                     // You can override with RUST_LOG env var, e.g.:
-                    // RUST_LOG=debug bun tauri dev
+                    // RUST_LOG=debug pnpm tauri dev
                     tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
                 }),
         )

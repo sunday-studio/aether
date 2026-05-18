@@ -17,9 +17,9 @@ cargo run --bin generate-openapi -p generate-openapi-tool
 cd ..
 
 echo "Step 2: Generating SDK from OpenAPI spec..."
-bun generate:sdk
+pnpm run generate:sdk
 
 echo "Step 3: Building Tauri app (universal binary for macOS)..."
-bun tauri build --bundles app --target aarch64-apple-darwin
+pnpm run tauri -- build --bundles app --target aarch64-apple-darwin
 
 echo "✅ Build complete!"

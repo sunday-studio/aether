@@ -43,10 +43,10 @@ jobs:
         with:
           ref: v${{ inputs.version }}
       
-      - name: Setup bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          bun-version: latest
+          package_json_file: desktop/package.json
       
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -96,7 +96,7 @@ jobs:
       
       - name: Install frontend dependencies
         working-directory: desktop
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       
       - name: Update version in Cargo.toml
         working-directory: desktop/src-tauri
@@ -123,7 +123,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: desktop
-          tauriScript: bun tauri
+          tauriScript: pnpm tauri
           args: --target ${{ inputs.target }}
       
       - name: Upload artifacts
