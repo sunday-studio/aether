@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod ai_journal;
 pub mod audio;
 pub mod bookmark;
 pub mod canvas;

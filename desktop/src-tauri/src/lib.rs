@@ -14,9 +14,8 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, canvas, entry, goal, tag, task, trash, search, bookmark, link,
-    sync as sync_commands,
-    updater as updater_commands,
+    activity, ai_journal, bookmark, canvas, entry, goal, link, search, sync as sync_commands, tag,
+    task, trash, updater as updater_commands,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -43,13 +42,12 @@ pub fn run() {
     // Initialize tracing subscriber for logging
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| {
-                    // Default: info level globally, debug for our crate (includes activity logging)
-                    // You can override with RUST_LOG env var, e.g.:
-                    // RUST_LOG=debug pnpm tauri dev
-                    tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
-                }),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                // Default: info level globally, debug for our crate (includes activity logging)
+                // You can override with RUST_LOG env var, e.g.:
+                // RUST_LOG=debug pnpm tauri dev
+                tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
+            }),
         )
         .with_target(true) // Show target module path for better debugging
         .with_thread_ids(false) // Don't show thread IDs
@@ -75,18 +73,19 @@ pub fn run() {
         dotenvy::dotenv().ok();
 
         // Initialize database
-        let state = db::initialize(None).await
+        let state = db::initialize(None)
+            .await
             .expect("Failed to initialize database");
-        
+
         // Run migrations
         let database = db::connection::get_database(&state);
-        db::migrations::run_migrations(&database).await
+        db::migrations::run_migrations(&database)
+            .await
             .expect("Failed to run migrations");
-        
+
         // Ensure media directory exists
-        media::ensure_media_directory()
-            .expect("Failed to create media directory");
-        
+        media::ensure_media_directory().expect("Failed to create media directory");
+
         state
     });
 
@@ -99,14 +98,20 @@ pub fn run() {
         match metadata::get_suppress_triggers(db.as_ref()).await {
             Ok(suppress) => {
                 if suppress != "0" {
-                    tracing::warn!("[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'", suppress);
+                    tracing::warn!(
+                        "[SYNC] _suppress_triggers was '{}' on startup, resetting to '0'",
+                        suppress
+                    );
                     let _ = metadata::set_suppress_triggers(db.as_ref(), "0").await;
                 } else {
                     tracing::debug!("[SYNC] _suppress_triggers is correctly set to '0'");
                 }
             }
             Err(e) => {
-                tracing::warn!("[SYNC] Could not check _suppress_triggers on startup: {}", e);
+                tracing::warn!(
+                    "[SYNC] Could not check _suppress_triggers on startup: {}",
+                    e
+                );
             }
         }
     });
@@ -325,6 +330,10 @@ pub fn run() {
             search::find_related_resources,
             search::retrieve_context,
             search::retrieve_week_context,
+            // AI journal commands
+            ai_journal::enrich_journal_entry,
+            ai_journal::get_entry_insights,
+            ai_journal::update_ai_suggestion,
             // Link commands
             link::create_link,
             link::get_backlinks,

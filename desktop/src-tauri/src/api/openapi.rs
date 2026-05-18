@@ -1,6 +1,7 @@
 use utoipa::OpenApi;
 
 use crate::commands::activity as activity_commands;
+use crate::commands::ai_journal as ai_journal_commands;
 use crate::commands::bookmark as bookmark_commands;
 use crate::commands::canvas as canvas_commands;
 use crate::commands::common::{
@@ -17,8 +18,13 @@ use crate::commands::settings as settings_commands;
 use crate::commands::tag as tag_commands;
 use crate::commands::task as task_commands;
 use crate::commands::trash as trash_commands;
-use crate::commands::{audio as audio_commands, sync as sync_commands, transcription as transcription_commands};
-use crate::db::models::{Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem, ResourceLink, SubTask, Tag, Task, TaskWithSubtasks};
+use crate::commands::{
+    audio as audio_commands, sync as sync_commands, transcription as transcription_commands,
+};
+use crate::db::models::{
+    Activity, AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, MediaItem,
+    ResourceLink, SubTask, Tag, Task, TaskWithSubtasks,
+};
 use crate::utils::metadata::extractor::ExtractedMetadata;
 
 #[derive(OpenApi)]
@@ -79,6 +85,10 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         embedding_commands::index_search_embeddings,
         embedding_commands::index_search_resource_embeddings,
         embedding_commands::get_search_embedding_status,
+        // AI journal endpoints
+        ai_journal_commands::enrich_journal_entry,
+        ai_journal_commands::get_entry_insights,
+        ai_journal_commands::update_ai_suggestion,
         // Link endpoints
         link_commands::create_link,
         link_commands::get_backlinks,
@@ -179,6 +189,13 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         embedding_commands::IndexSearchEmbeddingsRequest,
         embedding_commands::IndexSearchResourceEmbeddingsRequest,
         crate::db::repositories::SearchEmbeddingStatus,
+        crate::db::repositories::EntryInsightBundle,
+        crate::db::repositories::JournalEntryInsight,
+        crate::db::repositories::JournalEntrySuggestion,
+        crate::db::repositories::WeeklyAiSummary,
+        ai_journal_commands::EnrichJournalEntryRequest,
+        ai_journal_commands::UpdateAiSuggestionRequest,
+        ai_journal_commands::AiSuggestionResponse,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,
@@ -210,6 +227,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         (name = "Trash", description = "Trash management endpoints"),
         (name = "Activities", description = "Activity tracking endpoints"),
         (name = "Search", description = "Search endpoints"),
+        (name = "AI Journal", description = "AI journal enrichment endpoints"),
         (name = "Links", description = "Resource linking endpoints"),
         (name = "Settings", description = "Settings management endpoints"),
         (name = "Audio", description = "Audio recording and playback endpoints"),
