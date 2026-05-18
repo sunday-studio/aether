@@ -23,7 +23,7 @@ impl TagRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Tag>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -41,7 +41,11 @@ impl TagRepository {
                 let _sync_id: Option<String> = row.get(5).ok();
                 let _updated_at: Option<i64> = row.get(6).ok();
                 let _deleted: i64 = row.get(7).unwrap_or(0);
-                let _extra: Option<serde_json::Value> = row.get::<Option<String>>(8).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+                let _extra: Option<serde_json::Value> = row
+                    .get::<Option<String>>(8)
+                    .ok()
+                    .flatten()
+                    .and_then(|s| serde_json::from_str(&s).ok());
 
                 let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
                     .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -73,16 +77,18 @@ impl TagRepository {
         // Pagination mode - use composite cursor for name + id
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
-                return Err(AppError::BadRequest("Invalid cursor format for tags".to_string()));
+                return Err(AppError::BadRequest(
+                    "Invalid cursor format for tags".to_string(),
+                ));
             }
             let last_name = &keys[0];
             let last_id = &keys[1];
-            
+
             conn.query(
                 "SELECT id, name, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tags 
@@ -108,7 +114,7 @@ impl TagRepository {
 
         let mut tags = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -120,7 +126,11 @@ impl TagRepository {
                 let _sync_id: Option<String> = row.get(5).ok();
                 let _updated_at: Option<i64> = row.get(6).ok();
                 let _deleted: i64 = row.get(7).unwrap_or(0);
-                let _extra: Option<serde_json::Value> = row.get::<Option<String>>(8).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+                let _extra: Option<serde_json::Value> = row
+                    .get::<Option<String>>(8)
+                    .ok()
+                    .flatten()
+                    .and_then(|s| serde_json::from_str(&s).ok());
 
                 let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
                     .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -165,7 +175,7 @@ impl TagRepository {
     /// Create a new tag
     pub async fn create(&self, name: String) -> Result<Tag> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let id = generate_id("tag");
         let now = Utc::now();
         let created_at = now.to_rfc3339();
@@ -195,7 +205,7 @@ impl TagRepository {
     /// Bulk create tags
     pub async fn bulk_create(&self, names: Vec<String>) -> Result<Vec<Tag>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Use a transaction for bulk operations
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
@@ -209,7 +219,7 @@ impl TagRepository {
         let now_ms = now.timestamp_millis();
         for name in names {
             let id = generate_id("tag");
-            
+
             conn.execute(
                 "INSERT INTO tags (id, name, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, '{}')",
                 libsql::params![id.clone(), name.clone(), created_at.clone(), updated_at.clone(), id.clone(), now_ms],

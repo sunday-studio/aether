@@ -9,10 +9,10 @@ pub fn extract_metadata(_audio_data: &[u8], _format: &str) -> Result<(f32, usize
     // - Parse WebM/MP3/WAV headers
     // - Extract duration, sample rate, channels, etc.
     // - Calculate file size
-    
+
     let duration = 0.0; // Placeholder
     let size = 0; // Placeholder
-    
+
     Ok((duration, size))
 }
 
@@ -29,12 +29,12 @@ pub fn detect_format(audio_data: &[u8]) -> Option<String> {
     if audio_data.len() < 4 {
         return None;
     }
-    
+
     // Check for WebM (starts with 0x1A 0x45 0xDF 0xA3)
     if audio_data.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]) {
         return Some("webm".to_string());
     }
-    
+
     // Check for MP3 (starts with ID3 tag or MP3 sync word)
     if audio_data.starts_with(b"ID3") {
         return Some("mp3".to_string());
@@ -42,17 +42,17 @@ pub fn detect_format(audio_data: &[u8]) -> Option<String> {
     if audio_data.len() >= 3 && audio_data[0] == 0xFF && (audio_data[1] & 0xE0) == 0xE0 {
         return Some("mp3".to_string());
     }
-    
+
     // Check for WAV (starts with "RIFF")
     if audio_data.starts_with(b"RIFF") {
         return Some("wav".to_string());
     }
-    
+
     // Check for M4A (starts with ftyp box)
     if audio_data.len() >= 8 && &audio_data[4..8] == b"ftyp" {
         return Some("m4a".to_string());
     }
-    
+
     None
 }
 

@@ -3,7 +3,7 @@ import { useRegisterShortcuts } from '~/hooks/use-register-shortcuts';
 import { ActivityHeatmap } from './activity-heatmap';
 import { CommandPalette } from './command-palette';
 import { NavigationControl } from './navigation-control';
-import { UpdateNotificationListener } from './update-notification';
+import { UpdateAvailableButton } from './update-available-button';
 
 export const Layout = () => {
 	const location = useLocation();
@@ -19,10 +19,10 @@ export const Layout = () => {
 			</div>
 			<ActivityHeatmap />
 			<NavigationControl />
+			<UpdateAvailableButton />
 			<Outlet />
 
 			<CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
-			<UpdateNotificationListener />
 		</div>
 	);
 };

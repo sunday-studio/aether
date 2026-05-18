@@ -23,7 +23,7 @@ impl CanvasRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Canvas>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -48,11 +48,11 @@ impl CanvasRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
-            
+
             conn.query(
                 "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM canvases 
@@ -78,7 +78,7 @@ impl CanvasRepository {
 
         let mut canvases = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -103,7 +103,7 @@ impl CanvasRepository {
     /// Get canvas by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Canvas>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, name, canvas_data, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -122,19 +122,15 @@ impl CanvasRepository {
     }
 
     /// Create a new canvas
-    pub async fn create(
-        &self,
-        name: String,
-        canvas_data: serde_json::Value,
-    ) -> Result<Canvas> {
+    pub async fn create(&self, name: String, canvas_data: serde_json::Value) -> Result<Canvas> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let id = generate_id("canvas");
         let now = Utc::now();
         let created_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
-        let canvas_data_str = serde_json::to_string(&canvas_data)
-            .map_err(|e| AppError::Serialization(e))?;
+        let canvas_data_str =
+            serde_json::to_string(&canvas_data).map_err(|e| AppError::Serialization(e))?;
         let now_ms = now.timestamp_millis();
 
         conn.execute(
@@ -175,10 +171,11 @@ impl CanvasRepository {
         canvas_data: Option<serde_json::Value>,
     ) -> Result<Canvas> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current canvas
         let current = self.find_by_id(id).await?;
-        let mut canvas = current.ok_or_else(|| AppError::NotFound(format!("Canvas {} not found", id)))?;
+        let mut canvas =
+            current.ok_or_else(|| AppError::NotFound(format!("Canvas {} not found", id)))?;
 
         // Update fields if provided
         if let Some(new_name) = name {
@@ -191,8 +188,8 @@ impl CanvasRepository {
         let now_ms = canvas.updated_at.timestamp_millis();
 
         let updated_at_str = canvas.updated_at.to_rfc3339();
-        let canvas_data_str = serde_json::to_string(&canvas.canvas_data)
-            .map_err(|e| AppError::Serialization(e))?;
+        let canvas_data_str =
+            serde_json::to_string(&canvas.canvas_data).map_err(|e| AppError::Serialization(e))?;
 
         conn.execute(
             "UPDATE canvases 
@@ -216,7 +213,7 @@ impl CanvasRepository {
     /// Delete a canvas (soft delete)
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if canvas exists
         let canvas = self.find_by_id(id).await?;
         if canvas.is_none() {
@@ -249,10 +246,14 @@ impl CanvasRepository {
         let _sync_id: Option<String> = row.get(6).ok();
         let _updated_at: Option<i64> = row.get(7).ok();
         let _deleted: i64 = row.get(8).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(9).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(9)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
-        let canvas_data = serde_json::from_str(&canvas_data_str)
-            .map_err(|e| AppError::Serialization(e))?;
+        let canvas_data =
+            serde_json::from_str(&canvas_data_str).map_err(|e| AppError::Serialization(e))?;
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
             .with_timezone(&Utc);

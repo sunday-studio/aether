@@ -31,6 +31,19 @@ This document records project-shaping work that has already been done or decided
 - Canvas is out for v1.
 - Updater is in scope for v1.
 - First-run onboarding is in scope for v1.
-- AI key setup belongs in onboarding, using the existing encrypted settings path.
+- AI key setup is visible for v1 while journal audio/transcription remains deferred.
 - Bookmarks and global search should be finished or hidden for v1.
 
+## Updater Readiness
+
+- Added a global update button that appears when a new signed update is available.
+- Added updater download progress events from the Rust updater command.
+- Persisted updater preferences and skipped versions in app config.
+- Added release and updater testing steps under `docs/milestones/release-testing-plan.md`.
+
+## V1 Surface Cleanup
+
+- Kept bottom navigation, command palette, and global shortcuts scoped to Journal, Tasks, and Settings.
+- Redirected Canvas, Bookmarks, and Graph routes away from unfinished screens.
+- Hid Canvas and Bookmarks from editor resource-link autocomplete.
+- Hid journal audio/transcription from the v1 user surface while keeping AI setup visible.

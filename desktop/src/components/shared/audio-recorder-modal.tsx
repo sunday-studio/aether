@@ -1,7 +1,7 @@
-import { Mic, Square } from "lucide-react";
-import { useRef, useState } from "react";
-import { cn } from "~/utils/cn";
-import { Modal, modalContentStyles } from "./modal";
+import { Mic, Square } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { cn } from '~/utils/cn';
+import { Modal, modalContentStyles } from './modal';
 
 interface AudioRecorderModalProps {
 	isOpen: boolean;
@@ -9,12 +9,15 @@ interface AudioRecorderModalProps {
 	onSave: (audioBlob: Blob, duration: number) => void;
 }
 
-export const AudioRecorderModal = ({
-	isOpen,
-	onOpenChange,
-	onSave,
-}: AudioRecorderModalProps) => {
+const formatTime = (seconds: number) => {
+	const mins = Math.floor(seconds / 60);
+	const secs = Math.floor(seconds % 60);
+	return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+export const AudioRecorderModal = ({ isOpen, onOpenChange, onSave }: AudioRecorderModalProps) => {
 	const [isRecording, setIsRecording] = useState(false);
+	const [hasRecording, setHasRecording] = useState(false);
 	const [duration, setDuration] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -23,12 +26,6 @@ export const AudioRecorderModal = ({
 	const durationIntervalRef = useRef<number | null>(null);
 	const startTimeRef = useRef<number | null>(null);
 
-	const formatTime = (seconds: number) => {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		return `${mins}:${secs.toString().padStart(2, "0")}`;
-	};
-
 	const startRecording = async () => {
 		try {
 			setError(null);
@@ -36,7 +33,7 @@ export const AudioRecorderModal = ({
 			// Check if navigator.mediaDevices is available
 			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
 				throw new Error(
-					"Microphone access is not available. Please ensure your browser/Tauri app has microphone permissions enabled.",
+					'Microphone access is not available. Please ensure your browser/Tauri app has microphone permissions enabled.',
 				);
 			}
 
@@ -44,14 +41,16 @@ export const AudioRecorderModal = ({
 			streamRef.current = stream;
 
 			const mediaRecorder = new MediaRecorder(stream, {
-				mimeType: "audio/webm;codecs=opus",
+				mimeType: 'audio/webm;codecs=opus',
 			});
 			mediaRecorderRef.current = mediaRecorder;
 			chunksRef.current = [];
+			setHasRecording(false);
 
-			mediaRecorder.ondataavailable = (event) => {
+			mediaRecorder.ondataavailable = event => {
 				if (event.data.size > 0) {
 					chunksRef.current.push(event.data);
+					setHasRecording(true);
 				}
 			};
 
@@ -74,7 +73,7 @@ export const AudioRecorderModal = ({
 			setError(
 				err instanceof Error
 					? err.message
-					: "Failed to access microphone. Please check permissions.",
+					: 'Failed to access microphone. Please check permissions.',
 			);
 		}
 	};
@@ -91,7 +90,7 @@ export const AudioRecorderModal = ({
 
 			// Stop all tracks
 			if (streamRef.current) {
-				streamRef.current.getTracks().forEach((track) => {
+				streamRef.current.getTracks().forEach(track => {
 					track.stop();
 				});
 				streamRef.current = null;
@@ -101,10 +100,11 @@ export const AudioRecorderModal = ({
 
 	const handleSave = () => {
 		if (chunksRef.current.length > 0) {
-			const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+			const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
 			onSave(audioBlob, duration);
 			// Reset state
 			chunksRef.current = [];
+			setHasRecording(false);
 			setDuration(0);
 			setIsRecording(false);
 			onOpenChange(false);
@@ -114,6 +114,7 @@ export const AudioRecorderModal = ({
 	const handleCancel = () => {
 		stopRecording();
 		chunksRef.current = [];
+		setHasRecording(false);
 		setDuration(0);
 		setIsRecording(false);
 		setError(null);
@@ -121,60 +122,50 @@ export const AudioRecorderModal = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+		<Modal isOpen={isOpen} onOpenChange={open => (open ? onOpenChange(true) : handleCancel())}>
 			<div className={modalContentStyles}>
-				<div className="flex flex-col items-center gap-4">
-					<h2 className="text-lg font-semibold">Record Audio</h2>
+				<div className='flex flex-col items-center gap-4'>
+					<h2 className='text-lg font-semibold'>Record Audio</h2>
 
-					{error && (
-						<div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-							{error}
-						</div>
-					)}
+					{error && <div className='rounded bg-red-50 p-2 text-sm text-red-600'>{error}</div>}
 
-					<div className="flex flex-col items-center gap-2">
+					<div className='flex flex-col items-center gap-2'>
 						<button
-							type="button"
+							type='button'
 							onClick={isRecording ? stopRecording : startRecording}
 							className={cn(
-								"w-20 h-20 rounded-full flex items-center justify-center transition-all",
+								'flex h-20 w-20 items-center justify-center rounded-full transition-all',
 								isRecording
-									? "bg-red-500 hover:bg-red-600 text-white"
-									: "bg-neutral-200 hover:bg-neutral-300 text-neutral-700",
+									? 'bg-red-500 text-white hover:bg-red-600'
+									: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
 							)}
 						>
-							{isRecording ? (
-								<Square className="w-8 h-8" />
-							) : (
-								<Mic className="w-8 h-8" />
-							)}
+							{isRecording ? <Square className='h-8 w-8' /> : <Mic className='h-8 w-8' />}
 						</button>
 
-						<div className="text-2xl font-mono font-semibold">
-							{formatTime(duration)}
-						</div>
+						<div className='font-mono text-2xl font-semibold'>{formatTime(duration)}</div>
 
 						{isRecording && (
-							<div className="flex items-center gap-2 text-sm text-neutral-500">
-								<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+							<div className='flex items-center gap-2 text-sm text-neutral-500'>
+								<div className='h-2 w-2 animate-pulse rounded-full bg-red-500' />
 								Recording...
 							</div>
 						)}
 					</div>
 
-					<div className="flex gap-2 w-full">
+					<div className='flex w-full gap-2'>
 						<button
-							type="button"
+							type='button'
 							onClick={handleCancel}
-							className="flex-1 px-4 py-2 text-sm rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700"
+							className='flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50'
 						>
 							Cancel
 						</button>
 						<button
-							type="button"
+							type='button'
 							onClick={handleSave}
-							// disabled={chunksRef.current.length === 0 || isRecording}
-							className="flex-1 px-4 py-2 text-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+							disabled={!hasRecording || isRecording}
+							className='flex-1 rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50'
 						>
 							Save
 						</button>

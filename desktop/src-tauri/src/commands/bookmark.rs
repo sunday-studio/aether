@@ -1,13 +1,13 @@
 use crate::commands::params::{
-    EmptyPathParams, EmptyQueryParams, EmptyRequest, ExtractMetadataQueryParams, IdPathParams,
-    BookmarkQueryParams,
+    BookmarkQueryParams, EmptyPathParams, EmptyQueryParams, EmptyRequest,
+    ExtractMetadataQueryParams, IdPathParams,
 };
 use crate::db::models::Bookmark;
-use crate::db::{connection, DbState, BookmarkRepository, SearchDocumentRepository};
+use crate::db::{connection, BookmarkRepository, DbState, SearchDocumentRepository};
 use crate::error::{AppError, Result};
-use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::metadata::extractor::ExtractedMetadata;
 use crate::utils::metadata::MetadataExtractor;
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use serde::Deserialize;
 use tauri::State;
 use utoipa::ToSchema;
@@ -93,7 +93,11 @@ pub async fn get_bookmarks(
             params.cursor,
         )
         .await?;
-    Ok(crate::commands::common::PaginationResponse::new(bookmarks, next_cursor, has_more))
+    Ok(crate::commands::common::PaginationResponse::new(
+        bookmarks,
+        next_cursor,
+        has_more,
+    ))
 }
 
 /// Get bookmark by ID
@@ -150,7 +154,8 @@ pub async fn create_bookmark(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<crate::db::models::Bookmark> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
     }
@@ -160,20 +165,21 @@ pub async fn create_bookmark(
 
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
-    
-    let bookmark = repo.create(
-        request.url,
-        metadata.title,
-        metadata.description,
-        metadata.image_url,
-        metadata.favicon_url,
-        metadata.site_name,
-        metadata.author,
-        metadata.published_at,
-        metadata.content_type,
-        metadata.metadata_json,
-    )
-    .await?;
+
+    let bookmark = repo
+        .create(
+            request.url,
+            metadata.title,
+            metadata.description,
+            metadata.image_url,
+            metadata.favicon_url,
+            metadata.site_name,
+            metadata.author,
+            metadata.published_at,
+            metadata.content_type,
+            metadata.metadata_json,
+        )
+        .await?;
 
     // Add tags if provided
     if let Some(tag_ids) = request.tag_ids {
@@ -186,7 +192,11 @@ pub async fn create_bookmark(
         .reindex_resource("bookmark", &bookmark.id)
         .await
     {
-        tracing::warn!("Failed to reindex bookmark {} for search: {}", bookmark.id, e);
+        tracing::warn!(
+            "Failed to reindex bookmark {} for search: {}",
+            bookmark.id,
+            e
+        );
     }
 
     // Log activity
@@ -228,30 +238,36 @@ pub async fn update_bookmark(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
-    let bookmark = repo.update(
-        &id,
-        request.title,
-        request.description,
-        request.image_url,
-        request.favicon_url,
-        request.site_name,
-        request.author,
-        request.published_at,
-        request.content_type,
-        request.metadata_json,
-        request.is_archived,
-    )
-    .await?;
+    let bookmark = repo
+        .update(
+            &id,
+            request.title,
+            request.description,
+            request.image_url,
+            request.favicon_url,
+            request.site_name,
+            request.author,
+            request.published_at,
+            request.content_type,
+            request.metadata_json,
+            request.is_archived,
+        )
+        .await?;
 
     if let Err(e) = SearchDocumentRepository::new(db.clone())
         .reindex_resource("bookmark", &bookmark.id)
         .await
     {
-        tracing::warn!("Failed to reindex bookmark {} for search: {}", bookmark.id, e);
+        tracing::warn!(
+            "Failed to reindex bookmark {} for search: {}",
+            bookmark.id,
+            e
+        );
     }
 
     // Log activity
@@ -303,7 +319,11 @@ pub async fn delete_bookmark(
 
     // Log activity
     if let Err(e) = log_delete(db.clone(), "bookmark".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log bookmark deletion activity for bookmark {}: {}", id, e);
+        tracing::warn!(
+            "Failed to log bookmark deletion activity for bookmark {}: {}",
+            id,
+            e
+        );
     }
 
     Ok(())
@@ -338,13 +358,16 @@ pub async fn add_tags_to_bookmark(
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
     repo.add_tags(&id, request.tag_ids).await?;
 
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "bookmark".to_string(), id.clone()).await {
+    if let Err(e) =
+        log_tag_operation(db.clone(), "add_tags", "bookmark".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log add_tags activity for bookmark {}: {}", id, e);
     }
 
@@ -383,14 +406,26 @@ pub async fn remove_tags_from_bookmark(
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = BookmarkRepository::new(db.clone());
     repo.remove_tags(&id, request.tag_ids).await?;
 
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "bookmark".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log remove_tags activity for bookmark {}: {}", id, e);
+    if let Err(e) = log_tag_operation(
+        db.clone(),
+        "remove_tags",
+        "bookmark".to_string(),
+        id.clone(),
+    )
+    .await
+    {
+        tracing::warn!(
+            "Failed to log remove_tags activity for bookmark {}: {}",
+            id,
+            e
+        );
     }
 
     // Return updated bookmark
@@ -419,7 +454,8 @@ pub async fn extract_metadata(
     query_params: Option<ExtractMetadataQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<ExtractedMetadata> {
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.url.is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
     }

@@ -38,16 +38,20 @@ impl TranscriptionProvider for SelfHostedProvider {
     }
 
     async fn initialize(&mut self) -> Result<(), String> {
-        let endpoint = settings::get_setting(self.database.clone(), "transcription.self_hosted.endpoint")
-            .await
-            .map_err(|e| format!("Failed to get endpoint: {}", e))?
-            .ok_or_else(|| "Endpoint not configured".to_string())?;
+        let endpoint =
+            settings::get_setting(self.database.clone(), "transcription.self_hosted.endpoint")
+                .await
+                .map_err(|e| format!("Failed to get endpoint: {}", e))?
+                .ok_or_else(|| "Endpoint not configured".to_string())?;
 
-        let auth_token = settings::get_setting(self.database.clone(), "transcription.self_hosted.auth_token")
-            .await
-            .map_err(|e| format!("Failed to get auth token: {}", e))
-            .ok()
-            .flatten();
+        let auth_token = settings::get_setting(
+            self.database.clone(),
+            "transcription.self_hosted.auth_token",
+        )
+        .await
+        .map_err(|e| format!("Failed to get auth token: {}", e))
+        .ok()
+        .flatten();
 
         self.endpoint = Some(endpoint);
         self.auth_token = auth_token;
@@ -55,7 +59,11 @@ impl TranscriptionProvider for SelfHostedProvider {
         Ok(())
     }
 
-    async fn transcribe(&self, audio_data: &[u8], format: &str) -> Result<TranscriptionResult, String> {
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        format: &str,
+    ) -> Result<TranscriptionResult, String> {
         if !self.initialized {
             return Err("Provider not initialized".to_string());
         }
@@ -64,13 +72,15 @@ impl TranscriptionProvider for SelfHostedProvider {
         let url = format!("{}/transcribe", endpoint.trim_end_matches('/'));
 
         let client = reqwest::Client::new();
-        
+
         // Create multipart form
-        let form = multipart::Form::new()
-            .part("audio", multipart::Part::bytes(audio_data.to_vec())
+        let form = multipart::Form::new().part(
+            "audio",
+            multipart::Part::bytes(audio_data.to_vec())
                 .file_name(format!("audio.{}", format))
                 .mime_str(&get_mime_type(format))
-                .map_err(|e| format!("Failed to set MIME type: {}", e))?);
+                .map_err(|e| format!("Failed to set MIME type: {}", e))?,
+        );
 
         let mut request = client.post(&url);
 
@@ -87,7 +97,10 @@ impl TranscriptionProvider for SelfHostedProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(format!("API error ({}): {}", status, error_text));
         }
 
@@ -101,13 +114,9 @@ impl TranscriptionProvider for SelfHostedProvider {
             .ok_or("Missing text in response")?
             .to_string();
 
-        let confidence = result["confidence"]
-            .as_f64()
-            .map(|c| c as f32);
+        let confidence = result["confidence"].as_f64().map(|c| c as f32);
 
-        let duration = result["duration"]
-            .as_f64()
-            .map(|d| d as f32);
+        let duration = result["duration"].as_f64().map(|d| d as f32);
 
         Ok(TranscriptionResult {
             text,
@@ -117,7 +126,12 @@ impl TranscriptionProvider for SelfHostedProvider {
     }
 
     async fn get_status(&self) -> ProviderStatus {
-        let endpoint = match settings::get_setting(self.database.clone(), "transcription.self_hosted.endpoint").await {
+        let endpoint = match settings::get_setting(
+            self.database.clone(),
+            "transcription.self_hosted.endpoint",
+        )
+        .await
+        {
             Ok(Some(e)) => e,
             _ => return ProviderStatus::NotConfigured,
         };
@@ -125,7 +139,7 @@ impl TranscriptionProvider for SelfHostedProvider {
         // Try health check
         let client = reqwest::Client::new();
         let health_url = format!("{}/health", endpoint.trim_end_matches('/'));
-        
+
         match client.get(&health_url).send().await {
             Ok(response) if response.status().is_success() => ProviderStatus::Ready,
             Ok(_) => ProviderStatus::Error {
@@ -138,15 +152,16 @@ impl TranscriptionProvider for SelfHostedProvider {
     }
 
     async fn validate_config(&self) -> Result<(), String> {
-        let endpoint = settings::get_setting(self.database.clone(), "transcription.self_hosted.endpoint")
-            .await
-            .map_err(|e| format!("Failed to get endpoint: {}", e))?
-            .ok_or_else(|| "Endpoint not configured".to_string())?;
+        let endpoint =
+            settings::get_setting(self.database.clone(), "transcription.self_hosted.endpoint")
+                .await
+                .map_err(|e| format!("Failed to get endpoint: {}", e))?
+                .ok_or_else(|| "Endpoint not configured".to_string())?;
 
         // Test health check endpoint
         let client = reqwest::Client::new();
         let health_url = format!("{}/health", endpoint.trim_end_matches('/'));
-        
+
         let response = client
             .get(&health_url)
             .send()
@@ -156,7 +171,10 @@ impl TranscriptionProvider for SelfHostedProvider {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(format!("Health check failed (status: {})", response.status()))
+            Err(format!(
+                "Health check failed (status: {})",
+                response.status()
+            ))
         }
     }
 }

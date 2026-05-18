@@ -23,22 +23,26 @@ pub enum ProviderStatus {
 pub trait TranscriptionProvider: Send + Sync {
     /// Get the name of the provider
     fn name(&self) -> &str;
-    
+
     /// Whether this provider requires an API key
     fn requires_api_key(&self) -> bool;
-    
+
     /// Whether this provider requires a model download
     fn requires_download(&self) -> bool;
-    
+
     /// Initialize the provider (load config, validate, etc.)
     async fn initialize(&mut self) -> Result<(), String>;
-    
+
     /// Transcribe audio data
-    async fn transcribe(&self, audio_data: &[u8], format: &str) -> Result<TranscriptionResult, String>;
-    
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        format: &str,
+    ) -> Result<TranscriptionResult, String>;
+
     /// Get the current status of the provider
     async fn get_status(&self) -> ProviderStatus;
-    
+
     /// Validate the provider configuration
     async fn validate_config(&self) -> Result<(), String>;
 }

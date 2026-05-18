@@ -1,8 +1,10 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, PaginationQueryParams};
+use crate::commands::common::PaginationResponse;
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, PaginationQueryParams,
+};
 use crate::db::models::Tag;
 use crate::db::{connection, DbState, SearchDocumentRepository, TagRepository};
 use crate::error::{AppError, Result};
-use crate::commands::common::PaginationResponse;
 use crate::utils::log_create;
 use serde::Deserialize;
 use tauri::State;
@@ -63,7 +65,8 @@ pub async fn create_tag(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Tag> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Tag name cannot be empty".to_string()));
     }
@@ -78,12 +81,12 @@ pub async fn create_tag(
     {
         tracing::warn!("Failed to reindex tag {} for search: {}", tag.id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await {
         tracing::warn!("Failed to log tag creation activity: {}", e);
     }
-    
+
     Ok(tag)
 }
 
@@ -107,12 +110,13 @@ pub async fn bulk_create_tags(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<Tag>> {
     let _guard = connection::with_db_access(&*state).await;
-    let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let payload =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TagRepository::new(db.clone());
     let names: Vec<String> = payload.into_iter().map(|t| t.name).collect();
     let tags = repo.bulk_create(names).await?;
-    
+
     // Log activities for each created tag
     for tag in &tags {
         if let Err(e) = SearchDocumentRepository::new(db.clone())
@@ -123,9 +127,13 @@ pub async fn bulk_create_tags(
         }
 
         if let Err(e) = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await {
-            tracing::warn!("Failed to log tag creation activity for tag {}: {}", tag.id, e);
+            tracing::warn!(
+                "Failed to log tag creation activity for tag {}: {}",
+                tag.id,
+                e
+            );
         }
     }
-    
+
     Ok(tags)
 }

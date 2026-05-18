@@ -22,8 +22,10 @@ pub async fn get_trashed_tasks(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<crate::db::models::Task>> {
     let _guard = connection::with_db_access(&*state).await;
-    let conn = connection::get_database(&*state).connect().map_err(|e| AppError::LibSQL(e))?;
-    
+    let conn = connection::get_database(&*state)
+        .connect()
+        .map_err(|e| AppError::LibSQL(e))?;
+
     let mut rows = conn
         .query(
             "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at 
@@ -36,7 +38,7 @@ pub async fn get_trashed_tasks(
         .map_err(|e| AppError::LibSQL(e))?;
 
     let mut tasks = Vec::new();
-    
+
     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
         let id: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
         let title: String = row.get(1).map_err(|e| AppError::LibSQL(e))?;
@@ -111,8 +113,10 @@ pub async fn restore_task(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let conn = connection::get_database(&*state).connect().map_err(|e| AppError::LibSQL(e))?;
-    
+    let conn = connection::get_database(&*state)
+        .connect()
+        .map_err(|e| AppError::LibSQL(e))?;
+
     // Check if task exists and is deleted
     let mut rows = conn
         .query(
@@ -122,7 +126,12 @@ pub async fn restore_task(
         .await
         .map_err(|e| AppError::LibSQL(e))?;
 
-    if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+    if rows
+        .next()
+        .await
+        .map_err(|e| AppError::LibSQL(e))?
+        .is_none()
+    {
         return Err(AppError::NotFound(format!("Deleted task {} not found", id)));
     }
 

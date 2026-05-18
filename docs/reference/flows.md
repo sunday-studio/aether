@@ -137,11 +137,11 @@ flowchart LR
   V1 --> Settings[Settings]
   V1 --> Sync[Encrypted Sync]
   V1 --> Updater[Updater]
-  V1 --> Audio[Journal Audio and Transcription]
+  Deferred --> Audio[Journal Audio and Transcription]
   Deferred[Deferred or Hidden] --> Canvas[Canvas]
+  Deferred --> Graph[Knowledge Graph]
   Deferred --> Embeddings[Embeddings Management]
   Deferred --> SyncDiagnostics[Sync Diagnostics]
-  Deferred --> BookmarkDecision[Bookmarks unless completed]
-  Deferred --> SearchDecision[Global Search unless completed]
+  Deferred --> Bookmarks[Bookmarks]
+  Deferred --> GlobalSearch[Global Search]
 ```
-

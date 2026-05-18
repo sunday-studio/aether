@@ -1,8 +1,7 @@
 use crate::error::{AppError, Result};
 use crate::utils::models::{
-    ModelCategory, ModelInfo as SharedModelInfo,
-    ensure_models_dir, get_category_dir,
-    download_file, verify_file,
+    download_file, ensure_models_dir, get_category_dir, verify_file, ModelCategory,
+    ModelInfo as SharedModelInfo,
 };
 use std::path::PathBuf;
 
@@ -49,52 +48,56 @@ pub async fn download_model(
     progress_callback: Option<Box<dyn Fn(f32) + Send + Sync>>,
 ) -> Result<PathBuf> {
     ensure_models_dir(ModelCategory::Embedding)?;
-    
+
     let model_path = get_model_path(model_name)?;
-    
+
     // Get download URL for model
     let models = list_available_models();
-    let model = models.iter()
+    let model = models
+        .iter()
         .find(|m| m.name == model_name)
         .ok_or_else(|| AppError::BadRequest(format!("Unknown model: {}", model_name)))?;
-    
-    let download_url = model.download_url.as_ref()
-        .ok_or_else(|| AppError::BadRequest(format!("No download URL for model: {}", model_name)))?;
-    
-    tracing::info!("Downloading embedding model {} from {}", model_name, download_url);
-    
+
+    let download_url = model.download_url.as_ref().ok_or_else(|| {
+        AppError::BadRequest(format!("No download URL for model: {}", model_name))
+    })?;
+
+    tracing::info!(
+        "Downloading embedding model {} from {}",
+        model_name,
+        download_url
+    );
+
     // Use shared download function
     download_file(download_url, &model_path, progress_callback).await?;
-    
+
     tracing::info!("Embedding model {} downloaded successfully", model_name);
-    
+
     Ok(model_path)
 }
 
 /// Verify embedding model integrity
 pub fn verify_model(model_name: &str) -> Result<bool> {
     let model_path = get_model_path(model_name)?;
-    
+
     // Get expected size from model list
     let models = list_available_models();
-    let model = models.iter()
-        .find(|m| m.name == model_name);
-    
+    let model = models.iter().find(|m| m.name == model_name);
+
     let expected_size = model.map(|m| m.file_size);
     let checksum = model.and_then(|m| m.checksum.as_deref());
-    
+
     verify_file(&model_path, expected_size, checksum)
 }
 
 /// Delete a downloaded embedding model
 pub fn delete_model(model_name: &str) -> Result<()> {
     let model_path = get_model_path(model_name)?;
-    
+
     if model_path.exists() {
-        std::fs::remove_file(&model_path)
-            .map_err(|e| AppError::Io(e))?;
+        std::fs::remove_file(&model_path).map_err(|e| AppError::Io(e))?;
         tracing::info!("Deleted embedding model: {}", model_name);
     }
-    
+
     Ok(())
 }

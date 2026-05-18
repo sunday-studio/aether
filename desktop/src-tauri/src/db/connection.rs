@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Manager};
 use libsql::{Builder, Database};
+use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::error::{AppError, Result};
@@ -17,16 +17,17 @@ pub struct DbState {
 /// Database path: local dev = target/libsql-replica-dev (avoids watcher rebuilds); build = app data dir.
 fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
     let app_data_dir = if let Some(handle) = app_handle {
-        handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| AppError::Io(std::io::Error::new(
+        handle.path().app_data_dir().map_err(|e| {
+            AppError::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Failed to get app data dir: {}", e),
-            )))?
+            ))
+        })?
     } else if cfg!(debug_assertions) {
         // Local dev: use target/ so DB files are outside src/ and don't trigger the dev watcher
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join("libsql-replica-dev");
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("libsql-replica-dev");
         return Ok(dir.join("local.db"));
     } else {
         // Build without handle: resolve app data dir from identifier (com.cas.aether)
@@ -51,8 +52,7 @@ pub async fn initialize(app_handle: Option<&AppHandle>) -> Result<DbState> {
 
     // Ensure database directory exists
     if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| AppError::Io(e))?;
+        std::fs::create_dir_all(parent).map_err(|e| AppError::Io(e))?;
     }
 
     tracing::info!("Initializing local database at: {}", db_path.display());
@@ -84,9 +84,7 @@ pub fn get_database(state: &DbState) -> Arc<Database> {
 
 /// Apply SQLite optimizations (PRAGMA settings)
 async fn apply_sqlite_optimizations(database: &Database) -> Result<()> {
-    let conn = database
-        .connect()
-        .map_err(|e| AppError::LibSQL(e))?;
+    let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
 
     // PRAGMAs for local database optimization
     // WAL mode must be first for optimal concurrent read/write performance

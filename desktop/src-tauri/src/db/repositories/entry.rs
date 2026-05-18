@@ -24,7 +24,7 @@ impl EntryRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Entry>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -53,12 +53,12 @@ impl EntryRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1; // Fetch one extra to determine has_more
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             // Decode cursor to get last ID
             use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
-            
+
             conn.query(
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM entries 
@@ -84,7 +84,7 @@ impl EntryRepository {
 
         let mut entries = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -117,7 +117,7 @@ impl EntryRepository {
     /// Get entry by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Entry>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -193,9 +193,12 @@ impl EntryRepository {
     }
 
     /// Bulk create entries
-    pub async fn bulk_create(&self, entries_data: Vec<(String, chrono::DateTime<Utc>, bool, bool, bool)>) -> Result<Vec<Entry>> {
+    pub async fn bulk_create(
+        &self,
+        entries_data: Vec<(String, chrono::DateTime<Utc>, bool, bool, bool)>,
+    ) -> Result<Vec<Entry>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
@@ -267,10 +270,11 @@ impl EntryRepository {
         client_updated_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<Entry> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current entry
         let current = self.find_by_id(id).await?;
-        let mut entry = current.ok_or_else(|| AppError::NotFound(format!("Entry {} not found", id)))?;
+        let mut entry =
+            current.ok_or_else(|| AppError::NotFound(format!("Entry {} not found", id)))?;
 
         // Last-Write-Wins conflict detection
         if let Some(client_time) = client_updated_at {
@@ -318,7 +322,7 @@ impl EntryRepository {
     /// Delete an entry (soft delete)
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if entry exists
         let entry = self.find_by_id(id).await?;
         if entry.is_none() {
@@ -342,7 +346,7 @@ impl EntryRepository {
     /// Add tags to an entry
     pub async fn add_tags(&self, entry_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify entry exists
         let entry = self.find_by_id(entry_id).await?;
         if entry.is_none() {
@@ -359,20 +363,23 @@ impl EntryRepository {
             .iter()
             .map(|id| format!("'{}'", id.replace("'", "''")))
             .collect();
-        let query = format!("SELECT id FROM tags WHERE id IN ({})", escaped_ids.join(", "));
-        
+        let query = format!(
+            "SELECT id FROM tags WHERE id IN ({})",
+            escaped_ids.join(", ")
+        );
+
         let mut rows = conn
             .query(&query, libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut found_tag_ids = std::collections::HashSet::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if let Ok(tag_id) = row.get::<String>(0) {
                 found_tag_ids.insert(tag_id);
             }
         }
-        
+
         // Check if all tags were found
         for tag_id in &tag_ids {
             if !found_tag_ids.contains(tag_id) {
@@ -422,11 +429,19 @@ impl EntryRepository {
         for tag_id in &tag_ids {
             // Verify tag exists
             let mut rows = conn
-                .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
+                .query(
+                    "SELECT id FROM tags WHERE id = ?1",
+                    libsql::params![tag_id.as_str()],
+                )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
 
-            if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+            if rows
+                .next()
+                .await
+                .map_err(|e| AppError::LibSQL(e))?
+                .is_none()
+            {
                 return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
             }
 
@@ -454,7 +469,11 @@ impl EntryRepository {
         let _sync_id: Option<String> = row.get(8).ok();
         let _updated_at: Option<i64> = row.get(9).ok();
         let _deleted: i64 = row.get(10).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(11)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -506,7 +525,10 @@ impl EntryRepository {
     }
 
     /// Load tags for multiple entries in one query. Returns map of entry_id -> tags.
-    pub async fn get_tags_for_entries(&self, entry_ids: &[String]) -> Result<HashMap<String, Vec<Tag>>> {
+    pub async fn get_tags_for_entries(
+        &self,
+        entry_ids: &[String],
+    ) -> Result<HashMap<String, Vec<Tag>>> {
         if entry_ids.is_empty() {
             return Ok(HashMap::new());
         }

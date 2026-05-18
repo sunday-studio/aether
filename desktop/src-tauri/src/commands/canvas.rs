@@ -1,8 +1,10 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
-use crate::db::models::Canvas;
-use crate::db::{connection, DbState, CanvasRepository};
-use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams,
+};
+use crate::db::models::Canvas;
+use crate::db::{connection, CanvasRepository, DbState};
+use crate::error::{AppError, Result};
 use crate::utils::{log_create, log_delete, log_update};
 use serde::Deserialize;
 use tauri::State;
@@ -111,7 +113,8 @@ pub async fn create_canvas(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Canvas> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
     }
@@ -126,12 +129,12 @@ pub async fn create_canvas(
     let db = connection::get_database(&*state);
     let repo = CanvasRepository::new(db.clone());
     let canvas = repo.create(request.name, canvas_data).await?;
-    
+
     // Log activity
     if let Err(e) = log_create(db, "canvas".to_string(), canvas.id.clone()).await {
         tracing::warn!("Failed to log canvas creation activity: {}", e);
     }
-    
+
     Ok(canvas)
 }
 
@@ -166,17 +169,18 @@ pub async fn update_canvas(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = CanvasRepository::new(db.clone());
     let canvas = repo.update(&id, request.name, request.canvas_data).await?;
-    
+
     // Log activity
     if let Err(e) = log_update(db, "canvas".to_string(), canvas.id.clone()).await {
         tracing::warn!("Failed to log canvas update activity: {}", e);
     }
-    
+
     Ok(canvas)
 }
 
@@ -211,11 +215,15 @@ pub async fn delete_canvas(
     let db = connection::get_database(&*state);
     let repo = CanvasRepository::new(db.clone());
     repo.delete(&id).await?;
-    
+
     // Log activity
     if let Err(e) = log_delete(db, "canvas".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log canvas deletion activity for canvas {}: {}", id, e);
+        tracing::warn!(
+            "Failed to log canvas deletion activity for canvas {}: {}",
+            id,
+            e
+        );
     }
-    
+
     Ok(())
 }

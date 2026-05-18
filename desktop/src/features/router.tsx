@@ -1,7 +1,6 @@
 import { createBrowserRouter, createRoutesFromElements, Navigate, Route } from 'react-router';
 import { Layout } from '~/components/shared/layout';
 // Features
-import { GraphView } from './graph/graph.view';
 import { Journal } from './journal/journal';
 import { SettingsView } from './settings/settings.view';
 import { TaskLayout } from './tasks/components/task-layout';
@@ -21,7 +20,7 @@ export const router = createBrowserRouter(
 			</Route>
 			<Route path='/canvas/*' element={<Navigate to='/' replace />} />
 			<Route path='/bookmarks/*' element={<Navigate to='/' replace />} />
-			<Route path='/graph' element={<GraphView />} />
+			<Route path='/graph' element={<Navigate to='/' replace />} />
 			<Route path='/settings' element={<SettingsView />} />
 		</Route>,
 	),

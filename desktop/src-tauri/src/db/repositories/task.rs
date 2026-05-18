@@ -1,9 +1,9 @@
 use crate::db::models::{Goal, SubTask, Tag, Task, TaskWithSubtasks};
-use std::collections::HashMap;
 use crate::error::{AppError, Result};
 use crate::utils::generate_id;
 use chrono::Utc;
 use libsql::Database;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct TaskRepository {
@@ -106,16 +106,18 @@ impl TaskRepository {
         // Pagination mode - use composite cursor for due_date + id
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
-                return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
+                return Err(AppError::BadRequest(
+                    "Invalid cursor format for tasks".to_string(),
+                ));
             }
             let last_due_date = &keys[0];
             let last_id = &keys[1];
-            
+
             conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
@@ -142,7 +144,7 @@ impl TaskRepository {
 
         let mut tasks = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -157,7 +159,8 @@ impl TaskRepository {
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
             let last_task = tasks.last().unwrap();
-            let due_date_str = last_task.due_date
+            let due_date_str = last_task
+                .due_date
                 .map(|d| d.to_rfc3339())
                 .unwrap_or_else(|| "".to_string());
             Some(cursor::encode_composite(&[&due_date_str, &last_task.id]))
@@ -177,7 +180,7 @@ impl TaskRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
@@ -205,16 +208,18 @@ impl TaskRepository {
         // Pagination mode - use composite cursor for due_date + id
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
             if keys.len() != 2 {
-                return Err(AppError::BadRequest("Invalid cursor format for tasks".to_string()));
+                return Err(AppError::BadRequest(
+                    "Invalid cursor format for tasks".to_string(),
+                ));
             }
             let last_due_date = &keys[0];
             let last_id = &keys[1];
-            
+
             conn.query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM tasks 
@@ -241,7 +246,7 @@ impl TaskRepository {
 
         let mut tasks = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -256,7 +261,8 @@ impl TaskRepository {
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
             let last_task = tasks.last().unwrap();
-            let due_date_str = last_task.due_date
+            let due_date_str = last_task
+                .due_date
                 .map(|d| d.to_rfc3339())
                 .unwrap_or_else(|| "".to_string());
             Some(cursor::encode_composite(&[&due_date_str, &last_task.id]))
@@ -326,7 +332,8 @@ impl TaskRepository {
 
         // Get current task
         let current = self.find_by_id(id).await?;
-        let mut task = current.ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
+        let mut task =
+            current.ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
 
         // Last-Write-Wins conflict detection
         if let Some(client_time) = client_updated_at {
@@ -412,7 +419,7 @@ impl TaskRepository {
     /// Get subtasks for a task
     pub async fn find_subtasks(&self, task_id: &str) -> Result<Vec<SubTask>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -439,13 +446,16 @@ impl TaskRepository {
     }
 
     /// Get subtasks for multiple tasks efficiently (batch query)
-    pub async fn find_subtasks_for_tasks(&self, task_ids: &[String]) -> Result<HashMap<String, Vec<SubTask>>> {
+    pub async fn find_subtasks_for_tasks(
+        &self,
+        task_ids: &[String],
+    ) -> Result<HashMap<String, Vec<SubTask>>> {
         if task_ids.is_empty() {
             return Ok(HashMap::new());
         }
 
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Build IN clause with escaped IDs
         let escaped_ids: Vec<String> = task_ids
             .iter()
@@ -465,7 +475,7 @@ impl TaskRepository {
             .map_err(|e| AppError::LibSQL(e))?;
 
         let mut subtasks_map: HashMap<String, Vec<SubTask>> = HashMap::new();
-        
+
         // Initialize all task_ids with empty vectors
         for task_id in task_ids {
             subtasks_map.insert(task_id.clone(), Vec::new());
@@ -483,7 +493,10 @@ impl TaskRepository {
     }
 
     /// Load tags for multiple tasks in one query. Returns map of task_id -> tags.
-    pub async fn get_tags_for_tasks(&self, task_ids: &[String]) -> Result<HashMap<String, Vec<Tag>>> {
+    pub async fn get_tags_for_tasks(
+        &self,
+        task_ids: &[String],
+    ) -> Result<HashMap<String, Vec<Tag>>> {
         if task_ids.is_empty() {
             return Ok(HashMap::new());
         }
@@ -501,7 +514,10 @@ impl TaskRepository {
              ORDER BY tt.task_id, t.name ASC",
             in_clause
         );
-        let mut rows = conn.query(&query, libsql::params![]).await.map_err(|e| AppError::LibSQL(e))?;
+        let mut rows = conn
+            .query(&query, libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
         let mut map: HashMap<String, Vec<Tag>> = HashMap::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             let task_id: String = row.get(0).map_err(|e| AppError::LibSQL(e))?;
@@ -577,7 +593,7 @@ impl TaskRepository {
     /// Create a subtask
     pub async fn create_subtask(&self, task_id: &str, title: String) -> Result<SubTask> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -649,7 +665,7 @@ impl TaskRepository {
         is_completed: Option<bool>,
     ) -> Result<SubTask> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current subtask
         let mut rows = conn
             .query(
@@ -664,7 +680,10 @@ impl TaskRepository {
         let mut subtask = if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             self.row_to_subtask(row)?
         } else {
-            return Err(AppError::NotFound(format!("Subtask {} not found", subtask_id)));
+            return Err(AppError::NotFound(format!(
+                "Subtask {} not found",
+                subtask_id
+            )));
         };
 
         // Update fields
@@ -699,7 +718,7 @@ impl TaskRepository {
     /// Delete a subtask
     pub async fn delete_subtask(&self, task_id: &str, subtask_id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if subtask exists
         let mut rows = conn
             .query(
@@ -709,8 +728,16 @@ impl TaskRepository {
             .await
             .map_err(|e| AppError::LibSQL(e))?;
 
-        if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
-            return Err(AppError::NotFound(format!("Subtask {} not found", subtask_id)));
+        if rows
+            .next()
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
+            .is_none()
+        {
+            return Err(AppError::NotFound(format!(
+                "Subtask {} not found",
+                subtask_id
+            )));
         }
 
         let now = Utc::now();
@@ -731,7 +758,7 @@ impl TaskRepository {
     /// Reorder subtasks
     pub async fn reorder_subtasks(&self, task_id: &str, subtask_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -765,7 +792,7 @@ impl TaskRepository {
     /// Add tags to a task
     pub async fn add_tags(&self, task_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -782,20 +809,23 @@ impl TaskRepository {
             .iter()
             .map(|id| format!("'{}'", id.replace("'", "''")))
             .collect();
-        let query = format!("SELECT id FROM tags WHERE id IN ({})", escaped_ids.join(", "));
-        
+        let query = format!(
+            "SELECT id FROM tags WHERE id IN ({})",
+            escaped_ids.join(", ")
+        );
+
         let mut rows = conn
             .query(&query, libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut found_tag_ids = std::collections::HashSet::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if let Ok(tag_id) = row.get::<String>(0) {
                 found_tag_ids.insert(tag_id);
             }
         }
-        
+
         // Check if all tags were found
         for tag_id in &tag_ids {
             if !found_tag_ids.contains(tag_id) {
@@ -832,7 +862,7 @@ impl TaskRepository {
     /// Remove tags from a task
     pub async fn remove_tags(&self, task_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -878,7 +908,7 @@ impl TaskRepository {
     /// Remove goal from a task
     pub async fn remove_goal(&self, task_id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify task exists
         let task = self.find_by_id(task_id).await?;
         if task.is_none() {
@@ -953,7 +983,11 @@ impl TaskRepository {
         let _sync_id: Option<String> = row.get(10).ok();
         let _updated_at: Option<i64> = row.get(11).ok();
         let _deleted: i64 = row.get(12).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(13).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(13)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -1002,7 +1036,11 @@ impl TaskRepository {
         let _sync_id: Option<String> = row.get(8).ok();
         let _updated_at: Option<i64> = row.get(9).ok();
         let _deleted: i64 = row.get(10).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(11)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?

@@ -24,13 +24,13 @@ impl MediaRepository {
         metadata: serde_json::Value,
     ) -> Result<MediaItem> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let id = generate_id("media");
         let now = Utc::now();
         let created_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
-        let metadata_str = serde_json::to_string(&metadata)
-            .map_err(|e| AppError::Serialization(e))?;
+        let metadata_str =
+            serde_json::to_string(&metadata).map_err(|e| AppError::Serialization(e))?;
 
         let now_ms = now.timestamp_millis();
         conn.execute(
@@ -71,7 +71,7 @@ impl MediaRepository {
     /// Get media item by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<MediaItem>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra 
@@ -90,9 +90,13 @@ impl MediaRepository {
     }
 
     /// Get all media items for an entity
-    pub async fn find_by_entity(&self, entity_type: &str, entity_id: &str) -> Result<Vec<MediaItem>> {
+    pub async fn find_by_entity(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+    ) -> Result<Vec<MediaItem>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, entity_type, entity_id, media_type, file_path, metadata, created_at, updated_at, _sync_id, _updated_at, _deleted, _extra 
@@ -120,7 +124,7 @@ impl MediaRepository {
     /// Get file path for a media item
     pub async fn get_file_path(&self, id: &str) -> Result<Option<String>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT file_path FROM media_items WHERE id = ?1 AND (_deleted = 0 OR _deleted IS NULL)",
@@ -140,7 +144,7 @@ impl MediaRepository {
     /// Delete a media item
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if media item exists
         let item = self.find_by_id(id).await?;
         if item.is_none() {
@@ -171,10 +175,14 @@ impl MediaRepository {
         let _sync_id: Option<String> = row.get(8).ok();
         let _updated_at: Option<i64> = row.get(9).ok();
         let _deleted: i64 = row.get(10).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(11)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
-        let metadata = serde_json::from_str(&metadata_str)
-            .map_err(|e| AppError::Serialization(e))?;
+        let metadata =
+            serde_json::from_str(&metadata_str).map_err(|e| AppError::Serialization(e))?;
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
             .with_timezone(&Utc);

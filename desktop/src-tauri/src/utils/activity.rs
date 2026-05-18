@@ -12,7 +12,13 @@ pub async fn log_activity(
     metadata: Option<serde_json::Value>,
 ) -> Result<()> {
     let repo = ActivityRepository::new(database);
-    repo.create(action_type.clone(), entity_type.clone(), entity_id.clone(), metadata).await?;
+    repo.create(
+        action_type.clone(),
+        entity_type.clone(),
+        entity_id.clone(),
+        metadata,
+    )
+    .await?;
     Ok(())
 }
 
@@ -49,7 +55,14 @@ pub async fn log_complete(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    log_activity(database, "complete".to_string(), entity_type, entity_id, None).await
+    log_activity(
+        database,
+        "complete".to_string(),
+        entity_type,
+        entity_id,
+        None,
+    )
+    .await
 }
 
 /// Helper to log tag operations
@@ -59,14 +72,7 @@ pub async fn log_tag_operation(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    log_activity(
-        database,
-        action.to_string(),
-        entity_type,
-        entity_id,
-        None,
-    )
-    .await
+    log_activity(database, action.to_string(), entity_type, entity_id, None).await
 }
 
 /// Helper to log goal operations on tasks
@@ -76,14 +82,7 @@ pub async fn log_goal_operation(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    log_activity(
-        database,
-        action.to_string(),
-        entity_type,
-        entity_id,
-        None,
-    )
-    .await
+    log_activity(database, action.to_string(), entity_type, entity_id, None).await
 }
 
 /// Helper to log reorder action (for subtasks)
@@ -92,7 +91,14 @@ pub async fn log_reorder(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    log_activity(database, "reorder".to_string(), entity_type, entity_id, None).await
+    log_activity(
+        database,
+        "reorder".to_string(),
+        entity_type,
+        entity_id,
+        None,
+    )
+    .await
 }
 
 /// Helper to log restore action (for trash)
@@ -101,5 +107,12 @@ pub async fn log_restore(
     entity_type: String,
     entity_id: String,
 ) -> Result<()> {
-    log_activity(database, "restore".to_string(), entity_type, entity_id, None).await
+    log_activity(
+        database,
+        "restore".to_string(),
+        entity_type,
+        entity_id,
+        None,
+    )
+    .await
 }

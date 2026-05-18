@@ -1,3 +1,4 @@
+use crate::commands::common::PaginationResponse;
 use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams,
     TaskIdPathParams, TaskSubtaskPathParams,
@@ -5,7 +6,6 @@ use crate::commands::params::{
 use crate::db::models::{SubTask, TaskWithSubtasks};
 use crate::db::{connection, DbState, SearchDocumentRepository, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::commands::common::PaginationResponse;
 use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
@@ -125,7 +125,8 @@ pub async fn create_task(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<TaskWithSubtasks> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
@@ -195,7 +196,11 @@ pub async fn get_inbox_tasks(
         .find_inbox(params.normalize_limit(), params.cursor)
         .await?;
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
-    Ok(PaginationResponse::new(tasks_with_subtasks, next_cursor, has_more))
+    Ok(PaginationResponse::new(
+        tasks_with_subtasks,
+        next_cursor,
+        has_more,
+    ))
 }
 
 /// Get overdue tasks
@@ -226,7 +231,11 @@ pub async fn get_overdue_tasks(
         .find_overdue(params.normalize_limit(), params.cursor)
         .await?;
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
-    Ok(PaginationResponse::new(tasks_with_subtasks, next_cursor, has_more))
+    Ok(PaginationResponse::new(
+        tasks_with_subtasks,
+        next_cursor,
+        has_more,
+    ))
 }
 
 /// Get task by ID
@@ -258,7 +267,8 @@ pub async fn get_task_by_id(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
     let repo = TaskRepository::new(connection::get_database(&*state));
-    let task = repo.find_by_id(&id)
+    let task = repo
+        .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let out = repo.with_subtasks(vec![task]).await?;
@@ -297,15 +307,16 @@ pub async fn update_task(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    
+
     // Get current task to check completion status
     let old_task = repo.find_by_id(&id).await?;
     let was_completed = old_task.as_ref().map(|t| t.is_completed).unwrap_or(false);
-    
+
     let task = repo
         .update(
             &id,
@@ -395,12 +406,16 @@ pub async fn delete_task(
     {
         tracing::warn!("Failed to remove task {} from search index: {}", id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_delete(db.clone(), "task".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log task deletion activity for task {}: {}", id, e);
+        tracing::warn!(
+            "Failed to log task deletion activity for task {}: {}",
+            id,
+            e
+        );
     }
-    
+
     Ok(())
 }
 
@@ -466,7 +481,8 @@ pub async fn create_subtask(
     if task_id.is_empty() {
         return Err(AppError::BadRequest("Task ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.title.is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
@@ -474,12 +490,12 @@ pub async fn create_subtask(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     let subtask = repo.create_subtask(&task_id, request.title).await?;
-    
+
     // Log activity
     if let Err(e) = log_create(db, "subtask".to_string(), subtask.id.clone()).await {
         tracing::warn!("Failed to log subtask creation activity: {}", e);
     }
-    
+
     Ok(subtask)
 }
 
@@ -522,29 +538,34 @@ pub async fn update_subtask(
     if subtask_id.is_empty() {
         return Err(AppError::BadRequest("Subtask ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    
+
     // Get current subtask to check completion status
     let subtasks = repo.find_subtasks(&task_id).await?;
     let old_subtask = subtasks.iter().find(|s| s.id == subtask_id);
     let was_completed = old_subtask.map(|s| s.is_completed).unwrap_or(false);
-    
-    let subtask = repo.update_subtask(&task_id, &subtask_id, request.title, request.is_completed)
+
+    let subtask = repo
+        .update_subtask(&task_id, &subtask_id, request.title, request.is_completed)
         .await?;
-    
+
     // Log activity - check if completion changed
     if let Some(new_completed) = request.is_completed {
         if !was_completed && new_completed {
             // Subtask was just completed
-            if let Err(e) = log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
+            if let Err(e) =
+                log_complete(db.clone(), "subtask".to_string(), subtask.id.clone()).await
+            {
                 tracing::warn!("Failed to log subtask completion activity: {}", e);
             }
         } else {
             // Regular update
-            if let Err(e) = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await {
+            if let Err(e) = log_update(db.clone(), "subtask".to_string(), subtask.id.clone()).await
+            {
                 tracing::warn!("Failed to log subtask update activity: {}", e);
             }
         }
@@ -554,7 +575,7 @@ pub async fn update_subtask(
             tracing::warn!("Failed to log subtask update activity: {}", e);
         }
     }
-    
+
     Ok(subtask)
 }
 
@@ -598,12 +619,16 @@ pub async fn delete_subtask(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.delete_subtask(&task_id, &subtask_id).await?;
-    
+
     // Log activity
     if let Err(e) = log_delete(db, "subtask".to_string(), subtask_id.clone()).await {
-        tracing::warn!("Failed to log subtask deletion activity for subtask {}: {}", subtask_id, e);
+        tracing::warn!(
+            "Failed to log subtask deletion activity for subtask {}: {}",
+            subtask_id,
+            e
+        );
     }
-    
+
     Ok(())
 }
 
@@ -633,16 +658,22 @@ pub async fn reorder_subtasks(
     let task_id = path_params
         .and_then(|p| Some(p.task_id))
         .ok_or_else(|| AppError::BadRequest("Task ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    repo.reorder_subtasks(&task_id, request.sub_task_ids).await?;
-    
+    repo.reorder_subtasks(&task_id, request.sub_task_ids)
+        .await?;
+
     // Log activity - reorder is logged for the task
     if let Err(e) = log_reorder(db, "task".to_string(), task_id.clone()).await {
-        tracing::warn!("Failed to log subtask reorder activity for task {}: {}", task_id, e);
+        tracing::warn!(
+            "Failed to log subtask reorder activity for task {}: {}",
+            task_id,
+            e
+        );
     }
-    
+
     Ok(serde_json::json!({"success": true}))
 }
 
@@ -672,17 +703,20 @@ pub async fn add_tags_to_task(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.add_tags(&id, request.tag_ids).await?;
-    
+
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await {
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "task".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log add_tags activity for task {}: {}", id, e);
     }
-    
-    let task = repo.find_by_id(&id)
+
+    let task = repo
+        .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let out = repo.with_subtasks(vec![task]).await?;
@@ -715,17 +749,21 @@ pub async fn remove_tags_from_task(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.remove_tags(&id, request.tag_ids).await?;
-    
+
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await {
+    if let Err(e) =
+        log_tag_operation(db.clone(), "remove_tags", "task".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log remove_tags activity for task {}: {}", id, e);
     }
-    
-    let task = repo.find_by_id(&id)
+
+    let task = repo
+        .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let out = repo.with_subtasks(vec![task]).await?;
@@ -758,29 +796,35 @@ pub async fn add_goal_to_task(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
-    
+
     let goal_instance_id = repo.add_goal(&id, &request.goal_id).await?;
-    
-    let task = repo.update(
-        &id,
-        None,
-        None,
-        None,
-        None,
-        Some(Some(request.goal_id.clone())),
-        Some(goal_instance_id),
-        None,
-    )
-    .await?;
-    
+
+    let task = repo
+        .update(
+            &id,
+            None,
+            None,
+            None,
+            None,
+            Some(Some(request.goal_id.clone())),
+            Some(goal_instance_id),
+            None,
+        )
+        .await?;
+
     // Log activity
     if let Err(e) = log_goal_operation(db, "add_goal", "task".to_string(), task.id.clone()).await {
-        tracing::warn!("Failed to log add_goal activity for task {}: {}", task.id, e);
+        tracing::warn!(
+            "Failed to log add_goal activity for task {}: {}",
+            task.id,
+            e
+        );
     }
-    
+
     let out = repo.with_subtasks(vec![task]).await?;
     Ok(out.into_iter().next().expect("one task"))
 }
@@ -813,13 +857,16 @@ pub async fn remove_goal_from_task(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.remove_goal(&id).await?;
-    
+
     // Log activity
-    if let Err(e) = log_goal_operation(db.clone(), "remove_goal", "task".to_string(), id.clone()).await {
+    if let Err(e) =
+        log_goal_operation(db.clone(), "remove_goal", "task".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log remove_goal activity for task {}: {}", id, e);
     }
-    
-    let task = repo.find_by_id(&id)
+
+    let task = repo
+        .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
     let out = repo.with_subtasks(vec![task]).await?;

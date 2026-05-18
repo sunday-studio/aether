@@ -1,11 +1,13 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
-use crate::db::models::Entry;
-use crate::db::{connection, DbState, EntryRepository, SearchDocumentRepository};
-use crate::db::repositories::LinkRepository;
-use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
-use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams,
+};
+use crate::db::models::Entry;
+use crate::db::repositories::LinkRepository;
+use crate::db::{connection, DbState, EntryRepository, SearchDocumentRepository};
+use crate::error::{AppError, Result};
 use crate::utils::link_parser::extract_links_from_lexical_content;
+use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use chrono::Utc;
 use serde::Deserialize;
 use tauri::State;
@@ -151,29 +153,33 @@ pub async fn create_entry(
         tracing::info!("create_entry called with no request_data");
     }
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
-    let entry = repo.create(
-        request.document.clone(),
-        request.date,
-        request.is_pinned.unwrap_or(false),
-        request.is_archived.unwrap_or(false),
-        request.is_deleted.unwrap_or(false),
-    )
-    .await?;
-    
+    let entry = repo
+        .create(
+            request.document.clone(),
+            request.date,
+            request.is_pinned.unwrap_or(false),
+            request.is_archived.unwrap_or(false),
+            request.is_deleted.unwrap_or(false),
+        )
+        .await?;
+
     // Sync links from content
     let link_repo = LinkRepository::new(db.clone());
     if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
         for link in extracted_links {
-            let _ = link_repo.create(
-                "entry".to_string(),
-                entry.id.clone(),
-                link.target_type,
-                link.target_id,
-                link.link_text,
-            ).await;
+            let _ = link_repo
+                .create(
+                    "entry".to_string(),
+                    entry.id.clone(),
+                    link.target_type,
+                    link.target_id,
+                    link.link_text,
+                )
+                .await;
         }
     }
 
@@ -183,15 +189,14 @@ pub async fn create_entry(
     {
         tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry creation activity: {}", e);
     }
-    
+
     Ok(entry)
 }
-
 
 /// Bulk create entries
 #[utoipa::path(
@@ -213,7 +218,8 @@ pub async fn bulk_create_entries(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<Entry>> {
     let _guard = connection::with_db_access(&*state).await;
-    let payload = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let payload =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     let entries_data: Vec<_> = payload
@@ -229,7 +235,7 @@ pub async fn bulk_create_entries(
         })
         .collect();
     let entries = repo.bulk_create(entries_data).await?;
-    
+
     // Log activities for each created entry
     for entry in &entries {
         if let Err(e) = SearchDocumentRepository::new(db.clone())
@@ -240,10 +246,14 @@ pub async fn bulk_create_entries(
         }
 
         if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
-            tracing::warn!("Failed to log entry creation activity for entry {}: {}", entry.id, e);
+            tracing::warn!(
+                "Failed to log entry creation activity for entry {}: {}",
+                entry.id,
+                e
+            );
         }
     }
-    
+
     Ok(entries)
 }
 
@@ -279,60 +289,72 @@ pub async fn update_entry(
     }
 
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
-    let entry = repo.update(
-        &id,
-        request.document.clone(),
-        request.is_pinned.unwrap_or(false),
-        request.is_archived.unwrap_or(false),
-        request.is_deleted.unwrap_or(false),
-        request.updated_at,
-    )
-    .await?;
-    
+    let entry = repo
+        .update(
+            &id,
+            request.document.clone(),
+            request.is_pinned.unwrap_or(false),
+            request.is_archived.unwrap_or(false),
+            request.is_deleted.unwrap_or(false),
+            request.updated_at,
+        )
+        .await?;
+
     // Sync links from content
     let link_repo = LinkRepository::new(db.clone());
     if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
         // Get existing links
-        let existing_links = link_repo.find_by_source("entry", &id).await.unwrap_or_default();
+        let existing_links = link_repo
+            .find_by_source("entry", &id)
+            .await
+            .unwrap_or_default();
         let existing_targets: std::collections::HashSet<(String, String)> = existing_links
             .iter()
             .map(|l| (l.target_type.clone(), l.target_id.clone()))
             .collect();
-        
+
         // Create new links
         let new_targets: std::collections::HashSet<(String, String)> = extracted_links
             .iter()
             .map(|l| (l.target_type.clone(), l.target_id.clone()))
             .collect();
-        
+
         // Delete removed links
         for existing_link in &existing_links {
-            let target_key = (existing_link.target_type.clone(), existing_link.target_id.clone());
+            let target_key = (
+                existing_link.target_type.clone(),
+                existing_link.target_id.clone(),
+            );
             if !new_targets.contains(&target_key) {
-                let _ = link_repo.delete(
-                    &existing_link.source_type,
-                    &existing_link.source_id,
-                    &existing_link.target_type,
-                    &existing_link.target_id,
-                ).await;
+                let _ = link_repo
+                    .delete(
+                        &existing_link.source_type,
+                        &existing_link.source_id,
+                        &existing_link.target_type,
+                        &existing_link.target_id,
+                    )
+                    .await;
             }
         }
-        
+
         // Create new links
         for link in extracted_links {
             let target_key = (link.target_type.clone(), link.target_id.clone());
             if !existing_targets.contains(&target_key) {
-                let _ = link_repo.create(
-                    "entry".to_string(),
-                    id.clone(),
-                    link.target_type,
-                    link.target_id,
-                    link.link_text,
-                ).await;
+                let _ = link_repo
+                    .create(
+                        "entry".to_string(),
+                        id.clone(),
+                        link.target_type,
+                        link.target_id,
+                        link.link_text,
+                    )
+                    .await;
             }
         }
     }
@@ -343,12 +365,12 @@ pub async fn update_entry(
     {
         tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_update(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry update activity: {}", e);
     }
-    
+
     Ok(entry)
 }
 
@@ -383,7 +405,7 @@ pub async fn delete_entry(
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     repo.delete(&id).await?;
-    
+
     // Delete all links from this entry
     let link_repo = LinkRepository::new(db.clone());
     let _ = link_repo.delete_by_source("entry", &id).await;
@@ -394,12 +416,16 @@ pub async fn delete_entry(
     {
         tracing::warn!("Failed to remove entry {} from search index: {}", id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_delete(db.clone(), "entry".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log entry deletion activity for entry {}: {}", id, e);
+        tracing::warn!(
+            "Failed to log entry deletion activity for entry {}: {}",
+            id,
+            e
+        );
     }
-    
+
     Ok(())
 }
 
@@ -432,16 +458,18 @@ pub async fn add_tags_to_entry(
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     repo.add_tags(&id, request.tag_ids).await?;
-    
+
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await {
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "entry".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log add_tags activity for entry {}: {}", id, e);
     }
-    
+
     // Return updated entry
     repo.find_by_id(&id)
         .await?
@@ -476,7 +504,8 @@ pub async fn remove_tags_from_entry(
     if id.is_empty() {
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     if request.tag_ids.is_empty() {
         return Err(AppError::BadRequest("Tag IDs are required".to_string()));
@@ -488,7 +517,9 @@ pub async fn remove_tags_from_entry(
     repo.remove_tags(&id, request.tag_ids).await?;
 
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await {
+    if let Err(e) =
+        log_tag_operation(db.clone(), "remove_tags", "entry".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log remove_tags activity for entry {}: {}", id, e);
     }
 

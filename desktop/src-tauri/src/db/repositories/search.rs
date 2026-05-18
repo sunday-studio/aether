@@ -1,4 +1,4 @@
-use crate::db::models::{Entry, Goal, SubTask, Tag, Task, Bookmark};
+use crate::db::models::{Bookmark, Entry, Goal, SubTask, Tag, Task};
 use crate::error::{AppError, Result};
 use libsql::Database;
 use std::sync::Arc;
@@ -86,7 +86,8 @@ impl SearchRepository {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Vec<SearchResult>> {
-        self.search_internal(query, types, tag_ids, limit, offset, "fuzzy").await
+        self.search_internal(query, types, tag_ids, limit, offset, "fuzzy")
+            .await
     }
 
     /// Search using hybrid mode (combines fuzzy and semantic search)
@@ -98,7 +99,8 @@ impl SearchRepository {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Vec<SearchResult>> {
-        self.search_internal(query, types, tag_ids, limit, offset, "hybrid").await
+        self.search_internal(query, types, tag_ids, limit, offset, "hybrid")
+            .await
     }
 
     /// Internal search method that handles different modes
@@ -160,7 +162,9 @@ impl SearchRepository {
         }
 
         if search_types.contains(&ResourceType::Bookmark) {
-            let bookmark_results = self.search_bookmarks(&escaped_query, &tag_ids, limit).await?;
+            let bookmark_results = self
+                .search_bookmarks(&escaped_query, &tag_ids, limit)
+                .await?;
             results.extend(bookmark_results);
         }
 
@@ -181,14 +185,17 @@ impl SearchRepository {
                 SearchResult::Tag { score, .. } => *score,
                 SearchResult::Bookmark { score, .. } => *score,
             };
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         if mode == "hybrid" {
             let semantic_results = self.search_semantic(query, &search_types, limit).await?;
-            
-            let mut merged: std::collections::HashMap<String, (SearchResult, f64, f64)> = std::collections::HashMap::new();
-            
+
+            let mut merged: std::collections::HashMap<String, (SearchResult, f64, f64)> =
+                std::collections::HashMap::new();
+
             for result in results {
                 let (id, score) = match &result {
                     SearchResult::Entry { entry, score, .. } => (entry.id.clone(), *score),
@@ -196,11 +203,13 @@ impl SearchRepository {
                     SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
                     SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
                     SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
-                    SearchResult::Bookmark { bookmark, score, .. } => (bookmark.id.clone(), *score),
+                    SearchResult::Bookmark {
+                        bookmark, score, ..
+                    } => (bookmark.id.clone(), *score),
                 };
                 merged.insert(id, (result, score * 0.6, 0.0));
             }
-            
+
             for result in semantic_results {
                 let (id, score) = match &result {
                     SearchResult::Entry { entry, score, .. } => (entry.id.clone(), *score),
@@ -208,9 +217,11 @@ impl SearchRepository {
                     SearchResult::SubTask { subtask, score, .. } => (subtask.id.clone(), *score),
                     SearchResult::Goal { goal, score, .. } => (goal.id.clone(), *score),
                     SearchResult::Tag { tag, score, .. } => (tag.id.clone(), *score),
-                    SearchResult::Bookmark { bookmark, score, .. } => (bookmark.id.clone(), *score),
+                    SearchResult::Bookmark {
+                        bookmark, score, ..
+                    } => (bookmark.id.clone(), *score),
                 };
-                
+
                 match merged.get_mut(&id) {
                     Some((_, _, semantic_score)) => {
                         *semantic_score = score * 0.4;
@@ -220,7 +231,7 @@ impl SearchRepository {
                     }
                 }
             }
-            
+
             let mut final_results: Vec<SearchResult> = merged
                 .into_iter()
                 .map(|(_, (mut result, fuzzy_score, semantic_score))| {
@@ -236,7 +247,7 @@ impl SearchRepository {
                     result
                 })
                 .collect();
-            
+
             final_results.sort_by(|a, b| {
                 let score_a = match a {
                     SearchResult::Entry { score, .. } => *score,
@@ -254,9 +265,11 @@ impl SearchRepository {
                     SearchResult::Tag { score, .. } => *score,
                     SearchResult::Bookmark { score, .. } => *score,
                 };
-                score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+                score_b
+                    .partial_cmp(&score_a)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
-            
+
             final_results.truncate(limit as usize);
             return Ok(final_results);
         }
@@ -338,11 +351,7 @@ impl SearchRepository {
         Ok(results)
     }
 
-    async fn search_subtasks(
-        &self,
-        query: &str,
-        limit: u32,
-    ) -> Result<Vec<SearchResult>> {
+    async fn search_subtasks(&self, query: &str, limit: u32) -> Result<Vec<SearchResult>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
         let sql = "SELECT s.id, s.title, s.is_completed, s.task_id, s.order_index, s.created_at, s.updated_at, s.deleted_at,
@@ -410,11 +419,7 @@ impl SearchRepository {
         Ok(results)
     }
 
-    async fn search_tags(
-        &self,
-        query: &str,
-        limit: u32,
-    ) -> Result<Vec<SearchResult>> {
+    async fn search_tags(&self, query: &str, limit: u32) -> Result<Vec<SearchResult>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
         let sql = "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at,
@@ -491,10 +496,10 @@ impl SearchRepository {
         let query_embedding = crate::utils::embeddings::generate_embedding(query).await?;
         let embedding_json = serde_json::to_string(&query_embedding)
             .map_err(|e| AppError::Internal(format!("Failed to serialize embedding: {}", e)))?;
-        
+
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
         let mut all_results = Vec::new();
-        
+
         for resource_type in types {
             match resource_type {
                 ResourceType::Entry => {
@@ -504,12 +509,12 @@ impl SearchRepository {
                                WHERE e.embedding IS NOT NULL AND e.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(8).unwrap_or(2.0);
                         let entry = self.row_to_entry(row)?;
@@ -529,12 +534,12 @@ impl SearchRepository {
                                WHERE t.embedding IS NOT NULL AND t.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(10).unwrap_or(2.0);
                         let task = self.row_to_task(row)?;
@@ -553,12 +558,12 @@ impl SearchRepository {
                                WHERE s.embedding IS NOT NULL AND s.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(8).unwrap_or(2.0);
                         let subtask = self.row_to_subtask(row)?;
@@ -578,12 +583,12 @@ impl SearchRepository {
                                WHERE g.embedding IS NOT NULL AND g.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(12).unwrap_or(2.0);
                         let goal = self.row_to_goal(row)?;
@@ -602,12 +607,12 @@ impl SearchRepository {
                                WHERE t.embedding IS NOT NULL AND t.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(5).unwrap_or(2.0);
                         let tag = self.row_to_tag(row)?;
@@ -626,12 +631,12 @@ impl SearchRepository {
                                WHERE b.embedding IS NOT NULL AND b.deleted_at IS NULL
                                ORDER BY distance ASC
                                LIMIT ?2";
-                    
+
                     let mut rows = conn
                         .query(sql, libsql::params![embedding_json.clone(), limit as i64])
                         .await
                         .map_err(|e| AppError::LibSQL(e))?;
-                    
+
                     while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                         let distance: f64 = row.get(16).unwrap_or(2.0);
                         let bookmark = self.row_to_bookmark(row)?;
@@ -645,7 +650,7 @@ impl SearchRepository {
                 }
             }
         }
-        
+
         Ok(all_results)
     }
 
@@ -691,7 +696,10 @@ impl SearchRepository {
                 // For brevity, returning empty for now - can be extended
                 Ok(Vec::new())
             }
-            _ => Err(AppError::BadRequest(format!("Invalid resource type: {}", resource_type))),
+            _ => Err(AppError::BadRequest(format!(
+                "Invalid resource type: {}",
+                resource_type
+            ))),
         }
     }
 
@@ -708,16 +716,23 @@ impl SearchRepository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
                 .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
-            deleted_at: row.get::<Option<String>>(7)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            deleted_at: row
+                .get::<Option<String>>(7)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             tags: None,
             _sync_id: row.get::<String>(8).ok(),
             _updated_at: row.get::<i64>(9).ok(),
             _deleted: row.get::<i64>(10).ok().map(|v| v != 0).unwrap_or(false),
-            _extra: row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok()),
+            _extra: row
+                .get::<Option<String>>(11)
+                .ok()
+                .flatten()
+                .and_then(|s| serde_json::from_str(&s).ok()),
         })
     }
 
@@ -727,10 +742,13 @@ impl SearchRepository {
             title: row.get(1)?,
             description: row.get(2)?,
             is_completed: row.get::<i64>(3)? != 0,
-            due_date: row.get::<Option<String>>(4)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            due_date: row
+                .get::<Option<String>>(4)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             goal_instance_id: row.get(5)?,
             goal_id: row.get(6)?,
@@ -740,10 +758,13 @@ impl SearchRepository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(8)?)
                 .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
-            deleted_at: row.get::<Option<String>>(9)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            deleted_at: row
+                .get::<Option<String>>(9)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             subtasks: None,
             _sync_id: None,
@@ -766,10 +787,13 @@ impl SearchRepository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
                 .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
-            deleted_at: row.get::<Option<String>>(7)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            deleted_at: row
+                .get::<Option<String>>(7)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             _sync_id: None,
             _updated_at: None,
@@ -786,12 +810,16 @@ impl SearchRepository {
             is_non_recurring: row.get::<i64>(3)? != 0,
             recurrence_type: row.get(4)?,
             recurrence_interval: row.get(5)?,
-            recurrence_anchor: row.get::<Option<String>>(6)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            recurrence_anchor: row
+                .get::<Option<String>>(6)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
-            recurrence_meta: row.get::<Option<String>>(7)?
+            recurrence_meta: row
+                .get::<Option<String>>(7)?
                 .map(|s| serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)),
             timezone: row.get(8)?,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(9)?)
@@ -800,10 +828,13 @@ impl SearchRepository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(10)?)
                 .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
-            deleted_at: row.get::<Option<String>>(11)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            deleted_at: row
+                .get::<Option<String>>(11)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             _sync_id: None,
             _updated_at: None,
@@ -822,10 +853,13 @@ impl SearchRepository {
             updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(3)?)
                 .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&chrono::Utc),
-            deleted_at: row.get::<Option<String>>(4)?
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-                    .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
-                    .map(|dt| dt.with_timezone(&chrono::Utc)))
+            deleted_at: row
+                .get::<Option<String>>(4)?
+                .map(|s| {
+                    chrono::DateTime::parse_from_rfc3339(&s)
+                        .map_err(|e| AppError::Internal(format!("Invalid datetime: {}", e)))
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                })
                 .transpose()?,
             _sync_id: None,
             _updated_at: None,
@@ -865,8 +899,7 @@ impl SearchRepository {
         let published_at = published_at_str
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc));
-        let metadata_json = metadata_json_str
-            .and_then(|s| serde_json::from_str(&s).ok());
+        let metadata_json = metadata_json_str.and_then(|s| serde_json::from_str(&s).ok());
 
         // Search queries (FTS, semantic) do not select sync columns; use defaults
         Ok(Bookmark {
@@ -902,10 +935,16 @@ mod tests {
     fn test_resource_type_from_str() {
         assert_eq!(ResourceType::from_str("entry"), Some(ResourceType::Entry));
         assert_eq!(ResourceType::from_str("task"), Some(ResourceType::Task));
-        assert_eq!(ResourceType::from_str("subtask"), Some(ResourceType::SubTask));
+        assert_eq!(
+            ResourceType::from_str("subtask"),
+            Some(ResourceType::SubTask)
+        );
         assert_eq!(ResourceType::from_str("goal"), Some(ResourceType::Goal));
         assert_eq!(ResourceType::from_str("tag"), Some(ResourceType::Tag));
-        assert_eq!(ResourceType::from_str("bookmark"), Some(ResourceType::Bookmark));
+        assert_eq!(
+            ResourceType::from_str("bookmark"),
+            Some(ResourceType::Bookmark)
+        );
         assert_eq!(ResourceType::from_str("invalid"), None);
         assert_eq!(ResourceType::from_str("ENTRY"), Some(ResourceType::Entry));
     }
@@ -913,6 +952,9 @@ mod tests {
     #[test]
     fn test_escape_fts_query() {
         assert_eq!(SearchRepository::escape_fts_query("test"), "test");
-        assert_eq!(SearchRepository::escape_fts_query("test\"quote"), "test\"\"quote");
+        assert_eq!(
+            SearchRepository::escape_fts_query("test\"quote"),
+            "test\"\"quote"
+        );
     }
 }

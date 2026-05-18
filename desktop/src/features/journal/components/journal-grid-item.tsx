@@ -1,15 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
-import { MoreVertical } from "lucide-react";
-import { useState } from "react";
-import { useDeleteEntry, useUpdateEntry } from "~/aether-sdk";
-import { invalidateEntryQueries } from "../invalidate-entry-queries";
-import { showToast } from "~/components/shared/toast-components";
-import type { EntryWithTags } from "~/types/models";
-import { extractFirstSentence } from "../journal.domain.ts";
-import { EntryAudio } from "./entry-audio";
-import { JournalActionsDropdown } from "./journal-actions-dropdown";
-import { JournalEditor } from "./journal-editor";
+import { useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import { MoreVertical } from 'lucide-react';
+import { useState } from 'react';
+import { useDeleteEntry, useUpdateEntry } from '~/aether-sdk';
+import { invalidateEntryQueries } from '../invalidate-entry-queries';
+import { showToast } from '~/components/shared/toast-components';
+import type { EntryWithTags } from '~/types/models';
+import { extractFirstSentence } from '../journal.domain.ts';
+// import { EntryAudio } from "./entry-audio";
+import { JournalActionsDropdown } from './journal-actions-dropdown';
+import { JournalEditor } from './journal-editor';
 
 interface JournalGridItemProps {
 	entry: EntryWithTags;
@@ -27,10 +27,10 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 	const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(false);
 
-	const title = extractFirstSentence(entry.document ?? "");
+	const title = extractFirstSentence(entry.document ?? '');
 
 	const onUpdateEntry = async (entryId: string, document: string) => {
-		if (isEntryDocumentDifferent(entry.document ?? "", document)) {
+		if (isEntryDocumentDifferent(entry.document ?? '', document)) {
 			updateEntry(
 				{
 					id: entryId,
@@ -54,7 +54,7 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 				onSuccess: () => {
 					invalidateEntryQueries(queryClient);
 					showToast({
-						title: "Entry deleted successfully",
+						title: 'Entry deleted successfully',
 					});
 				},
 			},
@@ -62,59 +62,54 @@ export const JournalGridItem = ({ entry }: JournalGridItemProps) => {
 	};
 
 	return (
-		<div className="bg-white rounded-lg border border-neutral-200 p-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col gap-2">
+		<div className='flex cursor-pointer flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-4 transition-shadow hover:shadow-md'>
 			{/* Header with title and actions */}
-			<div className="flex items-start justify-between gap-2">
+			<div className='flex items-start justify-between gap-2'>
 				<h3
-					className="font-medium text-neutral-900 flex-1 line-clamp-2 cursor-pointer"
+					className='line-clamp-2 flex-1 cursor-pointer font-medium text-neutral-900'
 					onClick={() => setIsExpanded(!isExpanded)}
 				>
 					{title}
 				</h3>
 				<JournalActionsDropdown
 					entry={entry}
-					onDeleteEntry={() => onDeleteEntry(entry.id ?? "")}
-					onPinEntry={() => {}}
-					onArchiveEntry={() => {}}
+					onDeleteEntry={() => onDeleteEntry(entry.id ?? '')}
 					isOpen={isActionsDropdownOpen}
 					onOpenChange={setIsActionsDropdownOpen}
-					onAddTags={() => {}}
 				>
 					<button
-						type="button"
-						className="text-neutral-400 hover:text-neutral-600 p-1"
-						onClick={(e) => {
+						type='button'
+						className='p-1 text-neutral-400 hover:text-neutral-600'
+						onClick={e => {
 							e.stopPropagation();
 							setIsActionsDropdownOpen(true);
 						}}
 					>
-						<MoreVertical className="w-4 h-4" />
+						<MoreVertical className='h-4 w-4' />
 					</button>
 				</JournalActionsDropdown>
 			</div>
 
 			{/* Metadata */}
-			<div className="flex items-center gap-2 text-xs text-neutral-500">
+			<div className='flex items-center gap-2 text-xs text-neutral-500'>
 				<span>
-					{formatDistanceToNow(new Date(entry.createdAt ?? ""), {
+					{formatDistanceToNow(new Date(entry.createdAt ?? ''), {
 						addSuffix: true,
 					})}
 				</span>
 			</div>
 
-			{/* Audio if available */}
-			<EntryAudio entryId={entry.id ?? ""} />
+			{/* Audio is intentionally hidden for v1 until the flow is ready to ship. */}
+			{/* <EntryAudio entryId={entry.id ?? ""} /> */}
 
 			{/* Expanded editor */}
 			{isExpanded && (
-				<div className="mt-2 border-t border-neutral-100 pt-2">
+				<div className='mt-2 border-t border-neutral-100 pt-2'>
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
-						document={entry.document ?? ""}
-						id={entry.id ?? ""}
-						onChange={(document: string) =>
-							onUpdateEntry(entry.id ?? "", document)
-						}
+						document={entry.document ?? ''}
+						id={entry.id ?? ''}
+						onChange={(document: string) => onUpdateEntry(entry.id ?? '', document)}
 					/>
 				</div>
 			)}

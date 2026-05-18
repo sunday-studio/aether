@@ -56,7 +56,9 @@ pub async fn fetch_from_external(url: &str) -> Result<ExtractedMetadata> {
         Err(e) => tracing::debug!("LinkPreview failed for {}: {}", url, e),
     }
 
-    Err(AppError::Internal("All external metadata providers failed".to_string()))
+    Err(AppError::Internal(
+        "All external metadata providers failed".to_string(),
+    ))
 }
 
 /// Fetch metadata from Microlink API
@@ -67,7 +69,7 @@ async fn fetch_from_microlink(url: &str) -> Result<ExtractedMetadata> {
         .map_err(|e| AppError::Internal(format!("Failed to create HTTP client: {}", e)))?;
 
     let api_url = format!("https://api.microlink.io?url={}", urlencoding::encode(url));
-    
+
     let response = client
         .get(&api_url)
         .send()
@@ -87,7 +89,8 @@ async fn fetch_from_microlink(url: &str) -> Result<ExtractedMetadata> {
         .map_err(|e| AppError::Internal(format!("Failed to parse Microlink response: {}", e)))?;
 
     let data = microlink_response.data;
-    let published_at = data.date
+    let published_at = data
+        .date
         .and_then(|d| DateTime::parse_from_rfc3339(&d).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
@@ -110,5 +113,7 @@ async fn fetch_from_linkpreview(_url: &str) -> Result<ExtractedMetadata> {
     // LinkPreview requires an API key
     // For now, return an error to indicate it's not configured
     // In the future, this could check for an API key in settings
-    Err(AppError::Internal("LinkPreview API key not configured".to_string()))
+    Err(AppError::Internal(
+        "LinkPreview API key not configured".to_string(),
+    ))
 }

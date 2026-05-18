@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { RouterProvider } from 'react-router';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from './context/theme-context';
+import { UpdaterProvider } from './context/updater-context';
 import { OnboardingGate } from './features/onboarding/onboarding-gate';
 import { router } from './features/router';
 import { initQueryClient } from './utils/query-client';
@@ -31,11 +32,13 @@ function App() {
 		<Suspense fallback={<div>Loading...</div>}>
 			<QueryClientProvider client={queryClient}>
 				<ThemeProvider>
-					<Toaster />
-					<ReactQueryDevtools buttonPosition='top-right' initialIsOpen={false} />
-					<OnboardingGate>
-						<RouterProvider router={router} />
-					</OnboardingGate>
+					<UpdaterProvider>
+						<Toaster />
+						<ReactQueryDevtools buttonPosition='top-right' initialIsOpen={false} />
+						<OnboardingGate>
+							<RouterProvider router={router} />
+						</OnboardingGate>
+					</UpdaterProvider>
 				</ThemeProvider>
 			</QueryClientProvider>
 		</Suspense>

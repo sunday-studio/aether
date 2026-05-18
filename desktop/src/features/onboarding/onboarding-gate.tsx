@@ -165,6 +165,14 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 		(providersResponse?.data ?? []).map(item => [item.name, item.status]),
 	);
 	const progress = ((stepIndex + 1) / steps.length) * 100;
+	const isLastStep = stepIndex === steps.length - 1;
+	const canContinueCurrentStep =
+		currentStep.id !== 'sync' ||
+		syncChoice === 'no' ||
+		(syncChoice === 'yes' &&
+			serverUrl.trim().length > 0 &&
+			serverSeedPhrase.trim().length >= 12 &&
+			syncPassphrase.trim().length >= 12);
 
 	const previewItems = useMemo(
 		() => [
@@ -219,6 +227,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	};
 
 	const validateSyncStep = () => {
+		if (syncChoice === null) throw new Error('Choose whether to connect sync now or later.');
 		if (syncChoice !== 'yes') return;
 		if (!serverUrl.trim()) throw new Error('Add your sync server URL first.');
 		if (serverSeedPhrase.trim().length < 12) {
@@ -325,8 +334,8 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 
 	const onSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		if (currentStep.id === 'ai') {
-			completeOnboarding(true);
+		if (stepIndex === steps.length - 1) {
+			completeOnboarding(false);
 			return;
 		}
 		nextStep();
@@ -356,8 +365,8 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 								Shape your quiet place before it starts listening.
 							</h1>
 							<p className='mt-5 max-w-md text-sm leading-6 text-(--color-secondary-text)'>
-								Aether stays local by default. This flow names the space, prepares recovery,
-								connects sync if you already run it, and lets AI remain fully optional.
+								Aether stays local by default. This flow names the space, prepares recovery, and
+								connects sync if you already run it. AI remains optional.
 							</p>
 						</div>
 
@@ -447,7 +456,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 												<h3 className='text-3xl font-medium'>Aether is a local-first notebook.</h3>
 												<p className='mt-3 max-w-xl text-sm leading-6 text-(--color-secondary-text)'>
 													You are about to set up the basics: a name, a recovery seed phrase if you
-													want one, optional self-hosted sync, and optional AI transcription.
+													want one, optional self-hosted sync, and optional AI keys.
 												</p>
 											</div>
 											<div className='grid gap-3 md:grid-cols-2'>
@@ -532,7 +541,9 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 												<h3 className='text-3xl font-medium'>Do you already have a sync server?</h3>
 												<p className='mt-3 max-w-xl text-sm leading-6 text-(--color-secondary-text)'>
 													Aether sync is end-to-end encrypted and self-hosted. Connect an existing
-													server now, or use the setup guide later.
+													server now, or use the setup guide later. The server seed phrase enrolls
+													this device; the sync passphrase protects your data before it reaches the
+													server.
 												</p>
 											</div>
 											<div className='grid gap-3 md:grid-cols-2'>
@@ -540,7 +551,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 													isSelected={syncChoice === 'yes'}
 													onClick={() => setSyncChoice('yes')}
 													title='Yes, connect it'
-													copy='I have a server URL and seed phrase.'
+													copy='I have a server URL, server seed phrase, and sync passphrase.'
 												/>
 												<ChoiceButton
 													isSelected={syncChoice === 'no'}
@@ -577,6 +588,16 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 															onChange={value => setSyncPassphrase(value)}
 														/>
 													</div>
+													<div className='grid gap-3 text-xs leading-5 text-(--color-secondary-text) md:grid-cols-2'>
+														<p>
+															The server seed phrase must match your sync server setup. It lets this
+															app register as an allowed device.
+														</p>
+														<p>
+															The sync passphrase encrypts local data before upload. The sync server
+															cannot recover it.
+														</p>
+													</div>
 												</motion.div>
 											)}
 											{syncChoice === 'no' && (
@@ -598,8 +619,8 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 											<div>
 												<h3 className='text-3xl font-medium'>Use AI in Aether?</h3>
 												<p className='mt-3 max-w-xl text-sm leading-6 text-(--color-secondary-text)'>
-													AI powers transcription and summaries when configured. Keys are saved
-													through the encrypted settings path.
+													AI configuration is optional. Add provider keys now if you want the app
+													ready for AI-backed features as they come online.
 												</p>
 											</div>
 											<div className='grid gap-3 md:grid-cols-2'>
@@ -712,10 +733,10 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 									) : (
 										<button
 											type='submit'
-											disabled={isSaving}
+											disabled={isSaving || !canContinueCurrentStep}
 											className='inline-flex items-center gap-2 rounded-full bg-(--color-active-text) px-4 py-2.5 text-sm leading-none text-white transition hover:bg-(--color-active-text-hover) disabled:opacity-50'
 										>
-											Continue
+											{isLastStep ? 'Start using Aether' : 'Continue'}
 											<ArrowRight className='size-4' />
 										</button>
 									)}

@@ -10,11 +10,15 @@ Canvas has real frontend and backend implementation, including route code, React
 
 ### Bookmarks
 
-The backend supports bookmark CRUD, metadata extraction, tagging, archive state, repository logic, and generated API hooks. The current frontend route is placeholder-level. For v1, either finish the bookmark list/create/edit/archive/tag flow or hide the route entirely.
+The backend supports bookmark CRUD, metadata extraction, tagging, archive state, repository logic, and generated API hooks. The current frontend route is placeholder-level, so it is hidden for v1.
+
+### Knowledge Graph
+
+The backend supports graph/link retrieval and the frontend has a graph visualization route. The current experience is not polished enough for v1, so the route is hidden until labels, empty states, navigation, and resource-opening behavior are designed and implemented.
 
 ### Global Search
 
-The backend has fuzzy/hybrid search and linkable-resource search. Resource-link autocomplete uses backend search, but command-palette/global search is commented out. For v1, ship a complete global search experience or keep search hidden as an internal capability.
+The backend has fuzzy/hybrid search and linkable-resource search. Resource-link autocomplete uses backend search, but command-palette/global search is hidden as an internal capability for v1.
 
 ### Embeddings Management
 
@@ -22,7 +26,7 @@ The Rust backend exposes embedding model list, download, verify, and delete comm
 
 ### Transcription Provider And Model Management
 
-The backend can list providers, validate provider configuration, and manage local Whisper models. The journal can use transcription, but full provider/model management is not a complete settings surface. For v1, expose only onboarding and journal transcription needs: API key entry, default provider choice, and provider validation.
+The backend can list providers, validate provider configuration, manage local Whisper models, save journal audio, and run transcription jobs. AI key setup stays visible for v1, but the visible journal audio/transcription UI is hidden and full provider/model management is not a complete settings surface.
 
 ### Sync Diagnostics
 
@@ -32,15 +36,11 @@ The backend exposes sync trigger check/test commands. These are development diag
 
 ### First-Run Onboarding
 
-Add a first-launch onboarding gate before the main app. It should collect a display name, offer optional AI key setup, let the user choose a default transcription provider, validate credentials when requested, and persist completion in settings.
-
-### Updater Notifications
-
-The updater settings page exists, but the update event/toast listener path is commented out. Re-enable or finish update notifications so updater behavior is visible outside the settings screen.
+Add a first-launch onboarding gate before the main app. It should collect a display name, explain optional sync, validate sync setup when requested, offer optional AI key setup, and persist completion in settings.
 
 ### Navigation Cleanup
 
-The v1 navigation should expose only finished surfaces. Remove or disable Canvas routes and shortcuts, hide placeholder destinations, and ensure the command palette does not advertise unfinished views.
+The v1 navigation should expose only finished surfaces. Canvas, Bookmarks, and Graph routes are hidden, placeholder destinations are not advertised, and the command palette should stay scoped to finished views.
 
 ### Backend-Frontend Gap Cleanup
 
@@ -67,3 +67,7 @@ Search can grow into a command palette, global results view, and semantic recall
 ### Canvas Return
 
 Canvas can return after v1 as a focused spatial-thinking surface, but it should come back as a complete user flow rather than a partially exposed route.
+
+### Knowledge Graph Return
+
+Graph can return after v1 as a discovery and relationship surface once it has a clear entry point, meaningful node labels, useful empty states, and resource navigation.

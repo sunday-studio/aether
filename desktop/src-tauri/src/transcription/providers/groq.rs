@@ -46,7 +46,11 @@ impl TranscriptionProvider for GroqProvider {
         Ok(())
     }
 
-    async fn transcribe(&self, audio_data: &[u8], format: &str) -> Result<TranscriptionResult, String> {
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        format: &str,
+    ) -> Result<TranscriptionResult, String> {
         if !self.initialized {
             return Err("Provider not initialized".to_string());
         }
@@ -54,15 +58,18 @@ impl TranscriptionProvider for GroqProvider {
         let api_key = self.api_key.as_ref().ok_or("API key not set")?;
 
         let client = reqwest::Client::new();
-        
+
         // Create multipart form (Groq uses same API as OpenAI)
         let form = multipart::Form::new()
             .text("model", "whisper-large-v3")
             .text("language", "en")
-            .part("file", multipart::Part::bytes(audio_data.to_vec())
-                .file_name(format!("audio.{}", format))
-                .mime_str(&get_mime_type(format))
-                .map_err(|e| format!("Failed to set MIME type: {}", e))?);
+            .part(
+                "file",
+                multipart::Part::bytes(audio_data.to_vec())
+                    .file_name(format!("audio.{}", format))
+                    .mime_str(&get_mime_type(format))
+                    .map_err(|e| format!("Failed to set MIME type: {}", e))?,
+            );
 
         let response = client
             .post("https://api.groq.com/openai/v1/audio/transcriptions")
@@ -74,7 +81,10 @@ impl TranscriptionProvider for GroqProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(format!("API error ({}): {}", status, error_text));
         }
 
@@ -96,7 +106,9 @@ impl TranscriptionProvider for GroqProvider {
     }
 
     async fn get_status(&self) -> ProviderStatus {
-        if let Ok(Some(_)) = settings::get_setting(self.database.clone(), "transcription.groq.api_key").await {
+        if let Ok(Some(_)) =
+            settings::get_setting(self.database.clone(), "transcription.groq.api_key").await
+        {
             ProviderStatus::Ready
         } else {
             ProviderStatus::NotConfigured

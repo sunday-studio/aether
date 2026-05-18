@@ -1,6 +1,6 @@
 use crate::db::models::{Bookmark, Tag};
 use crate::error::{AppError, Result};
-use crate::utils::{generate_id, embeddings::generate_embedding};
+use crate::utils::{embeddings::generate_embedding, generate_id};
 use chrono::Utc;
 use libsql::Database;
 use std::sync::Arc;
@@ -26,21 +26,28 @@ impl BookmarkRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Bookmark>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut query = "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM bookmarks WHERE is_deleted = 0 AND (_deleted = 0 OR _deleted IS NULL)".to_string();
 
         // Build query with filters
         if let Some(archived) = is_archived {
-            query.push_str(&format!(" AND is_archived = {}", if archived { 1 } else { 0 }));
+            query.push_str(&format!(
+                " AND is_archived = {}",
+                if archived { 1 } else { 0 }
+            ));
         }
 
         if let Some(ref content_type_filter) = content_type {
-            query.push_str(&format!(" AND content_type = '{}'", content_type_filter.replace("'", "''")));
+            query.push_str(&format!(
+                " AND content_type = '{}'",
+                content_type_filter.replace("'", "''")
+            ));
         }
 
         if let Some(ref tag_ids_filter) = tag_ids {
             if !tag_ids_filter.is_empty() {
-                let escaped_ids: Vec<String> = tag_ids_filter.iter()
+                let escaped_ids: Vec<String> = tag_ids_filter
+                    .iter()
                     .map(|id| format!("'{}'", id.replace("'", "''")))
                     .collect();
                 query.push_str(&format!(
@@ -69,7 +76,7 @@ impl BookmarkRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         // Add cursor condition if provided
         if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
@@ -87,7 +94,7 @@ impl BookmarkRepository {
 
         let mut bookmarks = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -112,7 +119,7 @@ impl BookmarkRepository {
     /// Get bookmark by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Bookmark>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -133,7 +140,7 @@ impl BookmarkRepository {
     /// Get bookmark by URL (for duplicate detection)
     pub async fn find_by_url(&self, url: &str) -> Result<Option<Bookmark>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, url, title, description, image_url, favicon_url, site_name, author, published_at, content_type, metadata_json, is_archived, is_deleted, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -166,10 +173,13 @@ impl BookmarkRepository {
         metadata_json: Option<serde_json::Value>,
     ) -> Result<Bookmark> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check for duplicate URL
         if let Some(_existing) = self.find_by_url(&url).await? {
-            return Err(AppError::BadRequest(format!("Bookmark with URL {} already exists", url)));
+            return Err(AppError::BadRequest(format!(
+                "Bookmark with URL {} already exists",
+                url
+            )));
         }
 
         let id = generate_id("bookmark");
@@ -177,7 +187,9 @@ impl BookmarkRepository {
         let created_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
         let published_at_str = published_at.map(|d| d.to_rfc3339());
-        let metadata_json_str = metadata_json.as_ref().and_then(|v| serde_json::to_string(v).ok());
+        let metadata_json_str = metadata_json
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok());
         let now_ms = now.timestamp_millis();
 
         conn.execute(
@@ -253,10 +265,11 @@ impl BookmarkRepository {
         is_archived: Option<bool>,
     ) -> Result<Bookmark> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current bookmark
         let current = self.find_by_id(id).await?;
-        let mut bookmark = current.ok_or_else(|| AppError::NotFound(format!("Bookmark {} not found", id)))?;
+        let mut bookmark =
+            current.ok_or_else(|| AppError::NotFound(format!("Bookmark {} not found", id)))?;
 
         // Update fields
         if let Some(t) = title {
@@ -294,7 +307,10 @@ impl BookmarkRepository {
 
         let updated_at_str = bookmark.updated_at.to_rfc3339();
         let published_at_str = bookmark.published_at.map(|d| d.to_rfc3339());
-        let metadata_json_str = bookmark.metadata_json.as_ref().and_then(|v| serde_json::to_string(v).ok());
+        let metadata_json_str = bookmark
+            .metadata_json
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok());
 
         conn.execute(
             "UPDATE bookmarks 
@@ -332,7 +348,7 @@ impl BookmarkRepository {
     /// Delete a bookmark (soft delete)
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if bookmark exists
         let bookmark = self.find_by_id(id).await?;
         if bookmark.is_none() {
@@ -357,11 +373,14 @@ impl BookmarkRepository {
     /// Add tags to a bookmark
     pub async fn add_tags(&self, bookmark_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify bookmark exists
         let bookmark = self.find_by_id(bookmark_id).await?;
         if bookmark.is_none() {
-            return Err(AppError::NotFound(format!("Bookmark {} not found", bookmark_id)));
+            return Err(AppError::NotFound(format!(
+                "Bookmark {} not found",
+                bookmark_id
+            )));
         }
 
         if tag_ids.is_empty() {
@@ -371,11 +390,19 @@ impl BookmarkRepository {
         // Verify tags exist
         for tag_id in &tag_ids {
             let mut rows = conn
-                .query("SELECT id FROM tags WHERE id = ?1", libsql::params![tag_id.as_str()])
+                .query(
+                    "SELECT id FROM tags WHERE id = ?1",
+                    libsql::params![tag_id.as_str()],
+                )
                 .await
                 .map_err(|e| AppError::LibSQL(e))?;
-            
-            if rows.next().await.map_err(|e| AppError::LibSQL(e))?.is_none() {
+
+            if rows
+                .next()
+                .await
+                .map_err(|e| AppError::LibSQL(e))?
+                .is_none()
+            {
                 return Err(AppError::NotFound(format!("Tag {} not found", tag_id)));
             }
         }
@@ -409,11 +436,14 @@ impl BookmarkRepository {
     /// Remove tags from a bookmark
     pub async fn remove_tags(&self, bookmark_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify bookmark exists
         let bookmark = self.find_by_id(bookmark_id).await?;
         if bookmark.is_none() {
-            return Err(AppError::NotFound(format!("Bookmark {} not found", bookmark_id)));
+            return Err(AppError::NotFound(format!(
+                "Bookmark {} not found",
+                bookmark_id
+            )));
         }
 
         if tag_ids.is_empty() {
@@ -447,7 +477,7 @@ impl BookmarkRepository {
     /// Get tags for a bookmark
     pub async fn get_tags(&self, bookmark_id: &str) -> Result<Vec<Tag>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT t.id, t.name, t.created_at, t.updated_at, t.deleted_at, t._sync_id, t._updated_at, t._deleted, t._extra
@@ -470,7 +500,11 @@ impl BookmarkRepository {
             let _sync_id: Option<String> = row.get(5).ok();
             let _updated_at: Option<i64> = row.get(6).ok();
             let _deleted: i64 = row.get(7).unwrap_or(0);
-            let _extra: Option<serde_json::Value> = row.get::<Option<String>>(8).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+            let _extra: Option<serde_json::Value> = row
+                .get::<Option<String>>(8)
+                .ok()
+                .flatten()
+                .and_then(|s| serde_json::from_str(&s).ok());
 
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -501,7 +535,9 @@ impl BookmarkRepository {
 
     /// Generate embedding for a bookmark
     pub async fn generate_embedding(&self, bookmark_id: &str) -> Result<()> {
-        let bookmark = self.find_by_id(bookmark_id).await?
+        let bookmark = self
+            .find_by_id(bookmark_id)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("Bookmark {} not found", bookmark_id)))?;
 
         // Build text for embedding (title + description + site_name)
@@ -557,7 +593,11 @@ impl BookmarkRepository {
         let _sync_id: Option<String> = row.get(16).ok();
         let _updated_at: Option<i64> = row.get(17).ok();
         let _deleted: i64 = row.get(18).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(19).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(19)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
@@ -572,8 +612,7 @@ impl BookmarkRepository {
         let published_at = published_at_str
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
             .map(|dt| dt.with_timezone(&Utc));
-        let metadata_json = metadata_json_str
-            .and_then(|s| serde_json::from_str(&s).ok());
+        let metadata_json = metadata_json_str.and_then(|s| serde_json::from_str(&s).ok());
 
         Ok(Bookmark {
             id,

@@ -22,7 +22,7 @@ impl TranscriptionRepository {
         provider_config: Option<serde_json::Value>,
     ) -> Result<AudioTranscription> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let id = generate_id("transcription");
         let now = Utc::now();
         let created_at_str = now.to_rfc3339();
@@ -73,7 +73,7 @@ impl TranscriptionRepository {
     /// Get transcription by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<AudioTranscription>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
@@ -102,7 +102,7 @@ impl TranscriptionRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<AudioTranscription>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -128,11 +128,11 @@ impl TranscriptionRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
-            
+
             conn.query(
                 "SELECT id, media_id, transcription_text, provider, provider_config, confidence_score, 
                         status, error_message, is_active, created_at, _sync_id, _updated_at, _deleted, _extra 
@@ -160,7 +160,7 @@ impl TranscriptionRepository {
 
         let mut transcriptions = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -185,7 +185,7 @@ impl TranscriptionRepository {
     /// Set a transcription as active (and deactivate others for the same media)
     pub async fn set_active(&self, transcription_id: &str, media_id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let now_ms = Utc::now().timestamp_millis();
         // First, deactivate all transcriptions for this media
         conn.execute(
@@ -216,7 +216,7 @@ impl TranscriptionRepository {
         error_message: Option<String>,
     ) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let now_ms = Utc::now().timestamp_millis();
         if let Some(text) = transcription_text {
             if let Some(score) = confidence_score {
@@ -267,15 +267,19 @@ impl TranscriptionRepository {
         let _sync_id: Option<String> = row.get(10).ok();
         let _updated_at: Option<i64> = row.get(11).ok();
         let _deleted: i64 = row.get(12).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(13).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(13)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let provider_config = provider_config_str
             .map(|s| serde_json::from_str(&s))
             .transpose()
             .map_err(|e| AppError::Serialization(e))?;
-        
+
         let confidence_score_f32 = confidence_score.map(|s| s as f32);
-        
+
         let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
             .map_err(|e| AppError::Internal(format!("Invalid created_at: {}", e)))?
             .with_timezone(&Utc);

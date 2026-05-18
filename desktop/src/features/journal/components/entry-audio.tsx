@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { AudioPlayer } from "~/components/shared/audio-player";
+import { useEffect, useState, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { AudioPlayer } from '~/components/shared/audio-player';
 
 interface MediaItem {
 	id: string;
@@ -18,7 +18,7 @@ interface AudioTranscription {
 	id: string;
 	mediaId: string;
 	transcriptionText: string;
-	status: "pending" | "processing" | "complete" | "failed";
+	status: 'pending' | 'processing' | 'complete' | 'failed';
 }
 
 interface EntryAudioProps {
@@ -27,16 +27,14 @@ interface EntryAudioProps {
 
 export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 	const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
-	const [transcriptions, setTranscriptions] = useState<
-		Record<string, AudioTranscription>
-	>({});
+	const [transcriptions, setTranscriptions] = useState<Record<string, AudioTranscription>>({});
 	const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
 	const pollingIntervalRef = useRef<number | null>(null);
 
 	// Cleanup blob URLs on unmount
 	useEffect(() => {
 		return () => {
-			Object.values(audioUrls).forEach((url) => {
+			Object.values(audioUrls).forEach(url => {
 				URL.revokeObjectURL(url);
 			});
 			if (pollingIntervalRef.current) {
@@ -48,29 +46,29 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 	useEffect(() => {
 		const fetchMedia = async () => {
 			try {
-				const items = await invoke<MediaItem[]>("get_media_items_for_entry", {
+				const items = await invoke<MediaItem[]>('get_media_items_for_entry', {
 					entryId,
 				});
-				const audioItems = items.filter((item) => item.mediaType === "audio");
+				const audioItems = items.filter(item => item.mediaType === 'audio');
 				setMediaItems(audioItems);
 
 				// Fetch audio data and create blob URLs
 				for (const item of audioItems) {
 					try {
-						const audioData = await invoke<number[]>("get_audio_data", {
+						const audioData = await invoke<number[]>('get_audio_data', {
 							mediaId: item.id,
 						});
 						const blob = new Blob([new Uint8Array(audioData)], {
-							type: "audio/webm",
+							type: 'audio/webm',
 						});
 						const url = URL.createObjectURL(blob);
-						setAudioUrls((prev) => ({ ...prev, [item.id]: url }));
+						setAudioUrls(prev => ({ ...prev, [item.id]: url }));
 					} catch (error) {
 						console.error(`Failed to load audio for ${item.id}:`, error);
 					}
 				}
 			} catch (error) {
-				console.error("Failed to fetch media items:", error);
+				console.error('Failed to fetch media items:', error);
 			}
 		};
 
@@ -83,13 +81,13 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 		const fetchTranscriptions = async () => {
 			for (const item of mediaItems) {
 				try {
-					const trans = await invoke<AudioTranscription[]>("get_transcriptions", {
+					const trans = await invoke<AudioTranscription[]>('get_transcriptions', {
 						mediaId: item.id,
 					});
 					if (trans.length > 0) {
 						// Get the active or first transcription
-						const active = trans.find((t) => t.status === "complete") || trans[0];
-						setTranscriptions((prev) => {
+						const active = trans.find(t => t.status === 'complete') || trans[0];
+						setTranscriptions(prev => {
 							// Only update if status changed to avoid infinite loops
 							const current = prev[item.id];
 							if (
@@ -132,15 +130,14 @@ export const EntryAudio = ({ entryId }: EntryAudioProps) => {
 	}
 
 	return (
-		<div className="flex flex-col gap-2">
-			{mediaItems.map((item) => {
+		<div className='flex flex-col gap-2'>
+			{mediaItems.map(item => {
 				const transcription = transcriptions[item.id];
 				const audioUrl = audioUrls[item.id];
 
 				return (
 					<AudioPlayer
 						key={item.id}
-						mediaId={item.id}
 						audioUrl={audioUrl}
 						transcriptionStatus={transcription?.status}
 						transcriptionText={transcription?.transcriptionText}

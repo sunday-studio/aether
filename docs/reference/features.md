@@ -1,5 +1,7 @@
 # Aether Feature List
 
+This is an implementation inventory, not a shipped v1 promise. The v1 product surface keeps journal, tasks, goals, settings, encrypted sync, updater, and AI key setup visible. Canvas, Bookmarks, Graph, journal audio/transcription, global search, embeddings management, and full transcription model management are deferred or hidden until they are completed as product surfaces.
+
 ## 1. Content Management
 
 ### 1.1 Journal Entries
@@ -39,6 +41,9 @@
 - Activity tracking
 
 ### 1.4 Canvas
+
+**V1 status:** Hidden/deferred.
+
 **Operations:** Create, Read, Update, Delete  
 **Features:**
 - JSON Canvas format
@@ -52,6 +57,9 @@
 - Resource linking
 
 ### 1.5 Bookmarks
+
+**V1 status:** Hidden/deferred.
+
 **Operations:** Create, Read, Update, Delete  
 **Features:**
 - Automatic metadata extraction
@@ -67,6 +75,9 @@
 ## 2. Search & Discovery
 
 ### 2.1 Search
+
+**V1 status:** Backend/indexing foundation only; global product UI is hidden/deferred.
+
 **Operations:** Query  
 **Modes:**
 - Fuzzy search (FTS5 trigram)
@@ -87,6 +98,9 @@
 - Resource navigation
 
 ### 2.3 Graph View
+
+**V1 status:** Hidden/deferred.
+
 **Operations:** View, Navigate  
 **Features:**
 - Force-directed layout

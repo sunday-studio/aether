@@ -1,21 +1,18 @@
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
 	LexicalTypeaheadMenuPlugin,
 	MenuOption,
 	useBasicTypeaheadTriggerMatch,
-} from "@lexical/react/LexicalTypeaheadMenuPlugin";
-import { useQuery } from "@tanstack/react-query";
-import {
-	$createTextNode,
-	$getSelection,
-	$isRangeSelection,
-	type TextNode,
-} from "lexical";
-import { Bookmark, FileText, Goal, Link2, Square } from "lucide-react";
-import { type JSX, useCallback, useMemo, useState } from "react";
-import * as ReactDOM from "react-dom";
-import { searchLinkableResources } from "~/aether-sdk";
-import { $createResourceLinkNode } from "./resource-link-node";
+} from '@lexical/react/LexicalTypeaheadMenuPlugin';
+import { useQuery } from '@tanstack/react-query';
+import { $getSelection, $isRangeSelection, type TextNode } from 'lexical';
+import { FileText, Goal, Link2, Square } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import * as ReactDOM from 'react-dom';
+import { searchLinkableResources } from '~/aether-sdk';
+import { $createResourceLinkNode } from './resource-link-node';
+
+const hiddenResourceTypes = new Set(['canvas', 'bookmark']);
 
 interface LinkableResourceOptionParams {
 	id: string;
@@ -60,16 +57,12 @@ function ResourceLinkMenuItem({
 }: ResourceLinkMenuItem) {
 	const getIcon = () => {
 		switch (option.resourceType) {
-			case "entry":
+			case 'entry':
 				return <FileText size={16} />;
-			case "task":
+			case 'task':
 				return <Square size={16} />;
-			case "goal":
+			case 'goal':
 				return <Goal size={16} />;
-			case "canvas":
-				return <Square size={16} />;
-			case "bookmark":
-				return <Bookmark size={16} />;
 			default:
 				return <Link2 size={16} />;
 		}
@@ -79,24 +72,22 @@ function ResourceLinkMenuItem({
 		<li
 			key={option.key}
 			tabIndex={-1}
-			role="option"
+			role='option'
 			id={`resource-link-item-${index}`}
 			aria-selected={isSelected}
 			onMouseEnter={onMouseEnter}
 			onClick={onClick}
-			className="flex cursor-pointer items-start justify-start p-2 rounded-lg gap-2 
-      aria-[selected='true']:bg-stone-100 aria-[selected='true']:inset-ring aria-[selected='true']:inset-ring-stone-200
-      dark:aria-[selected='true']:bg-stone-700 dark:aria-[selected='true']:inset-ring-0"
+			className="flex cursor-pointer items-start justify-start gap-2 rounded-lg p-2 aria-[selected='true']:bg-stone-100 aria-[selected='true']:inset-ring aria-[selected='true']:inset-ring-stone-200 dark:aria-[selected='true']:bg-stone-700 dark:aria-[selected='true']:inset-ring-0"
 		>
-			<div className="text-stone-500 w-5 h-5 flex items-center justify-center mt-0.5 flex-shrink-0">
+			<div className='mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-stone-500'>
 				{getIcon()}
 			</div>
-			<div className="flex-1 min-w-0">
-				<p className="text-stone-900 dark:text-stone-300 text-sm font-medium truncate">
+			<div className='min-w-0 flex-1'>
+				<p className='truncate text-sm font-medium text-stone-900 dark:text-stone-300'>
 					{option.title}
 				</p>
 				{option.preview && (
-					<p className="text-stone-500 dark:text-stone-400 text-xs truncate mt-0.5">
+					<p className='mt-0.5 truncate text-xs text-stone-500 dark:text-stone-400'>
 						{option.preview}
 					</p>
 				)}
@@ -109,12 +100,12 @@ export function ResourceLinkAutocomplete() {
 	const [editor] = useLexicalComposerContext();
 	const [queryString, setQueryString] = useState<string | null>(null);
 
-	const checkForTriggerMatch = useBasicTypeaheadTriggerMatch("[[", {
+	const checkForTriggerMatch = useBasicTypeaheadTriggerMatch('[[', {
 		minLength: 0,
 	});
 
 	const { data: resources, isLoading } = useQuery({
-		queryKey: ["searchLinkableResources", queryString || ""],
+		queryKey: ['searchLinkableResources', queryString || ''],
 		queryFn: async () => {
 			if (!queryString || queryString.trim().length === 0) {
 				return { data: [] };
@@ -130,18 +121,20 @@ export function ResourceLinkAutocomplete() {
 	const options = useMemo(() => {
 		if (!resources?.data) return [];
 
-		return resources.data.map(
-			(resource) =>
-				new LinkableResourceOption({
-					id: resource.id,
-					resourceType: resource.resourceType,
-					title: resource.title,
-					preview: resource.preview || null,
-					onSelect: () => {
-						// This is handled in onSelectOption
-					},
-				}),
-		);
+		return resources.data
+			.filter(resource => !hiddenResourceTypes.has(resource.resourceType))
+			.map(
+				resource =>
+					new LinkableResourceOption({
+						id: resource.id,
+						resourceType: resource.resourceType,
+						title: resource.title,
+						preview: resource.preview || null,
+						onSelect: () => {
+							// This is handled in onSelectOption
+						},
+					}),
+			);
 	}, [resources, editor]);
 
 	const onSelectOption = useCallback(
@@ -149,14 +142,13 @@ export function ResourceLinkAutocomplete() {
 			selectedOption: LinkableResourceOption,
 			nodeToRemove: TextNode | null,
 			closeMenu: () => void,
-			matchingString: string,
 		) => {
 			editor.update(() => {
 				// Remove the trigger text ([[) and any query text
 				if (nodeToRemove) {
 					const textContent = nodeToRemove.getTextContent();
 					// Remove [[ and everything after it
-					const newText = textContent.replace(/\[\[.*$/, "");
+					const newText = textContent.replace(/\[\[.*$/, '');
 					if (newText.length > 0) {
 						nodeToRemove.setTextContent(newText);
 					} else {
@@ -190,17 +182,13 @@ export function ResourceLinkAutocomplete() {
 			) =>
 				anchorElementRef.current
 					? ReactDOM.createPortal(
-							<div className="shadow-lg rounded-xl p-2 bg-white dark:bg-stone-800 w-[300px] max-h-[400px] overflow-y-auto">
+							<div className='max-h-[400px] w-[300px] overflow-y-auto rounded-xl bg-white p-2 shadow-lg dark:bg-stone-800'>
 								{isLoading ? (
-									<div className="p-4 text-center text-stone-500 text-sm">
-										Searching...
-									</div>
+									<div className='p-4 text-center text-sm text-stone-500'>Searching...</div>
 								) : options.length === 0 && queryString ? (
-									<div className="p-4 text-center text-stone-500 text-sm">
-										No resources found
-									</div>
+									<div className='p-4 text-center text-sm text-stone-500'>No resources found</div>
 								) : options.length > 0 ? (
-									<ul className="list-none p-0 m-0">
+									<ul className='m-0 list-none p-0'>
 										{options.map((option, i) => (
 											<ResourceLinkMenuItem
 												index={i}

@@ -31,10 +31,7 @@ pub fn encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<(String, String)
     let ciphertext = cipher
         .encrypt((&nonce).into(), plaintext)
         .map_err(|e| AppError::Sync(format!("encrypt: {}", e)))?;
-    Ok((
-        BASE64.encode(&nonce),
-        BASE64.encode(&ciphertext),
-    ))
+    Ok((BASE64.encode(&nonce), BASE64.encode(&ciphertext)))
 }
 
 /// Decrypt (nonce_base64, ciphertext_base64) with ChaCha20-Poly1305.

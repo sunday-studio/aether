@@ -15,13 +15,10 @@ fn is_sensitive_key(key: &str) -> bool {
 }
 
 /// Get a setting value (auto-decrypts if encrypted)
-pub async fn get_setting(
-    database: Arc<Database>,
-    key: &str,
-) -> Result<Option<String>> {
+pub async fn get_setting(database: Arc<Database>, key: &str) -> Result<Option<String>> {
     let repo = SettingsRepository::new(database);
     let setting = repo.get(key).await?;
-    
+
     if let Some(setting) = setting {
         // Check if value is encrypted (starts with encryption marker)
         if setting.value.starts_with("encrypted:") {
@@ -37,13 +34,9 @@ pub async fn get_setting(
 }
 
 /// Set a setting value (auto-encrypts if sensitive)
-pub async fn set_setting(
-    database: Arc<Database>,
-    key: &str,
-    value: &str,
-) -> Result<()> {
+pub async fn set_setting(database: Arc<Database>, key: &str, value: &str) -> Result<()> {
     let repo = SettingsRepository::new(database);
-    
+
     let value_to_store = if is_sensitive_key(key) {
         // Encrypt sensitive values
         let encrypted = encryption::encrypt(value)?;
@@ -51,28 +44,23 @@ pub async fn set_setting(
     } else {
         value.to_string()
     };
-    
+
     repo.set(key, &value_to_store).await?;
     Ok(())
 }
 
 /// Delete a setting
-pub async fn delete_setting(
-    database: Arc<Database>,
-    key: &str,
-) -> Result<()> {
+pub async fn delete_setting(database: Arc<Database>, key: &str) -> Result<()> {
     let repo = SettingsRepository::new(database);
     repo.delete(key).await?;
     Ok(())
 }
 
 /// Get all settings (auto-decrypts if encrypted)
-pub async fn get_all_settings(
-    database: Arc<Database>,
-) -> Result<Vec<(String, String)>> {
+pub async fn get_all_settings(database: Arc<Database>) -> Result<Vec<(String, String)>> {
     let repo = SettingsRepository::new(database);
     let settings = repo.get_all().await?;
-    
+
     let mut result = Vec::new();
     for setting in settings {
         let value = if setting.value.starts_with("encrypted:") {
@@ -83,7 +71,7 @@ pub async fn get_all_settings(
         };
         result.push((setting.key, value));
     }
-    
+
     Ok(result)
 }
 
@@ -94,7 +82,7 @@ pub async fn get_settings_by_prefix(
 ) -> Result<Vec<(String, String)>> {
     let repo = SettingsRepository::new(database);
     let settings = repo.get_by_prefix(prefix).await?;
-    
+
     let mut result = Vec::new();
     for setting in settings {
         let value = if setting.value.starts_with("encrypted:") {
@@ -105,6 +93,6 @@ pub async fn get_settings_by_prefix(
         };
         result.push((setting.key, value));
     }
-    
+
     Ok(result)
 }

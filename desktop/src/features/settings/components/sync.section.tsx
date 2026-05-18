@@ -15,6 +15,16 @@ import type { SyncStatus } from '~/aether-sdk/models';
 import { Button } from '~/components/shared/button';
 import { TextField } from '~/components/shared/text-field';
 
+function getErrorMessage(error: unknown) {
+	if (error && typeof error === 'object' && 'data' in error) {
+		const data = (error as { data?: unknown }).data;
+		if (data && typeof data === 'object' && 'message' in data) {
+			return String((data as { message?: unknown }).message);
+		}
+	}
+	return error instanceof Error ? error.message : String(error);
+}
+
 export const SyncSection = () => {
 	const queryClient = useQueryClient();
 	const syncStatusQueryKey = getGetSyncStatusQueryKey();
@@ -37,15 +47,6 @@ export const SyncSection = () => {
 	);
 
 	const mediaSyncPolicy = (mediaPolicyResponse?.data?.value as 'auto' | 'on_demand') ?? 'on_demand';
-
-	// useEffect(() => {
-	// 	const unlisten = listen<SyncStatus>("sync-status", () => {
-	// 		queryClient.invalidateQueries({ queryKey: syncStatusQueryKey });
-	// 	});
-	// 	return () => {
-	// 		unlisten.then((fn) => fn());
-	// 	};
-	// }, [queryClient, syncStatusQueryKey]);
 
 	const syncNowMutation = useSyncNow({
 		mutation: {
@@ -99,9 +100,14 @@ export const SyncSection = () => {
 	const [serverSeedPhrase, setServerSeedPhrase] = useState('');
 	const [syncPassphrase, setSyncPassphrase] = useState('');
 	const [reconnectPassphrase, setReconnectPassphrase] = useState('');
+	const canSaveSyncConfig =
+		serverUrl.trim().length > 0 &&
+		serverSeedPhrase.trim().length >= 12 &&
+		syncPassphrase.trim().length >= 12 &&
+		!isConfiguring;
 
 	const err = configureError || syncError || reconnectError;
-	const errMessage = err ? String(err) : null;
+	const errMessage = err ? getErrorMessage(err) : null;
 
 	return (
 		<div className='w-full space-y-10'>
@@ -109,7 +115,8 @@ export const SyncSection = () => {
 				<h3 className='text-lg font-medium'>Sync</h3>
 				<p className='text-sm text-(--color-secondary-text)'>
 					End-to-end encrypted sync with your own server. Deploy the sync server (Docker) and enter
-					its URL, the server seed phrase, and your sync passphrase.{' '}
+					its URL, the server seed phrase used to enroll devices, and your private sync passphrase
+					for encrypting local payloads.{' '}
 					<a
 						href='https://github.com/sunday-studio/aether/blob/main/docs/reference/sync-server-readme.md'
 						target='_blank'
@@ -228,6 +235,10 @@ export const SyncSection = () => {
 					value={serverSeedPhrase}
 					onChange={v => setServerSeedPhrase(v)}
 				/>
+				<p className='-mt-2 text-xs text-(--color-secondary-text)'>
+					This must match the seed phrase configured on the sync server. It registers this device
+					with the server; it is not your data encryption passphrase.
+				</p>
 				<TextField
 					label='Sync Passphrase'
 					placeholder='min 12 characters'
@@ -235,6 +246,10 @@ export const SyncSection = () => {
 					value={syncPassphrase}
 					onChange={v => setSyncPassphrase(v)}
 				/>
+				<p className='-mt-2 text-xs text-(--color-secondary-text)'>
+					This stays personal to your devices and protects the data before it reaches the server.
+					Keep it somewhere safe because the server cannot recover it.
+				</p>
 
 				<div className='mt-4 flex items-center justify-end gap-4'>
 					{status?.connected && !status?.needs_passphrase && (
@@ -263,7 +278,7 @@ export const SyncSection = () => {
 						}
 						label={isConfiguring ? 'Saving…' : 'Save'}
 						tooltipContent='Save server URL and sync credentials'
-						// isDisabled={!serverUrl.trim() || passphrase.length < 12 || isConfiguring}
+						isDisabled={!canSaveSyncConfig}
 					/>
 				</div>
 			</div>

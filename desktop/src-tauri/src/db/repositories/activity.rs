@@ -107,11 +107,7 @@ impl ActivityRepository {
     }
 
     /// Get audit log for a specific entity
-    pub async fn get_by_entity(
-        &self,
-        entity_type: &str,
-        entity_id: &str,
-    ) -> Result<Vec<Activity>> {
+    pub async fn get_by_entity(&self, entity_type: &str, entity_id: &str) -> Result<Vec<Activity>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
 
         let mut rows = conn

@@ -100,6 +100,9 @@ mod tests {
 
     #[test]
     fn normalizes_search_text_whitespace() {
-        assert_eq!(normalize_search_text("  one\n two\tthree  "), "one two three");
+        assert_eq!(
+            normalize_search_text("  one\n two\tthree  "),
+            "one two three"
+        );
     }
 }

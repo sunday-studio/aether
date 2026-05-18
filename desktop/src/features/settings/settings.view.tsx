@@ -1,5 +1,6 @@
 import { CloudIcon, Palette, SparklesIcon, WandSparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { AiSection } from './components/ai.section';
 import { PreferencesSection } from './components/preferences.section';
 import { SyncSection } from './components/sync.section';
@@ -9,8 +10,25 @@ import { RadialAvatar } from '~/components/shared/radiant-avatar';
 
 type AvailableSections = 'preferences' | 'ai' | 'whats-new' | 'sync';
 
+function getAvailableSection(value: string | null): AvailableSections {
+	if (value === 'ai' || value === 'whats-new' || value === 'sync') return value;
+	return 'preferences';
+}
+
 export const SettingsView = () => {
-	const [selectedSection, setSelectedSection] = useState<AvailableSections>('preferences');
+	const [searchParams, setSearchParams] = useSearchParams();
+	const [selectedSection, setSelectedSection] = useState<AvailableSections>(
+		getAvailableSection(searchParams.get('section')),
+	);
+
+	useEffect(() => {
+		setSelectedSection(getAvailableSection(searchParams.get('section')));
+	}, [searchParams]);
+
+	const selectSection = (section: AvailableSections) => {
+		setSelectedSection(section);
+		setSearchParams(section === 'preferences' ? {} : { section });
+	};
 
 	const sections: Record<
 		AvailableSections,
@@ -50,7 +68,7 @@ export const SettingsView = () => {
 					return (
 						<button
 							key={section}
-							onClick={() => setSelectedSection(section as AvailableSections)}
+							onClick={() => selectSection(section as AvailableSections)}
 							type='button'
 							className={cn(
 								'flex h-8 cursor-pointer items-center gap-2 rounded-full px-2.5 text-sm text-(--color-secondary-text) hover:text-(--color-secondary-text-hover)',

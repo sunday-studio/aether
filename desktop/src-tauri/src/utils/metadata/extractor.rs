@@ -28,8 +28,8 @@ impl MetadataExtractor {
     /// Tries local HTML parsing first, then falls back to external APIs
     pub async fn extract(url: &str) -> Result<ExtractedMetadata> {
         // Validate URL
-        let parsed_url = Url::parse(url)
-            .map_err(|e| AppError::BadRequest(format!("Invalid URL: {}", e)))?;
+        let parsed_url =
+            Url::parse(url).map_err(|e| AppError::BadRequest(format!("Invalid URL: {}", e)))?;
 
         // Try local extraction first
         match Self::extract_from_html(url).await {
@@ -38,7 +38,9 @@ impl MetadataExtractor {
             }
             Ok(metadata) => {
                 // Partial metadata, try to enhance with external APIs
-                if let Ok(enhanced) = crate::utils::metadata::providers::fetch_from_external(url).await {
+                if let Ok(enhanced) =
+                    crate::utils::metadata::providers::fetch_from_external(url).await
+                {
                     return Ok(Self::merge_metadata(metadata, enhanced));
                 }
                 Ok(metadata)
@@ -72,7 +74,9 @@ impl MetadataExtractor {
         // Fetch HTML content
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
-            .user_agent("Mozilla/5.0 (compatible; Aether/1.0; +https://github.com/sunday-studio/aether)")
+            .user_agent(
+                "Mozilla/5.0 (compatible; Aether/1.0; +https://github.com/sunday-studio/aether)",
+            )
             .build()
             .map_err(|e| AppError::Internal(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -95,8 +99,8 @@ impl MetadataExtractor {
             .map_err(|e| AppError::Internal(format!("Failed to read response: {}", e)))?;
 
         let document = Html::parse_document(&html_content);
-        let parsed_url = Url::parse(url)
-            .map_err(|e| AppError::BadRequest(format!("Invalid URL: {}", e)))?;
+        let parsed_url =
+            Url::parse(url).map_err(|e| AppError::BadRequest(format!("Invalid URL: {}", e)))?;
 
         // Extract Open Graph tags (primary)
         let og_title = Self::select_meta_content(&document, "property", "og:title");
@@ -108,7 +112,8 @@ impl MetadataExtractor {
 
         // Extract Twitter Card tags (fallback)
         let twitter_title = Self::select_meta_content(&document, "name", "twitter:title");
-        let twitter_description = Self::select_meta_content(&document, "name", "twitter:description");
+        let twitter_description =
+            Self::select_meta_content(&document, "name", "twitter:description");
         let twitter_image = Self::select_meta_content(&document, "name", "twitter:image");
 
         // Extract standard meta tags (final fallback)
@@ -117,10 +122,11 @@ impl MetadataExtractor {
         let standard_author = Self::select_meta_content(&document, "name", "author");
 
         // Extract published date
-        let published_at = Self::select_meta_content(&document, "property", "article:published_time")
-            .or_else(|| Self::select_meta_content(&document, "name", "date"))
-            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-            .map(|dt| dt.with_timezone(&Utc));
+        let published_at =
+            Self::select_meta_content(&document, "property", "article:published_time")
+                .or_else(|| Self::select_meta_content(&document, "name", "date"))
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
 
         // Extract favicon
         let favicon_url = Self::extract_favicon(&document, &parsed_url);
@@ -133,13 +139,14 @@ impl MetadataExtractor {
         // Build metadata JSON
         let mut metadata_json = serde_json::Map::new();
         if let Some(ref og_type) = og_type {
-            metadata_json.insert("og:type".to_string(), serde_json::Value::String(og_type.clone()));
+            metadata_json.insert(
+                "og:type".to_string(),
+                serde_json::Value::String(og_type.clone()),
+            );
         }
 
         Ok(ExtractedMetadata {
-            title: og_title
-                .or(twitter_title)
-                .or(standard_title),
+            title: og_title.or(twitter_title).or(standard_title),
             description: og_description
                 .or(twitter_description)
                 .or(standard_description),
@@ -180,7 +187,10 @@ impl MetadataExtractor {
     /// Extract favicon URL
     fn extract_favicon(document: &Html, base_url: &Url) -> Option<String> {
         // Try <link rel="icon"> or <link rel="shortcut icon">
-        let icon_selector = Selector::parse("link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']").ok()?;
+        let icon_selector = Selector::parse(
+            "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']",
+        )
+        .ok()?;
         if let Some(icon) = document.select(&icon_selector).next() {
             if let Some(href) = icon.value().attr("href") {
                 return Some(Self::resolve_url(base_url, href));
@@ -209,7 +219,10 @@ impl MetadataExtractor {
     }
 
     /// Merge two metadata objects, preferring the first one
-    fn merge_metadata(primary: ExtractedMetadata, secondary: ExtractedMetadata) -> ExtractedMetadata {
+    fn merge_metadata(
+        primary: ExtractedMetadata,
+        secondary: ExtractedMetadata,
+    ) -> ExtractedMetadata {
         ExtractedMetadata {
             title: primary.title.or(secondary.title),
             description: primary.description.or(secondary.description),

@@ -1,6 +1,6 @@
+use super::types::ModelCategory;
 use crate::error::{AppError, Result};
 use std::path::PathBuf;
-use super::types::ModelCategory;
 
 /// Get platform-specific base directory for models
 pub fn get_models_base_dir() -> Result<PathBuf> {
@@ -30,9 +30,7 @@ pub fn get_models_base_dir() -> Result<PathBuf> {
     {
         let appdata = std::env::var("APPDATA")
             .map_err(|_| AppError::Internal("APPDATA environment variable not set".to_string()))?;
-        Ok(PathBuf::from(appdata)
-            .join("Aether")
-            .join("models"))
+        Ok(PathBuf::from(appdata).join("Aether").join("models"))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
@@ -54,7 +52,6 @@ pub fn get_category_dir(category: ModelCategory) -> Result<PathBuf> {
 /// Ensure the models directory exists for a specific category
 pub fn ensure_models_dir(category: ModelCategory) -> Result<()> {
     let category_dir = get_category_dir(category)?;
-    std::fs::create_dir_all(&category_dir)
-        .map_err(|e| AppError::Io(e))?;
+    std::fs::create_dir_all(&category_dir).map_err(|e| AppError::Io(e))?;
     Ok(())
 }

@@ -1,9 +1,10 @@
 //! Auto-updater module for managing application updates.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::RwLock;
 
 /// Minimum time between update checks (30 minutes)
@@ -42,10 +43,12 @@ impl Default for UpdatePreferences {
 }
 
 /// Manages update checking with cooldown, failure backoff, and preferences
+#[derive(Clone)]
 pub struct UpdateManager {
     last_check: Arc<RwLock<Option<Instant>>>,
     last_failure: Arc<RwLock<Option<Instant>>>,
     preferences: Arc<RwLock<UpdatePreferences>>,
+    preferences_path: Arc<RwLock<Option<PathBuf>>>,
 }
 
 impl UpdateManager {
@@ -54,6 +57,37 @@ impl UpdateManager {
             last_check: Arc::new(RwLock::new(None)),
             last_failure: Arc::new(RwLock::new(None)),
             preferences: Arc::new(RwLock::new(UpdatePreferences::default())),
+            preferences_path: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Load persisted preferences from app config once the Tauri app handle exists.
+    pub async fn hydrate(&self, app: &AppHandle) {
+        let path = match app.path().app_config_dir() {
+            Ok(dir) => dir.join("update-preferences.json"),
+            Err(e) => {
+                tracing::warn!("[UPDATER] Failed to resolve app config dir: {}", e);
+                return;
+            }
+        };
+
+        {
+            let mut path_guard = self.preferences_path.write().await;
+            *path_guard = Some(path.clone());
+        }
+
+        match tokio::fs::read_to_string(&path).await {
+            Ok(contents) => match serde_json::from_str::<UpdatePreferences>(&contents) {
+                Ok(preferences) => {
+                    let mut prefs = self.preferences.write().await;
+                    *prefs = preferences;
+                }
+                Err(e) => tracing::warn!("[UPDATER] Failed to parse update preferences: {}", e),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                self.persist_preferences().await;
+            }
+            Err(e) => tracing::warn!("[UPDATER] Failed to read update preferences: {}", e),
         }
     }
 
@@ -105,6 +139,8 @@ impl UpdateManager {
         if !prefs.skipped_versions.contains(&version) {
             prefs.skipped_versions.push(version);
         }
+        drop(prefs);
+        self.persist_preferences().await;
     }
 
     /// Get current preferences
@@ -116,6 +152,28 @@ impl UpdateManager {
     pub async fn set_preferences(&self, new_prefs: UpdatePreferences) {
         let mut prefs = self.preferences.write().await;
         *prefs = new_prefs;
+        drop(prefs);
+        self.persist_preferences().await;
+    }
+
+    async fn persist_preferences(&self) {
+        let Some(path) = self.preferences_path.read().await.clone() else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                tracing::warn!("[UPDATER] Failed to create preference directory: {}", e);
+                return;
+            }
+        }
+        let prefs = self.preferences.read().await.clone();
+        let Ok(contents) = serde_json::to_string_pretty(&prefs) else {
+            tracing::warn!("[UPDATER] Failed to serialize update preferences");
+            return;
+        };
+        if let Err(e) = tokio::fs::write(path, contents).await {
+            tracing::warn!("[UPDATER] Failed to persist update preferences: {}", e);
+        }
     }
 }
 

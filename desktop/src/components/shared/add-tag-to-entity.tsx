@@ -1,10 +1,10 @@
-import { Tag } from "lucide-react";
-import { useMemo } from "react";
-import { cn } from "tailwind-variants";
-import type { Tag as TagModel } from "~/aether-sdk/models";
-import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
-import { Tooltip } from "~/components/shared/tooltip";
-import { TaskActionButton } from "~/features/tasks/components/task-item/task-shared-components";
+import { Tag } from 'lucide-react';
+import { useMemo } from 'react';
+import { cn } from 'tailwind-variants';
+import type { Tag as TagModel } from '~/aether-sdk/models';
+import { TagsPopoverSelector } from '~/components/shared/tags-popover-selector';
+import { Tooltip } from '~/components/shared/tooltip';
+import { TaskActionButton } from '~/features/tasks/components/task-item/task-shared-components';
 
 interface AddTagsToEntityProps {
 	selectedTags: TagModel[] | undefined;
@@ -17,9 +17,9 @@ const TagItem = ({ label }: { label: string }) => {
 	return (
 		<div
 			className={cn(
-				"rounded-lg px-1.5 h-6",
-				"bg-neutral-200/70 text-neutral-500 text-xs",
-				"flex items-center justify-center",
+				'h-6 rounded-lg px-1.5',
+				'bg-neutral-200/70 text-xs text-neutral-500',
+				'flex items-center justify-center',
 			)}
 		>
 			<span>{label}</span>
@@ -45,9 +45,9 @@ function renderTriggerContent(tags: TagModel[]) {
 	}
 
 	return (
-		<div className="flex gap-1">
-			{tags.map((tag) => (
-				<TagItem key={tag.id} label={tag.name ?? ""} />
+		<div className='flex gap-1'>
+			{tags.map(tag => (
+				<TagItem key={tag.id} label={tag.name ?? ''} />
 			))}
 		</div>
 	);
@@ -63,22 +63,22 @@ export const AddTagsToEntity = ({
 	const triggerContent = useMemo(() => renderTriggerContent(tags), [tags]);
 
 	const tagsToDisplay = useMemo(() => {
-		return tags.map((tag) => ({
-			id: tag.id ?? "",
-			name: tag.name ?? "",
+		return tags.map(tag => ({
+			id: tag.id ?? '',
+			name: tag.name ?? '',
 		}));
 	}, [tags]);
 
 	return (
-		<div className={cn("flex", "items-start", "shrink-0", "justify-start")}>
+		<div className={cn('flex', 'items-start', 'shrink-0', 'justify-start')}>
 			<TagsPopoverSelector
 				selectedTags={tagsToDisplay}
 				onAddTag={addTagToEntity}
 				onRemoveTag={removeTagFromEntity}
-				onCreateTag={() => {}}
+				onCreateTag={addTagToEntity}
 				customTrigger={
 					<Tooltip
-						content="Add tags"
+						content='Add tags'
 						trigger={triggerContent}
 						disabled={Boolean(tagsToDisplay.length)}
 					/>

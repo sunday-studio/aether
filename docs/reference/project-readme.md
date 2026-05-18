@@ -39,7 +39,7 @@ For local development:
 - `src/` - React app code
 - `src/components/` - shared UI and editor components
 - `src/context/` - React context providers
-- `src/features/` - feature areas such as journal, tasks, graph, canvas, bookmarks, and settings
+- `src/features/` - feature areas such as journal, tasks, settings, onboarding, graph, canvas, and bookmarks. Graph, canvas, and bookmarks are hidden/deferred for v1.
 - `src/hooks/` - reusable frontend hooks
 - `src/lib/` - API client and other shared frontend utilities
 - `src/store/` - frontend state helpers

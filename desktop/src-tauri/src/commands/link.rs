@@ -1,12 +1,12 @@
+use crate::commands::common::PaginationResponse;
 use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, LinkQueryParams, PaginationQueryParams,
 };
-use crate::db::{connection, DbState};
 use crate::db::models::ResourceLink;
-use crate::db::repositories::{LinkRepository};
-use crate::db::repositories::search::{SearchRepository, ResourceType};
+use crate::db::repositories::search::{ResourceType, SearchRepository};
+use crate::db::repositories::LinkRepository;
+use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
-use crate::commands::common::PaginationResponse;
 use crate::utils::link_parser::extract_links_from_lexical_content;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -64,7 +64,8 @@ pub async fn create_link(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<ResourceLink> {
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     // Validate resource types
     let valid_types = ["entry", "task", "goal", "canvas", "bookmark"];
     if !valid_types.contains(&request.source_type.as_str()) {
@@ -83,9 +84,15 @@ pub async fn create_link(
     let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
-    
-    repo.create(request.source_type, request.source_id, request.target_type, request.target_id, request.link_text)
-        .await
+
+    repo.create(
+        request.source_type,
+        request.source_id,
+        request.target_type,
+        request.target_id,
+        request.link_text,
+    )
+    .await
 }
 
 /// Get all backlinks to a target resource
@@ -110,22 +117,23 @@ pub async fn get_backlinks(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<BacklinkResponse>> {
     let _guard = connection::with_db_access(&*state).await;
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
-    
-    let links = repo.find_by_target(&params.resource_type, &params.resource_id).await?;
-    
+
+    let links = repo
+        .find_by_target(&params.resource_type, &params.resource_id)
+        .await?;
+
     // Enrich with source titles
     let mut backlinks = Vec::new();
     for link in links {
-        let source_title = get_resource_title(db.clone(), &link.source_type, &link.source_id).await?;
-        backlinks.push(BacklinkResponse {
-            link,
-            source_title,
-        });
+        let source_title =
+            get_resource_title(db.clone(), &link.source_type, &link.source_id).await?;
+        backlinks.push(BacklinkResponse { link, source_title });
     }
-    
+
     Ok(backlinks)
 }
 
@@ -151,11 +159,13 @@ pub async fn get_outgoing_links(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<ResourceLink>> {
     let _guard = connection::with_db_access(&*state).await;
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
-    
-    repo.find_by_source(&params.resource_type, &params.resource_id).await
+
+    repo.find_by_source(&params.resource_type, &params.resource_id)
+        .await
 }
 
 /// Delete a link
@@ -182,12 +192,18 @@ pub async fn delete_link(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
     let _guard = connection::with_db_access(&*state).await;
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
-    
-    repo.delete(&params.source_type, &params.source_id, &params.target_type, &params.target_id)
-        .await
+
+    repo.delete(
+        &params.source_type,
+        &params.source_id,
+        &params.target_type,
+        &params.target_id,
+    )
+    .await
 }
 
 /// Search for resources to link (for autocomplete)
@@ -213,9 +229,12 @@ pub async fn search_linkable_resources(
     query_params: Option<SearchLinkableQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Vec<LinkableResource>> {
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.q.trim().is_empty() {
-        return Err(AppError::BadRequest("Query parameter 'q' is required".to_string()));
+        return Err(AppError::BadRequest(
+            "Query parameter 'q' is required".to_string(),
+        ));
     }
 
     // Parse resource types
@@ -237,63 +256,61 @@ pub async fn search_linkable_resources(
     let _guard = connection::with_db_access(&*state).await;
     let db = connection::get_database(&*state);
     let search_repo = SearchRepository::new(db.clone());
-    
+
     let results: Vec<crate::db::repositories::search::SearchResult> = search_repo
         .search_fuzzy(&params.q, resource_types, None, Some(limit), Some(0))
         .await?;
 
     let linkable_resources: Vec<LinkableResource> = results
         .into_iter()
-        .filter_map(|result| {
-            match result {
-                crate::db::repositories::search::SearchResult::Entry { entry, .. } => {
-                    Some(LinkableResource {
-                        id: entry.id.clone(),
-                        resource_type: "entry".to_string(),
-                        title: extract_first_line_from_lexical(&entry.document).unwrap_or_default(),
-                        preview: None,
-                    })
-                }
-                crate::db::repositories::search::SearchResult::Task { task, .. } => {
-                    Some(LinkableResource {
-                        id: task.id.clone(),
-                        resource_type: "task".to_string(),
-                        title: task.title.clone(),
-                        preview: task.description.clone(),
-                    })
-                }
-                crate::db::repositories::search::SearchResult::SubTask { subtask, .. } => {
-                    Some(LinkableResource {
-                        id: subtask.id.clone(),
-                        resource_type: "subtask".to_string(),
-                        title: subtask.title.clone(),
-                        preview: None,
-                    })
-                }
-                crate::db::repositories::search::SearchResult::Goal { goal, .. } => {
-                    Some(LinkableResource {
-                        id: goal.id.clone(),
-                        resource_type: "goal".to_string(),
-                        title: goal.name.clone(),
-                        preview: goal.description.clone(),
-                    })
-                }
-                crate::db::repositories::search::SearchResult::Tag { tag, .. } => {
-                    Some(LinkableResource {
-                        id: tag.id.clone(),
-                        resource_type: "tag".to_string(),
-                        title: tag.name.clone(),
-                        preview: None,
-                    })
-                }
-                crate::db::repositories::search::SearchResult::Bookmark { bookmark, .. } => {
-                    Some(LinkableResource {
-                        id: bookmark.id.clone(),
-                        resource_type: "bookmark".to_string(),
-                        title: bookmark.title.clone().unwrap_or_default(),
-                        preview: bookmark.description.clone(),
-                    })
-                }
+        .filter_map(|result| match result {
+            crate::db::repositories::search::SearchResult::Entry { entry, .. } => {
+                Some(LinkableResource {
+                    id: entry.id.clone(),
+                    resource_type: "entry".to_string(),
+                    title: extract_first_line_from_lexical(&entry.document).unwrap_or_default(),
+                    preview: None,
+                })
+            }
+            crate::db::repositories::search::SearchResult::Task { task, .. } => {
+                Some(LinkableResource {
+                    id: task.id.clone(),
+                    resource_type: "task".to_string(),
+                    title: task.title.clone(),
+                    preview: task.description.clone(),
+                })
+            }
+            crate::db::repositories::search::SearchResult::SubTask { subtask, .. } => {
+                Some(LinkableResource {
+                    id: subtask.id.clone(),
+                    resource_type: "subtask".to_string(),
+                    title: subtask.title.clone(),
+                    preview: None,
+                })
+            }
+            crate::db::repositories::search::SearchResult::Goal { goal, .. } => {
+                Some(LinkableResource {
+                    id: goal.id.clone(),
+                    resource_type: "goal".to_string(),
+                    title: goal.name.clone(),
+                    preview: goal.description.clone(),
+                })
+            }
+            crate::db::repositories::search::SearchResult::Tag { tag, .. } => {
+                Some(LinkableResource {
+                    id: tag.id.clone(),
+                    resource_type: "tag".to_string(),
+                    title: tag.name.clone(),
+                    preview: None,
+                })
+            }
+            crate::db::repositories::search::SearchResult::Bookmark { bookmark, .. } => {
+                Some(LinkableResource {
+                    id: bookmark.id.clone(),
+                    resource_type: "bookmark".to_string(),
+                    title: bookmark.title.clone().unwrap_or_default(),
+                    preview: bookmark.description.clone(),
+                })
             }
         })
         .collect();
@@ -326,7 +343,7 @@ pub async fn get_all_links_for_graph(
     let params = query_params.unwrap_or_default();
     let db = connection::get_database(&*state);
     let repo = LinkRepository::new(db.clone());
-    
+
     let (links, next_cursor, has_more) = repo
         .find_all_for_graph(params.normalize_limit(), params.cursor)
         .await?;
@@ -353,31 +370,37 @@ pub async fn sync_links_from_content(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<serde_json::Value> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let link_repo = LinkRepository::new(db.clone());
-    
+
     // Extract links from content
     let extracted_links = extract_links_from_lexical_content(&request.content)?;
-    
+
     // Get existing links
-    let existing_links = link_repo.find_by_source(&request.source_type, &request.source_id).await?;
-    
+    let existing_links = link_repo
+        .find_by_source(&request.source_type, &request.source_id)
+        .await?;
+
     // Create a set of existing target IDs for quick lookup
     let existing_targets: std::collections::HashSet<(String, String)> = existing_links
         .iter()
         .map(|l| (l.target_type.clone(), l.target_id.clone()))
         .collect();
-    
+
     // Create a set of new target IDs
     let new_targets: std::collections::HashSet<(String, String)> = extracted_links
         .iter()
         .map(|l| (l.target_type.clone(), l.target_id.clone()))
         .collect();
-    
+
     // Delete links that are no longer in content
     for existing_link in &existing_links {
-        let target_key = (existing_link.target_type.clone(), existing_link.target_id.clone());
+        let target_key = (
+            existing_link.target_type.clone(),
+            existing_link.target_id.clone(),
+        );
         if !new_targets.contains(&target_key) {
             link_repo
                 .delete(
@@ -389,10 +412,13 @@ pub async fn sync_links_from_content(
                 .await?;
         }
     }
-    
+
     // Create new links
     for extracted_link in extracted_links {
-        let target_key = (extracted_link.target_type.clone(), extracted_link.target_id.clone());
+        let target_key = (
+            extracted_link.target_type.clone(),
+            extracted_link.target_id.clone(),
+        );
         if !existing_targets.contains(&target_key) {
             link_repo
                 .create(
@@ -405,7 +431,7 @@ pub async fn sync_links_from_content(
                 .await?;
         }
     }
-    
+
     Ok(serde_json::json!({"success": true}))
 }
 
@@ -418,7 +444,7 @@ async fn get_resource_title(
     use crate::db::repositories::{
         BookmarkRepository, CanvasRepository, EntryRepository, GoalRepository, TaskRepository,
     };
-    
+
     match resource_type {
         "entry" => {
             let repo = EntryRepository::new(db);
@@ -455,7 +481,7 @@ async fn get_resource_title(
 /// Extract first line from Lexical JSON content
 fn extract_first_line_from_lexical(content: &str) -> Option<String> {
     use crate::utils::link_parser::extract_text_from_lexical_content;
-    
+
     if let Ok(text) = extract_text_from_lexical_content(content) {
         text.lines().next().map(|s| s.trim().to_string())
     } else {

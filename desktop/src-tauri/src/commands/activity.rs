@@ -34,7 +34,7 @@ pub async fn get_activities(
     // Parse dates if provided, otherwise use defaults
     let start_date_parsed = if let Some(ref params) = query_params {
         if let Some(start_str) = &params.start_date {
-        Some(
+            Some(
             DateTime::parse_from_rfc3339(start_str)
                 .map_err(|e| AppError::BadRequest(format!(
                     "Invalid start_date format: {}. Expected ISO 8601 format (e.g., 2024-01-15T00:00:00Z)",
@@ -51,7 +51,7 @@ pub async fn get_activities(
 
     let end_date_parsed = if let Some(ref params) = query_params {
         if let Some(end_str) = &params.end_date {
-        Some(
+            Some(
             DateTime::parse_from_rfc3339(end_str)
                 .map_err(|e| AppError::BadRequest(format!(
                     "Invalid end_date format: {}. Expected ISO 8601 format (e.g., 2024-01-15T00:00:00Z)",
@@ -66,5 +66,6 @@ pub async fn get_activities(
         None
     };
 
-    repo.get_by_date_range(start_date_parsed, end_date_parsed).await
+    repo.get_by_date_range(start_date_parsed, end_date_parsed)
+        .await
 }

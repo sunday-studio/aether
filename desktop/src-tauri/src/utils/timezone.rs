@@ -22,7 +22,8 @@ pub fn get_goal_location(timezone: &str) -> Result<chrono_tz::Tz, String> {
     }
 
     // Try to parse as IANA timezone
-    let tz = timezone.parse::<chrono_tz::Tz>()
+    let tz = timezone
+        .parse::<chrono_tz::Tz>()
         .map_err(|_| format!("Invalid timezone: {}", timezone))?;
 
     // Cache it
@@ -41,7 +42,12 @@ pub fn start_of_day_in_timezone<T: TimeZone>(
     tz: chrono_tz::Tz,
 ) -> DateTime<chrono_tz::Tz> {
     let t_in_tz = t.with_timezone(&tz);
-    t_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap()
+    t_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap()
 }
 
 /// Returns the current time in the specified timezone.
@@ -58,7 +64,7 @@ pub fn days_since_in_timezone<T1: TimeZone, T2: TimeZone>(
 ) -> i64 {
     let t1_in_tz = t1.with_timezone(&tz);
     let t2_in_tz = t2.with_timezone(&tz);
-    
+
     let days = (t2_in_tz - t1_in_tz).num_days();
     days.abs()
 }

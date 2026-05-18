@@ -1,8 +1,7 @@
-import { Circle, CircleDashed, GripHorizontal, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { SubTask } from "~/aether-sdk/models";
-import { Tooltip } from "~/components/shared/tooltip";
-import { useDebounceCallback } from "~/hooks/use-debounce";
+import { Circle, CircleDashed, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { SubTask } from '~/aether-sdk/models';
+import { useDebounceCallback } from '~/hooks/use-debounce';
 
 interface TaskSubtaskItemProps {
 	subtask: SubTask;
@@ -21,12 +20,9 @@ export const TaskSubtaskItem = ({
 	setInputRef,
 	onDelete,
 }: TaskSubtaskItemProps) => {
-	const [inputValue, setInputValue] = useState(subtask.title ?? "");
+	const [inputValue, setInputValue] = useState(subtask.title ?? '');
 	const inputRef = useRef<HTMLInputElement>(null);
-	const debouncedOnChangeTitleChange = useDebounceCallback(
-		onChangeTitleChange,
-		500,
-	);
+	const debouncedOnChangeTitleChange = useDebounceCallback(onChangeTitleChange, 500);
 
 	// Sync with external value changes when input is not focused
 	useEffect(() => {
@@ -38,7 +34,7 @@ export const TaskSubtaskItem = ({
 
 		// Only update if value actually changed
 		if (subtask.title !== inputValue) {
-			setInputValue(subtask.title ?? "");
+			setInputValue(subtask.title ?? '');
 		}
 	}, [inputValue, subtask.title]);
 
@@ -55,44 +51,35 @@ export const TaskSubtaskItem = ({
 	};
 
 	return (
-		<div className="px-1 flex gap-2 items-center border-b border-neutral-200 group first:border-t hover:bg-neutral-100 [&:has(input:focus)]:bg-neutral-100 [&:has(input:focus)]:border-neutral-300">
+		<div className='group flex items-center gap-2 border-b border-neutral-200 px-1 first:border-t hover:bg-neutral-100 [&:has(input:focus)]:border-neutral-300 [&:has(input:focus)]:bg-neutral-100'>
 			<button
-				type="button"
-				className="w-4 h-4 flex items-center justify-center text-neutral-500 cursor-pointer"
+				type='button'
+				className='flex h-4 w-4 cursor-pointer items-center justify-center text-neutral-500'
 				onClick={() => {
 					onChangeIsCompletedChange(!subtask.isCompleted);
 				}}
 			>
 				{subtask.isCompleted ? (
-					<Circle
-						size={12}
-						strokeWidth={2.5}
-						className="text-green-600 cursor-pointer"
-					/>
+					<Circle size={12} strokeWidth={2.5} className='cursor-pointer text-green-600' />
 				) : (
 					<CircleDashed size={12} strokeWidth={2.5} />
 				)}
 			</button>
 			<input
-				type="text"
+				type='text'
 				value={inputValue}
 				ref={inputRef}
-				className="text-[12px] font-medium text-neutral-500 w-full h-full py-1.5 border-0 outline-0 bg-transparent"
+				className='h-full w-full border-0 bg-transparent py-1.5 text-[12px] font-medium text-neutral-500 outline-0'
 				onChange={handleChange}
 				onKeyDown={onKeyDown}
-				placeholder="Untitled"
+				placeholder='Untitled'
 			/>
 
-			<div className="flex items-center gap-1">
-				{/* TODO: do the ordering functionality later */}
-				{/* <div className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400  transition-transform duration-200 cursor-pointer">
-					<GripHorizontal size={15} strokeWidth={2} />
-				</div> */}
-
+			<div className='flex items-center gap-1'>
 				<button
-					type="button"
+					type='button'
 					tabIndex={0}
-					className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-neutral-200 rounded-sm flex items-center justify-center text-neutral-400 transition-transform duration-200 cursor-pointer"
+					className='flex cursor-pointer items-center justify-center rounded-sm p-0.5 text-neutral-400 opacity-0 transition-transform duration-200 group-hover:opacity-100 hover:bg-neutral-200'
 					onClick={onDelete}
 				>
 					<Trash2 size={13} strokeWidth={2} />

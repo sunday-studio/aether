@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Find the migrations directory
-/// 
+///
 /// The app is started from desktop/ directory, and when Tauri runs:
 /// - Working directory is typically desktop/src-tauri/
 /// - Migrations are at desktop/src-tauri/migrations/
@@ -16,20 +16,19 @@ fn find_migrations_directory() -> PathBuf {
     if relative_path.exists() {
         return relative_path;
     }
-    
+
     // Try 2: Relative to executable (for production builds)
     // Executable might be in target/debug/ or target/release/
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             // Try: exe_dir/../migrations (if exe is in target/debug/)
-            let parent_migrations = exe_dir.parent()
-                .map(|p| p.join("migrations"));
+            let parent_migrations = exe_dir.parent().map(|p| p.join("migrations"));
             if let Some(ref path) = parent_migrations {
                 if path.exists() {
                     return path.clone();
                 }
             }
-            
+
             // Try: exe_dir/migrations (if exe is in src-tauri/)
             let exe_migrations = exe_dir.join("migrations");
             if exe_migrations.exists() {
@@ -37,7 +36,7 @@ fn find_migrations_directory() -> PathBuf {
             }
         }
     }
-    
+
     // Try 3: Compile-time path (using CARGO_MANIFEST_DIR)
     // This points to desktop/src-tauri/ at compile time
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -45,7 +44,7 @@ fn find_migrations_directory() -> PathBuf {
     if manifest_migrations.exists() {
         return manifest_migrations;
     }
-    
+
     // Fallback: return the most likely path (will be checked for existence by caller)
     PathBuf::from("./migrations")
 }
@@ -54,18 +53,20 @@ fn find_migrations_directory() -> PathBuf {
 pub async fn run_migrations(database: &Database) -> Result<()> {
     // Ensure schema_migrations table exists
     let conn = database.connect().map_err(|e| AppError::LibSQL(e))?;
-    
+
     // Try to create the schema_migrations table
-    match conn.execute(
-        "CREATE TABLE IF NOT EXISTS schema_migrations (
+    match conn
+        .execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             version TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL,
             applied_at TEXT NOT NULL
         )",
-        libsql::params![],
-    )
-    .await {
+            libsql::params![],
+        )
+        .await
+    {
         Ok(_) => {
             tracing::debug!("schema_migrations table created or already exists");
         }
@@ -81,16 +82,16 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     // Execution context: app is started from desktop/ directory via `pnpm tauri dev`
     // When Tauri runs, the working directory is typically desktop/src-tauri/
     // Migrations are located at: desktop/src-tauri/migrations/
-    
+
     use std::path::PathBuf;
-    
+
     // Strategy: Try paths in order of likelihood
     // 1. ./migrations - when running from src-tauri/ (most common in dev)
     // 2. Relative to executable - for production builds
     // 3. Compile-time path - using CARGO_MANIFEST_DIR (fallback)
-    
+
     let migrations_dir = find_migrations_directory();
-    
+
     if !migrations_dir.exists() {
         tracing::warn!(
             "Migrations directory not found at {:?}. Current working directory: {:?}",
@@ -99,7 +100,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         );
         return Ok(());
     }
-    
+
     tracing::info!("Using migrations directory: {:?}", migrations_dir);
 
     let mut migration_files: Vec<_> = fs::read_dir(&migrations_dir)
@@ -121,8 +122,14 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     // Get applied migrations
     // Handle the case where the table might not exist yet
     let mut applied_versions = std::collections::HashSet::new();
-    
-    match conn.query("SELECT version FROM schema_migrations ORDER BY version", libsql::params![]).await {
+
+    match conn
+        .query(
+            "SELECT version FROM schema_migrations ORDER BY version",
+            libsql::params![],
+        )
+        .await
+    {
         Ok(mut rows) => {
             while let Ok(Some(row)) = rows.next().await {
                 if let Ok(version) = row.get::<String>(0) {
@@ -134,7 +141,9 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
             let error_msg = e.to_string();
             // If the table doesn't exist, that's fine - we'll treat it as no migrations applied
             if error_msg.contains("no such table") || error_msg.contains("does not exist") {
-                tracing::debug!("schema_migrations table doesn't exist yet, treating as no migrations applied");
+                tracing::debug!(
+                    "schema_migrations table doesn't exist yet, treating as no migrations applied"
+                );
             } else {
                 // Some other error, propagate it
                 return Err(AppError::LibSQL(e));
@@ -158,8 +167,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         tracing::info!("Running migration: {}", version);
 
         let migration_path = migrations_dir.join(&migration_file);
-        let sql = fs::read_to_string(&migration_path)
-            .map_err(|e| AppError::Io(e))?;
+        let sql = fs::read_to_string(&migration_path).map_err(|e| AppError::Io(e))?;
 
         // Skip empty migration files
         if sql.trim().is_empty() {
@@ -199,10 +207,10 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         let mut current_statement = String::new();
         let mut begin_count = 0;
         let mut chars = cleaned_sql.chars().peekable();
-        
+
         while let Some(ch) = chars.next() {
             current_statement.push(ch);
-            
+
             // Check for BEGIN keyword (case-insensitive, whole word)
             if current_statement.len() >= 5 {
                 let end_pos = current_statement.len();
@@ -216,13 +224,14 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
                         None
                     };
                     let after = chars.peek();
-                    if (before.is_none() || !before.unwrap().is_alphanumeric()) &&
-                       (after.is_none() || !after.unwrap().is_alphanumeric()) {
+                    if (before.is_none() || !before.unwrap().is_alphanumeric())
+                        && (after.is_none() || !after.unwrap().is_alphanumeric())
+                    {
                         begin_count += 1;
                     }
                 }
             }
-            
+
             // Check for END keyword (case-insensitive, whole word)
             if current_statement.len() >= 3 {
                 let end_pos = current_statement.len();
@@ -236,15 +245,16 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
                         None
                     };
                     let after = chars.peek();
-                    if (before.is_none() || !before.unwrap().is_alphanumeric()) &&
-                       (after.is_none() || !after.unwrap().is_alphanumeric()) {
+                    if (before.is_none() || !before.unwrap().is_alphanumeric())
+                        && (after.is_none() || !after.unwrap().is_alphanumeric())
+                    {
                         if begin_count > 0 {
                             begin_count -= 1;
                         }
                     }
                 }
             }
-            
+
             // Only split on semicolon if we're not inside a BEGIN...END block
             if ch == ';' && begin_count == 0 {
                 let trimmed = current_statement.trim();
@@ -254,7 +264,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
                 current_statement.clear();
             }
         }
-        
+
         // Add any remaining statement
         let trimmed = current_statement.trim();
         if !trimmed.is_empty() {
@@ -269,11 +279,11 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
                 statement.to_string()
             };
             tracing::debug!("Executing statement {}: {}", idx + 1, stmt_preview);
-            
+
             // Special handling for vector index creation - these may fail if libsql_vector_idx is not available
             // Allow them to fail gracefully without rolling back the entire migration
             let is_vector_index = statement.to_uppercase().contains("LIBSQL_VECTOR_IDX");
-            
+
             match conn.execute(statement, libsql::params![]).await {
                 Ok(_) => {
                     if is_vector_index {

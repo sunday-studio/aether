@@ -1,4 +1,4 @@
-import { DownloadIcon, RefreshCwIcon, XIcon } from 'lucide-react';
+import { DownloadIcon, RefreshCwIcon, RotateCcwIcon, SparklesIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '~/components/shared/button';
 import { useUpdater } from '~/hooks/use-updater';
@@ -22,11 +22,20 @@ export const WhatsNewSection = () => {
 
 	const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 	const [prefs, setPrefs] = useState<UpdatePreferences | null>(null);
+	const [lastCheckMessage, setLastCheckMessage] = useState<string | null>(null);
 
 	useEffect(() => {
 		getAppVersion().then(setCurrentVersion);
 		getPreferences().then(setPrefs);
 	}, [getAppVersion, getPreferences]);
+
+	const handleCheck = async () => {
+		setLastCheckMessage(null);
+		const updateInfo = await checkForUpdates();
+		setLastCheckMessage(
+			updateInfo ? `Version ${updateInfo.latestVersion} is ready.` : 'You are up to date.',
+		);
+	};
 
 	const handlePreferenceChange = async (key: keyof UpdatePreferences, value: boolean) => {
 		if (!prefs) return;
@@ -42,182 +51,225 @@ export const WhatsNewSection = () => {
 		await setPreferences(newPrefs);
 	};
 
+	const versionLine = info
+		? `v${info.currentVersion} -> v${info.latestVersion}`
+		: currentVersion
+			? `v${currentVersion}`
+			: 'Loading version...';
+
 	return (
-		<div className='w-full space-y-10'>
+		<div className='w-full space-y-8'>
 			<div>
-				<h3 className='text-lg font-medium'>What's New</h3>
-				<p className='text-sm text-(--color-secondary-text)'>
-					Check for updates and see what's changed in recent releases.
+				<p className='text-xs font-medium tracking-[0.18em] text-(--color-secondary-text) uppercase'>
+					Release channel
+				</p>
+				<h3 className='mt-2 text-2xl font-semibold'>What's new</h3>
+				<p className='mt-2 text-sm text-(--color-secondary-text)'>
+					Review updates, release notes, and install preferences before the app restarts.
 				</p>
 			</div>
 
-			{/* Current version */}
-			<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
-				<div className='flex items-center justify-between'>
-					<div>
-						<p className='text-sm text-(--color-secondary-text)'>Current version</p>
-						<p className='text-lg font-medium'>
-							{currentVersion ? `v${currentVersion}` : 'Loading...'}
-						</p>
-					</div>
-					<Button
-						onClick={checkForUpdates}
-						label={checking ? 'Checking...' : 'Check for updates'}
-						tooltipContent='Check for new versions'
-						isDisabled={checking}
-						iconLeft={<RefreshCwIcon className={`size-4 ${checking ? 'animate-spin' : ''}`} />}
-					/>
-				</div>
-			</div>
-
-			{/* Error display */}
-			{error && (
-				<div className='rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400'>
-					{error}
-				</div>
-			)}
-
-			{/* Update available */}
-			{available && info && (
-				<div className='overflow-hidden rounded-lg border border-(--color-border) bg-(--color-panel)'>
-					<div className='border-b border-(--color-border) bg-(--color-background-secondary) p-4'>
-						<div className='flex items-center justify-between'>
-							<div>
-								<p className='font-medium'>Update Available</p>
-								<p className='text-sm text-(--color-secondary-text)'>
-									v{info.currentVersion} → v{info.latestVersion}
-								</p>
+			<section className='overflow-hidden rounded-3xl border border-(--color-border) bg-(--color-panel) shadow-sm'>
+				<div className='relative border-b border-(--color-border) bg-(--color-background-secondary) p-6'>
+					<div className='absolute inset-0 opacity-40 [background:radial-gradient(circle_at_20%_10%,var(--color-active-text),transparent_28%),radial-gradient(circle_at_90%_20%,var(--color-border),transparent_24%)]' />
+					<div className='relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'>
+						<div className='space-y-3'>
+							<div className='inline-flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-background)/70 px-3 py-1 text-xs text-(--color-secondary-text)'>
+								<SparklesIcon className='size-3.5' />
+								{available && info ? 'Update available' : 'Aether is current'}
 							</div>
-							<div className='flex items-center gap-2'>
-								<Button
-									onClick={() => skipVersion(info.latestVersion)}
-									label='Skip'
-									variant='ghost'
-									tooltipContent='Skip this version'
-									iconLeft={<XIcon className='size-4' />}
-								/>
+							<div>
+								<h4 className='text-xl font-semibold'>
+									{available && info ? 'Ready to install' : 'Aether Desktop'}
+								</h4>
+								<p className='mt-1 text-sm text-(--color-secondary-text)'>{versionLine}</p>
+								{info?.publishedAt && (
+									<p className='mt-1 text-xs text-(--color-secondary-text)'>
+										Published {formatPublishedAt(info.publishedAt)}
+									</p>
+								)}
+							</div>
+						</div>
+
+						<div className='flex flex-wrap items-center gap-2'>
+							<Button
+								onClick={handleCheck}
+								label={checking ? 'Checking...' : 'Check'}
+								tooltipContent='Check for new versions'
+								isDisabled={checking || downloading}
+								variant='secondary'
+								iconLeft={<RefreshCwIcon className={`size-4 ${checking ? 'animate-spin' : ''}`} />}
+							/>
+							{available && info && (
 								<Button
 									onClick={downloadAndInstall}
-									label={
-										downloading ? `Downloading... ${Math.round(progress)}%` : 'Download & Install'
-									}
+									label={downloading ? `Downloading ${Math.round(progress)}%` : 'Install update'}
 									tooltipContent='Download and install update'
 									isDisabled={downloading}
 									iconLeft={<DownloadIcon className='size-4' />}
 								/>
-							</div>
+							)}
 						</div>
-
-						{/* Progress bar */}
-						{downloading && (
-							<div className='mt-3'>
-								<div className='h-1.5 overflow-hidden rounded-full bg-(--color-border)'>
-									<div
-										className='h-full bg-(--color-active-text) transition-all duration-300'
-										style={{ width: `${progress}%` }}
-									/>
-								</div>
-							</div>
-						)}
 					</div>
 
-					{/* Changelog */}
-					{info.changelog && (
-						<div className='p-4'>
-							<p className='mb-2 text-sm font-medium'>Release Notes</p>
-							<div className='prose prose-sm dark:prose-invert max-w-none text-sm text-(--color-secondary-text)'>
-								<MarkdownContent content={info.changelog} />
+					{downloading && (
+						<div className='relative mt-6'>
+							<div className='h-2 overflow-hidden rounded-full bg-(--color-border)'>
+								<div
+									className='h-full rounded-full bg-(--color-active-text) transition-all duration-300'
+									style={{ width: `${progress}%` }}
+								/>
 							</div>
 						</div>
 					)}
 				</div>
-			)}
 
-			{/* No update available message */}
-			{!available && !checking && !error && (
-				<div className='rounded-lg border border-(--color-border) bg-(--color-panel) p-4'>
-					<p className='text-sm text-(--color-secondary-text)'>
-						You're running the latest version. Check back later for updates.
-					</p>
+				{available && info ? (
+					<div className='divide-y divide-(--color-border)'>
+						<div className='p-6'>
+							<div className='mb-4 flex items-center justify-between gap-3'>
+								<div>
+									<p className='text-sm font-medium'>Release notes</p>
+									<p className='text-xs text-(--color-secondary-text)'>
+										Read first, install when you are ready.
+									</p>
+								</div>
+								<Button
+									onClick={() => skipVersion(info.latestVersion)}
+									label='Skip this version'
+									variant='ghost'
+									tooltipContent='Do not show this version again'
+									iconLeft={<XIcon className='size-4' />}
+									isDisabled={downloading}
+								/>
+							</div>
+							<ReleaseNotes content={info.changelog} />
+						</div>
+					</div>
+				) : (
+					<div className='p-6'>
+						<div className='rounded-2xl border border-dashed border-(--color-border) bg-(--color-background) p-5'>
+							<p className='text-sm font-medium'>No pending update</p>
+							<p className='mt-1 text-sm text-(--color-secondary-text)'>
+								{lastCheckMessage ?? 'Manual checks appear here when you ask Aether to look.'}
+							</p>
+						</div>
+					</div>
+				)}
+			</section>
+
+			{error && (
+				<div className='rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600'>
+					{error}
 				</div>
 			)}
 
-			{/* Update preferences */}
 			{prefs && (
-				<div className='space-y-4'>
-					<h4 className='text-sm font-medium'>Update Settings</h4>
+				<section className='space-y-4 rounded-3xl border border-(--color-border) bg-(--color-panel) p-5'>
+					<div>
+						<h4 className='text-sm font-medium'>Update preferences</h4>
+						<p className='mt-1 text-xs text-(--color-secondary-text)'>
+							Control whether Aether checks quietly or waits for you.
+						</p>
+					</div>
 
-					<label className='flex cursor-pointer items-center gap-3'>
-						<input
-							type='checkbox'
-							checked={prefs.autoCheck}
-							onChange={e => handlePreferenceChange('autoCheck', e.target.checked)}
-							className='rounded border-neutral-400'
-						/>
-						<div>
-							<p className='text-sm'>Automatic update checks</p>
-							<p className='text-xs text-(--color-secondary-text)'>
-								Check for updates when the app gains focus
-							</p>
-						</div>
-					</label>
-
-					<label className='flex cursor-pointer items-center gap-3'>
-						<input
-							type='checkbox'
-							checked={prefs.autoDownload}
-							onChange={e => handlePreferenceChange('autoDownload', e.target.checked)}
-							className='rounded border-neutral-400'
-						/>
-						<div>
-							<p className='text-sm'>Auto-download updates</p>
-							<p className='text-xs text-(--color-secondary-text)'>
-								Download updates in the background (still requires confirmation to install)
-							</p>
-						</div>
-					</label>
-
+					<PreferenceToggle
+						label='Automatic update checks'
+						description='Check for updates when the app gains focus.'
+						checked={prefs.autoCheck}
+						onChange={checked => handlePreferenceChange('autoCheck', checked)}
+					/>
 					{prefs.skippedVersions.length > 0 && (
-						<div className='pt-2'>
-							<p className='mb-2 text-sm text-(--color-secondary-text)'>
+						<div className='flex flex-col gap-3 rounded-2xl border border-(--color-border) bg-(--color-background) p-4 sm:flex-row sm:items-center sm:justify-between'>
+							<p className='text-sm text-(--color-secondary-text)'>
 								Skipped versions: {prefs.skippedVersions.join(', ')}
 							</p>
 							<Button
 								onClick={clearSkippedVersions}
-								label='Clear skipped versions'
+								label='Clear skipped'
 								variant='ghost'
 								tooltipContent='Remove all skipped versions'
+								iconLeft={<RotateCcwIcon className='size-4' />}
 							/>
 						</div>
 					)}
-				</div>
+				</section>
 			)}
 		</div>
 	);
 };
 
-/** Simple markdown renderer for changelogs */
-function MarkdownContent({ content }: { content: string }) {
-	// Basic markdown to HTML conversion
-	const html = content
-		// Headers
-		.replace(/^### (.*$)/gim, '<h4 class="font-medium mt-3 mb-1">$1</h4>')
-		.replace(/^## (.*$)/gim, '<h3 class="font-medium mt-4 mb-2">$1</h3>')
-		.replace(/^# (.*$)/gim, '<h2 class="font-semibold mt-4 mb-2">$1</h2>')
-		// Bold
-		.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-		// Italic
-		.replace(/\*(.+?)\*/g, '<em>$1</em>')
-		// List items
-		.replace(/^- (.+)$/gim, '<li class="ml-4">• $1</li>')
-		// Line breaks
-		.replace(/\n\n/g, '<br/><br/>')
-		.replace(/\n/g, '<br/>');
+function PreferenceToggle({
+	label,
+	description,
+	checked,
+	onChange,
+}: {
+	label: string;
+	description: string;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+}) {
+	return (
+		<label className='flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-(--color-border) bg-(--color-background) p-4'>
+			<span>
+				<span className='block text-sm font-medium'>{label}</span>
+				<span className='mt-1 block text-xs text-(--color-secondary-text)'>{description}</span>
+			</span>
+			<input
+				type='checkbox'
+				checked={checked}
+				onChange={event => onChange(event.target.checked)}
+				className='size-4 rounded border-(--color-border)'
+			/>
+		</label>
+	);
+}
+
+function ReleaseNotes({ content }: { content: string }) {
+	if (!content.trim()) {
+		return (
+			<p className='rounded-2xl border border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
+				This update did not include release notes.
+			</p>
+		);
+	}
 
 	return (
-		<div
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: Changelog from trusted source
-			dangerouslySetInnerHTML={{ __html: html }}
-		/>
+		<div className='max-h-80 space-y-2 overflow-y-auto rounded-2xl border border-(--color-border) bg-(--color-background) p-4'>
+			{content.split('\n').map((line, index) => (
+				<ReleaseNoteLine key={`${line}-${index}`} line={line} />
+			))}
+		</div>
 	);
+}
+
+function ReleaseNoteLine({ line }: { line: string }) {
+	const trimmed = line.trim();
+	if (!trimmed) return <div className='h-2' />;
+
+	if (trimmed.startsWith('#')) {
+		return <p className='pt-2 text-sm font-semibold'>{trimmed.replace(/^#+\s*/, '')}</p>;
+	}
+
+	if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+		return (
+			<p className='pl-3 text-sm leading-6 text-(--color-secondary-text)'>
+				<span className='mr-2 text-(--color-active-text)'>•</span>
+				{trimmed.slice(2)}
+			</p>
+		);
+	}
+
+	return <p className='text-sm leading-6 text-(--color-secondary-text)'>{trimmed}</p>;
+}
+
+function formatPublishedAt(value: string) {
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return value;
+	return date.toLocaleDateString(undefined, {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
 }

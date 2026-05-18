@@ -1,8 +1,17 @@
 //! Tauri commands for the auto-updater functionality.
 
 use crate::updater::{self, UpdateInfo, UpdateManager, UpdatePreferences};
-use tauri::{AppHandle, State};
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_updater::UpdaterExt;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProgress {
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    percentage: f64,
+}
 
 /// Check for available updates
 #[tauri::command]
@@ -17,7 +26,10 @@ pub async fn check_for_updates(
 
     // Filter out skipped versions
     if let Some(ref update_info) = info {
-        if manager.is_version_skipped(&update_info.latest_version).await {
+        if manager
+            .is_version_skipped(&update_info.latest_version)
+            .await
+        {
             return Ok(None);
         }
     }
@@ -39,6 +51,7 @@ pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
 
     // Download the update
     let mut downloaded = 0;
+    let progress_app = app.clone();
     let bytes = update
         .download(
             |chunk_length, content_length| {
@@ -50,6 +63,23 @@ pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
                         total
                     );
                 }
+                let percentage = content_length
+                    .map(|total| {
+                        if total == 0 {
+                            0.0
+                        } else {
+                            ((downloaded as f64 / total as f64) * 100.0).min(100.0)
+                        }
+                    })
+                    .unwrap_or(0.0);
+                let _ = progress_app.emit(
+                    "update-download-progress",
+                    UpdateProgress {
+                        downloaded_bytes: downloaded as u64,
+                        total_bytes: content_length,
+                        percentage,
+                    },
+                );
             },
             || {
                 tracing::debug!("[UPDATER] Download chunk received");

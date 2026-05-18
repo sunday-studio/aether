@@ -46,9 +46,7 @@ impl LocalWhisperProvider {
         #[cfg(target_os = "windows")]
         {
             let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(appdata)
-                .join("Aether")
-                .join("models")
+            PathBuf::from(appdata).join("Aether").join("models")
         }
 
         #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
@@ -74,16 +72,22 @@ impl TranscriptionProvider for LocalWhisperProvider {
 
     async fn initialize(&mut self) -> Result<(), String> {
         // Get model size and path from settings
-        let model_size = settings::get_setting(self.database.clone(), "transcription.local_whisper.model_size")
-            .await
-            .map_err(|e| format!("Failed to get model size: {}", e))?
-            .unwrap_or_else(|| "base".to_string());
+        let model_size = settings::get_setting(
+            self.database.clone(),
+            "transcription.local_whisper.model_size",
+        )
+        .await
+        .map_err(|e| format!("Failed to get model size: {}", e))?
+        .unwrap_or_else(|| "base".to_string());
 
         let models_dir = Self::get_models_directory();
         let model_path = models_dir.join(format!("ggml-{}.bin", model_size));
 
         if !model_path.exists() {
-            return Err(format!("Model not found at {:?}. Please download the model first.", model_path));
+            return Err(format!(
+                "Model not found at {:?}. Please download the model first.",
+                model_path
+            ));
         }
 
         self.model_path = Some(model_path);
@@ -92,7 +96,11 @@ impl TranscriptionProvider for LocalWhisperProvider {
         Ok(())
     }
 
-    async fn transcribe(&self, _audio_data: &[u8], _format: &str) -> Result<TranscriptionResult, String> {
+    async fn transcribe(
+        &self,
+        _audio_data: &[u8],
+        _format: &str,
+    ) -> Result<TranscriptionResult, String> {
         if !self.initialized {
             return Err("Provider not initialized".to_string());
         }
@@ -108,7 +116,12 @@ impl TranscriptionProvider for LocalWhisperProvider {
     }
 
     async fn get_status(&self) -> ProviderStatus {
-        let model_size = match settings::get_setting(self.database.clone(), "transcription.local_whisper.model_size").await {
+        let model_size = match settings::get_setting(
+            self.database.clone(),
+            "transcription.local_whisper.model_size",
+        )
+        .await
+        {
             Ok(Some(size)) => size,
             _ => return ProviderStatus::NotConfigured,
         };
@@ -124,10 +137,13 @@ impl TranscriptionProvider for LocalWhisperProvider {
     }
 
     async fn validate_config(&self) -> Result<(), String> {
-        let model_size = settings::get_setting(self.database.clone(), "transcription.local_whisper.model_size")
-            .await
-            .map_err(|e| format!("Failed to get model size: {}", e))?
-            .ok_or_else(|| "Model size not configured".to_string())?;
+        let model_size = settings::get_setting(
+            self.database.clone(),
+            "transcription.local_whisper.model_size",
+        )
+        .await
+        .map_err(|e| format!("Failed to get model size: {}", e))?
+        .ok_or_else(|| "Model size not configured".to_string())?;
 
         let models_dir = Self::get_models_directory();
         let model_path = models_dir.join(format!("ggml-{}.bin", model_size));

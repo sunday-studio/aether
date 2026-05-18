@@ -1,7 +1,9 @@
 use crate::db::models::{Goal, GoalInstance};
 use crate::error::{AppError, Result};
-use crate::utils::goal_period::{calculate_goal_period, should_create_new_goal_instance, RecurringGoal};
-use crate::utils::{generate_id};
+use crate::utils::generate_id;
+use crate::utils::goal_period::{
+    calculate_goal_period, should_create_new_goal_instance, RecurringGoal,
+};
 use crate::utils::timezone::get_goal_location;
 use chrono::Utc;
 use libsql::Database;
@@ -25,7 +27,7 @@ impl GoalRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<Goal>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
             let mut rows = conn
@@ -50,11 +52,11 @@ impl GoalRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
-            
+
             conn.query(
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goals 
@@ -80,7 +82,7 @@ impl GoalRepository {
 
         let mut goals = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -105,7 +107,7 @@ impl GoalRepository {
     /// Get goal by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Goal>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -124,7 +126,10 @@ impl GoalRepository {
     }
 
     /// Get goals by IDs in one query. Returns map of id -> Goal.
-    pub async fn find_by_ids(&self, ids: &[String]) -> Result<std::collections::HashMap<String, Goal>> {
+    pub async fn find_by_ids(
+        &self,
+        ids: &[String],
+    ) -> Result<std::collections::HashMap<String, Goal>> {
         if ids.is_empty() {
             return Ok(std::collections::HashMap::new());
         }
@@ -138,7 +143,10 @@ impl GoalRepository {
             "SELECT id, name, description, is_non_recurring, recurrence_type, recurrence_interval, recurrence_anchor, recurrence_meta, timezone, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra FROM goals WHERE id IN ({}) AND deleted_at IS NULL",
             in_clause
         );
-        let mut rows = conn.query(&query, libsql::params![]).await.map_err(|e| AppError::LibSQL(e))?;
+        let mut rows = conn
+            .query(&query, libsql::params![])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
         let mut map = std::collections::HashMap::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             let goal = self.row_to_goal(row)?;
@@ -160,7 +168,7 @@ impl GoalRepository {
         timezone: String,
     ) -> Result<Goal> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
@@ -171,7 +179,9 @@ impl GoalRepository {
         let created_at_str = now.to_rfc3339();
         let updated_at_str = now.to_rfc3339();
         let recurrence_anchor_str = recurrence_anchor.map(|d| d.to_rfc3339());
-        let recurrence_meta_str = recurrence_meta.as_ref().map(|m| serde_json::to_string(m).unwrap_or_default());
+        let recurrence_meta_str = recurrence_meta
+            .as_ref()
+            .map(|m| serde_json::to_string(m).unwrap_or_default());
 
         // Insert goal
         conn.execute(
@@ -270,7 +280,9 @@ impl GoalRepository {
             .map_err(|e| AppError::LibSQL(e))?;
 
         // Return created goal
-        self.find_by_id(&id).await?.ok_or_else(|| AppError::Internal("Failed to retrieve created goal".to_string()))
+        self.find_by_id(&id)
+            .await?
+            .ok_or_else(|| AppError::Internal("Failed to retrieve created goal".to_string()))
     }
 
     /// Update a goal
@@ -287,10 +299,11 @@ impl GoalRepository {
         client_updated_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<Goal> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Get current goal
         let current = self.find_by_id(id).await?;
-        let mut goal = current.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", id)))?;
+        let mut goal =
+            current.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", id)))?;
 
         // Last-Write-Wins conflict detection
         if let Some(client_time) = client_updated_at {
@@ -322,7 +335,10 @@ impl GoalRepository {
         // Update recurrence fields based on whether goal is non-recurring
         if goal.is_non_recurring {
             // For non-recurring goals, recurrence fields should remain nil
-            if recurrence_type.is_some() || recurrence_interval.is_some() || recurrence_anchor.is_some() {
+            if recurrence_type.is_some()
+                || recurrence_interval.is_some()
+                || recurrence_anchor.is_some()
+            {
                 return Err(AppError::BadRequest(
                     "cannot set recurrence fields for non-recurring goals".to_string(),
                 ));
@@ -350,7 +366,10 @@ impl GoalRepository {
 
         let updated_at_str = goal.updated_at.to_rfc3339();
         let recurrence_anchor_str = goal.recurrence_anchor.map(|d| d.to_rfc3339());
-        let recurrence_meta_str = goal.recurrence_meta.as_ref().map(|m| serde_json::to_string(m).unwrap_or_default());
+        let recurrence_meta_str = goal
+            .recurrence_meta
+            .as_ref()
+            .map(|m| serde_json::to_string(m).unwrap_or_default());
 
         conn.execute(
             "UPDATE goals 
@@ -378,7 +397,7 @@ impl GoalRepository {
     /// Delete a goal (soft delete)
     pub async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Check if goal exists
         let goal = self.find_by_id(id).await?;
         if goal.is_none() {
@@ -435,7 +454,7 @@ impl GoalRepository {
         cursor: Option<String>,
     ) -> Result<(Vec<GoalInstance>, Option<String>, bool)> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify goal exists
         let goal = self.find_by_id(goal_id).await?;
         if goal.is_none() {
@@ -466,11 +485,11 @@ impl GoalRepository {
         // Pagination mode
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
-        
+
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let last_id = cursor::decode(&cursor_val)?;
-            
+
             conn.query(
                 "SELECT id, goal_id, period_start, period_end, status, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                  FROM goal_instances 
@@ -496,7 +515,7 @@ impl GoalRepository {
 
         let mut instances = Vec::new();
         let mut has_more = false;
-        
+
         let mut count = 0;
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if count < limit_val {
@@ -523,9 +542,9 @@ impl GoalRepository {
         // Get goal before starting transaction to avoid nested connection issues
         let goal = self.find_by_id(goal_id).await?;
         let goal = goal.ok_or_else(|| AppError::NotFound(format!("Goal {} not found", goal_id)))?;
-        
+
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         conn.execute("BEGIN TRANSACTION", libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
@@ -604,7 +623,9 @@ impl GoalRepository {
             if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 return Ok(self.row_to_goal_instance(row)?);
             } else {
-                return Err(AppError::Internal("Failed to retrieve created instance".to_string()));
+                return Err(AppError::Internal(
+                    "Failed to retrieve created instance".to_string(),
+                ));
             }
         }
 
@@ -660,8 +681,8 @@ impl GoalRepository {
             })?;
 
             conn.execute("COMMIT", libsql::params![])
-            .await
-            .map_err(|e| AppError::LibSQL(e))?;
+                .await
+                .map_err(|e| AppError::LibSQL(e))?;
 
             // Return created instance
             let mut rows = conn
@@ -677,7 +698,9 @@ impl GoalRepository {
             if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 return Ok(self.row_to_goal_instance(row)?);
             } else {
-                return Err(AppError::Internal("Failed to retrieve created instance".to_string()));
+                return Err(AppError::Internal(
+                    "Failed to retrieve created instance".to_string(),
+                ));
             }
         }
 
@@ -689,14 +712,16 @@ impl GoalRepository {
         if let Some(instance) = last_instance {
             Ok(instance)
         } else {
-            Err(AppError::Internal("No instance found and failed to create one".to_string()))
+            Err(AppError::Internal(
+                "No instance found and failed to create one".to_string(),
+            ))
         }
     }
 
     /// Add tags to a goal
     pub async fn add_tags(&self, goal_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify goal exists
         let goal = self.find_by_id(goal_id).await?;
         if goal.is_none() {
@@ -712,20 +737,23 @@ impl GoalRepository {
             .iter()
             .map(|id| format!("'{}'", id.replace("'", "''")))
             .collect();
-        let query = format!("SELECT id FROM tags WHERE id IN ({})", escaped_ids.join(", "));
-        
+        let query = format!(
+            "SELECT id FROM tags WHERE id IN ({})",
+            escaped_ids.join(", ")
+        );
+
         let mut rows = conn
             .query(&query, libsql::params![])
             .await
             .map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut found_tag_ids = std::collections::HashSet::new();
         while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             if let Ok(tag_id) = row.get::<String>(0) {
                 found_tag_ids.insert(tag_id);
             }
         }
-        
+
         // Check if all tags were found
         for tag_id in &tag_ids {
             if !found_tag_ids.contains(tag_id) {
@@ -762,7 +790,7 @@ impl GoalRepository {
     /// Remove tags from a goal
     pub async fn remove_tags(&self, goal_id: &str, tag_ids: Vec<String>) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         // Verify goal exists
         let goal = self.find_by_id(goal_id).await?;
         if goal.is_none() {
@@ -832,7 +860,11 @@ impl GoalRepository {
         let _sync_id: Option<String> = row.get(12).ok();
         let _updated_at: Option<i64> = row.get(13).ok();
         let _deleted: i64 = row.get(14).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(15).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(15)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         Ok(Goal {
             id,
@@ -865,7 +897,11 @@ impl GoalRepository {
         let _sync_id: Option<String> = row.get(8).ok();
         let _updated_at: Option<i64> = row.get(9).ok();
         let _deleted: i64 = row.get(10).unwrap_or(0);
-        let _extra: Option<serde_json::Value> = row.get::<Option<String>>(11).ok().flatten().and_then(|s| serde_json::from_str(&s).ok());
+        let _extra: Option<serde_json::Value> = row
+            .get::<Option<String>>(11)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
 
         let period_start = chrono::DateTime::parse_from_rfc3339(&period_start_str)
             .map_err(|e| AppError::Internal(format!("Invalid period_start: {}", e)))?

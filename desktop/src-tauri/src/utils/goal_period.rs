@@ -36,7 +36,12 @@ pub fn calculate_goal_period(
 
 fn calculate_daily(now: DateTime<Tz>, tz: Tz) -> (DateTime<Utc>, DateTime<Utc>) {
     let t_in_tz = now.with_timezone(&tz);
-    let start = t_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
+    let start = t_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
     let end = start + Duration::days(1) - Duration::nanoseconds(1);
     (start.with_timezone(&Utc), end.with_timezone(&Utc))
 }
@@ -49,8 +54,18 @@ fn calculate_weekly(
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let anchor_in_tz = anchor.with_timezone(&tz);
     let now_in_tz = now.with_timezone(&tz);
-    let anchor_start = anchor_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
-    let now_start = now_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
+    let anchor_start = anchor_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
+    let now_start = now_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
 
     let days_since = (now_start - anchor_start).num_days();
     let weeks_since = days_since / 7;
@@ -77,8 +92,18 @@ fn calculate_monthly(
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let anchor_in_tz = anchor.with_timezone(&tz);
     let now_in_tz = now.with_timezone(&tz);
-    let anchor_start = anchor_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
-    let now_start = now_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
+    let anchor_start = anchor_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
+    let now_start = now_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
 
     let interval = if goal.recurrence_interval <= 0 {
         1
@@ -96,25 +121,28 @@ fn calculate_monthly(
         .unwrap()
         .with_year(anchor_start.year())
         .unwrap();
-    
+
     // Add months using chrono's checked_add_months equivalent
     let mut start = start;
     for _ in 0..(period_index * interval) {
-        start = start
-            .with_month(start.month() + 1)
-            .unwrap_or_else(|| {
-                // If month overflow, go to next year
-                start.with_year(start.year() + 1).unwrap().with_month(1).unwrap()
-            });
+        start = start.with_month(start.month() + 1).unwrap_or_else(|| {
+            // If month overflow, go to next year
+            start
+                .with_year(start.year() + 1)
+                .unwrap()
+                .with_month(1)
+                .unwrap()
+        });
     }
 
     let mut end = start;
     for _ in 0..interval {
-        end = end
-            .with_month(end.month() + 1)
-            .unwrap_or_else(|| {
-                end.with_year(end.year() + 1).unwrap().with_month(1).unwrap()
-            });
+        end = end.with_month(end.month() + 1).unwrap_or_else(|| {
+            end.with_year(end.year() + 1)
+                .unwrap()
+                .with_month(1)
+                .unwrap()
+        });
     }
     let end = end - Duration::nanoseconds(1);
 
@@ -129,8 +157,18 @@ fn calculate_yearly(
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let anchor_in_tz = anchor.with_timezone(&tz);
     let now_in_tz = now.with_timezone(&tz);
-    let anchor_start = anchor_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
-    let now_start = now_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
+    let anchor_start = anchor_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
+    let now_start = now_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
 
     let interval = if goal.recurrence_interval <= 0 {
         1
@@ -144,11 +182,8 @@ fn calculate_yearly(
     let start = anchor_start
         .with_year(anchor_start.year() + period_index * interval)
         .unwrap();
-    
-    let end = start
-        .with_year(start.year() + interval)
-        .unwrap()
-        - Duration::nanoseconds(1);
+
+    let end = start.with_year(start.year() + interval).unwrap() - Duration::nanoseconds(1);
 
     (start.with_timezone(&Utc), end.with_timezone(&Utc))
 }
@@ -161,8 +196,18 @@ fn calculate_custom(
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let anchor_in_tz = anchor.with_timezone(&tz);
     let now_in_tz = now.with_timezone(&tz);
-    let anchor_start = anchor_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
-    let now_start = now_in_tz.date_naive().and_hms_opt(0, 0, 0).unwrap().and_local_timezone(tz).unwrap();
+    let anchor_start = anchor_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
+    let now_start = now_in_tz
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(tz)
+        .unwrap();
 
     let interval = if goal.recurrence_interval <= 0 {
         1

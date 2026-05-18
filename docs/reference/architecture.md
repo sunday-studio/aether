@@ -34,7 +34,7 @@ Most product behavior lives in the desktop app. The React layer owns screens, in
 
 The frontend is a Vite/React app under `desktop/src`. It uses React Router for navigation, TanStack Query for server-state caching, generated SDK hooks for Tauri command calls, and local feature stores where needed.
 
-Visible product areas currently include journal, tasks, goals, settings, graph, bookmarks, and canvas routes. For v1, Canvas should be hidden and Bookmarks should be hidden unless completed.
+The v1 product surface is intentionally narrow: journal, tasks, goals, settings, encrypted sync, and updater. Canvas, bookmarks, graph, journal audio/transcription, global search, embeddings management, and sync diagnostics are kept out of the visible v1 navigation unless they are intentionally completed in a later milestone.
 
 ### Tauri Desktop Backend
 
@@ -98,7 +98,7 @@ Shared frontend components. This includes editor components, shared app shell pi
 
 ### `desktop/src/context/`
 
-React context providers. The currently important provider is theme context, which wraps the app and connects settings-driven theme behavior to the frontend.
+React context providers. Theme context wraps app styling behavior, while updater context centralizes update checks, available update state, preferences, and download/install actions for the global update button and Settings > What's New.
 
 ### `desktop/src/features/`
 
@@ -106,7 +106,7 @@ Frontend feature modules and routes. This is the main product surface.
 
 ### `desktop/src/features/journal/`
 
-Journal UI. It renders the main journal timeline, entry components, audio display, media interactions, and invalidation helpers. This is a v1 core feature.
+Journal UI. It renders the main journal timeline, entry components, and invalidation helpers. Journal audio/transcription code exists, but its visible UI is hidden for v1.
 
 ### `desktop/src/features/tasks/`
 
@@ -114,15 +114,15 @@ Tasks and goals UI. It includes inbox, overdue tasks, goal-specific task views, 
 
 ### `desktop/src/features/settings/`
 
-Settings UI. It currently covers preferences, sync, and updater/What's New. For v1, onboarding should reuse the same settings concepts while providing a first-run flow for profile and AI setup.
+Settings UI. It currently covers preferences, sync, AI provider keys, and updater/What's New for the v1 surface. Journal audio/transcription code exists, but its visible UI is hidden for v1.
 
 ### `desktop/src/features/graph/`
 
-Knowledge graph UI backed by resource links. It uses backend graph/link data and renders a visualization. Keep in v1 only if the experience feels finished enough.
+Knowledge graph UI backed by resource links. It uses backend graph/link data and renders a visualization, but the route is hidden for v1 because the experience is not polished enough to ship as a visible surface.
 
 ### `desktop/src/features/bookmarks/`
 
-Bookmarks route. The backend has substantial bookmark support, but the current frontend view is placeholder-level. For v1, either finish this feature or hide it.
+Bookmarks route. The backend has substantial bookmark support, but the current frontend view is placeholder-level. The route is hidden for v1.
 
 ### `desktop/src/features/canvas/`
 
@@ -256,11 +256,11 @@ Rust build output. Treat as artifact.
 
 ### Bookmarks
 
-The backend has bookmark CRUD, metadata extraction, tagging, archive support, repository logic, and generated API hooks. The frontend route currently resolves to a placeholder-level view. For v1, finish the bookmarks UI or hide the route.
+The backend has bookmark CRUD, metadata extraction, tagging, archive support, repository logic, and generated API hooks. The frontend route currently resolves to a placeholder-level view, so the route is hidden for v1.
 
 ### Search
 
-The backend has fuzzy/hybrid search and linkable resource search. Link autocomplete uses search for resource linking, but global command-palette search is commented out. For v1, ship a real global search experience or keep it hidden.
+The backend has fuzzy/hybrid search and linkable resource search. Link autocomplete uses search for resource linking, but global command-palette search is not shipped as a visible v1 surface.
 
 ### Embeddings
 
@@ -268,7 +268,7 @@ The backend exposes embedding model list, download, verify, and delete commands.
 
 ### Transcription Provider And Model Management
 
-The backend can list and validate providers and manage local Whisper models. The frontend currently uses transcription in the journal audio flow, but provider/model management is not a complete user-facing settings surface. For v1, expose only what onboarding and journal transcription need.
+The backend can list and validate providers and manage local Whisper models. Journal audio/transcription code exists, but the visible journal audio UI and full provider/model management are hidden for v1.
 
 ### Sync Diagnostics
 
@@ -278,3 +278,6 @@ The backend exposes sync trigger check/test commands. These are diagnostic tools
 
 Canvas has backend and frontend implementation, but it is out for v1. Hide the route, shortcut, and navigation paths while leaving the code in place.
 
+### Graph
+
+The graph route has frontend and backend support through resource links, but the current visualization is placeholder-level. The route is hidden for v1 until the graph has a designed navigation path, empty state, labels, and resource-opening behavior.

@@ -1,4 +1,6 @@
-use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, SettingQueryParams};
+use crate::commands::params::{
+    EmptyPathParams, EmptyQueryParams, EmptyRequest, SettingQueryParams,
+};
 use crate::db::connection;
 use crate::error::{AppError, Result};
 use crate::settings;
@@ -18,7 +20,10 @@ pub struct SettingResponse {
 pub struct AllSettingsResponse(HashMap<String, String>);
 
 impl ToSchema<'_> for AllSettingsResponse {
-    fn schema() -> (&'static str, utoipa::openapi::RefOr<utoipa::openapi::Schema>) {
+    fn schema() -> (
+        &'static str,
+        utoipa::openapi::RefOr<utoipa::openapi::Schema>,
+    ) {
         (
             "AllSettingsResponse",
             utoipa::openapi::ObjectBuilder::new()
@@ -72,7 +77,8 @@ pub async fn get_setting(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SettingResponse> {
     let _guard = crate::db::connection::with_db_access(&*state).await;
-    let params = query_params.ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
+    let params = query_params
+        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
     if params.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }
@@ -80,7 +86,10 @@ pub async fn get_setting(
     let database = connection::get_database(&*state);
     let value = settings::get_setting(database, &params.key).await?;
 
-    Ok(SettingResponse { key: params.key, value })
+    Ok(SettingResponse {
+        key: params.key,
+        value,
+    })
 }
 
 /// Get all settings
@@ -130,7 +139,8 @@ pub async fn set_setting(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
     let _guard = crate::db::connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.key.is_empty() {
         return Err(AppError::BadRequest("Setting key is required".to_string()));
     }

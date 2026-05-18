@@ -1,3 +1,4 @@
+use crate::commands::common::PaginationResponse;
 use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, MediaIdPathParams, ModelSizePathParams,
     PaginationQueryParams, TranscriptionIdPathParams, TranscriptionStartQueryParams,
@@ -5,11 +6,12 @@ use crate::commands::params::{
 use crate::db::connection;
 use crate::db::repositories::TranscriptionRepository;
 use crate::error::{AppError, Result};
-use crate::commands::common::PaginationResponse;
 use crate::settings;
 use crate::transcription::model_manager;
-use crate::transcription::providers::{GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider};
 use crate::transcription::provider::TranscriptionProvider;
+use crate::transcription::providers::{
+    GroqProvider, LocalWhisperProvider, OpenAIProvider, SelfHostedProvider,
+};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use utoipa::ToSchema;
@@ -80,7 +82,7 @@ pub async fn start_transcription(
 
     let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
-    
+
     // Get provider name (default or specified)
     let provider = if let Some(ref params) = query_params {
         if let Some(name) = &params.provider {
@@ -104,16 +106,20 @@ pub async fn start_transcription(
 
     // Create transcription record
     let repo = TranscriptionRepository::new(database.clone());
-    let transcription = repo.create(media_id.clone(), provider.clone(), None).await?;
-    
+    let transcription = repo
+        .create(media_id.clone(), provider.clone(), None)
+        .await?;
+
     // Create queue and enqueue job
     let queue = crate::transcription::TranscriptionQueue::new(database.clone(), app.clone());
-    queue.enqueue(crate::transcription::TranscriptionJob {
-        media_id,
-        provider_name: provider,
-        transcription_id: transcription.id.clone(),
-    }).await?;
-    
+    queue
+        .enqueue(crate::transcription::TranscriptionJob {
+            media_id,
+            provider_name: provider,
+            transcription_id: transcription.id.clone(),
+        })
+        .await?;
+
     Ok(transcription.id)
 }
 
@@ -154,7 +160,11 @@ pub async fn get_transcriptions(
     let (transcriptions, next_cursor, has_more) = repo
         .find_by_media_id(&media_id, params.normalize_limit(), params.cursor)
         .await?;
-    Ok(PaginationResponse::new(transcriptions, next_cursor, has_more))
+    Ok(PaginationResponse::new(
+        transcriptions,
+        next_cursor,
+        has_more,
+    ))
 }
 
 /// Get a specific transcription by ID
@@ -182,7 +192,9 @@ pub async fn get_transcription_by_id(
         .and_then(|p| Some(p.transcription_id))
         .ok_or_else(|| AppError::BadRequest("Transcription ID is required".to_string()))?;
     if transcription_id.is_empty() {
-        return Err(AppError::BadRequest("Transcription ID is required".to_string()));
+        return Err(AppError::BadRequest(
+            "Transcription ID is required".to_string(),
+        ));
     }
 
     let _guard = connection::with_db_access(&*state).await;
@@ -213,15 +225,19 @@ pub async fn set_active_transcription(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<()> {
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.transcription_id.is_empty() || request.media_id.is_empty() {
-        return Err(AppError::BadRequest("Transcription ID and Media ID are required".to_string()));
+        return Err(AppError::BadRequest(
+            "Transcription ID and Media ID are required".to_string(),
+        ));
     }
 
     let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
     let repo = TranscriptionRepository::new(database);
-    repo.set_active(&request.transcription_id, &request.media_id).await?;
+    repo.set_active(&request.transcription_id, &request.media_id)
+        .await?;
     Ok(())
 }
 
@@ -244,9 +260,9 @@ pub async fn list_providers(
 ) -> Result<Vec<ProviderInfo>> {
     let _guard = connection::with_db_access(&*state).await;
     let database = connection::get_database(&*state);
-    
+
     let mut providers = Vec::new();
-    
+
     // OpenAI
     let openai = OpenAIProvider::new(database.clone());
     let openai_status = openai.get_status().await;
@@ -257,15 +273,17 @@ pub async fn list_providers(
         requires_download: false,
         status: match openai_status {
             crate::transcription::provider::ProviderStatus::Ready => "ready".to_string(),
-            crate::transcription::provider::ProviderStatus::NotConfigured => "not_configured".to_string(),
+            crate::transcription::provider::ProviderStatus::NotConfigured => {
+                "not_configured".to_string()
+            }
             crate::transcription::provider::ProviderStatus::Error { message } => {
                 format!("error:{}", message)
-            },
+            }
             _ => "not_configured".to_string(),
         },
         error_message: None,
     });
-    
+
     // Groq
     let groq = GroqProvider::new(database.clone());
     let groq_status = groq.get_status().await;
@@ -276,15 +294,17 @@ pub async fn list_providers(
         requires_download: false,
         status: match groq_status {
             crate::transcription::provider::ProviderStatus::Ready => "ready".to_string(),
-            crate::transcription::provider::ProviderStatus::NotConfigured => "not_configured".to_string(),
+            crate::transcription::provider::ProviderStatus::NotConfigured => {
+                "not_configured".to_string()
+            }
             crate::transcription::provider::ProviderStatus::Error { message } => {
                 format!("error:{}", message)
-            },
+            }
             _ => "not_configured".to_string(),
         },
         error_message: None,
     });
-    
+
     // Local Whisper
     let local = LocalWhisperProvider::new(database.clone());
     let local_status = local.get_status().await;
@@ -295,15 +315,17 @@ pub async fn list_providers(
         requires_download: true,
         status: match local_status {
             crate::transcription::provider::ProviderStatus::Ready => "ready".to_string(),
-            crate::transcription::provider::ProviderStatus::NotConfigured => "not_configured".to_string(),
+            crate::transcription::provider::ProviderStatus::NotConfigured => {
+                "not_configured".to_string()
+            }
             crate::transcription::provider::ProviderStatus::Error { message } => {
                 format!("error:{}", message)
-            },
+            }
             _ => "not_configured".to_string(),
         },
         error_message: None,
     });
-    
+
     // Self-hosted
     let self_hosted = SelfHostedProvider::new(database.clone());
     let self_hosted_status = self_hosted.get_status().await;
@@ -314,15 +336,17 @@ pub async fn list_providers(
         requires_download: false,
         status: match self_hosted_status {
             crate::transcription::provider::ProviderStatus::Ready => "ready".to_string(),
-            crate::transcription::provider::ProviderStatus::NotConfigured => "not_configured".to_string(),
+            crate::transcription::provider::ProviderStatus::NotConfigured => {
+                "not_configured".to_string()
+            }
             crate::transcription::provider::ProviderStatus::Error { message } => {
                 format!("error:{}", message)
-            },
+            }
             _ => "not_configured".to_string(),
         },
         error_message: None,
     });
-    
+
     Ok(providers)
 }
 
@@ -348,18 +372,26 @@ pub async fn validate_provider(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<bool> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let database = connection::get_database(&*state);
-    
+
     let provider: Box<dyn TranscriptionProvider> = match request.provider_name.as_str() {
         "openai" => Box::new(OpenAIProvider::new(database.clone())),
         "groq" => Box::new(GroqProvider::new(database.clone())),
         "local-whisper" => Box::new(LocalWhisperProvider::new(database.clone())),
         "self-hosted" => Box::new(SelfHostedProvider::new(database.clone())),
-        _ => return Err(AppError::BadRequest(format!("Unknown provider: {}", request.provider_name))),
+        _ => {
+            return Err(AppError::BadRequest(format!(
+                "Unknown provider: {}",
+                request.provider_name
+            )))
+        }
     };
-    
-    provider.validate_config().await
+
+    provider
+        .validate_config()
+        .await
         .map(|_| true)
         .map_err(|e| AppError::Internal(format!("Validation failed: {}", e)))
 }
@@ -382,11 +414,10 @@ pub async fn list_available_models(
 ) -> Result<Vec<ModelInfo>> {
     let models = model_manager::list_available_models();
     let mut result = Vec::new();
-    
+
     for model in models {
-        let is_downloaded = model_manager::is_model_downloaded(&model.size)
-            .unwrap_or(false);
-        
+        let is_downloaded = model_manager::is_model_downloaded(&model.size).unwrap_or(false);
+
         result.push(ModelInfo {
             name: model.name,
             size: model.size,
@@ -395,7 +426,7 @@ pub async fn list_available_models(
             is_downloaded,
         });
     }
-    
+
     Ok(result)
 }
 
@@ -426,15 +457,16 @@ pub async fn download_model(
         .and_then(|p| Some(p.model_size))
         .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;
     let database = connection::get_database(&*state);
-    
+
     // Download with progress events
     // TODO: Implement progress events for Tauri 2
     model_manager::download_model(
         database,
         &model_size,
         None, // Progress callback disabled for now
-    ).await?;
-    
+    )
+    .await?;
+
     Ok(format!("Model {} downloaded successfully", model_size))
 }
 
@@ -489,4 +521,3 @@ pub async fn delete_model(
         .ok_or_else(|| AppError::BadRequest("Model size is required".to_string()))?;
     model_manager::delete_model(&model_size)
 }
-

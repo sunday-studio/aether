@@ -1,15 +1,15 @@
 /** biome-ignore-all lint/a11y/useFocusableInteractive: false positive */
 /** biome-ignore-all lint/a11y/useSemanticElements: false positive */
-import { useQueryClient } from "@tanstack/react-query";
-import { Tag } from "lucide-react";
-import { forwardRef, useMemo } from "react";
-import { cn } from "tailwind-variants";
-import { useAddTagsToTask, useRemoveTagsFromTask } from "~/aether-sdk";
-import type { Tag as TagModel } from "~/aether-sdk/models";
-import { TagsPopoverSelector } from "~/components/shared/tags-popover-selector";
-import { Tooltip } from "~/components/shared/tooltip";
-import { invalidateTaskQueries } from "../../invalidate-task-queries";
-import { TaskActionButton } from "./task-shared-components";
+import { useQueryClient } from '@tanstack/react-query';
+import { Tag } from 'lucide-react';
+import { forwardRef, useMemo } from 'react';
+import { cn } from 'tailwind-variants';
+import { useAddTagsToTask, useRemoveTagsFromTask } from '~/aether-sdk';
+import type { Tag as TagModel } from '~/aether-sdk/models';
+import { TagsPopoverSelector } from '~/components/shared/tags-popover-selector';
+import { Tooltip } from '~/components/shared/tooltip';
+import { invalidateTaskQueries } from '../../invalidate-task-queries';
+import { TaskActionButton } from './task-shared-components';
 
 interface TaskTagsInputProps {
 	value: TagModel[] | undefined;
@@ -20,9 +20,9 @@ const TagItem = ({ label }: { label: string }) => {
 	return (
 		<div
 			className={cn(
-				"rounded-lg px-1.5 h-6",
-				"bg-neutral-200/70 text-neutral-500 text-xs",
-				"flex items-center justify-center",
+				'h-6 rounded-lg px-1.5',
+				'bg-neutral-200/70 text-xs text-neutral-500',
+				'flex items-center justify-center',
 			)}
 		>
 			<span>{label}</span>
@@ -61,10 +61,7 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 		);
 	};
 
-	const CustomTrigger = forwardRef<
-		HTMLDivElement,
-		React.HTMLAttributes<HTMLDivElement>
-	>(() => {
+	const CustomTrigger = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(() => {
 		const hasTags = tags.length > 0;
 		const hasMoreThan3Tags = tags.length > 3;
 
@@ -81,14 +78,14 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 		}
 
 		if (hasMoreThan3Tags) {
-			return <TagItem label={tagsDisplayString ?? ""} />;
+			return <TagItem label={tagsDisplayString ?? ''} />;
 		}
 
 		if (!hasMoreThan3Tags) {
 			return (
-				<div className="flex gap-1">
-					{tags.map((tag) => (
-						<TagItem key={tag.id} label={tag.name ?? ""} />
+				<div className='flex gap-1'>
+					{tags.map(tag => (
+						<TagItem key={tag.id} label={tag.name ?? ''} />
 					))}
 				</div>
 			);
@@ -96,25 +93,21 @@ export const TaskTagsInput = ({ value, taskId }: TaskTagsInputProps) => {
 	});
 
 	const selectedTags = useMemo(() => {
-		return tags.map((tag) => ({
-			id: tag.id ?? "",
-			name: tag.name ?? "",
+		return tags.map(tag => ({
+			id: tag.id ?? '',
+			name: tag.name ?? '',
 		}));
 	}, [tags]);
 
 	return (
-		<div className={cn("flex", "items-start", "shrink-0", "justify-start")}>
+		<div className={cn('flex', 'items-start', 'shrink-0', 'justify-start')}>
 			<TagsPopoverSelector
 				selectedTags={selectedTags}
 				onAddTag={handleAddTag}
 				onRemoveTag={handleRemoveTag}
-				onCreateTag={() => {}}
+				onCreateTag={handleAddTag}
 				customTrigger={
-					<Tooltip
-						content="Add tags"
-						trigger={<CustomTrigger />}
-						disabled={Boolean(tags.length)}
-					/>
+					<Tooltip content='Add tags' trigger={<CustomTrigger />} disabled={Boolean(tags.length)} />
 				}
 			/>
 		</div>

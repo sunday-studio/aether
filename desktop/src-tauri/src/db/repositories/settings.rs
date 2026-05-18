@@ -16,7 +16,7 @@ impl SettingsRepository {
     /// Get a setting by key
     pub async fn get(&self, key: &str) -> Result<Option<Setting>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT key, value, updated_at FROM settings WHERE key = ?1",
@@ -35,18 +35,19 @@ impl SettingsRepository {
     /// Set a setting (insert or update)
     pub async fn set(&self, key: &str, value: &str) -> Result<Setting> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let now = Utc::now();
         let updated_at_str = now.to_rfc3339();
 
         // Try INSERT ... ON CONFLICT first (works in local mode)
         // If it fails with "unsupported statement", fall back to check-then-insert/update
-        let result = conn.execute(
-            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+        let result = conn
+            .execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
              ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
-            libsql::params![key, value, updated_at_str.clone()],
-        )
-        .await;
+                libsql::params![key, value, updated_at_str.clone()],
+            )
+            .await;
 
         match result {
             Ok(_) => {
@@ -58,7 +59,7 @@ impl SettingsRepository {
                 if error_msg.contains("unsupported") || error_msg.contains("ON CONFLICT") {
                     // Check if setting exists
                     let existing = self.get(key).await?;
-                    
+
                     if existing.is_some() {
                         // Update existing setting
                         conn.execute(
@@ -93,13 +94,10 @@ impl SettingsRepository {
     /// Delete a setting
     pub async fn delete(&self, key: &str) -> Result<()> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
-        conn.execute(
-            "DELETE FROM settings WHERE key = ?1",
-            libsql::params![key],
-        )
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
+
+        conn.execute("DELETE FROM settings WHERE key = ?1", libsql::params![key])
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
 
         Ok(())
     }
@@ -107,7 +105,7 @@ impl SettingsRepository {
     /// Get all settings
     pub async fn get_all(&self) -> Result<Vec<Setting>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let mut rows = conn
             .query(
                 "SELECT key, value, updated_at FROM settings ORDER BY key ASC",
@@ -127,7 +125,7 @@ impl SettingsRepository {
     /// Get all settings with a given prefix
     pub async fn get_by_prefix(&self, prefix: &str) -> Result<Vec<Setting>> {
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
-        
+
         let pattern = format!("{}%", prefix);
         let mut rows = conn
             .query(

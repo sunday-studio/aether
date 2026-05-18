@@ -1,5 +1,5 @@
-use crate::media::{delete_media, get_media_file_path, read_media_file, save_media_file};
 use crate::error::Result;
+use crate::media::{delete_media, get_media_file_path, read_media_file, save_media_file};
 use libsql::Database;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -20,7 +20,7 @@ pub async fn save_audio_file(
         "duration": duration,
         "format": format,
     });
-    
+
     // Use unified save_media_file function
     save_media_file(
         database,
@@ -29,7 +29,8 @@ pub async fn save_audio_file(
         "audio".to_string(),
         audio_data,
         metadata,
-    ).await
+    )
+    .await
 }
 
 /// Get file path for audio (returns full path)
@@ -41,17 +42,11 @@ pub async fn get_audio_file_path(
 }
 
 /// Read audio file bytes from filesystem
-pub async fn read_audio_file(
-    database: Arc<Database>,
-    media_id: &str,
-) -> Result<Vec<u8>> {
+pub async fn read_audio_file(database: Arc<Database>, media_id: &str) -> Result<Vec<u8>> {
     read_media_file(database, media_id).await
 }
 
 /// Delete audio file and database record
-pub async fn delete_audio(
-    database: Arc<Database>,
-    media_id: &str,
-) -> Result<()> {
+pub async fn delete_audio(database: Arc<Database>, media_id: &str) -> Result<()> {
     delete_media(database, media_id).await
 }

@@ -1,3 +1,4 @@
+use crate::commands::common::PaginationResponse;
 use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, GoalIdPathParams, IdPathParams,
     PaginationQueryParams,
@@ -5,7 +6,6 @@ use crate::commands::params::{
 use crate::db::models::{Goal, GoalInstance, GoalInstanceWithTasks};
 use crate::db::{connection, DbState, GoalRepository, SearchDocumentRepository, TaskRepository};
 use crate::error::{AppError, Result};
-use crate::commands::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use serde::Deserialize;
 use tauri::State;
@@ -147,7 +147,8 @@ pub async fn create_goal(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Goal> {
     let _guard = connection::with_db_access(&*state).await;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.name.is_empty() {
         return Err(AppError::BadRequest("Name is required".to_string()));
     }
@@ -155,7 +156,8 @@ pub async fn create_goal(
     let is_non_recurring = request.is_non_recurring.unwrap_or(false);
 
     if !is_non_recurring {
-        if request.recurrence_type.is_none() || request.recurrence_type.as_ref().unwrap().is_empty() {
+        if request.recurrence_type.is_none() || request.recurrence_type.as_ref().unwrap().is_empty()
+        {
             return Err(AppError::BadRequest(
                 "recurrenceType is required for recurring goals".to_string(),
             ));
@@ -251,7 +253,8 @@ pub async fn update_goal(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
@@ -329,12 +332,16 @@ pub async fn delete_goal(
     {
         tracing::warn!("Failed to remove goal {} from search index: {}", id, e);
     }
-    
+
     // Log activity
     if let Err(e) = log_delete(db.clone(), "goal".to_string(), id.clone()).await {
-        tracing::warn!("Failed to log goal deletion activity for goal {}: {}", id, e);
+        tracing::warn!(
+            "Failed to log goal deletion activity for goal {}: {}",
+            id,
+            e
+        );
     }
-    
+
     Ok(())
 }
 
@@ -448,16 +455,18 @@ pub async fn add_tags_to_goal(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
     repo.add_tags(&id, request.tag_ids).await?;
-    
+
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await {
+    if let Err(e) = log_tag_operation(db.clone(), "add_tags", "goal".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log add_tags activity for goal {}: {}", id, e);
     }
-    
+
     repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Goal {} not found", id)))
@@ -489,16 +498,19 @@ pub async fn remove_tags_from_goal(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    let request =
+        request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
     repo.remove_tags(&id, request.tag_ids).await?;
-    
+
     // Log activity
-    if let Err(e) = log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await {
+    if let Err(e) =
+        log_tag_operation(db.clone(), "remove_tags", "goal".to_string(), id.clone()).await
+    {
         tracing::warn!("Failed to log remove_tags activity for goal {}: {}", id, e);
     }
-    
+
     repo.find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Goal {} not found", id)))
