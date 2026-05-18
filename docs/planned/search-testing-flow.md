@@ -66,3 +66,10 @@ Use this path before building the search UI:
 - [x] Verify vector byte storage round trips to `Vec<f32>`.
 - [x] Verify dimension mismatches are rejected.
 - [x] Verify deleting a `search_documents` row removes related embeddings.
+
+## Phase 5 Embedding Indexing Test Flow
+
+- [x] Verify full embedding indexing generates local vectors for `search_documents`.
+- [x] Verify resource embedding indexing clears embeddings when the search document is missing.
+- [x] Verify semantic and hybrid search still fail gracefully until real embedding search is implemented.
+- [ ] Verify a real local model provider once an inference runtime is selected.

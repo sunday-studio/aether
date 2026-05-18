@@ -49,10 +49,10 @@ Build one reliable local retrieval layer:
 ## Phase 5: Real Local Embeddings
 
 - [ ] Replace placeholder hash embeddings with a real local embedding provider.
-- [ ] Add `index_embeddings()`.
-- [ ] Add `index_resource_embedding(resource_type, resource_id)`.
-- [ ] Add `get_embedding_status()`.
-- [ ] Skip semantic search gracefully until embeddings are available.
+- [x] Add `index_embeddings()`.
+- [x] Add `index_resource_embedding(resource_type, resource_id)`.
+- [x] Add `get_embedding_status()`.
+- [x] Skip semantic search gracefully until embeddings are available.
 
 ## Phase 6: Hybrid Search
 

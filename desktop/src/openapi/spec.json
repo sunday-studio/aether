@@ -2017,6 +2017,101 @@
         }
       }
     },
+    "/v1/search/embeddings/index": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Index embeddings for all local search documents",
+        "operationId": "index_search_embeddings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSearchEmbeddingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Search embeddings indexed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/embeddings/resource": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Index embeddings for one local search resource",
+        "operationId": "index_search_resource_embeddings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSearchResourceEmbeddingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Search resource embeddings indexed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/embeddings/status": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Get local search embedding index status",
+        "operationId": "get_search_embedding_status",
+        "responses": {
+          "200": {
+            "description": "Search embedding status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/search/index/reindex": {
       "post": {
         "tags": [
@@ -4219,6 +4314,34 @@
           }
         }
       },
+      "IndexSearchEmbeddingsRequest": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "IndexSearchResourceEmbeddingsRequest": {
+        "type": "object",
+        "required": [
+          "resourceType",
+          "resourceId"
+        ],
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          }
+        }
+      },
       "LinkableResource": {
         "type": "object",
         "description": "Response for linkable resource search",
@@ -4737,6 +4860,25 @@
           },
           "format": {
             "type": "string"
+          }
+        }
+      },
+      "SearchEmbeddingStatus": {
+        "type": "object",
+        "required": [
+          "totalEmbeddings",
+          "models"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchEmbeddingModelStatus"
+            }
+          },
+          "totalEmbeddings": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -8,6 +8,7 @@ use crate::commands::common::{
     PaginatedGoals, PaginatedLinks, PaginatedTags, PaginatedTasks, PaginatedTasksWithSubtasks,
     PaginatedTranscriptions,
 };
+use crate::commands::embeddings as embedding_commands;
 use crate::commands::entry as entry_commands;
 use crate::commands::goal as goal_commands;
 use crate::commands::link as link_commands;
@@ -72,6 +73,9 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         search_commands::reindex_search,
         search_commands::reindex_search_resource,
         search_commands::get_search_index_status,
+        embedding_commands::index_search_embeddings,
+        embedding_commands::index_search_resource_embeddings,
+        embedding_commands::get_search_embedding_status,
         // Link endpoints
         link_commands::create_link,
         link_commands::get_backlinks,
@@ -168,6 +172,9 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         search_commands::SearchResponse,
         search_commands::ReindexResourceRequest,
         crate::db::repositories::SearchIndexStatus,
+        embedding_commands::IndexSearchEmbeddingsRequest,
+        embedding_commands::IndexSearchResourceEmbeddingsRequest,
+        crate::db::repositories::SearchEmbeddingStatus,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,
         link_commands::BacklinkResponse,

@@ -365,6 +365,9 @@ pub fn run() {
             commands::embeddings::download_embedding_model,
             commands::embeddings::verify_embedding_model,
             commands::embeddings::delete_embedding_model,
+            commands::embeddings::index_search_embeddings,
+            commands::embeddings::index_search_resource_embeddings,
+            commands::embeddings::get_search_embedding_status,
             // Sync commands
             sync_commands::configure_sync,
             sync_commands::sync_now,

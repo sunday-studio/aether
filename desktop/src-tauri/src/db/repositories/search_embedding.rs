@@ -1,4 +1,5 @@
 use crate::error::{AppError, Result};
+use crate::utils::embeddings::generate_embedding;
 use chrono::Utc;
 use libsql::Database;
 use std::sync::Arc;
@@ -93,6 +94,34 @@ impl SearchEmbeddingRepository {
         Ok(())
     }
 
+    pub async fn index_all_embeddings(&self, model_name: &str) -> Result<SearchEmbeddingStatus> {
+        let documents = self.load_documents(None, None).await?;
+        for document in documents {
+            self.index_document_embedding(document, model_name).await?;
+        }
+        self.status().await
+    }
+
+    pub async fn index_resource_embeddings(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+        model_name: &str,
+    ) -> Result<SearchEmbeddingStatus> {
+        let documents = self
+            .load_documents(Some(resource_type), Some(resource_id))
+            .await?;
+        if documents.is_empty() {
+            self.delete_for_resource(resource_type, resource_id).await?;
+            return self.status().await;
+        }
+
+        for document in documents {
+            self.index_document_embedding(document, model_name).await?;
+        }
+        self.status().await
+    }
+
     pub async fn find_by_document_and_model(
         &self,
         search_document_id: &str,
@@ -139,6 +168,20 @@ impl SearchEmbeddingRepository {
         Ok(())
     }
 
+    pub async fn delete_for_resource(&self, resource_type: &str, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        conn.execute(
+            "DELETE FROM search_embeddings
+             WHERE search_document_id IN (
+                SELECT id FROM search_documents WHERE resource_type = ?1 AND resource_id = ?2
+             )",
+            libsql::params![resource_type, resource_id],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+        Ok(())
+    }
+
     pub async fn status(&self) -> Result<SearchEmbeddingStatus> {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let total_embeddings = count_embeddings(&conn).await?;
@@ -167,6 +210,74 @@ impl SearchEmbeddingRepository {
             models,
         })
     }
+
+    async fn load_documents(
+        &self,
+        resource_type: Option<&str>,
+        resource_id: Option<&str>,
+    ) -> Result<Vec<SearchEmbeddingDocument>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows =
+            if let (Some(resource_type), Some(resource_id)) = (resource_type, resource_id) {
+                conn.query(
+                    "SELECT id, text, text_hash
+                 FROM search_documents
+                 WHERE resource_type = ?1 AND resource_id = ?2
+                 ORDER BY id",
+                    libsql::params![resource_type, resource_id],
+                )
+                .await
+                .map_err(AppError::LibSQL)?
+            } else {
+                conn.query(
+                    "SELECT id, text, text_hash
+                 FROM search_documents
+                 ORDER BY id",
+                    libsql::params![],
+                )
+                .await
+                .map_err(AppError::LibSQL)?
+            };
+
+        let mut documents = Vec::new();
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            documents.push(SearchEmbeddingDocument {
+                id: row.get(0).map_err(AppError::LibSQL)?,
+                text: row.get(1).map_err(AppError::LibSQL)?,
+                text_hash: row.get(2).map_err(AppError::LibSQL)?,
+            });
+        }
+
+        Ok(documents)
+    }
+
+    async fn index_document_embedding(
+        &self,
+        document: SearchEmbeddingDocument,
+        model_name: &str,
+    ) -> Result<()> {
+        if document.text.trim().is_empty() {
+            self.delete_for_document(&document.id).await?;
+            return Ok(());
+        }
+
+        let vector = generate_embedding(&document.text).await?;
+        self.upsert_embedding(SearchEmbeddingInput {
+            search_document_id: document.id,
+            model_name: model_name.to_string(),
+            dimensions: vector.len() as i64,
+            vector,
+            text_hash: document.text_hash,
+        })
+        .await
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SearchEmbeddingDocument {
+    id: String,
+    text: String,
+    text_hash: String,
 }
 
 async fn count_embeddings(conn: &libsql::Connection) -> Result<i64> {
@@ -339,6 +450,51 @@ mod tests {
             .await
             .expect("delete search document");
         let status = embedding_repo.status().await.expect("embedding status");
+
+        assert_eq!(status.total_embeddings, 0);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn index_all_embeddings_generates_local_vectors_for_search_documents() {
+        let (_database, document_repo, embedding_repo, db_path) = test_repos().await;
+        seed_search_document(&document_repo).await;
+
+        let status = embedding_repo
+            .index_all_embeddings("local-hash-384")
+            .await
+            .expect("index all embeddings");
+        let embedding = embedding_repo
+            .find_by_document_and_model("entry:entry-1:0", "local-hash-384")
+            .await
+            .expect("find embedding")
+            .expect("embedding exists");
+
+        assert_eq!(status.total_embeddings, 1);
+        assert_eq!(embedding.dimensions, 384);
+        assert_eq!(embedding.vector.len(), 384);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn index_resource_embeddings_deletes_missing_resource_embeddings() {
+        let (_database, document_repo, embedding_repo, db_path) = test_repos().await;
+        seed_search_document(&document_repo).await;
+        embedding_repo
+            .index_all_embeddings("local-hash-384")
+            .await
+            .expect("index all embeddings");
+        document_repo
+            .delete_resource("entry", "entry-1")
+            .await
+            .expect("delete search document");
+
+        let status = embedding_repo
+            .index_resource_embeddings("entry", "entry-1", "local-hash-384")
+            .await
+            .expect("index missing resource");
 
         assert_eq!(status.total_embeddings, 0);
 
