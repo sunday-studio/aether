@@ -95,6 +95,8 @@ const routeToCommand: Record<string, string> = {
 	"GET /v1/activities": "get_activities",
 	// Search
 	"GET /v1/search": "search_resources",
+	"POST /v1/search/index/reindex": "reindex_search",
+	"GET /v1/search/index/status": "get_search_index_status",
 	// Bookmarks
 	"GET /v1/bookmarks": "get_bookmarks",
 	"POST /v1/bookmarks": "create_bookmark",

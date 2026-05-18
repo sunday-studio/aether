@@ -1987,6 +1987,54 @@
         }
       }
     },
+    "/v1/search/index/reindex": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Rebuild the local search document index",
+        "operationId": "reindex_search",
+        "responses": {
+          "200": {
+            "description": "Search index rebuilt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.repositories.SearchIndexStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/index/status": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Get local search document index status",
+        "operationId": "get_search_index_status",
+        "responses": {
+          "200": {
+            "description": "Search index status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/crate.db.repositories.SearchIndexStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/settings": {
       "get": {
         "tags": [
@@ -2082,7 +2130,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Configure sync with server URL and passphrase",
+        "summary": "Configure sync with server URL, server seed phrase, and sync passphrase",
         "operationId": "configure_sync",
         "requestBody": {
           "content": {
@@ -2188,7 +2236,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Reconnect sync with passphrase",
+        "summary": "Reconnect sync with sync passphrase",
         "operationId": "reconnect_sync",
         "requestBody": {
           "content": {
@@ -3727,13 +3775,17 @@
         "type": "object",
         "required": [
           "server_url",
-          "passphrase"
+          "server_seed_phrase",
+          "sync_passphrase"
         ],
         "properties": {
-          "passphrase": {
+          "server_seed_phrase": {
             "type": "string"
           },
           "server_url": {
+            "type": "string"
+          },
+          "sync_passphrase": {
             "type": "string"
           }
         }
@@ -4509,10 +4561,10 @@
       "ReconnectSyncRequest": {
         "type": "object",
         "required": [
-          "passphrase"
+          "sync_passphrase"
         ],
         "properties": {
-          "passphrase": {
+          "sync_passphrase": {
             "type": "string"
           }
         }
@@ -4610,6 +4662,43 @@
           },
           "format": {
             "type": "string"
+          }
+        }
+      },
+      "SearchIndexStatus": {
+        "type": "object",
+        "required": [
+          "totalDocuments",
+          "entries",
+          "tasks",
+          "goals",
+          "tags",
+          "bookmarks"
+        ],
+        "properties": {
+          "bookmarks": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "entries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "goals": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tags": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tasks": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalDocuments": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -4802,8 +4891,7 @@
             "nullable": true
           },
           "needs_passphrase": {
-            "type": "boolean",
-            "description": "True when server_url is in memory but passphrase is not (e.g. after app restart)."
+            "type": "boolean"
           },
           "pending_changes": {
             "type": "integer",

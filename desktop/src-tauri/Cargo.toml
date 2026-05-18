@@ -116,5 +116,5 @@ tauri-plugin-keyring = "0.1.0"
 
 [dev-dependencies]
 # Testing
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "multipart"] }
 tokio-test = "0.4"

@@ -203,6 +203,11 @@ pub fn run() {
             let window_focus = app.state::<WindowFocus>().inner().0.clone();
             let app_handle = app.handle().clone();
             let engine_clone = sync_engine.clone();
+            let update_manager = app.state::<updater::UpdateManager>().inner().clone();
+            let updater_app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                update_manager.hydrate(&updater_app_handle).await;
+            });
 
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = engine_clone.hydrate(&app_handle).await {
@@ -314,6 +319,8 @@ pub fn run() {
             activity::get_activities,
             // Search commands
             search::search_resources,
+            search::reindex_search,
+            search::get_search_index_status,
             // Link commands
             link::create_link,
             link::get_backlinks,

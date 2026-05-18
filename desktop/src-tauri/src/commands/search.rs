@@ -1,6 +1,7 @@
 use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
 use crate::db::{connection, DbState};
 use crate::db::repositories::search::{SearchRepository, ResourceType, SearchResult};
+use crate::db::repositories::SearchDocumentRepository;
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -231,4 +232,48 @@ pub async fn search_resources(
     };
 
     Ok(response)
+}
+
+/// Rebuild the local search document index
+#[utoipa::path(
+    post,
+    path = "/v1/search/index/reindex",
+    tag = "Search",
+    responses(
+        (status = 200, description = "Search index rebuilt", body = crate::db::repositories::SearchIndexStatus),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn reindex_search(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<crate::db::repositories::SearchIndexStatus> {
+    let _guard = connection::with_db_access(&*state).await;
+    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
+    repo.reindex_all().await
+}
+
+/// Get local search document index status
+#[utoipa::path(
+    get,
+    path = "/v1/search/index/status",
+    tag = "Search",
+    responses(
+        (status = 200, description = "Search index status", body = crate::db::repositories::SearchIndexStatus),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn get_search_index_status(
+    state: State<'_, DbState>,
+    _request_data: Option<EmptyRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<crate::db::repositories::SearchIndexStatus> {
+    let _guard = connection::with_db_access(&*state).await;
+    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
+    repo.status().await
 }
