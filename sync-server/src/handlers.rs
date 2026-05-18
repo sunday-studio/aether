@@ -14,6 +14,7 @@ use futures::{SinkExt, StreamExt};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, RwLock};
@@ -112,6 +113,18 @@ fn authenticated_device_id(headers: &HeaderMap) -> Option<&str> {
     headers.get("x-aether-device-id")?.to_str().ok()
 }
 
+async fn storage_blocking<T, E, F>(f: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    E: Display + Send + 'static,
+    F: FnOnce() -> Result<T, E> + Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| format!("storage task join: {}", e))?
+        .map_err(|e| e.to_string())
+}
+
 fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, StatusCode> {
     let started = Instant::now();
     let device_id = authenticated_device_id(headers)
@@ -172,9 +185,18 @@ async fn register(
     let device_token = BASE64.encode(token_bytes);
 
     let register_started = Instant::now();
-    if let Err(e) =
-        s.storage
-            .register_device(&body.device_id, body.hostname.as_deref(), &device_token)
+    let storage = s.storage.clone();
+    let device_id_for_register = body.device_id.clone();
+    let hostname_for_register = body.hostname.clone();
+    let device_token_for_register = device_token.clone();
+    if let Err(e) = storage_blocking(move || {
+        storage.register_device(
+            &device_id_for_register,
+            hostname_for_register.as_deref(),
+            &device_token_for_register,
+        )
+    })
+    .await
     {
         tracing::error!("register_device: {}", e);
         return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
@@ -185,7 +207,8 @@ async fn register(
         body.device_id
     );
 
-    let salt = match s.storage.get_salt() {
+    let storage = s.storage.clone();
+    let salt = match storage_blocking(move || storage.get_salt()).await {
         Ok(salt) => salt,
         Err(e) => {
             tracing::error!("get_salt during register: {}", e);
@@ -245,21 +268,35 @@ async fn push(
         decoded_changes.push((nonce, ct));
     }
 
+    let change_count = decoded_changes.len();
     let record_started = Instant::now();
-    match s.storage.record_push_if_new(
-        &device_id,
-        &body.batch_id,
-        Some(&body.device_hostname),
-        &decoded_changes,
-    ) {
+    let storage = s.storage.clone();
+    let device_id_for_record = device_id.clone();
+    let batch_id_for_record = body.batch_id.clone();
+    let hostname_for_record = body.device_hostname.clone();
+    match storage_blocking(move || {
+        storage.record_push_if_new(
+            &device_id_for_record,
+            &batch_id_for_record,
+            Some(&hostname_for_record),
+            &decoded_changes,
+        )
+    })
+    .await
+    {
         Ok(PushAcceptance::Accepted) => {
             tracing::info!(
                 "[SYNC-SERVER-TIMING] record_push={}ms changes={} accepted=true",
                 record_started.elapsed().as_millis(),
-                decoded_changes.len()
+                change_count
             );
             let now = epoch_millis();
-            let _ = s.storage.update_device_last_sync(&device_id, now);
+            let storage = s.storage.clone();
+            let device_id_for_update = device_id.clone();
+            let _ = storage_blocking(move || {
+                storage.update_device_last_sync(&device_id_for_update, now)
+            })
+            .await;
             let receiver_count = s.broadcast.send(device_id.clone()).unwrap_or(0);
             tracing::info!(
                 "Push from device {}: {} changes, notified {} connected devices",
@@ -273,7 +310,7 @@ async fn push(
             tracing::info!(
                 "[SYNC-SERVER-TIMING] record_push={}ms changes={} accepted=false duplicate=true",
                 record_started.elapsed().as_millis(),
-                decoded_changes.len()
+                change_count
             );
             tracing::info!(
                 "Ignoring duplicate batch {} from device {}",
@@ -447,7 +484,8 @@ async fn get_devices(State(s): State<AppState>, headers: HeaderMap) -> impl Into
             .into_response();
     }
 
-    let rows = match s.storage.list_devices() {
+    let storage = s.storage.clone();
+    let rows = match storage_blocking(move || storage.list_devices()).await {
         Ok(r) => r,
         Err(e) => {
             tracing::error!("list_devices: {}", e);
@@ -517,21 +555,26 @@ async fn pull(
 
     let limit = 500usize;
     let pull_started = Instant::now();
-    let mut rows = match s.storage.pull(cursor.as_ref(), (limit + 1) as i64) {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!("pull db: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(PullResponse {
-                    changes: vec![],
-                    next_cursor: cursor,
-                    has_more: false,
-                }),
-            )
-                .into_response();
-        }
-    };
+    let storage = s.storage.clone();
+    let cursor_for_pull = cursor.clone();
+    let mut rows =
+        match storage_blocking(move || storage.pull(cursor_for_pull.as_ref(), (limit + 1) as i64))
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("pull db: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(PullResponse {
+                        changes: vec![],
+                        next_cursor: cursor,
+                        has_more: false,
+                    }),
+                )
+                    .into_response();
+            }
+        };
     let has_more = rows.len() > limit;
     if has_more {
         rows.truncate(limit);
@@ -570,9 +613,13 @@ async fn pull(
 
     if let Some(ref cursor) = next_cursor {
         let update_started = Instant::now();
-        let _ = s
-            .storage
-            .update_device_last_sync(&device_id, cursor.received_at);
+        let storage = s.storage.clone();
+        let device_id_for_update = device_id.clone();
+        let received_at = cursor.received_at;
+        let _ = storage_blocking(move || {
+            storage.update_device_last_sync(&device_id_for_update, received_at)
+        })
+        .await;
         tracing::info!(
             "[SYNC-SERVER-TIMING] last_sync_update={}ms device_id={}",
             update_started.elapsed().as_millis(),
@@ -604,7 +651,11 @@ async fn put_media(
         return StatusCode::BAD_REQUEST;
     }
     let started = Instant::now();
-    if let Err(e) = s.storage.put_blob(&hash, &body) {
+    let storage = s.storage.clone();
+    let hash_for_put = hash.clone();
+    let body_bytes = body.to_vec();
+    let body_len = body_bytes.len();
+    if let Err(e) = storage_blocking(move || storage.put_blob(&hash_for_put, &body_bytes)).await {
         tracing::error!("put_blob: {}", e);
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
@@ -612,7 +663,7 @@ async fn put_media(
         "[SYNC-SERVER-TIMING] blob_put={}ms hash={} bytes={}",
         started.elapsed().as_millis(),
         hash,
-        body.len()
+        body_len
     );
     StatusCode::OK
 }
@@ -629,7 +680,9 @@ async fn get_media(
         return StatusCode::BAD_REQUEST.into_response();
     }
     let started = Instant::now();
-    match s.storage.get_blob(&hash) {
+    let storage = s.storage.clone();
+    let hash_for_get = hash.clone();
+    match storage_blocking(move || storage.get_blob(&hash_for_get)).await {
         Ok(Some(data)) => {
             tracing::info!(
                 "[SYNC-SERVER-TIMING] blob_get={}ms hash={} bytes={}",
@@ -658,7 +711,12 @@ async fn head_media(
     if !valid_media_hash(&hash) {
         return StatusCode::BAD_REQUEST;
     }
-    if s.storage.has_blob(&hash) {
+    let storage = s.storage.clone();
+    let exists =
+        storage_blocking(move || Ok::<_, std::convert::Infallible>(storage.has_blob(&hash)))
+            .await
+            .unwrap_or(false);
+    if exists {
         StatusCode::OK
     } else {
         StatusCode::NOT_FOUND
