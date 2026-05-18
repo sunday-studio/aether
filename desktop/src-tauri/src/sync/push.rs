@@ -87,6 +87,25 @@ pub async fn push(
                     let device_id = device_id_for_media.clone();
                     let device_token = device_token_for_media.clone();
                     async move {
+                        match media::check_media_exists(&base_url, &hash, &device_id, &device_token)
+                            .await
+                        {
+                            Ok(true) => {
+                                tracing::debug!(
+                                    "[SYNC-PUSH] Media blob already exists on server: {}",
+                                    hash
+                                );
+                                return true;
+                            }
+                            Ok(false) => {}
+                            Err(e) => {
+                                tracing::debug!(
+                                    "[SYNC-PUSH] Could not check media blob existence {}: {}",
+                                    hash,
+                                    e
+                                );
+                            }
+                        }
                         let bytes = match tokio::fs::read(&full).await {
                             Ok(bytes) => bytes,
                             Err(e) => {
@@ -973,13 +992,8 @@ mod tests {
     use libsql::Builder;
 
     async fn test_db() -> Database {
-        let path = std::env::temp_dir().join(format!(
-            "aether-sync-push-test-{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("aether-sync-push-test-{}.db", uuid::Uuid::new_v4()));
         let db = Builder::new_local(path).build().await.unwrap();
         migrations::run_migrations(&db).await.unwrap();
         db
