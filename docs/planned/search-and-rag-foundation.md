@@ -24,11 +24,11 @@ Build one reliable local retrieval layer:
 ## Phase 2: Indexing Service
 
 - [x] Add a backend search indexer module.
-- [ ] Add `reindex_resource(resource_type, resource_id)`.
+- [x] Add `reindex_resource(resource_type, resource_id)`.
 - [x] Add `reindex_search()`.
 - [x] Add `get_search_index_status()`.
-- [ ] Call resource reindexing after create/update/delete for indexed resources.
-- [ ] Ensure deleted resources are removed from search.
+- [x] Call resource reindexing after create/update/delete for indexed resources.
+- [x] Ensure deleted resources are removed from search.
 
 ## Phase 3: Keyword Search
 

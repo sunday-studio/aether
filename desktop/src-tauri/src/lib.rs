@@ -320,6 +320,7 @@ pub fn run() {
             // Search commands
             search::search_resources,
             search::reindex_search,
+            search::reindex_search_resource,
             search::get_search_index_status,
             // Link commands
             link::create_link,

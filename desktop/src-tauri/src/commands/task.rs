@@ -3,7 +3,7 @@ use crate::commands::params::{
     TaskIdPathParams, TaskSubtaskPathParams,
 };
 use crate::db::models::{SubTask, TaskWithSubtasks};
-use crate::db::{connection, DbState, TaskRepository};
+use crate::db::{connection, DbState, SearchDocumentRepository, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
 use crate::utils::{
@@ -152,7 +152,14 @@ pub async fn create_task(
         repo.add_tags(&task.id, request.tag_ids).await?;
     }
 
-    if let Err(e) = log_create(db, "task".to_string(), task.id.clone()).await {
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("task", &task.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex task {} for search: {}", task.id, e);
+    }
+
+    if let Err(e) = log_create(db.clone(), "task".to_string(), task.id.clone()).await {
         tracing::warn!("Failed to log task creation activity: {}", e);
     }
 
@@ -319,6 +326,13 @@ pub async fn update_task(
         }
     }
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("task", &task.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex task {} for search: {}", task.id, e);
+    }
+
     // Log activity - check if completion changed
     if let Some(new_completed) = request.is_completed {
         if !was_completed && new_completed {
@@ -374,9 +388,16 @@ pub async fn delete_task(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.delete(&id).await?;
+
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("task", &id)
+        .await
+    {
+        tracing::warn!("Failed to remove task {} from search index: {}", id, e);
+    }
     
     // Log activity
-    if let Err(e) = log_delete(db, "task".to_string(), id.clone()).await {
+    if let Err(e) = log_delete(db.clone(), "task".to_string(), id.clone()).await {
         tracing::warn!("Failed to log task deletion activity for task {}: {}", id, e);
     }
     

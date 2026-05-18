@@ -96,6 +96,7 @@ const routeToCommand: Record<string, string> = {
 	// Search
 	"GET /v1/search": "search_resources",
 	"POST /v1/search/index/reindex": "reindex_search",
+	"POST /v1/search/index/resource": "reindex_search_resource",
 	"GET /v1/search/index/status": "get_search_index_status",
 	// Bookmarks
 	"GET /v1/bookmarks": "get_bookmarks",

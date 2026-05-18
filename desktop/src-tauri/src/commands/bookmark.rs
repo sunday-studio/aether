@@ -3,7 +3,7 @@ use crate::commands::params::{
     BookmarkQueryParams,
 };
 use crate::db::models::Bookmark;
-use crate::db::{connection, DbState, BookmarkRepository};
+use crate::db::{connection, DbState, BookmarkRepository, SearchDocumentRepository};
 use crate::error::{AppError, Result};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use crate::utils::metadata::extractor::ExtractedMetadata;
@@ -182,8 +182,15 @@ pub async fn create_bookmark(
         }
     }
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("bookmark", &bookmark.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex bookmark {} for search: {}", bookmark.id, e);
+    }
+
     // Log activity
-    if let Err(e) = log_create(db, "bookmark".to_string(), bookmark.id.clone()).await {
+    if let Err(e) = log_create(db.clone(), "bookmark".to_string(), bookmark.id.clone()).await {
         tracing::warn!("Failed to log bookmark creation activity: {}", e);
     }
 
@@ -240,8 +247,15 @@ pub async fn update_bookmark(
     )
     .await?;
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("bookmark", &bookmark.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex bookmark {} for search: {}", bookmark.id, e);
+    }
+
     // Log activity
-    if let Err(e) = log_update(db, "bookmark".to_string(), bookmark.id.clone()).await {
+    if let Err(e) = log_update(db.clone(), "bookmark".to_string(), bookmark.id.clone()).await {
         tracing::warn!("Failed to log bookmark update activity: {}", e);
     }
 
@@ -280,8 +294,15 @@ pub async fn delete_bookmark(
     let repo = BookmarkRepository::new(db.clone());
     repo.delete(&id).await?;
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("bookmark", &id)
+        .await
+    {
+        tracing::warn!("Failed to remove bookmark {} from search index: {}", id, e);
+    }
+
     // Log activity
-    if let Err(e) = log_delete(db, "bookmark".to_string(), id.clone()).await {
+    if let Err(e) = log_delete(db.clone(), "bookmark".to_string(), id.clone()).await {
         tracing::warn!("Failed to log bookmark deletion activity for bookmark {}: {}", id, e);
     }
 

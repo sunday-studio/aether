@@ -3,7 +3,7 @@ use crate::commands::params::{
     PaginationQueryParams,
 };
 use crate::db::models::{Goal, GoalInstance, GoalInstanceWithTasks};
-use crate::db::{connection, DbState, GoalRepository, TaskRepository};
+use crate::db::{connection, DbState, GoalRepository, SearchDocumentRepository, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
@@ -204,8 +204,15 @@ pub async fn create_goal(
         repo.add_tags(&goal.id, request.tag_ids).await?;
     }
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("goal", &goal.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex goal {} for search: {}", goal.id, e);
+    }
+
     // Log activity
-    if let Err(e) = log_create(db, "goal".to_string(), goal.id.clone()).await {
+    if let Err(e) = log_create(db.clone(), "goal".to_string(), goal.id.clone()).await {
         tracing::warn!("Failed to log goal creation activity: {}", e);
     }
 
@@ -269,8 +276,15 @@ pub async fn update_goal(
         }
     }
 
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("goal", &goal.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex goal {} for search: {}", goal.id, e);
+    }
+
     // Log activity
-    if let Err(e) = log_update(db, "goal".to_string(), goal.id.clone()).await {
+    if let Err(e) = log_update(db.clone(), "goal".to_string(), goal.id.clone()).await {
         tracing::warn!("Failed to log goal update activity: {}", e);
     }
 
@@ -308,9 +322,16 @@ pub async fn delete_goal(
     let db = connection::get_database(&*state);
     let repo = GoalRepository::new(db.clone());
     repo.delete(&id).await?;
+
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("goal", &id)
+        .await
+    {
+        tracing::warn!("Failed to remove goal {} from search index: {}", id, e);
+    }
     
     // Log activity
-    if let Err(e) = log_delete(db, "goal".to_string(), id.clone()).await {
+    if let Err(e) = log_delete(db.clone(), "goal".to_string(), id.clone()).await {
         tracing::warn!("Failed to log goal deletion activity for goal {}: {}", id, e);
     }
     

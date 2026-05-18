@@ -70,6 +70,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         // Search endpoints
         search_commands::search_resources,
         search_commands::reindex_search,
+        search_commands::reindex_search_resource,
         search_commands::get_search_index_status,
         // Link endpoints
         link_commands::create_link,
@@ -165,6 +166,7 @@ use crate::utils::metadata::extractor::ExtractedMetadata;
         goal_commands::UpdateGoalRequest,
         search_commands::SearchRequest,
         search_commands::SearchResponse,
+        search_commands::ReindexResourceRequest,
         crate::db::repositories::SearchIndexStatus,
         link_commands::CreateLinkRequest,
         link_commands::LinkableResource,

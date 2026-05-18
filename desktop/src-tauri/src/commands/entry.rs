@@ -1,6 +1,6 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams};
 use crate::db::models::Entry;
-use crate::db::{connection, DbState, EntryRepository};
+use crate::db::{connection, DbState, EntryRepository, SearchDocumentRepository};
 use crate::db::repositories::LinkRepository;
 use crate::error::{AppError, Result};
 use crate::commands::common::PaginationResponse;
@@ -176,9 +176,16 @@ pub async fn create_entry(
             ).await;
         }
     }
+
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("entry", &entry.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
+    }
     
     // Log activity
-    if let Err(e) = log_create(db, "entry".to_string(), entry.id.clone()).await {
+    if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry creation activity: {}", e);
     }
     
@@ -225,6 +232,13 @@ pub async fn bulk_create_entries(
     
     // Log activities for each created entry
     for entry in &entries {
+        if let Err(e) = SearchDocumentRepository::new(db.clone())
+            .reindex_resource("entry", &entry.id)
+            .await
+        {
+            tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
+        }
+
         if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
             tracing::warn!("Failed to log entry creation activity for entry {}: {}", entry.id, e);
         }
@@ -322,9 +336,16 @@ pub async fn update_entry(
             }
         }
     }
+
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("entry", &entry.id)
+        .await
+    {
+        tracing::warn!("Failed to reindex entry {} for search: {}", entry.id, e);
+    }
     
     // Log activity
-    if let Err(e) = log_update(db, "entry".to_string(), entry.id.clone()).await {
+    if let Err(e) = log_update(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry update activity: {}", e);
     }
     
@@ -366,9 +387,16 @@ pub async fn delete_entry(
     // Delete all links from this entry
     let link_repo = LinkRepository::new(db.clone());
     let _ = link_repo.delete_by_source("entry", &id).await;
+
+    if let Err(e) = SearchDocumentRepository::new(db.clone())
+        .reindex_resource("entry", &id)
+        .await
+    {
+        tracing::warn!("Failed to remove entry {} from search index: {}", id, e);
+    }
     
     // Log activity
-    if let Err(e) = log_delete(db, "entry".to_string(), id.clone()).await {
+    if let Err(e) = log_delete(db.clone(), "entry".to_string(), id.clone()).await {
         tracing::warn!("Failed to log entry deletion activity for entry {}: {}", id, e);
     }
     

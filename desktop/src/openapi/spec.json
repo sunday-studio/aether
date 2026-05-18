@@ -2011,6 +2011,36 @@
         }
       }
     },
+    "/v1/search/index/resource": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Rebuild one local search document resource",
+        "operationId": "reindex_search_resource",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReindexResourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Resource search index rebuilt"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/search/index/status": {
       "get": {
         "tags": [
@@ -4565,6 +4595,21 @@
         ],
         "properties": {
           "sync_passphrase": {
+            "type": "string"
+          }
+        }
+      },
+      "ReindexResourceRequest": {
+        "type": "object",
+        "required": [
+          "resourceType",
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceType": {
             "type": "string"
           }
         }

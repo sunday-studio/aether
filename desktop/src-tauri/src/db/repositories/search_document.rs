@@ -51,6 +51,20 @@ impl SearchDocumentRepository {
         self.status().await
     }
 
+    pub async fn reindex_resource(&self, resource_type: &str, resource_id: &str) -> Result<()> {
+        match resource_type {
+            "entry" => self.reindex_entry(resource_id).await,
+            "task" => self.reindex_task(resource_id).await,
+            "goal" => self.reindex_goal(resource_id).await,
+            "tag" => self.reindex_tag(resource_id).await,
+            "bookmark" => self.reindex_bookmark(resource_id).await,
+            _ => Err(AppError::BadRequest(format!(
+                "Unsupported search resource type: {}",
+                resource_type
+            ))),
+        }
+    }
+
     pub async fn status(&self) -> Result<SearchIndexStatus> {
         Ok(SearchIndexStatus {
             total_documents: self.count_for_type(None).await?,
@@ -114,6 +128,25 @@ impl SearchDocumentRepository {
         Ok(())
     }
 
+    async fn reindex_entry(&self, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, document, created_at, updated_at
+                 FROM entries
+                 WHERE id = ?1 AND is_deleted = 0 AND deleted_at IS NULL",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return self.delete_resource("entry", resource_id).await;
+        };
+
+        self.index_entry_row(row).await
+    }
+
     async fn reindex_entries(&self) -> Result<()> {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let mut rows = conn
@@ -127,33 +160,56 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?;
 
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let id: String = row.get(0).map_err(AppError::LibSQL)?;
-            let document: String = row.get(1).map_err(AppError::LibSQL)?;
-            let created_at: String = row.get(2).map_err(AppError::LibSQL)?;
-            let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
-            let text = extract_text_from_lexical_document(&document).unwrap_or_default();
-            let title = first_search_line(&text);
-
-            self.upsert_document(SearchDocumentInput {
-                resource_type: "entry".to_string(),
-                resource_id: id,
-                chunk_index: 0,
-                title: if title.is_empty() {
-                    truncate_preview(&text, 80)
-                } else {
-                    title
-                },
-                text,
-                source_updated_at: if updated_at.is_empty() {
-                    created_at
-                } else {
-                    updated_at
-                },
-            })
-            .await?;
+            self.index_entry_row(row).await?;
         }
 
         Ok(())
+    }
+
+    async fn index_entry_row(&self, row: libsql::Row) -> Result<()> {
+        let id: String = row.get(0).map_err(AppError::LibSQL)?;
+        let document: String = row.get(1).map_err(AppError::LibSQL)?;
+        let created_at: String = row.get(2).map_err(AppError::LibSQL)?;
+        let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
+        let text = extract_text_from_lexical_document(&document).unwrap_or_default();
+        let title = first_search_line(&text);
+
+        self.upsert_document(SearchDocumentInput {
+            resource_type: "entry".to_string(),
+            resource_id: id,
+            chunk_index: 0,
+            title: if title.is_empty() {
+                truncate_preview(&text, 80)
+            } else {
+                title
+            },
+            text,
+            source_updated_at: if updated_at.is_empty() {
+                created_at
+            } else {
+                updated_at
+            },
+        })
+        .await
+    }
+
+    async fn reindex_task(&self, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, title, description, updated_at
+                 FROM tasks
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return self.delete_resource("task", resource_id).await;
+        };
+
+        self.index_task_row(row).await
     }
 
     async fn reindex_tasks(&self) -> Result<()> {
@@ -169,25 +225,47 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?;
 
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let id: String = row.get(0).map_err(AppError::LibSQL)?;
-            let title: String = row.get(1).map_err(AppError::LibSQL)?;
-            let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
-            let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
-            let text = [title.as_str(), description.as_deref().unwrap_or("")]
-                .join(" ");
-
-            self.upsert_document(SearchDocumentInput {
-                resource_type: "task".to_string(),
-                resource_id: id,
-                chunk_index: 0,
-                title,
-                text,
-                source_updated_at: updated_at,
-            })
-            .await?;
+            self.index_task_row(row).await?;
         }
 
         Ok(())
+    }
+
+    async fn index_task_row(&self, row: libsql::Row) -> Result<()> {
+        let id: String = row.get(0).map_err(AppError::LibSQL)?;
+        let title: String = row.get(1).map_err(AppError::LibSQL)?;
+        let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
+        let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
+        let text = [title.as_str(), description.as_deref().unwrap_or("")].join(" ");
+
+        self.upsert_document(SearchDocumentInput {
+            resource_type: "task".to_string(),
+            resource_id: id,
+            chunk_index: 0,
+            title,
+            text,
+            source_updated_at: updated_at,
+        })
+        .await
+    }
+
+    async fn reindex_goal(&self, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, name, description, updated_at
+                 FROM goals
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return self.delete_resource("goal", resource_id).await;
+        };
+
+        self.index_goal_row(row).await
     }
 
     async fn reindex_goals(&self) -> Result<()> {
@@ -203,25 +281,47 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?;
 
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let id: String = row.get(0).map_err(AppError::LibSQL)?;
-            let name: String = row.get(1).map_err(AppError::LibSQL)?;
-            let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
-            let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
-            let text = [name.as_str(), description.as_deref().unwrap_or("")]
-                .join(" ");
-
-            self.upsert_document(SearchDocumentInput {
-                resource_type: "goal".to_string(),
-                resource_id: id,
-                chunk_index: 0,
-                title: name,
-                text,
-                source_updated_at: updated_at,
-            })
-            .await?;
+            self.index_goal_row(row).await?;
         }
 
         Ok(())
+    }
+
+    async fn index_goal_row(&self, row: libsql::Row) -> Result<()> {
+        let id: String = row.get(0).map_err(AppError::LibSQL)?;
+        let name: String = row.get(1).map_err(AppError::LibSQL)?;
+        let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
+        let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
+        let text = [name.as_str(), description.as_deref().unwrap_or("")].join(" ");
+
+        self.upsert_document(SearchDocumentInput {
+            resource_type: "goal".to_string(),
+            resource_id: id,
+            chunk_index: 0,
+            title: name,
+            text,
+            source_updated_at: updated_at,
+        })
+        .await
+    }
+
+    async fn reindex_tag(&self, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, name, updated_at
+                 FROM tags
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return self.delete_resource("tag", resource_id).await;
+        };
+
+        self.index_tag_row(row).await
     }
 
     async fn reindex_tags(&self) -> Result<()> {
@@ -237,22 +337,45 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?;
 
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let id: String = row.get(0).map_err(AppError::LibSQL)?;
-            let name: String = row.get(1).map_err(AppError::LibSQL)?;
-            let updated_at: String = row.get(2).map_err(AppError::LibSQL)?;
-
-            self.upsert_document(SearchDocumentInput {
-                resource_type: "tag".to_string(),
-                resource_id: id,
-                chunk_index: 0,
-                title: name.clone(),
-                text: name,
-                source_updated_at: updated_at,
-            })
-            .await?;
+            self.index_tag_row(row).await?;
         }
 
         Ok(())
+    }
+
+    async fn index_tag_row(&self, row: libsql::Row) -> Result<()> {
+        let id: String = row.get(0).map_err(AppError::LibSQL)?;
+        let name: String = row.get(1).map_err(AppError::LibSQL)?;
+        let updated_at: String = row.get(2).map_err(AppError::LibSQL)?;
+
+        self.upsert_document(SearchDocumentInput {
+            resource_type: "tag".to_string(),
+            resource_id: id,
+            chunk_index: 0,
+            title: name.clone(),
+            text: name,
+            source_updated_at: updated_at,
+        })
+        .await
+    }
+
+    async fn reindex_bookmark(&self, resource_id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, url, title, description, site_name, author, updated_at
+                 FROM bookmarks
+                 WHERE id = ?1 AND is_deleted = 0 AND deleted_at IS NULL",
+                libsql::params![resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return self.delete_resource("bookmark", resource_id).await;
+        };
+
+        self.index_bookmark_row(row).await
     }
 
     async fn reindex_bookmarks(&self) -> Result<()> {
@@ -268,35 +391,39 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?;
 
         while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let id: String = row.get(0).map_err(AppError::LibSQL)?;
-            let url: String = row.get(1).map_err(AppError::LibSQL)?;
-            let title: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
-            let description: Option<String> = row.get(3).map_err(AppError::LibSQL)?;
-            let site_name: Option<String> = row.get(4).map_err(AppError::LibSQL)?;
-            let author: Option<String> = row.get(5).map_err(AppError::LibSQL)?;
-            let updated_at: String = row.get(6).map_err(AppError::LibSQL)?;
-            let title = title.unwrap_or_else(|| url.clone());
-            let text = [
-                title.as_str(),
-                description.as_deref().unwrap_or(""),
-                site_name.as_deref().unwrap_or(""),
-                author.as_deref().unwrap_or(""),
-                url.as_str(),
-            ]
-            .join(" ");
-
-            self.upsert_document(SearchDocumentInput {
-                resource_type: "bookmark".to_string(),
-                resource_id: id,
-                chunk_index: 0,
-                title,
-                text,
-                source_updated_at: updated_at,
-            })
-            .await?;
+            self.index_bookmark_row(row).await?;
         }
 
         Ok(())
+    }
+
+    async fn index_bookmark_row(&self, row: libsql::Row) -> Result<()> {
+        let id: String = row.get(0).map_err(AppError::LibSQL)?;
+        let url: String = row.get(1).map_err(AppError::LibSQL)?;
+        let title: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
+        let description: Option<String> = row.get(3).map_err(AppError::LibSQL)?;
+        let site_name: Option<String> = row.get(4).map_err(AppError::LibSQL)?;
+        let author: Option<String> = row.get(5).map_err(AppError::LibSQL)?;
+        let updated_at: String = row.get(6).map_err(AppError::LibSQL)?;
+        let title = title.unwrap_or_else(|| url.clone());
+        let text = [
+            title.as_str(),
+            description.as_deref().unwrap_or(""),
+            site_name.as_deref().unwrap_or(""),
+            author.as_deref().unwrap_or(""),
+            url.as_str(),
+        ]
+        .join(" ");
+
+        self.upsert_document(SearchDocumentInput {
+            resource_type: "bookmark".to_string(),
+            resource_id: id,
+            chunk_index: 0,
+            title,
+            text,
+            source_updated_at: updated_at,
+        })
+        .await
     }
 
     async fn count_for_type(&self, resource_type: Option<&str>) -> Result<i64> {

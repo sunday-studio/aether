@@ -23,6 +23,13 @@ pub struct SearchRequest {
     pub mode: Option<String>,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReindexResourceRequest {
+    pub resource_type: String,
+    pub resource_id: String,
+}
+
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResponse {
@@ -254,6 +261,38 @@ pub async fn reindex_search(
     let _guard = connection::with_db_access(&*state).await;
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
     repo.reindex_all().await
+}
+
+/// Rebuild one local search document resource
+#[utoipa::path(
+    post,
+    path = "/v1/search/index/resource",
+    tag = "Search",
+    request_body = ReindexResourceRequest,
+    responses(
+        (status = 200, description = "Resource search index rebuilt"),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tauri::command]
+pub async fn reindex_search_resource(
+    state: State<'_, DbState>,
+    request_data: Option<ReindexResourceRequest>,
+    _query_params: Option<crate::commands::params::EmptyQueryParams>,
+    _path_params: Option<EmptyPathParams>,
+) -> Result<()> {
+    let _guard = connection::with_db_access(&*state).await;
+    let request = request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
+    if request.resource_type.trim().is_empty() || request.resource_id.trim().is_empty() {
+        return Err(AppError::BadRequest(
+            "resourceType and resourceId are required".to_string(),
+        ));
+    }
+
+    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
+    repo.reindex_resource(&request.resource_type, &request.resource_id)
+        .await
 }
 
 /// Get local search document index status
