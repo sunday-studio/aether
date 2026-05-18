@@ -74,13 +74,11 @@ Blocked until a real local embedding provider/inference runtime is selected. The
 
 ## Phase 8: Product Search UI
 
-Deferred until the backend retrieval layer is accepted.
-
-- [ ] Add real command-palette/global search.
-- [ ] Group or label results by resource type.
-- [ ] Show useful titles and previews.
-- [ ] Open the selected resource from each result.
-- [ ] Keep search usable offline.
+- [x] Add real command-palette/global search.
+- [x] Group or label results by resource type.
+- [x] Show useful titles and previews.
+- [x] Open the selected resource from each result.
+- [x] Keep search usable offline.
 
 ## Acceptance Checklist
 
@@ -93,4 +91,4 @@ Deferred until the backend retrieval layer is accepted.
 - [x] Search indexes, FTS tables, embedding rows, and jobs are not synced.
 - [x] AI/RAG code can retrieve context through retrieval APIs without direct table-specific queries.
 - [ ] Semantic and hybrid ranking use a real local embedding model.
-- [ ] Product search UI is built on the retrieval layer.
+- [x] Product search UI is built on the retrieval layer.
