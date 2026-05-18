@@ -2,6 +2,7 @@
 
 use crate::error::{AppError, Result};
 use sha2::{Digest, Sha256};
+use std::time::Instant;
 
 pub fn media_hash(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
@@ -15,7 +16,8 @@ pub async fn upload_media(
     device_token: &str,
 ) -> Result<()> {
     let url = format!("{}/media/{}", base_url.trim_end_matches('/'), hash);
-    let client = crate::sync::http_client()?;
+    let client = crate::sync::http_client();
+    let started = Instant::now();
     let res = crate::sync::authenticated_request(
         &client,
         reqwest::Method::PUT,
@@ -27,6 +29,12 @@ pub async fn upload_media(
     .send()
     .await
     .map_err(|e| AppError::Sync(format!("upload_media: {}", e)))?;
+    tracing::info!(
+        "[SYNC-TIMING] media_upload_request={}ms status={} hash={}",
+        started.elapsed().as_millis(),
+        res.status(),
+        hash
+    );
     if !res.status().is_success() {
         return Err(AppError::Sync(format!("upload_media: {}", res.status())));
     }
@@ -40,7 +48,8 @@ pub async fn download_media(
     device_token: &str,
 ) -> Result<Vec<u8>> {
     let url = format!("{}/media/{}", base_url.trim_end_matches('/'), hash);
-    let client = crate::sync::http_client()?;
+    let client = crate::sync::http_client();
+    let started = Instant::now();
     let res = crate::sync::authenticated_request(
         &client,
         reqwest::Method::GET,
@@ -51,6 +60,12 @@ pub async fn download_media(
     .send()
     .await
     .map_err(|e| AppError::Sync(format!("download_media: {}", e)))?;
+    tracing::info!(
+        "[SYNC-TIMING] media_download_request={}ms status={} hash={}",
+        started.elapsed().as_millis(),
+        res.status(),
+        hash
+    );
     if !res.status().is_success() {
         return Err(AppError::Sync(format!("download_media: {}", res.status())));
     }
@@ -68,8 +83,16 @@ pub async fn download_media_decrypt(
     device_id: &str,
     device_token: &str,
 ) -> Result<Vec<u8>> {
+    let started = Instant::now();
     let encrypted = download_media(base_url, hash, device_id, device_token).await?;
-    crate::sync::encryption::decrypt_blob(key, &encrypted)
+    let decrypted = crate::sync::encryption::decrypt_blob(key, &encrypted)?;
+    tracing::info!(
+        "[SYNC-TIMING] media_download_total={}ms hash={} bytes={}",
+        started.elapsed().as_millis(),
+        hash,
+        decrypted.len()
+    );
+    Ok(decrypted)
 }
 
 pub async fn ensure_media_blob(
@@ -129,7 +152,7 @@ pub async fn check_media_exists(
     device_token: &str,
 ) -> Result<bool> {
     let url = format!("{}/media/{}", base_url.trim_end_matches('/'), hash);
-    let client = crate::sync::http_client()?;
+    let client = crate::sync::http_client();
     let res = crate::sync::authenticated_request(
         &client,
         reqwest::Method::HEAD,

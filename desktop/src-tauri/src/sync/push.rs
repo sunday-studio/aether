@@ -1,5 +1,7 @@
 //! Push: read _sync_outbox, build ChangeEnvelopes, encrypt, POST /push, clear outbox on success.
 
+use crate::db::connection::{get_database, with_db_access};
+use crate::db::DbState;
 use crate::error::{AppError, Result};
 use crate::media::get_media_directory;
 use crate::sync;
@@ -9,26 +11,45 @@ use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
 use libsql::Database;
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
+use std::time::Instant;
 
 pub async fn push(
-    db: Arc<Database>,
+    db_state: &DbState,
     key: &[u8; 32],
     base_url: &str,
     media_sync_policy: &str,
 ) -> Result<usize> {
     tracing::info!("[SYNC-PUSH] Starting push operation to {}", base_url);
-    let device_id = metadata::get_device_id(&db).await?;
-    let device_token = metadata::get_device_token(&db)
-        .await?
-        .ok_or_else(|| AppError::Sync("device token missing".into()))?;
-    let device_hostname = metadata::get_device_hostname(&db).await?;
+    let db = get_database(db_state);
+    let (device_id, device_token, device_hostname, envelopes, to_delete) = {
+        let _guard = with_db_access(db_state).await;
+        let device_id = metadata::get_device_id(&db).await?;
+        let device_token = metadata::get_device_token(&db)
+            .await?
+            .ok_or_else(|| AppError::Sync("device token missing".into()))?;
+        let device_hostname = metadata::get_device_hostname(&db).await?;
+        let outbox_started = Instant::now();
+        let (envelopes, to_delete) =
+            read_outbox_and_build(&db, &device_id, &device_hostname).await?;
+        tracing::info!(
+            "[SYNC-TIMING] push_outbox_build={}ms envelopes={} to_delete={}",
+            outbox_started.elapsed().as_millis(),
+            envelopes.len(),
+            to_delete.len()
+        );
+        (
+            device_id,
+            device_token,
+            device_hostname,
+            envelopes,
+            to_delete,
+        )
+    };
     tracing::debug!(
         "[SYNC-PUSH] Device ID: {}, Hostname: {}",
         device_id,
         device_hostname
     );
-    let (envelopes, to_delete) = read_outbox_and_build(&db, &device_id, &device_hostname).await?;
     if envelopes.is_empty() {
         tracing::info!("[SYNC-PUSH] No changes to push");
         return Ok(0);
@@ -37,6 +58,7 @@ pub async fn push(
     let batch_id = compute_batch_id(&envelopes)?;
 
     if media_sync_policy == "auto" {
+        let media_started = Instant::now();
         tracing::debug!("[SYNC-PUSH] Media sync policy is 'auto', uploading media blobs");
         if let Ok(media_dir) = get_media_directory() {
             let mut uploaded = 0;
@@ -66,9 +88,14 @@ pub async fn push(
             }
             tracing::info!("[SYNC-PUSH] Uploaded {} media blobs", uploaded);
         }
+        tracing::info!(
+            "[SYNC-TIMING] media_upload_total={}ms",
+            media_started.elapsed().as_millis()
+        );
     }
 
     tracing::info!("[SYNC-PUSH] Encrypting {} changes", envelopes.len());
+    let encrypt_started = Instant::now();
     let mut encrypted = Vec::with_capacity(envelopes.len());
     for e in &envelopes {
         let json = serde_json::to_vec(e).map_err(AppError::Serialization)?;
@@ -78,6 +105,11 @@ pub async fn push(
             ciphertext: ct,
         });
     }
+    tracing::info!(
+        "[SYNC-TIMING] push_encrypt={}ms changes={}",
+        encrypt_started.elapsed().as_millis(),
+        encrypted.len()
+    );
 
     let url = format!("{}/push", base_url.trim_end_matches('/'));
     tracing::info!("[SYNC-PUSH] Sending POST request to {}", url);
@@ -86,7 +118,8 @@ pub async fn push(
         device_hostname,
         changes: encrypted,
     };
-    let client = sync::http_client()?;
+    let client = sync::http_client();
+    let http_started = Instant::now();
     let res = sync::authenticated_request(
         &client,
         reqwest::Method::POST,
@@ -101,6 +134,11 @@ pub async fn push(
         tracing::error!("[SYNC-PUSH] Network error: {}", e);
         AppError::Sync(format!("push request: {}", e))
     })?;
+    tracing::info!(
+        "[SYNC-TIMING] push_http={}ms status={}",
+        http_started.elapsed().as_millis(),
+        res.status()
+    );
 
     if !res.status().is_success() {
         let status = res.status();
@@ -113,7 +151,16 @@ pub async fn push(
         "[SYNC-PUSH] Server accepted changes, deleting {} rows from outbox",
         to_delete.len()
     );
-    delete_outbox_rows(&db, &to_delete).await?;
+    let delete_started = Instant::now();
+    {
+        let _guard = with_db_access(db_state).await;
+        delete_outbox_rows(&db, &to_delete).await?;
+    }
+    tracing::info!(
+        "[SYNC-TIMING] push_delete_outbox={}ms rows={}",
+        delete_started.elapsed().as_millis(),
+        to_delete.len()
+    );
     tracing::info!("[SYNC-PUSH] Push completed successfully");
     Ok(to_delete.len())
 }
@@ -874,14 +921,24 @@ async fn delete_outbox_rows(db: &Database, rows: &[(String, String)]) -> Result<
         return Ok(());
     }
     let conn = db.connect().map_err(AppError::LibSQL)?;
-    for (entity, entity_id) in rows {
-        conn.execute(
-            "DELETE FROM _sync_outbox WHERE entity = ?1 AND entity_id = ?2",
-            libsql::params![entity.as_str(), entity_id.as_str()],
-        )
+    conn.execute("BEGIN TRANSACTION", libsql::params![])
         .await
         .map_err(AppError::LibSQL)?;
+    for (entity, entity_id) in rows {
+        if let Err(err) = conn
+            .execute(
+                "DELETE FROM _sync_outbox WHERE entity = ?1 AND entity_id = ?2",
+                libsql::params![entity.as_str(), entity_id.as_str()],
+            )
+            .await
+        {
+            let _ = conn.execute("ROLLBACK", libsql::params![]).await;
+            return Err(AppError::LibSQL(err));
+        }
     }
+    conn.execute("COMMIT", libsql::params![])
+        .await
+        .map_err(AppError::LibSQL)?;
     Ok(())
 }
 

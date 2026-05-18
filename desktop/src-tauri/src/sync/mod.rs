@@ -1,4 +1,4 @@
-use crate::error::{AppError, Result};
+use std::sync::LazyLock;
 
 pub mod apply;
 pub mod encryption;
@@ -19,7 +19,7 @@ pub use types::{ChangeEnvelope, ChangeOp, EncryptedChange, PullCursor, PullRespo
 const SYNC_HTTP_CONNECT_TIMEOUT_SECS: u64 = 5;
 const SYNC_HTTP_REQUEST_TIMEOUT_SECS: u64 = 15;
 
-fn http_client() -> Result<reqwest::Client> {
+static SYNC_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(
             SYNC_HTTP_CONNECT_TIMEOUT_SECS,
@@ -28,7 +28,11 @@ fn http_client() -> Result<reqwest::Client> {
             SYNC_HTTP_REQUEST_TIMEOUT_SECS,
         ))
         .build()
-        .map_err(|e| AppError::Sync(format!("http client: {}", e)))
+        .expect("sync HTTP client should build")
+});
+
+fn http_client() -> &'static reqwest::Client {
+    &SYNC_HTTP_CLIENT
 }
 
 fn authenticated_request(

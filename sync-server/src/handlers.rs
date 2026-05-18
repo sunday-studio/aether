@@ -15,7 +15,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, RwLock};
 
 use crate::models::{
@@ -113,6 +113,7 @@ fn authenticated_device_id(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, StatusCode> {
+    let started = Instant::now();
     let device_id = authenticated_device_id(headers)
         .filter(|id| valid_device_id(id))
         .ok_or(StatusCode::UNAUTHORIZED)?;
@@ -120,8 +121,22 @@ fn require_auth(headers: &HeaderMap, storage: &Storage) -> Result<String, Status
         .filter(|token| !token.is_empty())
         .ok_or(StatusCode::UNAUTHORIZED)?;
     match storage.authenticate_device(device_id, token) {
-        Ok(true) => Ok(device_id.to_string()),
-        Ok(false) => Err(StatusCode::UNAUTHORIZED),
+        Ok(true) => {
+            tracing::info!(
+                "[SYNC-SERVER-TIMING] auth={}ms device_id={}",
+                started.elapsed().as_millis(),
+                device_id
+            );
+            Ok(device_id.to_string())
+        }
+        Ok(false) => {
+            tracing::info!(
+                "[SYNC-SERVER-TIMING] auth={}ms unauthorized_device_id={}",
+                started.elapsed().as_millis(),
+                device_id
+            );
+            Err(StatusCode::UNAUTHORIZED)
+        }
         Err(e) => {
             tracing::error!("authenticate_device: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -156,6 +171,7 @@ async fn register(
     rand::thread_rng().fill_bytes(&mut token_bytes);
     let device_token = BASE64.encode(token_bytes);
 
+    let register_started = Instant::now();
     if let Err(e) =
         s.storage
             .register_device(&body.device_id, body.hostname.as_deref(), &device_token)
@@ -163,6 +179,11 @@ async fn register(
         tracing::error!("register_device: {}", e);
         return (StatusCode::INTERNAL_SERVER_ERROR, "db error").into_response();
     }
+    tracing::info!(
+        "[SYNC-SERVER-TIMING] register_device={}ms device_id={}",
+        register_started.elapsed().as_millis(),
+        body.device_id
+    );
 
     let salt = match s.storage.get_salt() {
         Ok(salt) => salt,
@@ -224,6 +245,7 @@ async fn push(
         decoded_changes.push((nonce, ct));
     }
 
+    let record_started = Instant::now();
     match s.storage.record_push_if_new(
         &device_id,
         &body.batch_id,
@@ -231,6 +253,11 @@ async fn push(
         &decoded_changes,
     ) {
         Ok(PushAcceptance::Accepted) => {
+            tracing::info!(
+                "[SYNC-SERVER-TIMING] record_push={}ms changes={} accepted=true",
+                record_started.elapsed().as_millis(),
+                decoded_changes.len()
+            );
             let now = epoch_millis();
             let _ = s.storage.update_device_last_sync(&device_id, now);
             let receiver_count = s.broadcast.send(device_id.clone()).unwrap_or(0);
@@ -243,6 +270,11 @@ async fn push(
             (StatusCode::OK, "{}").into_response()
         }
         Ok(PushAcceptance::Duplicate) => {
+            tracing::info!(
+                "[SYNC-SERVER-TIMING] record_push={}ms changes={} accepted=false duplicate=true",
+                record_started.elapsed().as_millis(),
+                decoded_changes.len()
+            );
             tracing::info!(
                 "Ignoring duplicate batch {} from device {}",
                 body.batch_id,
@@ -483,8 +515,9 @@ async fn pull(
         None => None,
     };
 
-    let limit = 500i64;
-    let rows = match s.storage.pull(cursor.as_ref(), limit) {
+    let limit = 500usize;
+    let pull_started = Instant::now();
+    let mut rows = match s.storage.pull(cursor.as_ref(), (limit + 1) as i64) {
         Ok(r) => r,
         Err(e) => {
             tracing::error!("pull db: {}", e);
@@ -499,7 +532,17 @@ async fn pull(
                 .into_response();
         }
     };
+    let has_more = rows.len() > limit;
+    if has_more {
+        rows.truncate(limit);
+    }
+    tracing::info!(
+        "[SYNC-SERVER-TIMING] pull_query={}ms rows={}",
+        pull_started.elapsed().as_millis(),
+        rows.len()
+    );
 
+    let encode_started = Instant::now();
     let changes: Vec<EncryptedChange> = rows
         .iter()
         .map(|row| EncryptedChange {
@@ -507,21 +550,34 @@ async fn pull(
             ciphertext: BASE64.encode(&row.ciphertext),
         })
         .collect();
+    tracing::info!(
+        "[SYNC-SERVER-TIMING] pull_encode={}ms changes={}",
+        encode_started.elapsed().as_millis(),
+        changes.len()
+    );
 
     let next_cursor = rows.last().map(|row| PullCursor {
         received_at: row.received_at,
         change_id: row.id,
     });
 
-    let has_more = match next_cursor.as_ref() {
-        Some(cursor) => s.storage.has_more_after(cursor).unwrap_or(false),
-        None => false,
-    };
+    let has_more_started = Instant::now();
+    tracing::info!(
+        "[SYNC-SERVER-TIMING] has_more={}ms has_more={}",
+        has_more_started.elapsed().as_millis(),
+        has_more
+    );
 
     if let Some(ref cursor) = next_cursor {
+        let update_started = Instant::now();
         let _ = s
             .storage
             .update_device_last_sync(&device_id, cursor.received_at);
+        tracing::info!(
+            "[SYNC-SERVER-TIMING] last_sync_update={}ms device_id={}",
+            update_started.elapsed().as_millis(),
+            device_id
+        );
     }
 
     (
@@ -547,10 +603,17 @@ async fn put_media(
     if !valid_media_hash(&hash) {
         return StatusCode::BAD_REQUEST;
     }
+    let started = Instant::now();
     if let Err(e) = s.storage.put_blob(&hash, &body) {
         tracing::error!("put_blob: {}", e);
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
+    tracing::info!(
+        "[SYNC-SERVER-TIMING] blob_put={}ms hash={} bytes={}",
+        started.elapsed().as_millis(),
+        hash,
+        body.len()
+    );
     StatusCode::OK
 }
 
@@ -565,8 +628,17 @@ async fn get_media(
     if !valid_media_hash(&hash) {
         return StatusCode::BAD_REQUEST.into_response();
     }
+    let started = Instant::now();
     match s.storage.get_blob(&hash) {
-        Ok(Some(data)) => (StatusCode::OK, bytes::Bytes::from(data)).into_response(),
+        Ok(Some(data)) => {
+            tracing::info!(
+                "[SYNC-SERVER-TIMING] blob_get={}ms hash={} bytes={}",
+                started.elapsed().as_millis(),
+                hash,
+                data.len()
+            );
+            (StatusCode::OK, bytes::Bytes::from(data)).into_response()
+        }
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
             tracing::error!("get_blob: {}", e);

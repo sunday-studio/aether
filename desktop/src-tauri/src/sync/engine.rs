@@ -8,6 +8,7 @@ use crate::sync::{apply, metadata, pull, push, register};
 use serde::Serialize;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Instant;
 use tauri::AppHandle;
 use tokio::sync::Notify;
 use utoipa::ToSchema;
@@ -37,6 +38,7 @@ async fn apply_pulled_changes(
     next_cursor: Option<&crate::sync::types::PullCursor>,
     ctx: &apply::ApplyCtx<'_>,
 ) -> Result<()> {
+    let apply_started = Instant::now();
     apply::with_suppress_triggers(db, async {
         for envelope in envelopes {
             apply::apply_change(db, envelope, Some(ctx))
@@ -56,6 +58,11 @@ async fn apply_pulled_changes(
         metadata::set_pull_cursor(db, cursor).await?;
     }
 
+    tracing::info!(
+        "[SYNC-TIMING] apply_changes={}ms changes={}",
+        apply_started.elapsed().as_millis(),
+        envelopes.len()
+    );
     Ok(())
 }
 
@@ -189,29 +196,42 @@ impl SyncEngine {
             return self.status().await;
         }
 
+        let sync_started = Instant::now();
         let result = self.sync_inner(&url, &pass).await;
+        tracing::info!(
+            "[SYNC-TIMING] sync_total={}ms success={}",
+            sync_started.elapsed().as_millis(),
+            result.is_ok()
+        );
         *self.is_syncing.lock().unwrap() = false;
         result?;
         self.status().await
     }
 
     async fn sync_inner(&self, url: &str, passphrase: &str) -> Result<()> {
-        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
-        let key = metadata::verify_key(&db, passphrase).await?;
-        let device_id = metadata::get_device_id(&db).await?;
-        let device_token = metadata::get_device_token(&db)
-            .await?
-            .ok_or_else(|| AppError::Sync("device token missing".into()))?;
-        let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "on_demand".to_string());
+        let (key, device_id, device_token, media_sync_policy) = {
+            let _guard = with_db_access(&self.db).await;
+            let key = metadata::verify_key(&db, passphrase).await?;
+            let device_id = metadata::get_device_id(&db).await?;
+            let device_token = metadata::get_device_token(&db)
+                .await?
+                .ok_or_else(|| AppError::Sync("device token missing".into()))?;
+            let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "on_demand".to_string());
+            (key, device_id, device_token, media_sync_policy)
+        };
 
         loop {
+            let cursor = {
+                let _guard = with_db_access(&self.db).await;
+                metadata::get_pull_cursor(&db).await?
+            };
             let (envelopes, next_cursor, has_more) =
-                pull::pull(&db, &key, url, &device_id, &device_token).await?;
+                pull::pull(&key, url, &device_id, &device_token, cursor.as_ref()).await?;
 
             let ctx = apply::ApplyCtx {
                 base_url: url,
@@ -220,13 +240,16 @@ impl SyncEngine {
                 device_token: &device_token,
                 media_sync_policy: &media_sync_policy,
             };
-            apply_pulled_changes(&db, &envelopes, next_cursor.as_ref(), &ctx).await?;
+            {
+                let _guard = with_db_access(&self.db).await;
+                apply_pulled_changes(&db, &envelopes, next_cursor.as_ref(), &ctx).await?;
+            }
             if !has_more {
                 break;
             }
         }
 
-        let _ = push::push(db.clone(), &key, url, &media_sync_policy).await?;
+        let _ = push::push(&self.db, &key, url, &media_sync_policy).await?;
         Ok(())
     }
 
@@ -242,15 +265,18 @@ impl SyncEngine {
         let Some(pass) = pass else {
             return Ok(());
         };
-        let _guard = with_db_access(&self.db).await;
         let db = get_database(&self.db);
-        let key = metadata::verify_key(&db, &pass).await?;
-        let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "on_demand".to_string());
-        let _ = push::push(db, &key, &url, &media_sync_policy).await?;
+        let (key, media_sync_policy) = {
+            let _guard = with_db_access(&self.db).await;
+            let key = metadata::verify_key(&db, &pass).await?;
+            let media_sync_policy = settings::get_setting(db.clone(), "sync.media_sync_policy")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "on_demand".to_string());
+            (key, media_sync_policy)
+        };
+        let _ = push::push(&self.db, &key, &url, &media_sync_policy).await?;
         Ok(())
     }
 
