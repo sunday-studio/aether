@@ -105,6 +105,22 @@ pub struct SearchQueryParams {
     pub mode: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RelatedSearchQueryParams {
+    pub resource_type: String,
+    pub resource_id: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WeekContextQueryParams {
+    pub start_date: String,
+    pub end_date: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
 /// Query parameters for bookmark listing
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct BookmarkQueryParams {

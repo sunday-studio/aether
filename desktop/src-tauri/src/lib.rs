@@ -322,6 +322,9 @@ pub fn run() {
             search::reindex_search,
             search::reindex_search_resource,
             search::get_search_index_status,
+            search::find_related_resources,
+            search::retrieve_context,
+            search::retrieve_week_context,
             // Link commands
             link::create_link,
             link::get_backlinks,

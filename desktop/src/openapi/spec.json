@@ -2017,6 +2017,96 @@
         }
       }
     },
+    "/v1/search/context": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Retrieve clean context for a query",
+        "operationId": "retrieve_context",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Context query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "description": "Comma-separated resource types",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Comma-separated tag IDs to filter by",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "Filter source_updated_at at or after this ISO 8601 value",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "Filter source_updated_at at or before this ISO 8601 value",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of context resources",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchContextResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/v1/search/embeddings/index": {
       "post": {
         "tags": [
@@ -2183,6 +2273,124 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/related": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Find resources related to an indexed resource",
+        "operationId": "find_related_resources",
+        "parameters": [
+          {
+            "name": "resource_type",
+            "in": "query",
+            "description": "Resource type: entry, task, goal, tag, or bookmark",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "query",
+            "description": "Resource ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of related resources",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Related resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchContextResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/week-context": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Retrieve clean context for a date range",
+        "operationId": "retrieve_week_context",
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "description": "Inclusive start ISO 8601 value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "description": "Inclusive end ISO 8601 value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of context resources",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved week context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchContextResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
           },
           "500": {
             "description": "Internal server error"
@@ -4860,6 +5068,25 @@
           },
           "format": {
             "type": "string"
+          }
+        }
+      },
+      "SearchContextResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "total"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },

@@ -73,3 +73,9 @@ Use this path before building the search UI:
 - [x] Verify resource embedding indexing clears embeddings when the search document is missing.
 - [x] Verify semantic and hybrid search still fail gracefully until real embedding search is implemented.
 - [ ] Verify a real local model provider once an inference runtime is selected.
+
+## Phase 7 Retrieval API Test Flow
+
+- [x] Verify related-resource retrieval excludes the source resource.
+- [x] Verify date-range context returns clean previews and source metadata.
+- [x] Verify retrieval API routes are included in the frontend API client and OpenAPI spec.

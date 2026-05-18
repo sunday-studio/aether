@@ -64,11 +64,11 @@ Build one reliable local retrieval layer:
 
 ## Phase 7: RAG Retrieval APIs
 
-- [ ] Add `find_related_resources(resource_type, resource_id, limit)`.
-- [ ] Add `retrieve_context(query, filters)`.
-- [ ] Add `retrieve_week_context(start_date, end_date)`.
-- [ ] Return source ids, clean excerpts, dates, resource types, and scores.
-- [ ] Use these APIs for AI enrichment and weekly summaries later.
+- [x] Add `find_related_resources(resource_type, resource_id, limit)`.
+- [x] Add `retrieve_context(query, filters)`.
+- [x] Add `retrieve_week_context(start_date, end_date)`.
+- [x] Return source ids, clean excerpts, dates, resource types, and scores.
+- [x] Use these APIs for AI enrichment and weekly summaries later.
 
 ## Phase 8: Product Search UI
 

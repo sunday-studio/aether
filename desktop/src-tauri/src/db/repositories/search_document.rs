@@ -65,6 +65,11 @@ pub struct SearchDocumentRepository {
     database: Arc<Database>,
 }
 
+#[derive(Debug, Clone)]
+struct SearchDocumentSource {
+    text: String,
+}
+
 impl SearchDocumentRepository {
     pub fn new(database: Arc<Database>) -> Self {
         Self { database }
@@ -214,6 +219,111 @@ impl SearchDocumentRepository {
             next_cursor,
             has_more,
         })
+    }
+
+    pub async fn find_related(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+        limit: Option<u32>,
+    ) -> Result<Vec<SearchDocumentResult>> {
+        let Some(source) = self
+            .load_resource_document(resource_type, resource_id)
+            .await?
+        else {
+            return Ok(Vec::new());
+        };
+        let query = related_query_terms(&source.text);
+        if query.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let page = self
+            .search_keyword(
+                &query,
+                SearchDocumentQuery {
+                    limit: Some(limit.unwrap_or(10).min(50) + 1),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await?;
+
+        Ok(page
+            .results
+            .into_iter()
+            .filter(|result| {
+                result.resource_type != resource_type || result.resource_id != resource_id
+            })
+            .take(limit.unwrap_or(10).min(50) as usize)
+            .collect())
+    }
+
+    pub async fn list_context_by_date_range(
+        &self,
+        date_from: &str,
+        date_to: &str,
+        limit: Option<u32>,
+    ) -> Result<Vec<SearchDocumentResult>> {
+        let limit = limit.unwrap_or(50).min(100);
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT id, resource_type, resource_id, title, text, source_updated_at, created_at, updated_at
+                 FROM search_documents
+                 WHERE source_updated_at >= ?1 AND source_updated_at <= ?2
+                 ORDER BY source_updated_at DESC, id DESC
+                 LIMIT ?3",
+                libsql::params![date_from, date_to, limit],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+        let mut results = Vec::new();
+
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            let text: String = row.get(4).map_err(AppError::LibSQL)?;
+            results.push(SearchDocumentResult {
+                id: row.get(0).map_err(AppError::LibSQL)?,
+                resource_type: row.get(1).map_err(AppError::LibSQL)?,
+                resource_id: row.get(2).map_err(AppError::LibSQL)?,
+                title: row.get(3).map_err(AppError::LibSQL)?,
+                preview: truncate_preview(&text, 220),
+                score: 1.0,
+                match_kind: "date".to_string(),
+                highlights: Vec::new(),
+                source_updated_at: row.get(5).map_err(AppError::LibSQL)?,
+                created_at: row.get(6).map_err(AppError::LibSQL)?,
+                updated_at: row.get(7).map_err(AppError::LibSQL)?,
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn load_resource_document(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Result<Option<SearchDocumentSource>> {
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT text
+                 FROM search_documents
+                 WHERE resource_type = ?1 AND resource_id = ?2
+                 ORDER BY chunk_index
+                 LIMIT 1",
+                libsql::params![resource_type, resource_id],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
+            return Ok(None);
+        };
+
+        Ok(Some(SearchDocumentSource {
+            text: row.get(0).map_err(AppError::LibSQL)?,
+        }))
     }
 
     async fn matches_tags(
@@ -750,6 +860,18 @@ fn search_offset(cursor: Option<&str>, offset: Option<u32>) -> Result<usize> {
     })
 }
 
+fn related_query_terms(text: &str) -> String {
+    text.split_whitespace()
+        .map(|term| {
+            term.trim_matches(|ch: char| !ch.is_alphanumeric())
+                .to_lowercase()
+        })
+        .filter(|term| term.len() >= 4)
+        .take(6)
+        .collect::<Vec<_>>()
+        .join(" OR ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1072,6 +1194,43 @@ mod tests {
         assert!(first_page.next_cursor.is_some());
         assert_eq!(second_page.results.len(), 1);
         assert_ne!(first_page.results[0].id, second_page.results[0].id);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn find_related_returns_results_without_source_resource() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let results = repo
+            .find_related("task", "task-1", Some(5))
+            .await
+            .expect("find related resources");
+
+        assert!(!results.is_empty());
+        assert!(results
+            .iter()
+            .all(|result| result.resource_type != "task" || result.resource_id != "task-1"));
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn list_context_by_date_range_returns_clean_context() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let results = repo
+            .list_context_by_date_range("2026-05-12T00:00:00Z", "2026-05-15T23:59:59Z", Some(10))
+            .await
+            .expect("list context by date");
+
+        assert_eq!(results.len(), 4);
+        assert!(results.iter().all(|result| result.match_kind == "date"));
+        assert!(results.iter().all(|result| !result.preview.is_empty()));
 
         cleanup_db(db_path);
     }
