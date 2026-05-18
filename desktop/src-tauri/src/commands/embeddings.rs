@@ -8,7 +8,7 @@ use crate::utils::embeddings::model_manager;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
-const DEFAULT_SEARCH_EMBEDDING_MODEL: &str = "local-hash-384";
+const DEFAULT_SEARCH_EMBEDDING_MODEL: &str = "all-MiniLM-L6-v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

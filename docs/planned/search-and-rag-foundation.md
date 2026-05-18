@@ -56,12 +56,10 @@ Build one reliable local retrieval layer:
 
 ## Phase 6: Hybrid Search
 
-Blocked until a real local embedding provider/inference runtime is selected. The current `local-hash-384` generator is only suitable for exercising storage and indexing paths; it should not power user-facing semantic ranking.
-
-- [ ] Implement `mode=semantic`.
-- [ ] Implement `mode=hybrid`.
-- [ ] Merge keyword and semantic results by resource id.
-- [ ] Start with simple scoring: keyword weight higher than semantic.
+- [x] Implement `mode=semantic`.
+- [x] Implement `mode=hybrid`.
+- [x] Merge keyword and semantic results by resource id.
+- [x] Start with simple scoring: keyword weight higher than semantic.
 - [ ] Add small boosts for exact title/name matches, tags, pinned entries, incomplete tasks, and current goals.
 
 ## Phase 7: RAG Retrieval APIs
@@ -90,5 +88,5 @@ Blocked until a real local embedding provider/inference runtime is selected. The
 - [x] Embeddings are optional and rebuildable.
 - [x] Search indexes, FTS tables, embedding rows, and jobs are not synced.
 - [x] AI/RAG code can retrieve context through retrieval APIs without direct table-specific queries.
-- [ ] Semantic and hybrid ranking use a real local embedding model.
+- [x] Semantic and hybrid ranking use a real local embedding model.
 - [x] Product search UI is built on the retrieval layer.

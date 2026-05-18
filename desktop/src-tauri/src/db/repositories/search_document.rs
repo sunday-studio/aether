@@ -1,4 +1,5 @@
 use crate::error::{AppError, Result};
+use crate::utils::embeddings::generate_embedding;
 use crate::utils::search_text::{
     extract_text_from_lexical_document, first_search_line, normalize_search_text, truncate_preview,
 };
@@ -6,6 +7,8 @@ use chrono::Utc;
 use libsql::Database;
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+
+const DEFAULT_SEMANTIC_MODEL: &str = "all-MiniLM-L6-v2";
 
 #[derive(Debug, Clone)]
 pub struct SearchDocumentResult {
@@ -219,6 +222,148 @@ impl SearchDocumentRepository {
             next_cursor,
             has_more,
         })
+    }
+
+    pub async fn search_semantic(
+        &self,
+        query: &str,
+        filters: SearchDocumentQuery,
+    ) -> Result<SearchDocumentPage> {
+        if query.trim().is_empty() {
+            return Ok(empty_search_document_page());
+        }
+
+        let limit = filters.limit.unwrap_or(50).min(100) as usize;
+        let offset = search_offset(filters.cursor.as_deref(), filters.offset)?;
+        let query_embedding = generate_embedding(query).await?;
+        let conn = self.database.connect().map_err(AppError::LibSQL)?;
+        let mut rows = conn
+            .query(
+                "SELECT
+                    d.id,
+                    d.resource_type,
+                    d.resource_id,
+                    d.title,
+                    d.text,
+                    d.source_updated_at,
+                    d.created_at,
+                    d.updated_at,
+                    e.vector,
+                    e.dimensions
+                 FROM search_embeddings e
+                 JOIN search_documents d ON d.id = e.search_document_id
+                 WHERE e.model_name = ?1
+                 LIMIT 1000",
+                libsql::params![DEFAULT_SEMANTIC_MODEL],
+            )
+            .await
+            .map_err(AppError::LibSQL)?;
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+            let resource_type: String = row.get(1).map_err(AppError::LibSQL)?;
+            if !matches_resource_type(&filters.resource_types, &resource_type) {
+                continue;
+            }
+
+            let source_updated_at: String = row.get(5).map_err(AppError::LibSQL)?;
+            if !matches_date_range(
+                &source_updated_at,
+                filters.date_from.as_deref(),
+                filters.date_to.as_deref(),
+            ) {
+                continue;
+            }
+
+            let resource_id: String = row.get(2).map_err(AppError::LibSQL)?;
+            if !self
+                .matches_tags(&conn, &resource_type, &resource_id, &filters.tag_ids)
+                .await?
+            {
+                continue;
+            }
+
+            let dimensions: i64 = row.get(9).map_err(AppError::LibSQL)?;
+            let vector_bytes: Vec<u8> = row.get(8).map_err(AppError::LibSQL)?;
+            let vector = decode_vector(&vector_bytes, dimensions)?;
+            if vector.len() != query_embedding.len() {
+                continue;
+            }
+
+            let text: String = row.get(4).map_err(AppError::LibSQL)?;
+            let score = cosine_similarity(&query_embedding, &vector);
+
+            results.push(SearchDocumentResult {
+                id: row.get(0).map_err(AppError::LibSQL)?,
+                resource_type,
+                resource_id,
+                title: row.get(3).map_err(AppError::LibSQL)?,
+                preview: truncate_preview(&text, 220),
+                score,
+                match_kind: "semantic".to_string(),
+                highlights: Vec::new(),
+                source_updated_at,
+                created_at: row.get(6).map_err(AppError::LibSQL)?,
+                updated_at: row.get(7).map_err(AppError::LibSQL)?,
+            });
+        }
+
+        results.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        paged_results(results, offset, limit)
+    }
+
+    pub async fn search_hybrid(
+        &self,
+        query: &str,
+        filters: SearchDocumentQuery,
+    ) -> Result<SearchDocumentPage> {
+        let limit = filters.limit.unwrap_or(50).min(100) as usize;
+        let offset = search_offset(filters.cursor.as_deref(), filters.offset)?;
+        let mut keyword_filters = filters.clone();
+        keyword_filters.limit = Some(100);
+        keyword_filters.offset = None;
+        keyword_filters.cursor = None;
+
+        let semantic_filters = keyword_filters.clone();
+        let keyword_page = self.search_keyword(query, keyword_filters).await?;
+        let semantic_page = self.search_semantic(query, semantic_filters).await?;
+        let mut merged = std::collections::HashMap::<String, SearchDocumentResult>::new();
+
+        for mut result in keyword_page.results {
+            result.score *= 0.65;
+            result.match_kind = "hybrid".to_string();
+            merged.insert(result.id.clone(), result);
+        }
+
+        for result in semantic_page.results {
+            let semantic_score = result.score * 0.35;
+            merged
+                .entry(result.id.clone())
+                .and_modify(|existing| {
+                    existing.score += semantic_score;
+                })
+                .or_insert_with(|| SearchDocumentResult {
+                    score: semantic_score,
+                    match_kind: "hybrid".to_string(),
+                    ..result
+                });
+        }
+
+        let mut results = merged.into_values().collect::<Vec<_>>();
+        results.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        paged_results(results, offset, limit)
     }
 
     pub async fn find_related(
@@ -860,6 +1005,79 @@ fn search_offset(cursor: Option<&str>, offset: Option<u32>) -> Result<usize> {
     })
 }
 
+fn empty_search_document_page() -> SearchDocumentPage {
+    SearchDocumentPage {
+        results: Vec::new(),
+        next_cursor: None,
+        has_more: false,
+    }
+}
+
+fn paged_results(
+    results: Vec<SearchDocumentResult>,
+    offset: usize,
+    limit: usize,
+) -> Result<SearchDocumentPage> {
+    let mut page_results: Vec<_> = results.into_iter().skip(offset).take(limit + 1).collect();
+    let has_more = page_results.len() > limit;
+    if has_more {
+        page_results.truncate(limit);
+    }
+    let next_cursor = if has_more {
+        Some(crate::commands::common::cursor::encode(
+            &(offset + page_results.len()).to_string(),
+        ))
+    } else {
+        None
+    };
+
+    Ok(SearchDocumentPage {
+        results: page_results,
+        next_cursor,
+        has_more,
+    })
+}
+
+fn decode_vector(bytes: &[u8], dimensions: i64) -> Result<Vec<f32>> {
+    let expected_len = dimensions as usize * std::mem::size_of::<f32>();
+    if bytes.len() != expected_len {
+        return Err(AppError::Internal(format!(
+            "Stored embedding byte length {} does not match dimensions {}",
+            bytes.len(),
+            dimensions
+        )));
+    }
+
+    Ok(bytes
+        .chunks_exact(std::mem::size_of::<f32>())
+        .map(|chunk| {
+            let mut value = [0u8; 4];
+            value.copy_from_slice(chunk);
+            f32::from_le_bytes(value)
+        })
+        .collect())
+}
+
+fn cosine_similarity(left: &[f32], right: &[f32]) -> f64 {
+    let mut dot = 0.0f64;
+    let mut left_norm = 0.0f64;
+    let mut right_norm = 0.0f64;
+
+    for (left_value, right_value) in left.iter().zip(right.iter()) {
+        let left_value = *left_value as f64;
+        let right_value = *right_value as f64;
+        dot += left_value * right_value;
+        left_norm += left_value * left_value;
+        right_norm += right_value * right_value;
+    }
+
+    if left_norm == 0.0 || right_norm == 0.0 {
+        return 0.0;
+    }
+
+    ((dot / (left_norm.sqrt() * right_norm.sqrt())) + 1.0) / 2.0
+}
+
 fn related_query_terms(text: &str) -> String {
     text.split_whitespace()
         .map(|term| {
@@ -876,6 +1094,7 @@ fn related_query_terms(text: &str) -> String {
 mod tests {
     use super::*;
     use crate::db::migrations;
+    use crate::db::repositories::SearchEmbeddingRepository;
     use libsql::Builder;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -1194,6 +1413,66 @@ mod tests {
         assert!(first_page.next_cursor.is_some());
         assert_eq!(second_page.results.len(), 1);
         assert_ne!(first_page.results[0].id, second_page.results[0].id);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn search_semantic_returns_indexed_embedding_results() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+        SearchEmbeddingRepository::new(database.clone())
+            .index_all_embeddings(DEFAULT_SEMANTIC_MODEL)
+            .await
+            .expect("index embeddings");
+
+        let results = repo
+            .search_semantic(
+                "search testing",
+                SearchDocumentQuery {
+                    limit: Some(3),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search semantic");
+
+        assert!(!results.results.is_empty());
+        assert!(results
+            .results
+            .iter()
+            .all(|result| result.match_kind == "semantic"));
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn search_hybrid_merges_keyword_and_semantic_results() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+        SearchEmbeddingRepository::new(database.clone())
+            .index_all_embeddings(DEFAULT_SEMANTIC_MODEL)
+            .await
+            .expect("index embeddings");
+
+        let results = repo
+            .search_hybrid(
+                "search",
+                SearchDocumentQuery {
+                    limit: Some(5),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search hybrid");
+
+        assert!(!results.results.is_empty());
+        assert!(results
+            .results
+            .iter()
+            .all(|result| result.match_kind == "hybrid"));
 
         cleanup_db(db_path);
     }

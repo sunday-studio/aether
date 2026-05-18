@@ -131,20 +131,20 @@ pub async fn search_resources(
     let mode = resolve_search_mode(&requested_mode)?;
 
     let repo = SearchDocumentRepository::new(connection::get_database(&*state));
-    let results = repo
-        .search_keyword(
-            &params.q,
-            SearchDocumentQuery {
-                resource_types,
-                tag_ids,
-                date_from: params.date_from,
-                date_to: params.date_to,
-                limit: params.limit,
-                offset: params.offset,
-                cursor: params.cursor,
-            },
-        )
-        .await?;
+    let query = SearchDocumentQuery {
+        resource_types,
+        tag_ids,
+        date_from: params.date_from,
+        date_to: params.date_to,
+        limit: params.limit,
+        offset: params.offset,
+        cursor: params.cursor,
+    };
+    let results = match mode {
+        "semantic" => repo.search_semantic(&params.q, query).await?,
+        "hybrid" => repo.search_hybrid(&params.q, query).await?,
+        _ => repo.search_keyword(&params.q, query).await?,
+    };
     let total = results.results.len();
     let response = SearchResponse {
         results: results
@@ -352,12 +352,8 @@ fn search_result_response(
 fn resolve_search_mode(requested_mode: &str) -> Result<&'static str> {
     match requested_mode {
         "keyword" | "fuzzy" => Ok("keyword"),
-        "semantic" | "similar" => Err(AppError::BadRequest(
-            "Semantic search is not available until embeddings are indexed".to_string(),
-        )),
-        "hybrid" => Err(AppError::BadRequest(
-            "Hybrid search is not available until embeddings are indexed".to_string(),
-        )),
+        "semantic" | "similar" => Ok("semantic"),
+        "hybrid" => Ok("hybrid"),
         _ => Ok("keyword"),
     }
 }
@@ -444,24 +440,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn semantic_search_mode_is_unavailable_until_embeddings_are_indexed() {
-        let error = resolve_search_mode("semantic").expect_err("semantic should be unavailable");
+    fn semantic_search_mode_is_available() {
+        let mode = resolve_search_mode("semantic").expect("semantic should resolve");
 
-        assert!(matches!(
-            error,
-            AppError::BadRequest(message)
-                if message == "Semantic search is not available until embeddings are indexed"
-        ));
+        assert_eq!(mode, "semantic");
     }
 
     #[test]
-    fn hybrid_search_mode_is_unavailable_until_embeddings_are_indexed() {
-        let error = resolve_search_mode("hybrid").expect_err("hybrid should be unavailable");
+    fn hybrid_search_mode_is_available() {
+        let mode = resolve_search_mode("hybrid").expect("hybrid should resolve");
 
-        assert!(matches!(
-            error,
-            AppError::BadRequest(message)
-                if message == "Hybrid search is not available until embeddings are indexed"
-        ));
+        assert_eq!(mode, "hybrid");
     }
 }
