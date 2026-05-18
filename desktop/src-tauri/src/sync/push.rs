@@ -9,9 +9,13 @@ use crate::sync::encryption;
 use crate::sync::media;
 use crate::sync::metadata;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
+use futures::{stream, StreamExt};
 use libsql::{Connection, Database};
 use sha2::{Digest, Sha256};
+use std::path::PathBuf;
 use std::time::Instant;
+
+const MEDIA_UPLOAD_CONCURRENCY: usize = 4;
 
 pub async fn push(
     db_state: &DbState,
@@ -61,31 +65,68 @@ pub async fn push(
         let media_started = Instant::now();
         tracing::debug!("[SYNC-PUSH] Media sync policy is 'auto', uploading media blobs");
         if let Ok(media_dir) = get_media_directory() {
-            let mut uploaded = 0;
-            for e in &envelopes {
-                if e.entity != "media_items" || e.data.is_none() {
-                    continue;
-                }
-                let data = e.data.as_ref().unwrap();
-                let content_hash = data.get("content_hash").and_then(|v| v.as_str());
-                let file_path = data.get("file_path").and_then(|v| v.as_str());
-                if let (Some(hash), Some(fp)) = (content_hash, file_path) {
-                    let full = media_dir.join(fp);
-                    if let Ok(bytes) = std::fs::read(&full) {
-                        if let Ok(enc) = encryption::encrypt_blob(key, &bytes) {
-                            if media::upload_media(base_url, hash, &enc, &device_id, &device_token)
-                                .await
-                                .is_ok()
-                            {
-                                uploaded += 1;
-                                tracing::debug!("[SYNC-PUSH] Uploaded media blob: {}", hash);
-                            } else {
-                                tracing::warn!("[SYNC-PUSH] Failed to upload media blob {}", hash);
+            let upload_jobs: Vec<(String, PathBuf)> = envelopes
+                .iter()
+                .filter_map(|e| {
+                    let data = e.data.as_ref()?;
+                    if e.entity != "media_items" {
+                        return None;
+                    }
+                    let hash = data.get("content_hash")?.as_str()?.to_string();
+                    let file_path = data.get("file_path")?.as_str()?;
+                    Some((hash, media_dir.join(file_path)))
+                })
+                .collect();
+            let base_url = base_url.to_string();
+            let device_id_for_media = device_id.clone();
+            let device_token_for_media = device_token.clone();
+            let key_for_media = *key;
+            let uploaded = stream::iter(upload_jobs)
+                .map(|(hash, full)| {
+                    let base_url = base_url.clone();
+                    let device_id = device_id_for_media.clone();
+                    let device_token = device_token_for_media.clone();
+                    async move {
+                        let bytes = match tokio::fs::read(&full).await {
+                            Ok(bytes) => bytes,
+                            Err(e) => {
+                                tracing::warn!(
+                                    "[SYNC-PUSH] Failed to read media blob {} from {}: {}",
+                                    hash,
+                                    full.display(),
+                                    e
+                                );
+                                return false;
                             }
+                        };
+                        let enc = match encryption::encrypt_blob(&key_for_media, &bytes) {
+                            Ok(enc) => enc,
+                            Err(e) => {
+                                tracing::warn!(
+                                    "[SYNC-PUSH] Failed to encrypt media blob {}: {}",
+                                    hash,
+                                    e
+                                );
+                                return false;
+                            }
+                        };
+                        if media::upload_media(&base_url, &hash, &enc, &device_id, &device_token)
+                            .await
+                            .is_ok()
+                        {
+                            tracing::debug!("[SYNC-PUSH] Uploaded media blob: {}", hash);
+                            true
+                        } else {
+                            tracing::warn!("[SYNC-PUSH] Failed to upload media blob {}", hash);
+                            false
                         }
                     }
-                }
-            }
+                })
+                .buffer_unordered(MEDIA_UPLOAD_CONCURRENCY)
+                .fold(0usize, |count, uploaded| async move {
+                    count + usize::from(uploaded)
+                })
+                .await;
             tracing::info!("[SYNC-PUSH] Uploaded {} media blobs", uploaded);
         }
         tracing::info!(
