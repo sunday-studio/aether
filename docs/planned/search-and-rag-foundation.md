@@ -48,7 +48,7 @@ Build one reliable local retrieval layer:
 
 ## Phase 5: Real Local Embeddings
 
-- [ ] Replace placeholder hash embeddings with a real local embedding provider.
+- [x] Replace placeholder hash embeddings with a real local embedding provider.
 - [x] Add `index_embeddings()`.
 - [x] Add `index_resource_embedding(resource_type, resource_id)`.
 - [x] Add `get_embedding_status()`.

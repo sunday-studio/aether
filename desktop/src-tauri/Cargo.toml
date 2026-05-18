@@ -103,6 +103,9 @@ gethostname = "0.4"
 # Async traits
 async-trait = "0.1"
 
+# Local embeddings
+fastembed = { version = "5.13.4", default-features = false, features = ["hf-hub-native-tls", "ort-download-binaries-native-tls"] }
+
 # Local Whisper (optional - for future implementation)
 # whisper-rs = "0.10"  # Uncomment when implementing local Whisper
 
