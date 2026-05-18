@@ -9,7 +9,13 @@
 
 ## Commit Message Format
 
-Use this format for commits:
+Use this format for small commits:
+
+```txt
+conventional-commit-type(service/package changed): one liner
+```
+
+Use this format only when the one-liner does not cover the change:
 
 ```txt
 conventional-commit-type(service/package changed): one liner
@@ -20,8 +26,10 @@ conventional-commit-type(service/package changed): one liner
 
 - The first line must use a conventional commit type and a scope for the service or package changed.
 - Use a concise one-line summary, for example `docs(repo): clarify agent instructions`.
-- Add bullet points only when the one-liner does not cover the change.
+- Prefer a one-line commit message when the subject fully explains a small change.
+- Add bullet points only when they add meaningful context beyond the one-liner.
 - When bullets are needed, add one blank line after the subject.
 - Bullet points must start with `- ` followed by text, with one space after the dash.
 - End each bullet with `;`.
 - Do not put blank lines between bullet points.
+- When using `git commit -m`, put multi-bullet bodies in one body argument so Git does not insert blank lines between bullets.
