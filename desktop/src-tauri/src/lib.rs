@@ -56,6 +56,10 @@ pub fn run() {
         .init();
 
     tracing::info!("Tauri application starting...");
+    tracing::info!(
+        "[RUST-TIMING] ledger_path={}",
+        utils::performance_ledger::rust_ledger_path().display()
+    );
 
     let mut builder = tauri::Builder::default();
 

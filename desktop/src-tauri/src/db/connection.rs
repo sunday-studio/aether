@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::error::{AppError, Result};
+use crate::utils::performance_ledger::record_rust_timing;
 
 const DB_ACCESS_WAIT_LOG_THRESHOLD: Duration = Duration::from_millis(25);
 
@@ -90,6 +91,15 @@ pub fn with_db_access(
                 waited.as_millis(),
                 caller.file(),
                 caller.line()
+            );
+            record_rust_timing(
+                "db-access-wait",
+                "with_db_access",
+                waited,
+                serde_json::json!({
+                    "caller_file": caller.file(),
+                    "caller_line": caller.line(),
+                }),
             );
         }
         guard

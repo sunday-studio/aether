@@ -12,20 +12,33 @@ use crate::utils::{
     log_complete, log_create, log_delete, log_goal_operation, log_reorder, log_tag_operation,
     log_update,
 };
+use crate::utils::{record_rust_timing, PerfTimer};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use serde_json::json;
+use std::time::Instant;
 use tauri::State;
 use utoipa::ToSchema;
 
 async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+    let timer = PerfTimer::start("rust-phase", "task.search_refresh");
+    let document_started = Instant::now();
     if let Err(e) = SearchDocumentRepository::new(db.clone())
         .reindex_resource("task", task_id)
         .await
     {
         tracing::warn!("Failed to reindex task {} for search: {}", task_id, e);
+        timer.finish(json!({
+            "resource_type": "task",
+            "resource_id": task_id,
+            "status": "search_document_error",
+            "error": e.to_string(),
+        }));
         return;
     }
+    let search_document_ms = document_started.elapsed().as_secs_f64() * 1000.0;
 
+    let embeddings_started = Instant::now();
     if let Err(e) = SearchEmbeddingRepository::new(db)
         .refresh_existing_resource_embeddings("task", task_id)
         .await
@@ -35,7 +48,23 @@ async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str
             task_id,
             e
         );
+        timer.finish(json!({
+            "resource_type": "task",
+            "resource_id": task_id,
+            "status": "search_embedding_error",
+            "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
+            "error": e.to_string(),
+        }));
+        return;
     }
+    let search_embedding_ms = embeddings_started.elapsed().as_secs_f64() * 1000.0;
+    timer.finish(json!({
+        "resource_type": "task",
+        "resource_id": task_id,
+        "status": "ok",
+        "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
+        "search_embedding_ms": (search_embedding_ms * 10.0).round() / 10.0,
+    }));
 }
 
 /// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
@@ -147,7 +176,10 @@ pub async fn create_task(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let request =
         request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     if request.title.is_empty() {
@@ -156,12 +188,15 @@ pub async fn create_task(
 
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
+    let goal_instance_started = Instant::now();
     let goal_instance_id = if let Some(ref goal_id) = request.goal_id {
         let goal_repo = crate::db::GoalRepository::new(db.clone());
         Some(goal_repo.get_or_create_current_instance(goal_id).await?.id)
     } else {
         None
     };
+    let goal_instance_ms = goal_instance_started.elapsed().as_secs_f64() * 1000.0;
+    let repo_started = Instant::now();
     let task = repo
         .create(
             request.title,
@@ -171,19 +206,47 @@ pub async fn create_task(
             goal_instance_id,
         )
         .await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
+    let tags_started = Instant::now();
     if !request.tag_ids.is_empty() {
         repo.add_tags(&task.id, request.tag_ids).await?;
     }
+    let tags_ms = tags_started.elapsed().as_secs_f64() * 1000.0;
 
+    let search_started = Instant::now();
     reindex_task_search(db.clone(), &task.id).await;
+    let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
 
+    let activity_started = Instant::now();
     if let Err(e) = log_create(db.clone(), "task".to_string(), task.id.clone()).await {
         tracing::warn!("Failed to log task creation activity: {}", e);
     }
+    let activity_ms = activity_started.elapsed().as_secs_f64() * 1000.0;
 
+    let hydrate_started = Instant::now();
     let out = repo.with_subtasks(vec![task]).await?;
-    Ok(out.into_iter().next().expect("one task"))
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    let task = out.into_iter().next().expect("one task");
+
+    record_rust_timing(
+        "rust-command",
+        "create_task",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "resource_id": task.id,
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "goal_instance_ms": (goal_instance_ms * 10.0).round() / 10.0,
+            "repo_create_ms": (repo_ms * 10.0).round() / 10.0,
+            "tags_ms": (tags_ms * 10.0).round() / 10.0,
+            "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
+            "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
+
+    Ok(task)
 }
 
 /// Get inbox tasks
@@ -317,7 +380,10 @@ pub async fn update_task(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -332,9 +398,12 @@ pub async fn update_task(
     let repo = TaskRepository::new(db.clone());
 
     // Get current task to check completion status
+    let read_old_started = Instant::now();
     let old_task = repo.find_by_id(&id).await?;
     let was_completed = old_task.as_ref().map(|t| t.is_completed).unwrap_or(false);
+    let read_old_ms = read_old_started.elapsed().as_secs_f64() * 1000.0;
 
+    let repo_started = Instant::now();
     let task = repo
         .update(
             &id,
@@ -347,17 +416,23 @@ pub async fn update_task(
             request.updated_at,
         )
         .await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
+    let tags_started = Instant::now();
     if let Some(tag_ids) = request.tag_ids {
         let current_task = repo.find_by_id(&id).await?;
         if current_task.is_some() {
             repo.add_tags(&id, tag_ids).await?;
         }
     }
+    let tags_ms = tags_started.elapsed().as_secs_f64() * 1000.0;
 
+    let search_started = Instant::now();
     reindex_task_search(db.clone(), &task.id).await;
+    let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
 
     // Log activity - check if completion changed
+    let activity_started = Instant::now();
     if let Some(new_completed) = request.is_completed {
         if !was_completed && new_completed {
             // Task was just completed
@@ -376,9 +451,31 @@ pub async fn update_task(
             tracing::warn!("Failed to log task update activity: {}", e);
         }
     }
+    let activity_ms = activity_started.elapsed().as_secs_f64() * 1000.0;
 
+    let hydrate_started = Instant::now();
     let out = repo.with_subtasks(vec![task]).await?;
-    Ok(out.into_iter().next().expect("one task"))
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    let task = out.into_iter().next().expect("one task");
+
+    record_rust_timing(
+        "rust-command",
+        "update_task",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "resource_id": task.id,
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "read_old_task_ms": (read_old_ms * 10.0).round() / 10.0,
+            "repo_update_ms": (repo_ms * 10.0).round() / 10.0,
+            "tags_ms": (tags_ms * 10.0).round() / 10.0,
+            "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
+            "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
+
+    Ok(task)
 }
 
 /// Delete a task

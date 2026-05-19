@@ -10,7 +10,7 @@ import { invalidateEntryQueries } from '../invalidate-entry-queries';
 import { JournalActionsDropdown } from './journal-actions-dropdown';
 import { JournalEditor } from './journal-editor';
 import { EntryTags } from './journal-tags';
-import { JournalAiInsights } from './journal-ai-insights';
+// import { JournalAiInsights } from './journal-ai-insights';
 
 interface JournalTimelineItemProps {
 	entry: EntryWithTags;
@@ -105,7 +105,8 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 					/>
 
 					<EntryTags entry={entry} />
-					<JournalAiInsights entryId={entry.id ?? ''} />
+					{/* AI journal insights are hidden for now. */}
+					{/* <JournalAiInsights entryId={entry.id ?? ''} /> */}
 				</Timeline.RightContent>
 			}
 		></Timeline.Item>

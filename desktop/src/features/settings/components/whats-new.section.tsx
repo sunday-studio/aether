@@ -56,39 +56,37 @@ export const WhatsNewSection = () => {
 		: currentVersion
 			? `v${currentVersion}`
 			: 'Loading version...';
+	const statusLabel = available && info ? 'Update available' : 'Up to date';
 
 	return (
-		<div className='w-full space-y-8'>
-			<div>
-				<p className='text-xs font-medium tracking-[0.18em] text-(--color-secondary-text) uppercase'>
-					Release channel
-				</p>
-				<h3 className='mt-2 text-2xl font-semibold'>What's new</h3>
-				<p className='mt-2 text-sm text-(--color-secondary-text)'>
-					Check updates and release notes.
-				</p>
+		<div className='w-full space-y-10'>
+			<div className='mb-10'>
+				<h3 className='text-lg font-medium'>What's new</h3>
+				<p className='text-sm text-(--color-secondary-text)'>Updates and release notes.</p>
 			</div>
 
-			<section className='overflow-hidden rounded-3xl border border-(--color-border) bg-(--color-panel) shadow-sm'>
-				<div className='relative border-b border-(--color-border) bg-(--color-background-secondary) p-6'>
-					<div className='absolute inset-0 opacity-40 [background:radial-gradient(circle_at_20%_10%,var(--color-active-text),transparent_28%),radial-gradient(circle_at_90%_20%,var(--color-border),transparent_24%)]' />
-					<div className='relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'>
-						<div className='space-y-3'>
-							<div className='inline-flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-background)/70 px-3 py-1 text-xs text-(--color-secondary-text)'>
-								<SparklesIcon className='size-3.5' />
-								{available && info ? 'Update available' : 'Aether is current'}
+			<section className='space-y-6'>
+				<div className='relative overflow-hidden rounded-lg p-5 shadow-sm'>
+					<div className='pointer-events-none absolute inset-0 bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[7px_7px] opacity-70' />
+					<div className='pointer-events-none absolute inset-0 bg-linear-to-b from-(--color-background-secondary)/85 via-(--color-panel)/80 to-(--color-panel)' />
+					<div className='relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between'>
+						<div className='min-w-0'>
+							<div className='mb-3 flex items-center gap-2 text-xs text-(--color-secondary-text)'>
+								<SparklesIcon className='size-3.5 text-(--color-active-text)' />
+								<span>{statusLabel}</span>
 							</div>
-							<div>
-								<h4 className='text-xl font-semibold'>
-									{available && info ? 'Ready to install' : 'Aether Desktop'}
-								</h4>
-								<p className='mt-1 text-sm text-(--color-secondary-text)'>{versionLine}</p>
-								{info?.publishedAt && (
-									<p className='mt-1 text-xs text-(--color-secondary-text)'>
-										Published {formatPublishedAt(info.publishedAt)}
-									</p>
-								)}
-							</div>
+							<h4 className='text-lg font-medium'>
+								{available && info ? 'Ready to install' : 'Aether Desktop'}
+							</h4>
+							<p className='mt-1 text-sm text-(--color-secondary-text)'>{versionLine}</p>
+							{info?.publishedAt && (
+								<p className='mt-1 text-xs text-(--color-secondary-text)'>
+									Published {formatPublishedAt(info.publishedAt)}
+								</p>
+							)}
+							{lastCheckMessage && !available && (
+								<p className='mt-1 text-xs text-(--color-secondary-text)'>{lastCheckMessage}</p>
+							)}
 						</div>
 
 						<div className='flex flex-wrap items-center gap-2'>
@@ -103,7 +101,7 @@ export const WhatsNewSection = () => {
 							{available && info && (
 								<Button
 									onClick={downloadAndInstall}
-									label={downloading ? `Downloading ${Math.round(progress)}%` : 'Install update'}
+									label={downloading ? `${Math.round(progress)}%` : 'Install'}
 									tooltipContent='Download and install update'
 									isDisabled={downloading}
 									iconLeft={<DownloadIcon className='size-4' />}
@@ -113,62 +111,43 @@ export const WhatsNewSection = () => {
 					</div>
 
 					{downloading && (
-						<div className='relative mt-6'>
-							<div className='h-2 overflow-hidden rounded-full bg-(--color-border)'>
-								<div
-									className='h-full rounded-full bg-(--color-active-text) transition-all duration-300'
-									style={{ width: `${progress}%` }}
-								/>
-							</div>
+						<div className='relative mt-5 h-1.5 overflow-hidden rounded-full bg-(--color-border)'>
+							<div
+								className='h-full rounded-full bg-(--color-active-text) transition-all duration-300'
+								style={{ width: `${progress}%` }}
+							/>
 						</div>
 					)}
 				</div>
 
-				{available && info ? (
-					<div className='divide-y divide-(--color-border)'>
-						<div className='p-6'>
-							<div className='mb-4 flex items-center justify-between gap-3'>
-								<div>
-									<p className='text-sm font-medium'>Release notes</p>
-									<p className='text-xs text-(--color-secondary-text)'>Review before updating.</p>
-								</div>
-								<Button
-									onClick={() => skipVersion(info.latestVersion)}
-									label='Skip this version'
-									variant='ghost'
-									tooltipContent='Do not show this version again'
-									iconLeft={<XIcon className='size-4' />}
-									isDisabled={downloading}
-								/>
-							</div>
-							<ReleaseNotes content={info.changelog} />
-						</div>
+				<div className='border-t border-(--color-border) pt-6'>
+					<div className='mb-4 flex items-center justify-between gap-3'>
+						<h4 className='text-md font-medium'>Release notes</h4>
+						{available && info && (
+							<Button
+								onClick={() => skipVersion(info.latestVersion)}
+								label='Skip'
+								variant='ghost'
+								tooltipContent='Do not show this version again'
+								iconLeft={<XIcon className='size-4' />}
+								isDisabled={downloading}
+							/>
+						)}
 					</div>
-				) : (
-					<div className='p-6'>
-						<div className='rounded-2xl border border-dashed border-(--color-border) bg-(--color-background) p-5'>
-							<p className='text-sm font-medium'>No pending update</p>
-							<p className='mt-1 text-sm text-(--color-secondary-text)'>
-								{lastCheckMessage ?? 'Check for updates when you are ready.'}
-							</p>
-						</div>
-					</div>
-				)}
+					<ReleaseNotes content={info?.changelog ?? ''} />
+				</div>
 			</section>
 
 			{error && (
-				<div className='rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600'>
+				<div className='rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600'>
 					{error}
 				</div>
 			)}
 
 			{prefs && (
-				<section className='space-y-4 rounded-3xl border border-(--color-border) bg-(--color-panel) p-5'>
+				<section className='space-y-4 border-t border-(--color-border) pt-6'>
 					<div>
-						<h4 className='text-sm font-medium'>Update preferences</h4>
-						<p className='mt-1 text-xs text-(--color-secondary-text)'>
-							Choose how updates are checked.
-						</p>
+						<h4 className='text-md font-medium'>Preferences</h4>
 					</div>
 
 					<PreferenceToggle
@@ -178,7 +157,7 @@ export const WhatsNewSection = () => {
 						onChange={checked => handlePreferenceChange('autoCheck', checked)}
 					/>
 					{prefs.skippedVersions.length > 0 && (
-						<div className='flex flex-col gap-3 rounded-2xl border border-(--color-border) bg-(--color-background) p-4 sm:flex-row sm:items-center sm:justify-between'>
+						<div className='flex flex-col gap-3 rounded-lg border border-(--color-border) bg-(--color-background) p-4 sm:flex-row sm:items-center sm:justify-between'>
 							<p className='text-sm text-(--color-secondary-text)'>
 								Skipped versions: {prefs.skippedVersions.join(', ')}
 							</p>
@@ -209,7 +188,7 @@ function PreferenceToggle({
 	onChange: (checked: boolean) => void;
 }) {
 	return (
-		<label className='flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-(--color-border) bg-(--color-background) p-4'>
+		<label className='flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-(--color-border) bg-(--color-background) p-4'>
 			<span>
 				<span className='block text-sm font-medium'>{label}</span>
 				<span className='mt-1 block text-xs text-(--color-secondary-text)'>{description}</span>
@@ -227,14 +206,14 @@ function PreferenceToggle({
 function ReleaseNotes({ content }: { content: string }) {
 	if (!content.trim()) {
 		return (
-			<p className='rounded-2xl border border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
-				This update did not include release notes.
+			<p className='rounded-lg border border-dashed border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
+				No release notes available.
 			</p>
 		);
 	}
 
 	return (
-		<div className='max-h-80 space-y-2 overflow-y-auto rounded-2xl border border-(--color-border) bg-(--color-background) p-4'>
+		<div className='max-h-80 space-y-2 overflow-y-auto rounded-lg border border-(--color-border) bg-(--color-background) p-4'>
 			{content.split('\n').map((line, index) => (
 				<ReleaseNoteLine key={`${line}-${index}`} line={line} />
 			))}

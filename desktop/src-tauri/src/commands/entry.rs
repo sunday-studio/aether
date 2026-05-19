@@ -9,9 +9,12 @@ use crate::db::{
 };
 use crate::error::{AppError, Result};
 use crate::utils::link_parser::extract_links_from_lexical_content;
+use crate::utils::performance_ledger::{record_rust_timing, PerfTimer};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use chrono::Utc;
 use serde::Deserialize;
+use serde_json::json;
+use std::time::Instant;
 use tauri::State;
 use utoipa::ToSchema;
 
@@ -20,14 +23,24 @@ fn default_created_at() -> chrono::DateTime<Utc> {
 }
 
 async fn reindex_entry_search(db: std::sync::Arc<libsql::Database>, entry_id: &str) {
+    let timer = PerfTimer::start("rust-phase", "entry.search_refresh");
+    let document_started = Instant::now();
     if let Err(e) = SearchDocumentRepository::new(db.clone())
         .reindex_resource("entry", entry_id)
         .await
     {
         tracing::warn!("Failed to reindex entry {} for search: {}", entry_id, e);
+        timer.finish(json!({
+            "resource_type": "entry",
+            "resource_id": entry_id,
+            "status": "search_document_error",
+            "error": e.to_string(),
+        }));
         return;
     }
+    let search_document_ms = document_started.elapsed().as_secs_f64() * 1000.0;
 
+    let embeddings_started = Instant::now();
     if let Err(e) = SearchEmbeddingRepository::new(db)
         .refresh_existing_resource_embeddings("entry", entry_id)
         .await
@@ -37,7 +50,23 @@ async fn reindex_entry_search(db: std::sync::Arc<libsql::Database>, entry_id: &s
             entry_id,
             e
         );
+        timer.finish(json!({
+            "resource_type": "entry",
+            "resource_id": entry_id,
+            "status": "search_embedding_error",
+            "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
+            "error": e.to_string(),
+        }));
+        return;
     }
+    let search_embedding_ms = embeddings_started.elapsed().as_secs_f64() * 1000.0;
+    timer.finish(json!({
+        "resource_type": "entry",
+        "resource_id": entry_id,
+        "status": "ok",
+        "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
+        "search_embedding_ms": (search_embedding_ms * 10.0).round() / 10.0,
+    }));
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -163,6 +192,7 @@ pub async fn create_entry(
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<Entry> {
+    let command_started = Instant::now();
     if let Some(ref req) = request_data {
         tracing::info!(
             "create_entry called with request_data: document len = {}, date = {}, is_pinned = {:?}, is_archived = {:?}, is_deleted = {:?}",
@@ -175,11 +205,14 @@ pub async fn create_entry(
     } else {
         tracing::info!("create_entry called with no request_data");
     }
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let request =
         request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
+    let repo_started = Instant::now();
     let entry = repo
         .create(
             request.document.clone(),
@@ -189,8 +222,10 @@ pub async fn create_entry(
             request.is_deleted.unwrap_or(false),
         )
         .await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
     // Sync links from content
+    let links_started = Instant::now();
     let link_repo = LinkRepository::new(db.clone());
     if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
         for link in extracted_links {
@@ -205,13 +240,34 @@ pub async fn create_entry(
                 .await;
         }
     }
+    let links_ms = links_started.elapsed().as_secs_f64() * 1000.0;
 
+    let search_started = Instant::now();
     reindex_entry_search(db.clone(), &entry.id).await;
+    let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
 
     // Log activity
+    let activity_started = Instant::now();
     if let Err(e) = log_create(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry creation activity: {}", e);
     }
+    let activity_ms = activity_started.elapsed().as_secs_f64() * 1000.0;
+
+    record_rust_timing(
+        "rust-command",
+        "create_entry",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "entry",
+            "resource_id": entry.id,
+            "document_bytes": request.document.len(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_create_ms": (repo_ms * 10.0).round() / 10.0,
+            "links_ms": (links_ms * 10.0).round() / 10.0,
+            "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
+            "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
+        }),
+    );
 
     Ok(entry)
 }
@@ -294,6 +350,7 @@ pub async fn update_entry(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Entry> {
+    let command_started = Instant::now();
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -301,12 +358,15 @@ pub async fn update_entry(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
 
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let request =
         request_data.ok_or_else(|| AppError::BadRequest("Request data is required".to_string()))?;
 
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
+    let repo_started = Instant::now();
     let entry = repo
         .update(
             &id,
@@ -317,8 +377,10 @@ pub async fn update_entry(
             request.updated_at,
         )
         .await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
     // Sync links from content
+    let links_started = Instant::now();
     let link_repo = LinkRepository::new(db.clone());
     if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
         // Get existing links
@@ -371,13 +433,34 @@ pub async fn update_entry(
             }
         }
     }
+    let links_ms = links_started.elapsed().as_secs_f64() * 1000.0;
 
+    let search_started = Instant::now();
     reindex_entry_search(db.clone(), &entry.id).await;
+    let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
 
     // Log activity
+    let activity_started = Instant::now();
     if let Err(e) = log_update(db.clone(), "entry".to_string(), entry.id.clone()).await {
         tracing::warn!("Failed to log entry update activity: {}", e);
     }
+    let activity_ms = activity_started.elapsed().as_secs_f64() * 1000.0;
+
+    record_rust_timing(
+        "rust-command",
+        "update_entry",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "entry",
+            "resource_id": entry.id,
+            "document_bytes": request.document.len(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_update_ms": (repo_ms * 10.0).round() / 10.0,
+            "links_ms": (links_ms * 10.0).round() / 10.0,
+            "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
+            "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
+        }),
+    );
 
     Ok(entry)
 }
