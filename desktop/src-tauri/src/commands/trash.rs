@@ -1,6 +1,6 @@
 use crate::commands::params::{EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams};
 use crate::db::models::Task;
-use crate::db::{connection, DbState};
+use crate::db::{connection, DbState, TaskRepository};
 use crate::error::{AppError, Result};
 use crate::utils::log_restore;
 use tauri::State;
@@ -114,41 +114,10 @@ pub async fn restore_task(
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
-    let conn = connection::get_database(&*state)
-        .connect()
-        .map_err(|e| AppError::LibSQL(e))?;
-
-    // Check if task exists and is deleted
-    let mut rows = conn
-        .query(
-            "SELECT id FROM tasks WHERE id = ?1 AND deleted_at IS NOT NULL",
-            libsql::params![id.as_str()],
-        )
-        .await
-        .map_err(|e| AppError::LibSQL(e))?;
-
-    if rows
-        .next()
-        .await
-        .map_err(|e| AppError::LibSQL(e))?
-        .is_none()
-    {
-        return Err(AppError::NotFound(format!("Deleted task {} not found", id)));
-    }
-
-    // Restore task by setting deleted_at to NULL
-    let now = chrono::Utc::now();
-    let updated_at_str = now.to_rfc3339();
-
-    conn.execute(
-        "UPDATE tasks SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2",
-        libsql::params![updated_at_str, id.as_str()],
-    )
-    .await
-    .map_err(|e| AppError::LibSQL(e))?;
+    let db = connection::get_database(&*state);
+    TaskRepository::new(db.clone()).restore(&id).await?;
 
     // Log activity
-    let db = connection::get_database(&*state);
     if let Err(e) = log_restore(db, "task".to_string(), id.clone()).await {
         tracing::warn!("Failed to log task restore activity for task {}: {}", id, e);
     }
