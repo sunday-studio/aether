@@ -53,9 +53,9 @@ When UI/runtime work starts, verify these routes through the app layer:
 Use this path before building the search UI:
 
 - Start the desktop app with `npm run dev` from `desktop/`.
-- Create or confirm at least one journal entry, task, goal, tag, and bookmark with unique searchable words.
+- Create or confirm at least one journal entry and task with unique searchable words.
 - Trigger `POST /v1/search/index/reindex` through the frontend API client.
-- Confirm `GET /v1/search/index/status` reports non-zero counts for indexed resource types.
+- Confirm `GET /v1/search/index/status` reports non-zero counts for entries and tasks.
 - Call `GET /v1/search?q=<word>&mode=keyword&limit=1` through the frontend API client.
 - Confirm the response includes `results`, `nextCursor`, `hasMore`, `resourceType`, `resourceId`, `title`, `preview`, `score`, and `matchKind`.
 - Call the same search with `cursor=<nextCursor>` when `hasMore` is true and confirm the next page does not repeat the first result.
@@ -63,6 +63,18 @@ Use this path before building the search UI:
 - Rebuild embeddings from Settings.
 - Call `GET /v1/search?q=<word>&mode=semantic` and confirm results return `matchKind=semantic`.
 - Call `GET /v1/search?q=<word>&mode=hybrid` and confirm results return `matchKind=hybrid`.
+
+## Local Model Smoke Test
+
+Unit tests use deterministic fallback embeddings so they do not download the local model in CI.
+
+- Start the desktop app with `npm run dev` from `desktop/`.
+- Download the `all-MiniLM-L6-v2` search embedding model from onboarding or Settings.
+- Create one journal entry and one task with different but related natural-language phrasing.
+- Rebuild the search document index and search embeddings.
+- Confirm `GET /v1/search?q=<related phrase>&mode=semantic` returns entry and task results with `matchKind=semantic`.
+- Confirm `GET /v1/search?q=<keyword>&mode=hybrid` returns entry and task results with `matchKind=hybrid`.
+- Confirm default search responses do not include bookmark, canvas, or graph resources.
 
 ## Phase 4 Embedding Storage Test Flow
 

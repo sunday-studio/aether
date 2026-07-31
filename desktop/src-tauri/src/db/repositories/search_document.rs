@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 const DEFAULT_SEMANTIC_MODEL: &str = "all-MiniLM-L6-v2";
+pub const VISIBLE_SEARCH_RESOURCE_TYPES: &[&str] = &["entry", "task"];
 
 #[derive(Debug, Clone)]
 pub struct SearchDocumentResult {
@@ -87,9 +88,6 @@ impl SearchDocumentRepository {
 
         self.reindex_entries().await?;
         self.reindex_tasks().await?;
-        self.reindex_goals().await?;
-        self.reindex_tags().await?;
-        self.reindex_bookmarks().await?;
         self.status().await
     }
 
@@ -419,7 +417,8 @@ impl SearchDocumentRepository {
             .query(
                 "SELECT id, resource_type, resource_id, title, text, source_updated_at, created_at, updated_at
                  FROM search_documents
-                 WHERE source_updated_at >= ?1 AND source_updated_at <= ?2
+                 WHERE resource_type IN ('entry', 'task')
+                   AND source_updated_at >= ?1 AND source_updated_at <= ?2
                  ORDER BY source_updated_at DESC, id DESC
                  LIMIT ?3",
                 libsql::params![date_from, date_to, limit],
@@ -904,32 +903,6 @@ impl SearchDocumentRepository {
         self.upsert_document(input).await
     }
 
-    async fn reindex_goals(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, description, updated_at
-                 FROM goals
-                 WHERE deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::goal_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
-    }
-
     fn goal_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let name: String = row.get(1).map_err(AppError::LibSQL)?;
@@ -974,32 +947,6 @@ impl SearchDocumentRepository {
         self.upsert_document(input).await
     }
 
-    async fn reindex_tags(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, updated_at
-                 FROM tags
-                 WHERE deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::tag_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
-    }
-
     fn tag_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
         let id: String = row.get(0).map_err(AppError::LibSQL)?;
         let name: String = row.get(1).map_err(AppError::LibSQL)?;
@@ -1040,32 +987,6 @@ impl SearchDocumentRepository {
         };
 
         self.upsert_document(input).await
-    }
-
-    async fn reindex_bookmarks(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, url, title, description, site_name, author, updated_at
-                 FROM bookmarks
-                 WHERE is_deleted = 0 AND deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::bookmark_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
     }
 
     fn bookmark_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
@@ -1130,8 +1051,9 @@ fn escape_fts_query(query: &str) -> String {
 fn matches_resource_type(resource_types: &Option<Vec<String>>, resource_type: &str) -> bool {
     resource_types
         .as_ref()
+        .filter(|types| !types.is_empty())
         .map(|types| types.iter().any(|item| item == resource_type))
-        .unwrap_or(true)
+        .unwrap_or_else(|| VISIBLE_SEARCH_RESOURCE_TYPES.contains(&resource_type))
 }
 
 fn matches_date_range(value: &str, date_from: Option<&str>, date_to: Option<&str>) -> bool {
@@ -1278,7 +1200,7 @@ mod tests {
 
     async fn seed_search_resources(database: &Database) {
         let conn = database.connect().expect("connect to test database");
-        let entry_document = r#"{"root":{"children":[{"children":[{"text":"Morning clarity journal entry","type":"text"}],"type":"paragraph"}],"type":"root"}}"#;
+        let entry_document = r#"{"root":{"children":[{"children":[{"text":"Morning clarity search journal entry","type":"text"}],"type":"paragraph"}],"type":"root"}}"#;
 
         conn.execute(
             "INSERT INTO entries (id, document, created_at, updated_at)
@@ -1357,6 +1279,13 @@ mod tests {
         )
         .await
         .expect("seed bookmark tag");
+
+        conn.execute(
+            "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+            libsql::params!["task-1", "tag-1"],
+        )
+        .await
+        .expect("seed task tag");
     }
 
     fn cleanup_db(path: PathBuf) {
@@ -1366,18 +1295,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reindex_all_indexes_supported_resources() {
+    async fn reindex_all_indexes_journal_entries_and_tasks_by_default() {
         let (database, repo, db_path) = test_repo().await;
         seed_search_resources(&database).await;
 
         let status = repo.reindex_all().await.expect("reindex all resources");
 
-        assert_eq!(status.total_documents, 5);
+        assert_eq!(status.total_documents, 2);
         assert_eq!(status.entries, 1);
         assert_eq!(status.tasks, 1);
-        assert_eq!(status.goals, 1);
-        assert_eq!(status.tags, 1);
-        assert_eq!(status.bookmarks, 1);
+        assert_eq!(status.goals, 0);
+        assert_eq!(status.tags, 0);
+        assert_eq!(status.bookmarks, 0);
 
         cleanup_db(db_path);
     }
@@ -1401,7 +1330,7 @@ mod tests {
             .expect("reindex deleted entry");
         let status = repo.status().await.expect("read entry status");
 
-        assert_eq!(status.total_documents, 4);
+        assert_eq!(status.total_documents, 1);
         assert_eq!(status.entries, 0);
 
         conn.execute(
@@ -1416,38 +1345,8 @@ mod tests {
             .expect("reindex deleted task");
         let status = repo.status().await.expect("read task status");
 
-        assert_eq!(status.total_documents, 3);
+        assert_eq!(status.total_documents, 0);
         assert_eq!(status.tasks, 0);
-
-        conn.execute(
-            "UPDATE goals SET deleted_at = ?1 WHERE id = ?2",
-            libsql::params!["2026-05-16T09:00:00Z", "goal-1"],
-        )
-        .await
-        .expect("soft delete goal");
-
-        repo.reindex_resource("goal", "goal-1")
-            .await
-            .expect("reindex deleted goal");
-        let status = repo.status().await.expect("read goal status");
-
-        assert_eq!(status.total_documents, 2);
-        assert_eq!(status.goals, 0);
-
-        conn.execute(
-            "UPDATE bookmarks SET is_deleted = 1, deleted_at = ?1 WHERE id = ?2",
-            libsql::params!["2026-05-16T09:00:00Z", "bookmark-1"],
-        )
-        .await
-        .expect("soft delete bookmark");
-
-        repo.reindex_resource("bookmark", "bookmark-1")
-            .await
-            .expect("reindex deleted bookmark");
-        let status = repo.status().await.expect("read bookmark status");
-
-        assert_eq!(status.total_documents, 1);
-        assert_eq!(status.bookmarks, 0);
 
         cleanup_db(db_path);
     }
@@ -1458,21 +1357,21 @@ mod tests {
         seed_search_resources(&database).await;
         repo.reindex_all().await.expect("reindex all resources");
 
-        repo.delete_resource("bookmark", "bookmark-1")
+        repo.delete_resource("task", "task-1")
             .await
-            .expect("delete bookmark search document");
+            .expect("delete task search document");
         let status = repo.status().await.expect("read status");
         let results = repo
-            .search_keyword("reference", SearchDocumentQuery::default())
+            .search_keyword("testing", SearchDocumentQuery::default())
             .await
             .expect("search after delete");
 
-        assert_eq!(status.total_documents, 4);
-        assert_eq!(status.bookmarks, 0);
+        assert_eq!(status.total_documents, 1);
+        assert_eq!(status.tasks, 0);
         assert!(results
             .results
             .iter()
-            .all(|result| result.resource_id != "bookmark-1"));
+            .all(|result| result.resource_id != "task-1"));
 
         cleanup_db(db_path);
     }
@@ -1487,11 +1386,11 @@ mod tests {
             .search_keyword(
                 "search",
                 SearchDocumentQuery {
-                    resource_types: Some(vec!["task".to_string(), "bookmark".to_string()]),
+                    resource_types: Some(vec!["entry".to_string(), "task".to_string()]),
                     tag_ids: None,
-                    date_from: Some("2026-05-12T00:00:00Z".to_string()),
+                    date_from: Some("2026-05-10T00:00:00Z".to_string()),
                     date_to: Some("2026-05-15T23:59:59Z".to_string()),
-                    limit: Some(1),
+                    limit: Some(2),
                     offset: Some(0),
                     cursor: None,
                 },
@@ -1499,15 +1398,37 @@ mod tests {
             .await
             .expect("search keyword");
 
-        assert_eq!(results.results.len(), 1);
-        assert!(matches!(
-            results.results[0].resource_type.as_str(),
-            "task" | "bookmark"
-        ));
-        assert_eq!(results.results[0].match_kind, "keyword");
-        assert!(!results.results[0].resource_id.is_empty());
-        assert!(!results.results[0].title.is_empty());
-        assert!(!results.results[0].preview.is_empty());
+        assert_eq!(results.results.len(), 2);
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "entry" && result.resource_id == "entry-1"));
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "task" && result.resource_id == "task-1"));
+        assert!(results
+            .results
+            .iter()
+            .all(|result| result.match_kind == "keyword"));
+        assert!(results
+            .results
+            .iter()
+            .all(|result| !result.title.is_empty()));
+        assert!(results
+            .results
+            .iter()
+            .all(|result| !result.preview.is_empty()));
+
+        let partial_results = repo
+            .search_keyword("clari", SearchDocumentQuery::default())
+            .await
+            .expect("search keyword partial token");
+
+        assert!(partial_results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "entry" && result.resource_id == "entry-1"));
 
         cleanup_db(db_path);
     }
@@ -1530,8 +1451,42 @@ mod tests {
             .expect("search keyword by tag");
 
         assert_eq!(results.results.len(), 1);
-        assert_eq!(results.results[0].resource_type, "bookmark");
-        assert_eq!(results.results[0].resource_id, "bookmark-1");
+        assert_eq!(results.results[0].resource_type, "task");
+        assert_eq!(results.results[0].resource_id, "task-1");
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn deferred_resources_require_explicit_indexing_and_filtering() {
+        let (database, repo, db_path) = test_repo().await;
+        seed_search_resources(&database).await;
+        repo.reindex_all().await.expect("reindex all resources");
+
+        let default_results = repo
+            .search_keyword("reference", SearchDocumentQuery::default())
+            .await
+            .expect("search default scope");
+
+        assert!(default_results.results.is_empty());
+
+        repo.reindex_resource("bookmark", "bookmark-1")
+            .await
+            .expect("explicitly index bookmark");
+        let explicit_results = repo
+            .search_keyword(
+                "reference",
+                SearchDocumentQuery {
+                    resource_types: Some(vec!["bookmark".to_string()]),
+                    ..SearchDocumentQuery::default()
+                },
+            )
+            .await
+            .expect("search explicit bookmark scope");
+
+        assert_eq!(explicit_results.results.len(), 1);
+        assert_eq!(explicit_results.results[0].resource_type, "bookmark");
+        assert_eq!(explicit_results.results[0].resource_id, "bookmark-1");
 
         cleanup_db(db_path);
     }
@@ -1599,6 +1554,18 @@ mod tests {
             .results
             .iter()
             .all(|result| result.match_kind == "semantic"));
+        assert!(results
+            .results
+            .iter()
+            .all(|result| { matches!(result.resource_type.as_str(), "entry" | "task") }));
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "entry" && result.resource_id == "entry-1"));
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "task" && result.resource_id == "task-1"));
 
         cleanup_db(db_path);
     }
@@ -1629,6 +1596,18 @@ mod tests {
             .results
             .iter()
             .all(|result| result.match_kind == "hybrid"));
+        assert!(results
+            .results
+            .iter()
+            .all(|result| { matches!(result.resource_type.as_str(), "entry" | "task") }));
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "entry" && result.resource_id == "entry-1"));
+        assert!(results
+            .results
+            .iter()
+            .any(|result| result.resource_type == "task" && result.resource_id == "task-1"));
 
         cleanup_db(db_path);
     }
@@ -1734,13 +1713,16 @@ mod tests {
         repo.reindex_all().await.expect("reindex all resources");
 
         let results = repo
-            .list_context_by_date_range("2026-05-12T00:00:00Z", "2026-05-15T23:59:59Z", Some(10))
+            .list_context_by_date_range("2026-05-10T00:00:00Z", "2026-05-15T23:59:59Z", Some(10))
             .await
             .expect("list context by date");
 
-        assert_eq!(results.len(), 4);
+        assert_eq!(results.len(), 2);
         assert!(results.iter().all(|result| result.match_kind == "date"));
         assert!(results.iter().all(|result| !result.preview.is_empty()));
+        assert!(results
+            .iter()
+            .all(|result| { matches!(result.resource_type.as_str(), "entry" | "task") }));
 
         cleanup_db(db_path);
     }
