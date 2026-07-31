@@ -55,6 +55,10 @@ jobs:
         working-directory: desktop
         run: pnpm install --frozen-lockfile
 
+      - name: Generate SDK
+        working-directory: desktop
+        run: pnpm run generate:sdk
+
       - name: Frontend lint
         working-directory: desktop
         run: pnpm run lint
