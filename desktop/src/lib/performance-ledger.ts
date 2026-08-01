@@ -17,7 +17,7 @@ export type RestLedgerEntry = {
 
 declare global {
 	interface Window {
-		__AETHER_REST_LEDGER__?: RestLedgerEntry[];
+		aetherRestLedgerEntries?: RestLedgerEntry[];
 		aetherRestLedger?: {
 			entries: () => RestLedgerEntry[];
 			slow: (thresholdMs?: number) => RestLedgerEntry[];
@@ -36,16 +36,16 @@ let nextRestLedgerId = 1;
 
 function loadLedger() {
 	if (typeof window === 'undefined') return [];
-	if (window.__AETHER_REST_LEDGER__) return window.__AETHER_REST_LEDGER__;
+	if (window.aetherRestLedgerEntries) return window.aetherRestLedgerEntries;
 
 	try {
 		const value = window.localStorage.getItem(REST_LEDGER_KEY);
-		window.__AETHER_REST_LEDGER__ = value ? JSON.parse(value) : [];
+		window.aetherRestLedgerEntries = value ? JSON.parse(value) : [];
 	} catch {
-		window.__AETHER_REST_LEDGER__ = [];
+		window.aetherRestLedgerEntries = [];
 	}
 
-	return window.__AETHER_REST_LEDGER__;
+	return window.aetherRestLedgerEntries;
 }
 
 function persistLedger(entries: RestLedgerEntry[]) {
@@ -78,7 +78,7 @@ function installLedgerHelpers() {
 			return summary;
 		},
 		clear: () => {
-			window.__AETHER_REST_LEDGER__ = [];
+			window.aetherRestLedgerEntries = [];
 			window.localStorage.removeItem(REST_LEDGER_KEY);
 		},
 	};
