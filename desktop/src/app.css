@@ -24,6 +24,30 @@
 	}
 }
 
+.journal-paper-page
+	[class*="space-y-"]
+	> :has(> .journal-editor-lines) {
+	position: relative;
+}
+
+.journal-paper-page
+	[class*="space-y-"]
+	> :has(> .journal-editor-lines)
+	~ :has(> .journal-editor-lines)::before {
+	content: "";
+	position: absolute;
+	top: -1.5rem;
+	left: 50%;
+	width: 1rem;
+	height: 1.5rem;
+	transform: translateX(-50%);
+	pointer-events: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='36' viewBox='0 0 16 36' fill='none'%3E%3Cpath d='M8 0C2 4 14 8 8 12C2 16 14 20 8 24C2 28 14 32 8 36' stroke='%23D6D6D6' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 1rem 1.5rem;
+}
+
 .journal-paper-page {
 	position: relative;
 	isolation: isolate;
