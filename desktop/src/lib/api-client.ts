@@ -18,26 +18,14 @@ function toTagIdsBody(data: unknown): { tag_ids: string[] } {
 	return { tag_ids: ids };
 }
 
-function toTagIdBody(data: unknown): { tag_id: string } {
-	const id =
-		typeof data === 'string'
-			? data
-			: Array.isArray(data) && data.length > 0 && typeof data[0] === 'string'
-				? (data[0] as string)
-				: '';
-	return { tag_id: id };
-}
-
 /** Commands whose request body must be normalized to match Tauri request types */
 const requestDataNormalizers: Record<string, RequestDataNormalizer> = {
 	add_tags_to_entry: toTagIdsBody,
 	add_tags_to_task: toTagIdsBody,
 	add_tags_to_goal: toTagIdsBody,
-	add_tags_to_bookmark: toTagIdsBody,
 	remove_tags_from_entry: toTagIdsBody,
 	remove_tags_from_task: toTagIdsBody,
 	remove_tags_from_goal: toTagIdsBody,
-	remove_tags_from_bookmark: toTagIdsBody,
 };
 
 function normalizeNumericQueryParams(
@@ -61,19 +49,12 @@ function normalizeNumericQueryParams(
 
 const queryParamsNormalizers: Record<string, QueryParamsNormalizer> = {
 	search_resources: params => normalizeNumericQueryParams(params, ['limit', 'offset']),
-	find_related_resources: params => normalizeNumericQueryParams(params, ['limit']),
-	retrieve_context: params => normalizeNumericQueryParams(params, ['limit', 'offset']),
-	retrieve_week_context: params => normalizeNumericQueryParams(params, ['limit']),
 	get_entries: params => normalizeNumericQueryParams(params, ['limit']),
 	get_goals: params => normalizeNumericQueryParams(params, ['limit']),
 	get_goal_instances: params => normalizeNumericQueryParams(params, ['limit']),
 	get_inbox_tasks: params => normalizeNumericQueryParams(params, ['limit']),
 	get_overdue_tasks: params => normalizeNumericQueryParams(params, ['limit']),
 	get_all_tags: params => normalizeNumericQueryParams(params, ['limit']),
-	get_canvases: params => normalizeNumericQueryParams(params, ['limit']),
-	get_transcriptions: params => normalizeNumericQueryParams(params, ['limit']),
-	search_linkable_resources: params => normalizeNumericQueryParams(params, ['limit']),
-	get_all_links_for_graph: params => normalizeNumericQueryParams(params, ['limit']),
 };
 
 function getErrorMessage(error: unknown): string {
@@ -159,9 +140,6 @@ const routeToCommand: Record<string, string> = {
 	'POST /v1/search/index/reindex': 'reindex_search',
 	'POST /v1/search/index/resource': 'reindex_search_resource',
 	'GET /v1/search/index/status': 'get_search_index_status',
-	'GET /v1/search/related': 'find_related_resources',
-	'GET /v1/search/context': 'retrieve_context',
-	'GET /v1/search/week-context': 'retrieve_week_context',
 	'GET /v1/search/embedding-models': 'list_embedding_models',
 	'POST /v1/search/embedding-models/:modelName/download': 'download_embedding_model',
 	'POST /v1/search/embedding-models/:modelName/verify': 'verify_embedding_model',
@@ -169,60 +147,11 @@ const routeToCommand: Record<string, string> = {
 	'POST /v1/search/embeddings/index': 'index_search_embeddings',
 	'POST /v1/search/embeddings/resource': 'index_search_resource_embeddings',
 	'GET /v1/search/embeddings/status': 'get_search_embedding_status',
-	// AI Journal
-	'POST /v1/ai/journal/entry/enrich': 'enrich_journal_entry',
-	'GET /v1/ai/journal/entry/insights': 'get_entry_insights',
-	'PATCH /v1/ai/journal/entry/insight': 'update_entry_insight',
-	'PATCH /v1/ai/journal/suggestion': 'update_ai_suggestion',
-	'POST /v1/ai/journal/suggestion/accept-tag': 'accept_ai_tag_suggestion',
-	'POST /v1/ai/journal/suggestion/accept-relation': 'accept_ai_relation_suggestion',
-	'POST /v1/ai/journal/weekly-summary': 'generate_weekly_ai_summary',
-	'GET /v1/ai/journal/weekly-summary': 'get_weekly_ai_summary',
-	'PATCH /v1/ai/journal/weekly-summary': 'update_weekly_ai_summary',
-	// Bookmarks
-	'GET /v1/bookmarks': 'get_bookmarks',
-	'POST /v1/bookmarks': 'create_bookmark',
-	'GET /v1/bookmarks/:id': 'get_bookmark_by_id',
-	'PUT /v1/bookmarks/:id': 'update_bookmark',
-	'DELETE /v1/bookmarks/:id': 'delete_bookmark',
-	'POST /v1/bookmarks/:id/tags': 'add_tags_to_bookmark',
-	'DELETE /v1/bookmarks/:id/tags': 'remove_tags_from_bookmark',
-	'GET /v1/bookmarks/extract-metadata': 'extract_metadata',
-	// Links
-	'POST /v1/links': 'create_link',
-	'GET /v1/links/backlinks': 'get_backlinks',
-	'GET /v1/links/outgoing': 'get_outgoing_links',
-	'DELETE /v1/links': 'delete_link',
-	'GET /v1/links/search': 'search_linkable_resources',
-	'GET /v1/links/graph': 'get_all_links_for_graph',
-	'POST /v1/links/sync': 'sync_links_from_content',
-	// Audio
-	'POST /v1/audio': 'save_audio_recording',
-	'GET /v1/audio/:mediaId': 'get_audio_data',
-	'DELETE /v1/audio/:mediaId': 'delete_audio_recording',
 	'GET /v1/entry/:entryId/media': 'get_media_items_for_entry',
-	'GET /v1/audio/:mediaId/metadata': 'get_audio_metadata',
-	// Transcription
-	'POST /v1/transcription/:mediaId': 'start_transcription',
-	'GET /v1/transcription/:mediaId': 'get_transcriptions',
-	'GET /v1/transcription/by-id/:transcriptionId': 'get_transcription_by_id',
-	'POST /v1/transcription/set-active': 'set_active_transcription',
-	'GET /v1/transcription/providers': 'list_providers',
-	'POST /v1/transcription/validate-provider': 'validate_provider',
-	'GET /v1/transcription/models': 'list_available_models',
-	'POST /v1/transcription/models/:modelSize/download': 'download_model',
-	'POST /v1/transcription/models/:modelSize/verify': 'verify_model',
-	'DELETE /v1/transcription/models/:modelSize': 'delete_model',
 	// Settings
 	'GET /v1/settings': 'get_setting',
 	'POST /v1/settings': 'set_setting',
 	'GET /v1/settings/all': 'get_all_settings',
-	// Canvas
-	'GET /v1/canvas': 'get_canvases',
-	'GET /v1/canvas/:id': 'get_canvas_by_id',
-	'POST /v1/canvas': 'create_canvas',
-	'PUT /v1/canvas/:id': 'update_canvas',
-	'DELETE /v1/canvas/:id': 'delete_canvas',
 };
 
 // Extract path parameters from URL
@@ -367,7 +296,7 @@ export const customFetch = async <T>(url: string, options?: RequestInit): Promis
 			}
 		} catch (e) {
 			console.log('error ->', { e });
-			throw new Error(`Invalid JSON in request body: ${e}`);
+			throw new Error(`Invalid JSON in request body: ${e}`, { cause: e });
 		}
 	}
 	const parseMs = performance.now() - parseStarted;

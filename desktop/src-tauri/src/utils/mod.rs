@@ -1,8 +1,6 @@
 pub mod activity;
 pub mod embeddings;
 pub mod goal_period;
-pub mod link_parser;
-pub mod metadata;
 pub mod models;
 pub mod performance_ledger;
 pub mod search_text;
@@ -12,8 +10,6 @@ pub mod uuid;
 pub use activity::*;
 pub use embeddings::*;
 pub use goal_period::*;
-pub use link_parser::*;
-pub use metadata::*;
 pub use performance_ledger::*;
 pub use search_text::*;
 pub use timezone::*;

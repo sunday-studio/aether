@@ -26,40 +26,13 @@ pub struct Setting {
 #[serde(rename_all = "camelCase")]
 pub struct MediaItem {
     pub id: String,
-    pub entity_type: String, // "entry" | "canvas" | "bookmark" | "task"
+    pub entity_type: String, // "entry" | "task"
     pub entity_id: String,
-    pub media_type: String, // "audio" | "image" | "video"
+    pub media_type: String, // "image" | "video"
     pub file_path: String,
     pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    #[serde(skip)]
-    pub _sync_id: Option<String>,
-    #[serde(skip)]
-    pub _updated_at: Option<i64>,
-    #[serde(skip)]
-    pub _deleted: bool,
-    #[serde(skip)]
-    pub _extra: Option<serde_json::Value>,
-}
-
-/// AudioTranscription model
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AudioTranscription {
-    pub id: String,
-    pub media_id: String,
-    pub transcription_text: String,
-    pub provider: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_config: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence_score: Option<f32>,
-    pub status: String, // "pending" | "processing" | "complete" | "failed"
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_message: Option<String>,
-    pub is_active: bool,
-    pub created_at: DateTime<Utc>,
     #[serde(skip)]
     pub _sync_id: Option<String>,
     #[serde(skip)]
@@ -279,79 +252,4 @@ pub struct Activity {
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
-}
-
-/// Canvas model for storing JSON Canvas-compliant canvas data
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct Canvas {
-    pub id: String,
-    pub name: String,
-    pub canvas_data: serde_json::Value, // JSON Canvas format
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deleted_at: Option<DateTime<Utc>>,
-    #[serde(skip)]
-    pub _sync_id: Option<String>,
-    #[serde(skip)]
-    pub _updated_at: Option<i64>,
-    #[serde(skip)]
-    pub _deleted: bool,
-    #[serde(skip)]
-    pub _extra: Option<serde_json::Value>,
-}
-
-/// Bookmark model
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct Bookmark {
-    pub id: String,
-    pub url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub image_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub favicon_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub site_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub author: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub published_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_json: Option<serde_json::Value>,
-    pub is_archived: bool,
-    pub is_deleted: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deleted_at: Option<DateTime<Utc>>,
-    #[serde(skip)]
-    pub _sync_id: Option<String>,
-    #[serde(skip)]
-    pub _updated_at: Option<i64>,
-    #[serde(skip)]
-    pub _deleted: bool,
-    #[serde(skip)]
-    pub _extra: Option<serde_json::Value>,
-}
-
-/// ResourceLink model for bidirectional linking between resources
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ResourceLink {
-    pub id: String,
-    pub source_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
-    pub source_id: String,
-    pub target_type: String, // 'entry', 'task', 'goal', 'canvas', 'bookmark'
-    pub target_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub link_text: Option<String>,
-    pub created_at: DateTime<Utc>,
 }

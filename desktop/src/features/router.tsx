@@ -1,4 +1,4 @@
-import { createBrowserRouter, createRoutesFromElements, Navigate, Route } from 'react-router';
+import { createBrowserRouter, createRoutesFromElements, Route } from 'react-router';
 import { Layout } from '~/components/shared/layout';
 // Features
 import { Journal } from './journal/journal';
@@ -18,9 +18,6 @@ export const router = createBrowserRouter(
 				<Route path='/tasks/overdue' element={<OverdueTasksView />} />
 				<Route path='/tasks/goal/:goalId' element={<GoalView />} />
 			</Route>
-			<Route path='/canvas/*' element={<Navigate to='/' replace />} />
-			<Route path='/bookmarks/*' element={<Navigate to='/' replace />} />
-			<Route path='/graph' element={<Navigate to='/' replace />} />
 			<Route path='/settings' element={<SettingsView />} />
 		</Route>,
 	),

@@ -1,37 +1,31 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '~/components/shared/button';
-import { type AiChoice } from '../onboarding.types';
+import { type SearchChoice } from '../onboarding.types';
 
 interface OnboardingFooterProps {
 	stepIndex: number;
 	isSaving: boolean;
-	isAiStep: boolean;
-	aiChoice: AiChoice;
-	activeApiKey: string;
+	isSearchStep: boolean;
+	searchChoice: SearchChoice;
 	canContinueCurrentStep: boolean;
 	statusMessage: string | null;
 	errorMessage: string | null;
 	onBack: () => void;
 	onContinue: () => void;
 	onComplete: () => void;
-	onValidateProvider: () => void;
-	isConfigured: (value: string) => boolean;
 }
 
 export function OnboardingFooter({
 	stepIndex,
 	isSaving,
-	isAiStep,
-	aiChoice,
-	activeApiKey,
+	isSearchStep,
+	searchChoice,
 	canContinueCurrentStep,
 	statusMessage,
 	errorMessage,
 	onBack,
 	onContinue,
 	onComplete,
-	onValidateProvider,
-	isConfigured,
 }: OnboardingFooterProps) {
 	return (
 		<div className='space-y-3 border-t border-(--color-border) pt-5'>
@@ -56,20 +50,12 @@ export function OnboardingFooter({
 					Back
 				</button>
 				<div className='flex flex-wrap items-center justify-end gap-3'>
-					{isAiStep && aiChoice === 'yes' && (
-						<Button
-							onClick={onValidateProvider}
-							label={isSaving ? 'Checking...' : 'Validate provider'}
-							tooltipContent='Validate the selected provider credentials'
-							isDisabled={isSaving || !isConfigured(activeApiKey)}
-						/>
-					)}
-					{isAiStep ? (
+					{isSearchStep ? (
 						<Button
 							onClick={onComplete}
 							label={isSaving ? 'Saving...' : 'Start using Aether'}
 							tooltipContent='Finish onboarding'
-							isDisabled={isSaving || aiChoice === null}
+							isDisabled={isSaving || searchChoice === null}
 						/>
 					) : (
 						<button

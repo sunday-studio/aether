@@ -14,7 +14,13 @@ fn main() {
     desktop_spec.push("openapi");
     desktop_spec.push("spec.json");
 
-    for output_path in [&desktop_spec] {
+    let mut tauri_spec = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    tauri_spec.pop(); // src-tauri
+    tauri_spec.push("src");
+    tauri_spec.push("openapi");
+    tauri_spec.push("spec.json");
+
+    for output_path in [&desktop_spec, &tauri_spec] {
         if let Some(parent) = output_path.parent() {
             std::fs::create_dir_all(parent).expect("Failed to create openapi directory");
         }

@@ -22,12 +22,9 @@ flowchart TD
   Start[App Opens] --> Check{Onboarding Complete?}
   Check -->|Yes| Main[Main App]
   Check -->|No| Profile[Collect User Name]
-  Profile --> AI[Configure Optional AI Keys]
-  AI --> Provider[Choose Default Transcription Provider]
-  Provider --> Validate{Validate Now?}
-  Validate -->|Yes| ValidateProvider[Validate Provider Command]
-  Validate -->|No| Save
-  ValidateProvider --> Save[Save Settings]
+  Profile --> Sync[Choose Sync Setup]
+  Sync --> Search[Choose Local Search Model Setup]
+  Search --> Save[Save Settings]
   Save --> Mark[Set app.onboarding_completed]
   Mark --> Main
 ```
@@ -43,7 +40,7 @@ sequenceDiagram
   participant Repo as Repository
   participant DB as Local DB
 
-  U->>UI: create or update resource
+  U->>UI: create or update journal/task/goal
   UI->>SDK: call generated hook/mutation
   SDK->>CMD: invoke Tauri command
   CMD->>Repo: validate and persist
@@ -54,29 +51,23 @@ sequenceDiagram
   SDK-->>UI: update query cache
 ```
 
-## Audio Transcription Flow
+## Local Search Flow
 
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant Journal as Journal UI
-  participant Audio as Audio Command
-  participant Media as Media Storage
-  participant Queue as Transcription Queue
-  participant Provider as Provider
+  participant UI as Command Palette
+  participant Search as Search Command
+  participant Index as Search Index
   participant DB as Local DB
 
-  U->>Journal: record or attach audio
-  Journal->>Audio: save audio
-  Audio->>Media: store media file
-  Audio->>DB: create media metadata
-  U->>Journal: start transcription
-  Journal->>Queue: start_transcription
-  Queue->>DB: create pending transcription
-  Queue->>Provider: transcribe compressed audio
-  Provider-->>Queue: transcript or error
-  Queue->>DB: update transcription status
-  Journal->>DB: fetch transcription state
+  U->>UI: search journal or tasks
+  UI->>Search: query entry/task index
+  Search->>Index: keyword, semantic, or hybrid search
+  Index->>DB: read indexed journal/task documents
+  DB-->>Index: matches
+  Index-->>Search: ranked results
+  Search-->>UI: entry/task destinations
 ```
 
 ## Sync Flow
@@ -104,7 +95,7 @@ sequenceDiagram
   Server-->>Engine: encrypted changes and next cursor
   Engine->>Engine: decrypt and apply changes
 
-  Engine->>Server: upload/fetch encrypted media blobs
+  Engine->>Server: upload/fetch encrypted image and video blobs
   Server->>Blob: read/write blobs
 ```
 
@@ -134,14 +125,11 @@ flowchart LR
   V1[V1 App Surface] --> Journal[Journal]
   V1 --> Tasks[Tasks]
   V1 --> Goals[Goals]
+  V1 --> Activity[Activity Heatmap]
+  V1 --> Trash[Trash]
+  V1 --> Media[Image and Video Media]
+  V1 --> Search[Journal and Task Search]
   V1 --> Settings[Settings]
   V1 --> Sync[Encrypted Sync]
   V1 --> Updater[Updater]
-  Deferred --> Audio[Journal Audio and Transcription]
-  Deferred[Deferred or Hidden] --> Canvas[Canvas]
-  Deferred --> Graph[Knowledge Graph]
-  Deferred --> Embeddings[Embeddings Management]
-  Deferred --> SyncDiagnostics[Sync Diagnostics]
-  Deferred --> Bookmarks[Bookmarks]
-  Deferred --> GlobalSearch[Global Search]
 ```

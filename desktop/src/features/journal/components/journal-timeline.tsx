@@ -5,7 +5,6 @@ import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
 import { useEntriesInfinite } from "~/hooks/use-entries-infinite";
 import { sortEntries } from "../journal.domain.ts";
 import { JournalTimelineItem } from "./journal-timeline-item.tsx";
-// import { JournalWeeklyAiSummary } from "./journal-weekly-ai-summary.tsx";
 
 // TODO: show different message if user has no entries but has deleted entries
 
@@ -53,8 +52,6 @@ export const JournalTimeline = () => {
 									shortcuts={["⌘", "N"]}
 									tooltipContent="Create a new entry"
 								/>
-								{/* AI weekly summary is hidden for now. */}
-								{/* <JournalWeeklyAiSummary /> */}
 							</div>
 						</Timeline.RightContent>
 					}

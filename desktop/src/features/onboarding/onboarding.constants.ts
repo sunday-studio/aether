@@ -1,12 +1,9 @@
-import { Server, Sparkles, UserRound, WandSparkles, type LucideIcon } from 'lucide-react';
-import { type ProviderChoice, type StepId } from './onboarding.types';
+import { HardDrive, Server, Sparkles, UserRound, type LucideIcon } from 'lucide-react';
+import { type StepId } from './onboarding.types';
 
 export const ONBOARDING_COMPLETED_KEY = 'app.onboarding_completed';
 export const DISPLAY_NAME_KEY = 'user.display_name';
 export const RECOVERY_SEED_KEY = 'user.recovery_seed_phrase';
-export const DEFAULT_PROVIDER_KEY = 'transcription.default_provider';
-export const OPENAI_API_KEY = 'transcription.openai.api_key';
-export const GROQ_API_KEY = 'transcription.groq.api_key';
 export const SEARCH_EMBEDDINGS_ENABLED_KEY = 'search.embeddings.enabled';
 export const SEARCH_EMBEDDINGS_PROVIDER_KEY = 'search.embeddings.provider';
 export const SEARCH_EMBEDDINGS_MODEL_KEY = 'search.embeddings.model';
@@ -20,7 +17,6 @@ export const recoveryWords = [
 	'archive',
 	'atelier',
 	'bloom',
-	'canvas',
 	'cipher',
 	'compass',
 	'ember',
@@ -45,27 +41,9 @@ export const recoveryWords = [
 	'window',
 ];
 
-export const providerCopy: Record<
-	ProviderChoice,
-	{ label: string; description: string; keyLabel: string; placeholder: string }
-> = {
-	openai: {
-		label: 'OpenAI Whisper',
-		description: 'Reliable hosted transcription if you already use OpenAI.',
-		keyLabel: 'OpenAI API Key',
-		placeholder: 'sk-...',
-	},
-	groq: {
-		label: 'Groq',
-		description: "Fast hosted transcription with Groq's API.",
-		keyLabel: 'Groq API Key',
-		placeholder: 'gsk_...',
-	},
-};
-
 export const steps: Array<{ id: StepId; label: string; icon: LucideIcon }> = [
 	{ id: 'intro', label: 'Welcome', icon: Sparkles },
 	{ id: 'profile', label: 'Identity', icon: UserRound },
 	{ id: 'sync', label: 'Sync', icon: Server },
-	{ id: 'ai', label: 'AI', icon: WandSparkles },
+	{ id: 'search', label: 'Search', icon: HardDrive },
 ];

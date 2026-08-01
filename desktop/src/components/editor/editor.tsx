@@ -15,7 +15,7 @@ import { TabIndentationPlugin } from "@lexical/react/LexicalTabIndentationPlugin
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import clsx from "clsx";
 import type { EditorState } from "lexical";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 import { setNodePlaceholderFromSelection } from "./node-placement/utils";
@@ -29,14 +29,8 @@ import { ReactiveFocusPlugin } from "./reactive-focus-plugin";
 import { getFontFamily } from "./utils";
 
 import "./_editor.css";
-import { CHECK_LIST, TRANSFORMERS } from "@lexical/markdown";
-import {
-	PAGE_BREAK_NODE_TRANSFORMER,
-	PageBreakNode,
-} from "./page-break-plugin/page-break-node";
+import { PageBreakNode } from "./page-break-plugin/page-break-node";
 import PageBreakPlugin from "./page-break-plugin/page-break-plugin";
-import { ResourceLinkNode } from "./plugins/resource-link-plugin/resource-link-node";
-import { ResourceLinkPlugin } from "./plugins/resource-link-plugin/resource-link-plugin";
 
 const ONCHANGE_DEBOUNCE_TIME = 750;
 const ONHISTORYCHANGE_DEBOUNCE_TIME = 600000; // 10 minutes in milliseconds
@@ -64,6 +58,9 @@ function onError(error: Error) {
 	console.error(error);
 }
 
+const parseEditorOnChange = (editorState: EditorState) =>
+	JSON.stringify(editorState.toJSON());
+
 export const EDITOR_PAGES = {
 	ENTRY: "ENTRY",
 	JOURNAL: "JOURNAL",
@@ -84,19 +81,9 @@ export const Editor = ({
 	placeholderClassName = "editor-placeholder",
 	onHistoryChange,
 }: EditorType) => {
-	const [floatingAnchorElem, setFloatingAnchorElem] =
-		useState<HTMLDivElement | null>(null);
-
-	const onRef = (_floatingAnchorElem: HTMLDivElement) => {
-		if (_floatingAnchorElem !== null) {
-			setFloatingAnchorElem(_floatingAnchorElem);
-		}
-	};
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: on ref will cause re-render
 	const CustomContent = useMemo(
 		() => (
-			<div className="editor-inner" ref={onRef}>
+			<div className="editor-inner">
 				<ContentEditable className="editor-root" />
 			</div>
 		),
@@ -119,12 +106,8 @@ export const Editor = ({
 			AutoLinkNode,
 			LinkNode,
 			PageBreakNode,
-			ResourceLinkNode,
 		],
 	};
-
-	const parseEditorOnChange = (editorState: EditorState) =>
-		JSON.stringify(editorState.toJSON());
 
 	const debouncedOnChange = useDebouncedCallback(async (state: string) => {
 		onChange(state);
@@ -171,7 +154,6 @@ export const Editor = ({
 				<HashtagPlugin />
 				<ReactiveFocusPlugin id={id} />
 				<PageBreakPlugin />
-				<ResourceLinkPlugin />
 			</div>
 		</LexicalComposer>
 	);

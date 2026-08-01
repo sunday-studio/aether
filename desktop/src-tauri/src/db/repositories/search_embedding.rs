@@ -455,15 +455,15 @@ mod tests {
         .await
         .expect("seed goal search document");
         repo.upsert_document(SearchDocumentInput {
-            resource_type: "bookmark".to_string(),
-            resource_id: "bookmark-1".to_string(),
+            resource_type: "archive".to_string(),
+            resource_id: "archive-1".to_string(),
             chunk_index: 0,
-            title: "Bookmark search".to_string(),
-            text: "Deferred bookmark semantic text".to_string(),
+            title: "Archived search".to_string(),
+            text: "Deferred archive semantic text".to_string(),
             source_updated_at: "2026-05-18T09:00:00Z".to_string(),
         })
         .await
-        .expect("seed bookmark search document");
+        .expect("seed unsupported search document");
     }
 
     fn cleanup_db(path: PathBuf) {
@@ -600,17 +600,17 @@ mod tests {
             .find_by_document_and_model("goal:goal-1:0", "local-hash-384")
             .await
             .expect("find goal embedding");
-        let bookmark_embedding = embedding_repo
-            .find_by_document_and_model("bookmark:bookmark-1:0", "local-hash-384")
+        let unsupported_embedding = embedding_repo
+            .find_by_document_and_model("archive:archive-1:0", "local-hash-384")
             .await
-            .expect("find bookmark embedding");
+            .expect("find unsupported embedding");
 
         assert_eq!(status.total_embeddings, 4);
         assert!(entry_embedding.is_some());
         assert!(task_embedding.is_some());
         assert!(subtask_embedding.is_some());
         assert!(goal_embedding.is_some());
-        assert!(bookmark_embedding.is_none());
+        assert!(unsupported_embedding.is_none());
 
         cleanup_db(db_path);
     }

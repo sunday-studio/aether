@@ -1,13 +1,10 @@
 pub mod api;
-pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod error;
-pub mod journal_ai;
 pub mod media;
 pub mod settings;
 pub mod sync;
-pub mod transcription;
 pub mod updater;
 pub mod utils;
 
@@ -15,8 +12,8 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, ai_journal, bookmark, canvas, entry, goal, link, search, sync as sync_commands, tag,
-    task, trash, updater as updater_commands,
+    activity, entry, goal, media as media_commands, search, sync as sync_commands, tag, task,
+    trash, updater as updater_commands,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -316,12 +313,6 @@ pub fn run() {
             goal::get_current_goal_instance,
             goal::add_tags_to_goal,
             goal::remove_tags_from_goal,
-            // Canvas commands
-            canvas::get_canvases,
-            canvas::get_canvas_by_id,
-            canvas::create_canvas,
-            canvas::update_canvas,
-            canvas::delete_canvas,
             // Trash commands
             trash::get_trashed_tasks,
             trash::restore_task,
@@ -332,53 +323,8 @@ pub fn run() {
             search::reindex_search,
             search::reindex_search_resource,
             search::get_search_index_status,
-            search::find_related_resources,
-            search::retrieve_context,
-            search::retrieve_week_context,
-            // AI journal commands
-            ai_journal::enrich_journal_entry,
-            ai_journal::get_entry_insights,
-            ai_journal::update_entry_insight,
-            ai_journal::update_ai_suggestion,
-            ai_journal::accept_ai_tag_suggestion,
-            ai_journal::accept_ai_relation_suggestion,
-            ai_journal::generate_weekly_ai_summary,
-            ai_journal::get_weekly_ai_summary,
-            ai_journal::update_weekly_ai_summary,
-            // Link commands
-            link::create_link,
-            link::get_backlinks,
-            link::get_outgoing_links,
-            link::delete_link,
-            link::search_linkable_resources,
-            link::get_all_links_for_graph,
-            link::sync_links_from_content,
-            // Bookmark commands
-            bookmark::get_bookmarks,
-            bookmark::get_bookmark_by_id,
-            bookmark::create_bookmark,
-            bookmark::update_bookmark,
-            bookmark::delete_bookmark,
-            bookmark::add_tags_to_bookmark,
-            bookmark::remove_tags_from_bookmark,
-            bookmark::extract_metadata,
-            // Audio commands
-            commands::audio::save_audio_recording,
-            commands::audio::get_audio_data,
-            commands::audio::delete_audio_recording,
-            commands::audio::get_media_items_for_entry,
-            commands::audio::get_audio_metadata,
-            // Transcription commands
-            commands::transcription::start_transcription,
-            commands::transcription::get_transcriptions,
-            commands::transcription::get_transcription_by_id,
-            commands::transcription::set_active_transcription,
-            commands::transcription::list_providers,
-            commands::transcription::validate_provider,
-            commands::transcription::list_available_models,
-            commands::transcription::download_model,
-            commands::transcription::verify_model,
-            commands::transcription::delete_model,
+            // Media commands
+            media_commands::get_media_items_for_entry,
             // Settings commands
             commands::settings::get_setting,
             commands::settings::get_all_settings,

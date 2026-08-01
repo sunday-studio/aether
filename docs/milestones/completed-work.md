@@ -31,8 +31,8 @@ This document records project-shaping work that has already been done or decided
 - Canvas is out for v1.
 - Updater is in scope for v1.
 - First-run onboarding is in scope for v1.
-- AI key setup is visible for v1 while journal audio/transcription remains deferred.
-- Bookmarks and global search should be finished or hidden for v1.
+- Local search model setup is visible for v1.
+- Canvas, bookmarks, graph, journal audio/transcription, AI enrichment, provider-key setup, and broad search should stay out of v1.
 
 ## Updater Readiness
 
@@ -44,6 +44,6 @@ This document records project-shaping work that has already been done or decided
 ## V1 Surface Cleanup
 
 - Kept bottom navigation, command palette, and global shortcuts scoped to Journal, Tasks, and Settings.
-- Redirected Canvas, Bookmarks, and Graph routes away from unfinished screens.
-- Hid Canvas and Bookmarks from editor resource-link autocomplete.
-- Hid journal audio/transcription from the v1 user surface while keeping AI setup visible.
+- Removed Canvas, Bookmarks, and Graph routes from the v1 surface.
+- Removed editor resource-link autocomplete from the v1 surface.
+- Removed journal audio/transcription and AI setup from the v1 surface.

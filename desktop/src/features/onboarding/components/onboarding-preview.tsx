@@ -31,7 +31,7 @@ export function OnboardingPreview({ items }: OnboardingPreviewProps) {
 					</h1>
 					<p className='mt-5 max-w-md text-sm leading-6 text-(--color-secondary-text)'>
 						Aether stays local by default. This flow names the space, prepares recovery, and
-						connects sync if you already run it. AI remains optional.
+						connects sync if you already run it. Local search can be configured now or later.
 					</p>
 				</div>
 

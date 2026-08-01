@@ -68,11 +68,6 @@ pub struct SearchDocumentRepository {
     database: Arc<Database>,
 }
 
-#[derive(Debug, Clone)]
-struct SearchDocumentSource {
-    text: String,
-}
-
 impl SearchDocumentRepository {
     pub fn new(database: Arc<Database>) -> Self {
         Self { database }
@@ -365,112 +360,6 @@ impl SearchDocumentRepository {
         });
 
         paged_results(results, offset, limit)
-    }
-
-    pub async fn find_related(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-        limit: Option<u32>,
-    ) -> Result<Vec<SearchDocumentResult>> {
-        let Some(source) = self
-            .load_resource_document(resource_type, resource_id)
-            .await?
-        else {
-            return Ok(Vec::new());
-        };
-        let query = related_query_terms(&source.text);
-        if query.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let page = self
-            .search_keyword(
-                &query,
-                SearchDocumentQuery {
-                    limit: Some(limit.unwrap_or(10).min(50) + 1),
-                    ..SearchDocumentQuery::default()
-                },
-            )
-            .await?;
-
-        Ok(page
-            .results
-            .into_iter()
-            .filter(|result| {
-                result.resource_type != resource_type || result.resource_id != resource_id
-            })
-            .take(limit.unwrap_or(10).min(50) as usize)
-            .collect())
-    }
-
-    pub async fn list_context_by_date_range(
-        &self,
-        date_from: &str,
-        date_to: &str,
-        limit: Option<u32>,
-    ) -> Result<Vec<SearchDocumentResult>> {
-        let limit = limit.unwrap_or(50).min(100);
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, resource_type, resource_id, title, text, source_updated_at, created_at, updated_at
-                 FROM search_documents
-                 WHERE resource_type IN ('entry', 'task', 'subtask', 'goal')
-                   AND source_updated_at >= ?1 AND source_updated_at <= ?2
-                 ORDER BY source_updated_at DESC, id DESC
-                 LIMIT ?3",
-                libsql::params![date_from, date_to, limit],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let text: String = row.get(4).map_err(AppError::LibSQL)?;
-            results.push(SearchDocumentResult {
-                id: row.get(0).map_err(AppError::LibSQL)?,
-                resource_type: row.get(1).map_err(AppError::LibSQL)?,
-                resource_id: row.get(2).map_err(AppError::LibSQL)?,
-                title: row.get(3).map_err(AppError::LibSQL)?,
-                preview: truncate_preview(&text, 220),
-                score: 1.0,
-                match_kind: "date".to_string(),
-                highlights: Vec::new(),
-                source_updated_at: row.get(5).map_err(AppError::LibSQL)?,
-                created_at: row.get(6).map_err(AppError::LibSQL)?,
-                updated_at: row.get(7).map_err(AppError::LibSQL)?,
-            });
-        }
-
-        Ok(results)
-    }
-
-    async fn load_resource_document(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-    ) -> Result<Option<SearchDocumentSource>> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT text
-                 FROM search_documents
-                 WHERE resource_type = ?1 AND resource_id = ?2
-                 ORDER BY chunk_index
-                 LIMIT 1",
-                libsql::params![resource_type, resource_id],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
-            return Ok(None);
-        };
-
-        Ok(Some(SearchDocumentSource {
-            text: row.get(0).map_err(AppError::LibSQL)?,
-        }))
     }
 
     async fn matches_tags(
@@ -1296,18 +1185,6 @@ fn cosine_similarity(left: &[f32], right: &[f32]) -> f64 {
     ((dot / (left_norm.sqrt() * right_norm.sqrt())) + 1.0) / 2.0
 }
 
-fn related_query_terms(text: &str) -> String {
-    text.split_whitespace()
-        .map(|term| {
-            term.trim_matches(|ch: char| !ch.is_alphanumeric())
-                .to_lowercase()
-        })
-        .filter(|term| term.len() >= 4)
-        .take(6)
-        .collect::<Vec<_>>()
-        .join(" OR ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1411,30 +1288,6 @@ mod tests {
         )
         .await
         .expect("seed tag");
-
-        conn.execute(
-            "INSERT INTO bookmarks (id, url, title, description, site_name, author, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            libsql::params![
-                "bookmark-1",
-                "https://example.com/search",
-                "Search reference",
-                "Useful retrieval notes",
-                "Example",
-                "Aether",
-                "2026-05-15T09:00:00Z",
-                "2026-05-15T09:00:00Z"
-            ],
-        )
-        .await
-        .expect("seed bookmark");
-
-        conn.execute(
-            "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)",
-            libsql::params!["bookmark-1", "tag-1"],
-        )
-        .await
-        .expect("seed bookmark tag");
 
         conn.execute(
             "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
@@ -1675,32 +1528,32 @@ mod tests {
         assert!(default_results.results.is_empty());
 
         let error = repo
-            .reindex_resource("bookmark", "bookmark-1")
+            .reindex_resource("archive", "archive-1")
             .await
-            .expect_err("bookmark search indexing should be unsupported");
+            .expect_err("archive search indexing should be unsupported");
         assert!(matches!(error, AppError::BadRequest(_)));
 
         repo.upsert_document(SearchDocumentInput {
-            resource_type: "bookmark".to_string(),
-            resource_id: "bookmark-1".to_string(),
+            resource_type: "archive".to_string(),
+            resource_id: "archive-1".to_string(),
             chunk_index: 0,
-            title: "Search reference".to_string(),
+            title: "Archived reference".to_string(),
             text: "Useful retrieval notes".to_string(),
             source_updated_at: "2026-05-15T09:00:00Z".to_string(),
         })
         .await
-        .expect("seed stale bookmark search document");
+        .expect("seed stale unsupported search document");
 
         let explicit_results = repo
             .search_keyword(
                 "reference",
                 SearchDocumentQuery {
-                    resource_types: Some(vec!["bookmark".to_string()]),
+                    resource_types: Some(vec!["archive".to_string()]),
                     ..SearchDocumentQuery::default()
                 },
             )
             .await
-            .expect("search explicit bookmark scope");
+            .expect("search explicit unsupported scope");
 
         assert!(explicit_results.results.is_empty());
 
@@ -1894,25 +1747,6 @@ mod tests {
         cleanup_db(db_path);
     }
 
-    #[tokio::test]
-    async fn find_related_returns_results_without_source_resource() {
-        let (database, repo, db_path) = test_repo().await;
-        seed_search_resources(&database).await;
-        repo.reindex_all().await.expect("reindex all resources");
-
-        let results = repo
-            .find_related("task", "task-1", Some(5))
-            .await
-            .expect("find related resources");
-
-        assert!(!results.is_empty());
-        assert!(results
-            .iter()
-            .all(|result| result.resource_type != "task" || result.resource_id != "task-1"));
-
-        cleanup_db(db_path);
-    }
-
     fn test_search_result(
         resource_type: &str,
         resource_id: &str,
@@ -1932,30 +1766,6 @@ mod tests {
             created_at: "2026-05-18T00:00:00Z".to_string(),
             updated_at: "2026-05-18T00:00:00Z".to_string(),
         }
-    }
-
-    #[tokio::test]
-    async fn list_context_by_date_range_returns_clean_context() {
-        let (database, repo, db_path) = test_repo().await;
-        seed_search_resources(&database).await;
-        repo.reindex_all().await.expect("reindex all resources");
-
-        let results = repo
-            .list_context_by_date_range("2026-05-10T00:00:00Z", "2026-05-15T23:59:59Z", Some(10))
-            .await
-            .expect("list context by date");
-
-        assert_eq!(results.len(), 4);
-        assert!(results.iter().all(|result| result.match_kind == "date"));
-        assert!(results.iter().all(|result| !result.preview.is_empty()));
-        assert!(results.iter().all(|result| {
-            matches!(
-                result.resource_type.as_str(),
-                "entry" | "task" | "subtask" | "goal"
-            )
-        }));
-
-        cleanup_db(db_path);
     }
 
     #[tokio::test]

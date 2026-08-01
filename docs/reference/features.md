@@ -1,242 +1,183 @@
-# Aether Feature List
+# Aether V1 Feature List
 
-This is an implementation inventory, not a shipped v1 promise. The v1 product surface keeps journal, tasks, goals, settings, encrypted sync, updater, and AI key setup visible. Canvas, Bookmarks, Graph, journal audio/transcription, global search, embeddings management, and full transcription model management are deferred or hidden until they are completed as product surfaces.
+This is the v1 product inventory. It should not list deferred implementation as shipped behavior.
 
 ## 1. Content Management
 
 ### 1.1 Journal Entries
-**Operations:** Create, Read, Update, Delete  
+
+**Operations:** Create, read, update, delete, restore.
+
 **Features:**
-- Rich text editor (Lexical)
-- Timeline view
-- Grid view
-- Tagging
-- Resource linking
-- Activity tracking
+
+- Rich text editor.
+- Timeline view.
+- Grid view.
+- Tagging.
+- Image and video media blobs.
+- Activity tracking.
+- Trash/restore.
+- Local search indexing.
 
 ### 1.2 Tasks
-**Operations:** Create, Read, Update, Delete  
+
+**Operations:** Create, read, update, delete, restore.
+
 **Features:**
-- Inbox view
-- Overdue view
-- Subtasks with reordering
-- Completion tracking
-- Due dates
-- Descriptions
-- Goal assignment
-- Tagging
-- Resource linking
-- Trash/restore
-- Activity tracking
+
+- Inbox view.
+- Overdue view.
+- Subtasks with reordering.
+- Completion tracking.
+- Due dates.
+- Descriptions.
+- Goal assignment.
+- Tagging.
+- Trash/restore.
+- Activity tracking.
+- Local search indexing.
 
 ### 1.3 Goals
-**Operations:** Create, Read, Update, Delete  
+
+**Operations:** Create, read, update, delete.
+
 **Features:**
-- Recurrence types: daily, weekly, monthly, yearly, custom
-- Goal instances
-- Timezone-aware periods
-- Task assignment
-- Tagging
-- Resource linking
-- Activity tracking
 
-### 1.4 Canvas
+- Recurrence types.
+- Goal instances.
+- Timezone-aware periods.
+- Task assignment.
+- Tagging.
+- Activity tracking.
 
-**V1 status:** Hidden/deferred.
+## 2. Search
 
-**Operations:** Create, Read, Update, Delete  
-**Features:**
-- JSON Canvas format
-- Pan and zoom
-- Node types: text, file, link
-- Edge connections
-- Drag and drop
-- Multi-select
-- Undo/redo
-- Import/export
-- Resource linking
+### 2.1 Journal And Task Search
 
-### 1.5 Bookmarks
+**Operations:** Query, reindex, inspect status.
 
-**V1 status:** Hidden/deferred.
-
-**Operations:** Create, Read, Update, Delete  
-**Features:**
-- Automatic metadata extraction
-- Open Graph support
-- Twitter Card support
-- External API fallback
-- Tagging
-- Resource linking
-- Grid/list views
-- Filtering (tags, content type, date)
-- Chrome extension (planned)
-
-## 2. Search & Discovery
-
-### 2.1 Search
-
-**V1 status:** Backend/indexing foundation only; global product UI is hidden/deferred.
-
-**Operations:** Query  
 **Modes:**
-- Fuzzy search (FTS5 trigram)
-- Semantic search (embeddings)
-- Hybrid search (combined)
+
+- Keyword search.
+- Semantic search when a local embedding model is installed.
+- Hybrid search.
+
 **Filters:**
-- Resource type
-- Tags
-- Pagination
 
-### 2.2 Resource Linking
-**Operations:** Create, Read, Delete  
+- Resource type: `entry` or `task`.
+- Tags.
+- Date range.
+- Pagination.
+
+### 2.2 Local Search Model Setup
+
+**Operations:** List, download, verify, delete, and configure the local embedding model used by journal/task search.
+
+## 3. Media
+
+### 3.1 Image And Video Media Blobs
+
+**Operations:** Store, read, sync, and delete media metadata/files.
+
+**Types:** Image and video.
+
 **Features:**
-- Bidirectional links (`[[]]` syntax)
-- Autocomplete search
-- Backlink display
-- Knowledge graph visualization
-- Resource navigation
 
-### 2.3 Graph View
-
-**V1 status:** Hidden/deferred.
-
-**Operations:** View, Navigate  
-**Features:**
-- Force-directed layout
-- Node visualization by type
-- Edge visualization
-- Type filtering
-- Resource search and focus
-- Navigation to resources
-
-## 3. Media & Transcription
-
-### 3.1 Audio Recording
-**Operations:** Create, Read, Delete  
-**Features:**
-- Audio file recording
-- Entry attachment
-- Playback
-
-### 3.2 Transcription
-**Operations:** Create, Read, Update, Delete  
-**Providers:**
-- OpenAI Whisper API
-- Groq API
-- Local Whisper models
-- Self-hosted endpoints
-**Features:**
-- Automatic transcription (optional)
-- Manual trigger
-- Multiple transcriptions per audio
-- Active transcription selection
-- Status tracking
-- Model management
-
-### 3.3 Media Management
-**Operations:** Create, Read, Delete  
-**Types:** Audio, Image, Video  
-**Features:**
-- Entity-agnostic storage
-- Blurhash generation (images)
-- Metadata storage
-- Platform-specific directories
+- File-backed local storage.
+- Blurhash generation for images.
+- Metadata storage.
+- Encrypted blob sync compatibility.
 
 ## 4. Organization
 
 ### 4.1 Tags
-**Operations:** Create, Read, Update, Delete, Bulk Create  
+
+**Operations:** Create, read, update, delete, bulk create.
+
 **Features:**
-- Tag entries, tasks, goals, bookmarks
-- Search filtering
+
+- Tag journal entries, tasks, and goals.
+- Filter journal/task search results by tag.
 
 ### 4.2 Activity Tracking
-**Operations:** Read  
+
+**Operations:** Read.
+
 **Features:**
-- Action logging (create, update, delete, complete)
-- Date-based counts
-- Entity type breakdown
-- Action type breakdown
-- Heatmap visualization
-- Audit log
+
+- Action logging.
+- Date-based counts.
+- Entity type breakdown.
+- Action type breakdown.
+- Heatmap visualization.
 
 ### 4.3 Trash
-**Operations:** Read, Restore  
+
+**Operations:** Read, restore.
+
 **Features:**
-- Soft delete (tasks)
-- Restore functionality
-- Trash view
 
-## 5. Intelligence
+- Soft-delete workflows.
+- Restore functionality.
+- Trash view.
 
-### 5.1 Embeddings
-**Operations:** Generate, Query  
+## 5. Configuration
+
+### 5.1 Settings
+
+**Operations:** Read, write.
+
 **Features:**
-- Local model (all-MiniLM-L6-v2)
-- 384-dimensional vectors
-- Automatic generation
-- Background processing
-- Model download (HuggingFace)
-- Model verification
-- Vector similarity search
 
-## 6. Configuration
+- Preferences.
+- Sync setup.
+- Local search model setup.
+- Updater and What's New.
+- Diagnostics where present.
+- Encrypted sensitive settings for sync credentials and secrets.
 
-### 7.1 Settings
-**Operations:** Read, Write  
-**Storage:** Key-value store  
+### 5.2 Theme System
+
+**Operations:** Configure, switch.
+
+**Modes:** Light, dark, system.
+
+## 6. Sync And Updater
+
+### 6.1 Self-Hosted Encrypted Sync
+
 **Features:**
-- Encrypted sensitive keys
-- Timezone preference
-- Theme settings
-- Transcription provider settings
-- Embedding model settings
 
-### 7.2 Theme System
-**Operations:** Configure, Switch  
-**Modes:** Light, Dark, System  
-**Variants:** Light, Dark, Warm Yellow, Darker  
+- Device enrollment.
+- Encrypted change push/pull.
+- Encrypted image/video blob sync.
+- Reconnect with sync passphrase.
+- Sync-server compatibility.
+
+### 6.2 OTA Updater
+
 **Features:**
-- Tailwind CSS v4 configuration
-- System preference detection
-- Theme switching
 
-## 8. Technical Infrastructure
+- Manual update checks.
+- Auto-check preference.
+- Available update state.
+- Skip version.
+- Download and install.
 
-### 8.1 Database
-**Technology:** LibSQL (local-only)  
-**Features:**
-- SQLite compatibility
-- FTS5 full-text search
-- Vector embeddings (cosine similarity)
-- Migration system
-- Transaction support
-- Local database storage
+## 7. Not In V1
 
-### 8.2 Backend
-**Technology:** Rust, Tauri  
-**Features:**
-- Repository pattern
-- RESTful API (OpenAPI)
-- TypeScript SDK generation
-- Error handling
-- Logging (tracing)
+The following are not v1 product or command/API surfaces:
 
-### 8.3 Frontend
-**Technology:** React, TypeScript  
-**Features:**
-- TanStack Query
-- Zustand state management
-- React Router
-- Lexical editor
-- React Konva (canvas)
-- Command palette
-- Keyboard shortcuts
+- Canvas.
+- Bookmarks.
+- Graph.
+- Journal audio recording.
+- Transcription.
+- AI journal enrichment.
+- Provider-key setup for AI/transcription.
+- Transcription model management.
+- Resource-link APIs.
+- Bookmark metadata extraction.
+- Search result types beyond journal entries and tasks.
 
-### 8.4 Platform Support
-**Platforms:** macOS, Linux, Windows  
-**Features:**
-- Desktop application (Tauri)
-- Platform-specific media directories
-- Platform-specific model storage
+Database migrations and sync compatibility handlers may still mention older entities. That compatibility should not be treated as a shipped feature.

@@ -1,65 +1,45 @@
 # Search Testing Flow
 
-This document tracks how agents should verify the Search And RAG Foundation work.
+This document tracks how agents should verify the v1 search scope.
 
-## Current Verification
+## Static Verification
 
-- [x] Run `cargo check` from `desktop/src-tauri`.
-- [x] Run `cargo test search_text --lib` from `desktop/src-tauri`.
-- [x] Regenerate OpenAPI with `cargo run --manifest-path desktop/src-tauri/tools/Cargo.toml`.
-- [x] Confirm API routes are present in `desktop/src/openapi/spec.json`.
-- [x] Confirm desktop REST-style routes are mapped in `desktop/src/lib/api-client.ts`.
+- Run `cargo check` from `desktop/src-tauri`.
+- Run `cargo test search_document --lib` from `desktop/src-tauri`.
+- Regenerate OpenAPI with `make generate-openapi`.
+- Regenerate the frontend SDK with `make generate-sdk`.
+- Confirm API routes are present in `desktop/src/openapi/spec.json`.
+- Confirm desktop REST-style routes are mapped in `desktop/src/lib/api-client.ts`.
 
-## Phase 1 And 2 Test Flow
+## Repository Tests
 
-- [x] Verify Lexical text extraction ignores JSON structure and returns visible text.
-- [x] Verify `search_documents` migration exists and has no sync columns/triggers.
-- [x] Verify full reindex command exists.
-- [x] Verify single-resource reindex command exists.
-- [x] Verify create/update/delete paths refresh or remove derived search documents.
-
-## Next To Test
-
-- [x] Add backend integration tests for `SearchDocumentRepository::reindex_all`.
-- [x] Add backend integration tests for `SearchDocumentRepository::reindex_resource`.
-- [x] Verify deleted tasks are removed from `search_documents`.
-- [x] Verify invalid Lexical JSON does not break full reindex.
-- [x] Verify search index counts match seeded entries, tasks, goals, tags, and bookmarks.
-- [x] Add Phase 3 keyword-search tests for normalized results from `search_documents`.
-- [x] Add tests for supported Phase 3 filters: `types`, `date_from`, `date_to`, `limit`, and `offset`.
-- [x] Add cursor pagination tests for keyword search.
-- [x] Extend deleted-resource tests to entries, goals, and bookmarks.
-- [x] Add coverage for `SearchDocumentRepository::delete_resource`.
-- [x] Add search command tests for `semantic` and `hybrid` mode resolution.
-- [x] Add tag-filter tests once tag filtering is implemented.
-- [x] Add a runtime/in-app API verification path for Tauri commands before UI work.
-- [x] Add semantic search tests over `search_embeddings`.
-- [x] Add hybrid search tests that merge keyword and semantic results.
-- [x] Add ranking boost tests for title, tags, pinned entries, incomplete tasks, and current goals.
-
-## Curl Note
-
-The desktop app currently exposes REST-shaped routes through the frontend Tauri API client, not a localhost HTTP server. Plain `curl` can verify the sync server, but it cannot directly call desktop commands until a local HTTP harness or dev-only command bridge exists.
-
-When UI/runtime work starts, verify these routes through the app layer:
-
-- `POST /v1/search/index/reindex`
-- `POST /v1/search/index/resource`
-- `GET /v1/search/index/status`
-- `GET /v1/search`
+- Verify Lexical text extraction ignores JSON structure and returns visible text.
+- Verify full reindex covers entries and task-management resources.
+- Verify single-resource reindex accepts `entry`, `task`, `subtask`, and `goal`.
+- Verify single-resource reindex rejects non-v1 resource types.
+- Verify create/update/delete paths refresh or remove derived search documents.
+- Verify deleted entries and task-management resources are removed from `search_documents`.
+- Verify invalid Lexical JSON does not break full reindex.
+- Verify search index counts match seeded entries, tasks, subtasks, and goals.
+- Verify keyword-search tests cover normalized results from `search_documents`.
+- Verify filters for `types`, `tags`, `date_from`, `date_to`, `limit`, and `offset`.
+- Verify cursor pagination for keyword search.
+- Verify tag filters apply only to entries and task-management resources.
+- Verify semantic and hybrid search over `search_embeddings`.
+- Verify ranking boosts for title, tags, pinned entries, and incomplete tasks.
 
 ## Runtime/In-App Verification Path
 
-Use this path before building the search UI:
+Use this path before release:
 
-- Start the desktop app with `npm run dev` from `desktop/`.
-- Create or confirm at least one journal entry and task with unique searchable words.
+- Start the desktop app.
+- Create or confirm at least one journal entry, task, subtask, and goal with unique searchable words.
 - Trigger `POST /v1/search/index/reindex` through the frontend API client.
-- Confirm `GET /v1/search/index/status` reports non-zero counts for entries and tasks.
+- Confirm `GET /v1/search/index/status` reports non-zero entry, task, subtask, and goal counts.
 - Call `GET /v1/search?q=<word>&mode=keyword&limit=1` through the frontend API client.
 - Confirm the response includes `results`, `nextCursor`, `hasMore`, `resourceType`, `resourceId`, `title`, `preview`, `score`, and `matchKind`.
 - Call the same search with `cursor=<nextCursor>` when `hasMore` is true and confirm the next page does not repeat the first result.
-- Call `GET /v1/search?q=<word>&tags=<tag-id>` and confirm untagged resources are excluded.
+- Call `GET /v1/search?q=<word>&tags=<tag-id>` and confirm untagged entry/task resources are excluded.
 - Rebuild embeddings from Settings.
 - Call `GET /v1/search?q=<word>&mode=semantic` and confirm results return `matchKind=semantic`.
 - Call `GET /v1/search?q=<word>&mode=hybrid` and confirm results return `matchKind=hybrid`.
@@ -70,29 +50,8 @@ Unit tests use deterministic fallback embeddings so they do not download the loc
 
 - Start the desktop app with `npm run dev` from `desktop/`.
 - Download the `all-MiniLM-L6-v2` search embedding model from onboarding or Settings.
-- Create one journal entry and one task with different but related natural-language phrasing.
+- Create one journal entry and task-management item with different but related natural-language phrasing.
 - Rebuild the search document index and search embeddings.
-- Confirm `GET /v1/search?q=<related phrase>&mode=semantic` returns entry and task results with `matchKind=semantic`.
-- Confirm `GET /v1/search?q=<keyword>&mode=hybrid` returns entry and task results with `matchKind=hybrid`.
+- Confirm `GET /v1/search?q=<related phrase>&mode=semantic` returns journal and task-management results with `matchKind=semantic`.
+- Confirm `GET /v1/search?q=<keyword>&mode=hybrid` returns journal and task-management results with `matchKind=hybrid`.
 - Confirm default search responses do not include bookmark, canvas, or graph resources.
-
-## Phase 4 Embedding Storage Test Flow
-
-- [x] Verify `search_embeddings` is local derived storage with no sync columns or triggers.
-- [x] Verify embeddings are scoped by `search_document_id` and `model_name`.
-- [x] Verify vector byte storage round trips to `Vec<f32>`.
-- [x] Verify dimension mismatches are rejected.
-- [x] Verify deleting a `search_documents` row removes related embeddings.
-
-## Phase 5 Embedding Indexing Test Flow
-
-- [x] Verify full embedding indexing generates local vectors for `search_documents`.
-- [x] Verify resource embedding indexing clears embeddings when the search document is missing.
-- [x] Verify semantic and hybrid search use indexed embeddings.
-- [x] Verify a real local model provider once an inference runtime is selected.
-
-## Phase 7 Retrieval API Test Flow
-
-- [x] Verify related-resource retrieval excludes the source resource.
-- [x] Verify date-range context returns clean previews and source metadata.
-- [x] Verify retrieval API routes are included in the frontend API client and OpenAPI spec.

@@ -1,19 +1,30 @@
 # Aether
 
-Aether is a local-first desktop knowledge and productivity app built with Tauri, Rust, React, and TypeScript.
+Aether is a local-first desktop journal and task-management app built with Tauri, Rust, React, and TypeScript.
 
 The repo contains two main parts:
 
 - `desktop/` - the Tauri desktop app
 - `sync-server/` - an optional end-to-end encrypted sync server
 
-<table>
-  <tr>
-    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2010.19.59.png" alt="Aether screenshot 1" /></td>
-    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2010.57.44.png" alt="Aether screenshot 2" /></td>
-    <td><img src="https://assets.casprine.com/personal-space/Screenshot%202026-05-03%20at%2011.21.36.png" alt="Aether screenshot 3" /></td>
-  </tr>
-</table>
+## V1 Product Surface
+
+V1 keeps:
+
+- Journal writing and editing.
+- Tasks, subtasks, goals, and goal instances.
+- Activity tracking and the activity heatmap.
+- Trash view, restore behavior, and soft-delete workflows.
+- Image and video media blobs, including media sync compatibility.
+- Local search over journal entries and tasks.
+- Local search model setup.
+- Settings for sync, search, updater, and diagnostics where present.
+- Self-hosted encrypted sync and sync-server compatibility.
+- OTA updater.
+
+V1 does not ship canvas, bookmarks, graph, journal audio recording, transcription, AI journal enrichment, provider-key setup, transcription model management, resource-link APIs, bookmark metadata extraction, or broad global search result types.
+
+Existing database migrations are preserved for installed-user compatibility. A table that still exists because of a migration is not, by itself, a shipped feature.
 
 ## What You Need
 
@@ -26,11 +37,11 @@ For local development:
 
 ## Repository Layout
 
-### Top level
+### Top Level
 
 - `desktop/` - the main desktop application
 - `sync-server/` - the standalone sync backend
-- `docs/reference/features.md` - product and feature inventory
+- `docs/reference/features.md` - current v1 feature inventory
 - `docs/reference/sync.md` - sync architecture and behavior notes
 - `.github/` - GitHub workflow and PR metadata
 
@@ -39,7 +50,7 @@ For local development:
 - `src/` - React app code
 - `src/components/` - shared UI and editor components
 - `src/context/` - React context providers
-- `src/features/` - feature areas such as journal, tasks, settings, onboarding, graph, canvas, and bookmarks. Graph, canvas, and bookmarks are hidden/deferred for v1.
+- `src/features/` - v1 feature areas such as journal, tasks, settings, and onboarding
 - `src/hooks/` - reusable frontend hooks
 - `src/lib/` - API client and other shared frontend utilities
 - `src/store/` - frontend state helpers
@@ -48,7 +59,7 @@ For local development:
 - `src/aether-sdk/` - generated TypeScript client code
 - `public/` - static assets and fonts
 - `src-tauri/` - Rust backend for the desktop app
-- `src-tauri/src/` - Tauri commands, database code, sync engine, media, transcription, settings, and utilities
+- `src-tauri/src/` - Tauri commands, database code, sync engine, media, search, settings, and utilities
 - `src-tauri/migrations/` - local database schema migrations
 - `src-tauri/tests/` - Rust integration tests
 - `orval.config.ts` - SDK generation config for `src/aether-sdk/`
@@ -72,28 +83,12 @@ For local development:
 
 You only need this if you want to test sync.
 
-#### Option A: Cargo
-
 ```bash
 cd sync-server
 DATA_ROOT=./data cargo run
 ```
 
 The server listens on `http://localhost:8080`.
-
-Optional environment variables:
-
-- `DATA_ROOT` - where the server stores `sync.db` and blob files. Defaults to `./data`.
-- `SERVER_PASSPHRASE` - optional server-side registration passphrase.
-
-#### Option B: Docker
-
-```bash
-cd sync-server
-docker compose up --build
-```
-
-This mounts `sync-server/data/` into the container so data persists locally.
 
 ### 2. Run the desktop app
 
@@ -102,8 +97,6 @@ cd desktop
 pnpm install
 pnpm run tauri:dev
 ```
-
-`tauri:dev` starts the Vite dev server and the Tauri shell together. The frontend dev server runs at `http://localhost:1420` under the Tauri dev workflow.
 
 Useful desktop commands:
 
@@ -114,10 +107,6 @@ pnpm run build
 pnpm run generate:sdk
 ```
 
-- `pnpm run dev` - run the frontend only
-- `pnpm run build` - production frontend build
-- `pnpm run generate:sdk` - regenerate `src/aether-sdk/` from `src/openapi/spec.json`
-
 ## Local Sync Setup
 
 If the sync server is running:
@@ -125,13 +114,14 @@ If the sync server is running:
 1. Open the desktop app.
 2. Go to `Settings -> Sync`.
 3. Enter `http://localhost:8080` as the server URL.
-4. Enter a passphrase with at least 12 characters.
-5. Save and run sync.
+4. Enter the server seed phrase.
+5. Enter a sync passphrase with at least 12 characters.
+6. Save and run sync.
 
 More detail on sync behavior lives in [`sync.md`](./sync.md).
 
 ## Notes For Contributors
 
-- The desktop app stores its own local database and media state under `desktop/src-tauri/` during development.
+- The desktop app stores local database and media state under platform application-support directories.
 - `desktop/src/aether-sdk/` is generated code. If you change the OpenAPI spec, regenerate it.
-- The checked-in sub-readmes in `desktop/` and `sync-server/` are minimal; this root README is the main starting point for local development.
+- Do not edit, remove, or rename existing files under `desktop/src-tauri/migrations/` for v1 surface cleanup.

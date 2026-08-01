@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::db::models::{
-    AudioTranscription, Bookmark, Canvas, Entry, Goal, GoalInstance, GoalInstanceWithTasks,
-    ResourceLink, Tag, Task, TaskWithSubtasks,
+    Entry, Goal, GoalInstance, GoalInstanceWithTasks, Tag, Task, TaskWithSubtasks,
 };
 
 /// Pagination response wrapper optimized for infinite scroll
@@ -16,11 +15,7 @@ use crate::db::models::{
     PaginatedTasksWithSubtasks = PaginationResponse<TaskWithSubtasks>,
     PaginatedGoals = PaginationResponse<Goal>,
     PaginatedGoalInstances = PaginationResponse<GoalInstance>,
-    PaginatedGoalInstancesWithTasks = PaginationResponse<GoalInstanceWithTasks>,
-    PaginatedLinks = PaginationResponse<ResourceLink>,
-    PaginatedBookmarks = PaginationResponse<Bookmark>,
-    PaginatedCanvases = PaginationResponse<Canvas>,
-    PaginatedTranscriptions = PaginationResponse<AudioTranscription>
+    PaginatedGoalInstancesWithTasks = PaginationResponse<GoalInstanceWithTasks>
 )]
 pub struct PaginationResponse<T> {
     pub items: Vec<T>,

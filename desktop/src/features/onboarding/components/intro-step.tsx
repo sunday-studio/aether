@@ -1,4 +1,4 @@
-import { Cloud, KeyRound, UserRound, WandSparkles } from 'lucide-react';
+import { Cloud, HardDrive, KeyRound, UserRound } from 'lucide-react';
 import { FeaturePill } from './feature-pill';
 
 export function IntroStep() {
@@ -8,7 +8,7 @@ export function IntroStep() {
 				<h3 className='text-3xl font-medium'>Aether is a local-first notebook.</h3>
 				<p className='mt-3 max-w-xl text-sm leading-6 text-(--color-secondary-text)'>
 					You are about to set up the basics: a name, a recovery seed phrase if you want one,
-					optional self-hosted sync, and optional AI keys.
+					optional self-hosted sync, and optional local search.
 				</p>
 			</div>
 			<div className='grid gap-3 md:grid-cols-2'>
@@ -28,9 +28,9 @@ export function IntroStep() {
 					copy='Bring your own sync server or skip it.'
 				/>
 				<FeaturePill
-					icon={WandSparkles}
-					title='AI optional'
-					copy='Use hosted AI only when you provide a key.'
+					icon={HardDrive}
+					title='Local search'
+					copy='Download an on-device model or skip it.'
 				/>
 			</div>
 		</div>

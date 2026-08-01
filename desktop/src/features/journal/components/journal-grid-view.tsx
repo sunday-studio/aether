@@ -13,48 +13,6 @@ export const JournalGridView = () => {
 
 	const groupedByTags = groupEntriesByTags(sortedEntries);
 
-	// Audio recording is intentionally hidden for v1 until the flow is ready to ship.
-	// const queryClient = useQueryClient();
-	// const [isRecorderOpen, setIsRecorderOpen] = useState(false);
-	// const handleSaveAudio = async (audioBlob: Blob, duration: number) => {
-	// 	try {
-	// 		const placeholder =
-	// 			'{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
-	// 		const now = new Date();
-	// 		const entry = await invoke<Entry>("create_entry", {
-	// 			requestData: {
-	// 				document: placeholder,
-	// 				date: now.toISOString(),
-	// 			},
-	// 		});
-	// 		const arrayBuffer = await audioBlob.arrayBuffer();
-	// 		const audioData = Array.from(new Uint8Array(arrayBuffer));
-	// 		const mediaId = await invoke<string>("save_audio_recording", {
-	// 			requestData: {
-	// 				entryId: entry.id,
-	// 				audioData: audioData,
-	// 				duration,
-	// 				format: "webm",
-	// 				autoTranscribe: true,
-	// 			},
-	// 		});
-	// 		await invoke("start_transcription", {
-	// 			pathParams: {
-	// 				mediaId,
-	// 			},
-	// 		});
-	// 		invalidateEntryQueries(queryClient);
-	// 		showToast({
-	// 			title: "Audio recorded and transcription started",
-	// 		});
-	// 	} catch (error) {
-	// 		console.error("Failed to save audio:", error);
-	// 		showToast({
-	// 			title: "Failed to save audio recording",
-	// 		});
-	// 	}
-	// };
-
 	return (
 		<div className='h-full overflow-y-scroll bg-neutral-50'>
 			{/* Header with actions */}
@@ -66,14 +24,6 @@ export const JournalGridView = () => {
 						shortcuts={['⌘', 'N']}
 						tooltipContent='Create a new entry'
 					/>
-					{/* <button
-						type="button"
-						onClick={() => setIsRecorderOpen(true)}
-						className="text-neutral-700 flex items-center gap-1 px-3 py-1.5 text-sm rounded-full bg-neutral-100 hover:ring-neutral-300 ring-3 ring-neutral-200 transition-all duration-200 cursor-pointer"
-					>
-						<Mic className="w-4 h-4" />
-						<span className="text-sm">Record</span>
-					</button> */}
 				</div>
 			</div>
 
@@ -96,12 +46,6 @@ export const JournalGridView = () => {
 					))
 				)}
 			</div>
-
-			{/* <AudioRecorderModal
-				isOpen={isRecorderOpen}
-				onOpenChange={setIsRecorderOpen}
-				onSave={handleSaveAudio}
-			/> */}
 		</div>
 	);
 };

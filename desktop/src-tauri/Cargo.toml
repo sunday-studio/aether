@@ -74,17 +74,10 @@ futures = "0.3"
 # Human-readable duration parsing
 humantime = "2.1"
 
-# Audio processing
-hound = "3.5"
-
 # HTTP clients
-reqwest = { version = "0.11", features = ["json", "multipart", "stream"] }
+reqwest = { version = "0.11", features = ["json", "stream"] }
 
-# HTML parsing
-scraper = "0.20"
-
-# URL parsing
-url = "2.5"
+# URL encoding for sync requests
 urlencoding = "2.1"
 
 # Encryption
@@ -99,14 +92,8 @@ tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 # System
 gethostname = "0.4"
 
-# Async traits
-async-trait = "0.1"
-
 # Local embeddings
 fastembed = { version = "5.13.4", default-features = false, features = ["hf-hub-native-tls", "ort-download-binaries-native-tls"] }
-
-# Local Whisper (optional - for future implementation)
-# whisper-rs = "0.10"  # Uncomment when implementing local Whisper
 
 # Model verification
 sha2 = "0.10"

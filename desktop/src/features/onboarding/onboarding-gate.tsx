@@ -1,49 +1,35 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
-import {
-	configureSync,
-	getGetSyncStatusQueryKey,
-	getListProvidersQueryKey,
-	useListProviders,
-	validateProvider,
-} from '~/aether-sdk';
+import { configureSync, getGetSyncStatusQueryKey } from '~/aether-sdk';
 import {
 	DEFAULT_SEARCH_EMBEDDING_MODEL,
 	downloadSearchEmbeddingModel,
 	listSearchEmbeddingModels,
 } from '~/lib/search-embedding-models';
-import { AiStep } from './components/ai-step';
 import { IntroStep } from './components/intro-step';
 import { OnboardingFooter } from './components/onboarding-footer';
 import { OnboardingPreview } from './components/onboarding-preview';
 import { OnboardingStepHeader } from './components/onboarding-step-header';
 import { ProfileStep } from './components/profile-step';
+import { SearchStep } from './components/search-step';
 import { SyncStep } from './components/sync-step';
 import { useSettingsStore } from '~/store/settings-store';
 import {
-	DEFAULT_PROVIDER_KEY,
 	DISPLAY_NAME_KEY,
-	GROQ_API_KEY,
 	ONBOARDING_COMPLETED_KEY,
-	OPENAI_API_KEY,
 	RECOVERY_SEED_KEY,
 	SEARCH_EMBEDDINGS_AUTO_INDEX_KEY,
 	SEARCH_EMBEDDINGS_ENABLED_KEY,
 	SEARCH_EMBEDDINGS_MODEL_KEY,
 	SEARCH_EMBEDDINGS_PROVIDER_KEY,
-	providerCopy,
 	recoveryWords,
 	steps,
 } from './onboarding.constants';
-import { type AiChoice, type ProviderChoice, type SyncChoice } from './onboarding.types';
+import { type SearchChoice, type SyncChoice } from './onboarding.types';
 
 interface OnboardingGateProps {
 	children: ReactNode;
-}
-
-function isConfigured(value: string) {
-	return value.trim().length > 0;
 }
 
 function getErrorMessage(error: unknown) {
@@ -71,21 +57,12 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const [serverUrl, setServerUrl] = useState('');
 	const [serverSeedPhrase, setServerSeedPhrase] = useState('');
 	const [syncPassphrase, setSyncPassphrase] = useState('');
-	const [aiChoice, setAiChoice] = useState<AiChoice>(null);
-	const [provider, setProvider] = useState<ProviderChoice>('openai');
-	const [openaiKey, setOpenaiKey] = useState('');
-	const [groqKey, setGroqKey] = useState('');
+	const [searchChoice, setSearchChoice] = useState<SearchChoice>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isStartingModelDownload, setIsStartingModelDownload] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const { settings, setValue, isLoading } = useSettingsStore();
-
-	const { data: providersResponse } = useListProviders({
-		query: {
-			queryKey: getListProvidersQueryKey(),
-		},
-	});
 
 	const { data: embeddingModels } = useQuery({
 		queryKey: ['search-embedding-models'],
@@ -96,11 +73,6 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const defaultEmbeddingModel =
 		embeddingModels?.find(model => model.name === DEFAULT_SEARCH_EMBEDDING_MODEL) ??
 		embeddingModels?.[0];
-	const activeApiKey = provider === 'openai' ? openaiKey : groqKey;
-	const hasAnyApiKey = isConfigured(openaiKey) || isConfigured(groqKey);
-	const providerStatuses = new Map(
-		(providersResponse?.data ?? []).map(item => [item.name, item.status]),
-	);
 	const progress = ((stepIndex + 1) / steps.length) * 100;
 	const canContinueCurrentStep =
 		currentStep.id !== 'sync' ||
@@ -133,30 +105,29 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 				active: syncChoice !== null,
 			},
 			{
-				label: 'AI',
+				label: 'Search',
 				value: defaultEmbeddingModel?.isDownloaded
 					? 'Local search ready'
 					: isStartingModelDownload
 						? 'Local model download started'
-						: aiChoice === 'yes'
-							? providerCopy[provider].label
-							: aiChoice === 'no'
-								? 'Off for now'
+						: searchChoice === 'yes'
+							? 'Model setup selected'
+							: searchChoice === 'no'
+								? 'Setup later'
 								: 'Optional',
 				active:
-					aiChoice !== null ||
+					searchChoice !== null ||
 					Boolean(defaultEmbeddingModel?.isDownloaded) ||
 					isStartingModelDownload,
 			},
 		],
 		[
-			aiChoice,
 			defaultEmbeddingModel?.isDownloaded,
 			displayName,
 			isStartingModelDownload,
-			provider,
 			recoverySeed,
 			serverUrl,
+			searchChoice,
 			stepIndex,
 			syncChoice,
 		],
@@ -219,61 +190,18 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 		}
 	};
 
-	const completeOnboarding = async (shouldValidateProvider: boolean) => {
+	const completeOnboarding = async () => {
 		setIsSaving(true);
 		setErrorMessage(null);
 		setStatusMessage(null);
 
 		try {
 			await saveCoreSettings();
-			if (aiChoice === 'yes') {
-				if (!hasAnyApiKey) {
-					throw new Error(`Add a ${providerCopy[provider].keyLabel} first, or choose no AI.`);
-				}
-				if (isConfigured(openaiKey)) {
-					await setValue(OPENAI_API_KEY, openaiKey.trim());
-				}
-				if (isConfigured(groqKey)) {
-					await setValue(GROQ_API_KEY, groqKey.trim());
-				}
-				await setValue(DEFAULT_PROVIDER_KEY, provider);
-				if (shouldValidateProvider) {
-					await validateProvider({
-						body: JSON.stringify({ provider_name: provider }),
-						headers: { 'Content-Type': 'application/json' },
-					});
-				}
-			}
 			await setValue(ONBOARDING_COMPLETED_KEY, 'true');
-			await queryClient.invalidateQueries({ queryKey: getListProvidersQueryKey() });
 			await queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
 		} catch (error) {
 			setErrorMessage(getErrorMessage(error));
 			setStatusMessage(null);
-		} finally {
-			setIsSaving(false);
-		}
-	};
-
-	const validateSelectedProvider = async () => {
-		setIsSaving(true);
-		setErrorMessage(null);
-		setStatusMessage(null);
-
-		try {
-			if (!isConfigured(activeApiKey)) {
-				throw new Error(`Add a ${providerCopy[provider].keyLabel} first.`);
-			}
-			await setValue(provider === 'openai' ? OPENAI_API_KEY : GROQ_API_KEY, activeApiKey.trim());
-			await setValue(DEFAULT_PROVIDER_KEY, provider);
-			await validateProvider({
-				body: JSON.stringify({ provider_name: provider }),
-				headers: { 'Content-Type': 'application/json' },
-			});
-			await queryClient.invalidateQueries({ queryKey: getListProvidersQueryKey() });
-			setStatusMessage(`${providerCopy[provider].label} is ready.`);
-		} catch (error) {
-			setErrorMessage(getErrorMessage(error));
 		} finally {
 			setIsSaving(false);
 		}
@@ -306,7 +234,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 	const onSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (stepIndex === steps.length - 1) {
-			completeOnboarding(false);
+			completeOnboarding();
 			return;
 		}
 		nextStep();
@@ -361,19 +289,12 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 											onSyncPassphraseChange={setSyncPassphrase}
 										/>
 									)}
-									{currentStep.id === 'ai' && (
-										<AiStep
-											aiChoice={aiChoice}
-											provider={provider}
-											activeApiKey={activeApiKey}
-											providerStatuses={providerStatuses}
+									{currentStep.id === 'search' && (
+										<SearchStep
+											searchChoice={searchChoice}
 											defaultEmbeddingModel={defaultEmbeddingModel}
 											isStartingModelDownload={isStartingModelDownload}
-											onAiChoiceChange={setAiChoice}
-											onProviderChange={setProvider}
-											onApiKeyChange={value =>
-												provider === 'openai' ? setOpenaiKey(value) : setGroqKey(value)
-											}
+											onSearchChoiceChange={setSearchChoice}
 											onStartEmbeddingModelDownload={startEmbeddingModelDownload}
 										/>
 									)}
@@ -384,17 +305,14 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
 						<OnboardingFooter
 							stepIndex={stepIndex}
 							isSaving={isSaving}
-							isAiStep={currentStep.id === 'ai'}
-							aiChoice={aiChoice}
-							activeApiKey={activeApiKey}
+							isSearchStep={currentStep.id === 'search'}
+							searchChoice={searchChoice}
 							canContinueCurrentStep={canContinueCurrentStep}
 							statusMessage={statusMessage}
 							errorMessage={errorMessage}
 							onBack={() => goToStep(stepIndex - 1)}
 							onContinue={nextStep}
-							onComplete={() => completeOnboarding(aiChoice === 'yes')}
-							onValidateProvider={validateSelectedProvider}
-							isConfigured={isConfigured}
+							onComplete={completeOnboarding}
 						/>
 					</div>
 				</form>
