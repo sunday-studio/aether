@@ -39,6 +39,7 @@
 }
 
 .journal-editor-lines .editor-inner {
+	--editor-line-inset: 12px;
 	--editor-rule-color: color-mix(in srgb, var(--color-border) 52%, transparent);
 	background-image: repeating-linear-gradient(
 		to bottom,
@@ -47,8 +48,9 @@
 		transparent 1px,
 		transparent var(--editor-line-height)
 	);
-	background-position-y: 0;
-	background-size: 100% var(--editor-line-height);
+	background-position: var(--editor-line-inset) 0;
+	background-repeat: repeat-y;
+	background-size: calc(100% - (var(--editor-line-inset) * 2)) var(--editor-line-height);
 }
 
 .editor-text-bold {
