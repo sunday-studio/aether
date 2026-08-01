@@ -62,6 +62,7 @@
 .journal-editor-lines .editor-root {
 	position: relative;
 	z-index: 1;
+	padding-block: var(--editor-line-block-inset);
 }
 
 .journal-editor-lines .editor-paragraph {
