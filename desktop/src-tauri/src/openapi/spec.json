@@ -1807,7 +1807,7 @@
         "tags": [
           "Links"
         ],
-        "summary": "Search for resources to link (for autocomplete)",
+        "summary": "Search journal entries and task-management resources to link (for autocomplete)",
         "operationId": "search_linkable_resources",
         "parameters": [
           {
@@ -1822,7 +1822,7 @@
           {
             "name": "types",
             "in": "query",
-            "description": "Comma-separated resource types to filter",
+            "description": "Comma-separated resource types to filter: entry,task,subtask,goal",
             "required": false,
             "schema": {
               "type": "string",
@@ -1900,7 +1900,7 @@
         "tags": [
           "Search"
         ],
-        "summary": "Search across all resources",
+        "summary": "Search journal entries and task-management resources",
         "operationId": "search",
         "parameters": [
           {
@@ -1915,7 +1915,7 @@
           {
             "name": "types",
             "in": "query",
-            "description": "Comma-separated resource types: entry,task,subtask,goal,tag",
+            "description": "Comma-separated resource types: entry,task,subtask,goal",
             "required": false,
             "schema": {
               "type": "string",

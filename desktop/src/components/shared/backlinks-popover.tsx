@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Goal, Link2, Square } from 'lucide-react';
+import { CheckSquare, FileText, Goal, Link2, Square } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { getBacklinks } from '~/aether-sdk';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
@@ -12,6 +12,8 @@ const getIcon = (resourceType: string) => {
 			return <FileText size={14} />;
 		case 'task':
 			return <Square size={14} />;
+		case 'subtask':
+			return <CheckSquare size={14} />;
 		case 'goal':
 			return <Goal size={14} />;
 		case 'canvas':
@@ -47,6 +49,7 @@ export function BacklinksPopover({ targetType, targetId, children }: BacklinksPo
 				navigate('/');
 				break;
 			case 'task':
+			case 'subtask':
 				navigate('/tasks');
 				break;
 			case 'goal':

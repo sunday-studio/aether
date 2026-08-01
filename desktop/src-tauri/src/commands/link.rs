@@ -206,14 +206,14 @@ pub async fn delete_link(
     .await
 }
 
-/// Search for resources to link (for autocomplete)
+/// Search journal entries and task-management resources to link (for autocomplete)
 #[utoipa::path(
     get,
     path = "/v1/links/search",
     tag = "Links",
     params(
         ("q" = String, Query, description = "Search query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types to filter"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types to filter: entry,task,subtask,goal"),
         ("limit" = Option<u32>, Query, description = "Maximum number of results (default: 20)")
     ),
     responses(
@@ -242,6 +242,7 @@ pub async fn search_linkable_resources(
         let type_vec: Vec<ResourceType> = types_str
             .split(',')
             .filter_map(|s| ResourceType::from_str(s.trim()))
+            .filter(|resource_type| resource_type.is_search_visible())
             .collect();
         if type_vec.is_empty() {
             None

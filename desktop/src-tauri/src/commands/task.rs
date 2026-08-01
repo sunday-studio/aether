@@ -20,17 +20,26 @@ use std::time::Instant;
 use tauri::State;
 use utoipa::ToSchema;
 
-async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+async fn reindex_search_resource(
+    db: std::sync::Arc<libsql::Database>,
+    resource_type: &str,
+    resource_id: &str,
+) {
     let timer = PerfTimer::start("rust-phase", "task.search_refresh");
     let document_started = Instant::now();
     if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("task", task_id)
+        .reindex_resource(resource_type, resource_id)
         .await
     {
-        tracing::warn!("Failed to reindex task {} for search: {}", task_id, e);
+        tracing::warn!(
+            "Failed to reindex {} {} for search: {}",
+            resource_type,
+            resource_id,
+            e
+        );
         timer.finish(json!({
-            "resource_type": "task",
-            "resource_id": task_id,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
             "status": "search_document_error",
             "error": e.to_string(),
         }));
@@ -40,17 +49,18 @@ async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str
 
     let embeddings_started = Instant::now();
     if let Err(e) = SearchEmbeddingRepository::new(db)
-        .refresh_existing_resource_embeddings("task", task_id)
+        .refresh_existing_resource_embeddings(resource_type, resource_id)
         .await
     {
         tracing::warn!(
-            "Failed to refresh task {} search embeddings: {}",
-            task_id,
+            "Failed to refresh {} {} search embeddings: {}",
+            resource_type,
+            resource_id,
             e
         );
         timer.finish(json!({
-            "resource_type": "task",
-            "resource_id": task_id,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
             "status": "search_embedding_error",
             "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
             "error": e.to_string(),
@@ -59,12 +69,47 @@ async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str
     }
     let search_embedding_ms = embeddings_started.elapsed().as_secs_f64() * 1000.0;
     timer.finish(json!({
-        "resource_type": "task",
-        "resource_id": task_id,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
         "status": "ok",
         "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
         "search_embedding_ms": (search_embedding_ms * 10.0).round() / 10.0,
     }));
+}
+
+async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+    reindex_search_resource(db.clone(), "task", task_id).await;
+
+    let document_repo = SearchDocumentRepository::new(db.clone());
+    let subtask_ids = match document_repo.reindex_subtasks_for_task(task_id).await {
+        Ok(subtask_ids) => subtask_ids,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to reindex subtasks for task {} search: {}",
+                task_id,
+                e
+            );
+            return;
+        }
+    };
+
+    let embedding_repo = SearchEmbeddingRepository::new(db);
+    for subtask_id in subtask_ids {
+        if let Err(e) = embedding_repo
+            .refresh_existing_resource_embeddings("subtask", &subtask_id)
+            .await
+        {
+            tracing::warn!(
+                "Failed to refresh subtask {} search embeddings after task update: {}",
+                subtask_id,
+                e
+            );
+        }
+    }
+}
+
+async fn reindex_subtask_search(db: std::sync::Arc<libsql::Database>, subtask_id: &str) {
+    reindex_search_resource(db, "subtask", subtask_id).await;
 }
 
 /// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
@@ -508,9 +553,18 @@ pub async fn delete_task(
     }
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
+    let subtask_ids = repo
+        .find_subtasks(&id)
+        .await?
+        .into_iter()
+        .map(|subtask| subtask.id)
+        .collect::<Vec<_>>();
     repo.delete(&id).await?;
 
-    reindex_task_search(db.clone(), &id).await;
+    reindex_search_resource(db.clone(), "task", &id).await;
+    for subtask_id in subtask_ids {
+        reindex_subtask_search(db.clone(), &subtask_id).await;
+    }
 
     // Log activity
     if let Err(e) = log_delete(db.clone(), "task".to_string(), id.clone()).await {
@@ -596,6 +650,8 @@ pub async fn create_subtask(
     let repo = TaskRepository::new(db.clone());
     let subtask = repo.create_subtask(&task_id, request.title).await?;
 
+    reindex_subtask_search(db.clone(), &subtask.id).await;
+
     // Log activity
     if let Err(e) = log_create(db, "subtask".to_string(), subtask.id.clone()).await {
         tracing::warn!("Failed to log subtask creation activity: {}", e);
@@ -657,6 +713,8 @@ pub async fn update_subtask(
     let subtask = repo
         .update_subtask(&task_id, &subtask_id, request.title, request.is_completed)
         .await?;
+
+    reindex_subtask_search(db.clone(), &subtask.id).await;
 
     // Log activity - check if completion changed
     if let Some(new_completed) = request.is_completed {
@@ -724,6 +782,8 @@ pub async fn delete_subtask(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.delete_subtask(&task_id, &subtask_id).await?;
+
+    reindex_subtask_search(db.clone(), &subtask_id).await;
 
     // Log activity
     if let Err(e) = log_delete(db, "subtask".to_string(), subtask_id.clone()).await {

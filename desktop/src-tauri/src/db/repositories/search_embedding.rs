@@ -255,7 +255,7 @@ impl SearchEmbeddingRepository {
                 conn.query(
                     "SELECT id, text, text_hash
                  FROM search_documents
-                 WHERE resource_type IN ('entry', 'task')
+                 WHERE resource_type IN ('entry', 'task', 'subtask', 'goal')
                  ORDER BY id",
                     libsql::params![],
                 )
@@ -435,6 +435,26 @@ mod tests {
         .await
         .expect("seed task search document");
         repo.upsert_document(SearchDocumentInput {
+            resource_type: "subtask".to_string(),
+            resource_id: "subtask-1".to_string(),
+            chunk_index: 0,
+            title: "Subtask search".to_string(),
+            text: "Subtask semantic search text".to_string(),
+            source_updated_at: "2026-05-18T09:00:00Z".to_string(),
+        })
+        .await
+        .expect("seed subtask search document");
+        repo.upsert_document(SearchDocumentInput {
+            resource_type: "goal".to_string(),
+            resource_id: "goal-1".to_string(),
+            chunk_index: 0,
+            title: "Goal search".to_string(),
+            text: "Goal semantic search text".to_string(),
+            source_updated_at: "2026-05-18T09:00:00Z".to_string(),
+        })
+        .await
+        .expect("seed goal search document");
+        repo.upsert_document(SearchDocumentInput {
             resource_type: "bookmark".to_string(),
             resource_id: "bookmark-1".to_string(),
             chunk_index: 0,
@@ -556,7 +576,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn index_all_embeddings_indexes_entries_and_tasks_by_default() {
+    async fn index_all_embeddings_indexes_journal_and_task_management_by_default() {
         let (_database, document_repo, embedding_repo, db_path) = test_repos().await;
         seed_visible_and_deferred_search_documents(&document_repo).await;
 
@@ -572,14 +592,24 @@ mod tests {
             .find_by_document_and_model("task:task-1:0", "local-hash-384")
             .await
             .expect("find task embedding");
+        let subtask_embedding = embedding_repo
+            .find_by_document_and_model("subtask:subtask-1:0", "local-hash-384")
+            .await
+            .expect("find subtask embedding");
+        let goal_embedding = embedding_repo
+            .find_by_document_and_model("goal:goal-1:0", "local-hash-384")
+            .await
+            .expect("find goal embedding");
         let bookmark_embedding = embedding_repo
             .find_by_document_and_model("bookmark:bookmark-1:0", "local-hash-384")
             .await
             .expect("find bookmark embedding");
 
-        assert_eq!(status.total_embeddings, 2);
+        assert_eq!(status.total_embeddings, 4);
         assert!(entry_embedding.is_some());
         assert!(task_embedding.is_some());
+        assert!(subtask_embedding.is_some());
+        assert!(goal_embedding.is_some());
         assert!(bookmark_embedding.is_none());
 
         cleanup_db(db_path);

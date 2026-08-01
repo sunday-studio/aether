@@ -61,6 +61,10 @@ impl ResourceType {
             _ => None,
         }
     }
+
+    pub fn is_search_visible(&self) -> bool {
+        matches!(self, Self::Entry | Self::Task | Self::SubTask | Self::Goal)
+    }
 }
 
 pub struct SearchRepository {
@@ -77,7 +81,7 @@ impl SearchRepository {
         query.replace('"', "\"\"")
     }
 
-    /// Search across all resources using FTS5 fuzzy matching
+    /// Search journal entries and task-management resources using FTS5 fuzzy matching
     pub async fn search_fuzzy(
         &self,
         query: &str,
@@ -123,16 +127,18 @@ impl SearchRepository {
 
         let mut results = Vec::new();
 
-        let search_types = if let Some(ref t) = types {
-            t.clone()
+        let search_types = if let Some(ref types) = types {
+            types
+                .iter()
+                .filter(|resource_type| resource_type.is_search_visible())
+                .cloned()
+                .collect::<Vec<_>>()
         } else {
             vec![
                 ResourceType::Entry,
                 ResourceType::Task,
                 ResourceType::SubTask,
                 ResourceType::Goal,
-                ResourceType::Tag,
-                ResourceType::Bookmark,
             ]
         };
 
@@ -947,6 +953,16 @@ mod tests {
         );
         assert_eq!(ResourceType::from_str("invalid"), None);
         assert_eq!(ResourceType::from_str("ENTRY"), Some(ResourceType::Entry));
+    }
+
+    #[test]
+    fn search_visible_resource_types_match_journal_and_task_management_scope() {
+        assert!(ResourceType::Entry.is_search_visible());
+        assert!(ResourceType::Task.is_search_visible());
+        assert!(ResourceType::SubTask.is_search_visible());
+        assert!(ResourceType::Goal.is_search_visible());
+        assert!(!ResourceType::Tag.is_search_visible());
+        assert!(!ResourceType::Bookmark.is_search_visible());
     }
 
     #[test]
