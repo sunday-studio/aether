@@ -3,7 +3,7 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, PaginationQueryParams,
 };
 use crate::db::models::Tag;
-use crate::db::{connection, DbState, SearchDocumentRepository, TagRepository};
+use crate::db::{connection, DbState, TagRepository};
 use crate::error::{AppError, Result};
 use crate::utils::log_create;
 use serde::Deserialize;
@@ -75,13 +75,6 @@ pub async fn create_tag(
     let repo = TagRepository::new(db.clone());
     let tag = repo.create(request.name).await?;
 
-    if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("tag", &tag.id)
-        .await
-    {
-        tracing::warn!("Failed to reindex tag {} for search: {}", tag.id, e);
-    }
-
     // Log activity
     if let Err(e) = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await {
         tracing::warn!("Failed to log tag creation activity: {}", e);
@@ -119,13 +112,6 @@ pub async fn bulk_create_tags(
 
     // Log activities for each created tag
     for tag in &tags {
-        if let Err(e) = SearchDocumentRepository::new(db.clone())
-            .reindex_resource("tag", &tag.id)
-            .await
-        {
-            tracing::warn!("Failed to reindex tag {} for search: {}", tag.id, e);
-        }
-
         if let Err(e) = log_create(db.clone(), "tag".to_string(), tag.id.clone()).await {
             tracing::warn!(
                 "Failed to log tag creation activity for tag {}: {}",

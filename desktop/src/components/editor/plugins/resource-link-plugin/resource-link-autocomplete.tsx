@@ -6,7 +6,7 @@ import {
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
 import { useQuery } from '@tanstack/react-query';
 import { $getSelection, $isRangeSelection, type TextNode } from 'lexical';
-import { FileText, Goal, Link2, Square } from 'lucide-react';
+import { CheckSquare, FileText, Goal, Link2, Square } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import * as ReactDOM from 'react-dom';
 import { searchLinkableResources } from '~/aether-sdk';
@@ -61,6 +61,8 @@ function ResourceLinkMenuItem({
 				return <FileText size={16} />;
 			case 'task':
 				return <Square size={16} />;
+			case 'subtask':
+				return <CheckSquare size={16} />;
 			case 'goal':
 				return <Goal size={16} />;
 			default:

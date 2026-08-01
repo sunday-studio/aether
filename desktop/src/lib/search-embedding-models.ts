@@ -24,7 +24,10 @@ export interface SearchEmbeddingStatus {
 
 export interface SearchIndexStatus {
 	totalDocuments: number;
-	resourceCounts: Record<string, number>;
+	entries: number;
+	tasks: number;
+	subtasks: number;
+	goals: number;
 }
 
 interface ApiResponse<T> {

@@ -2,6 +2,7 @@ use crate::commands::params::{
     EmptyPathParams, EmptyRequest, RelatedSearchQueryParams, SearchQueryParams,
     WeekContextQueryParams,
 };
+use crate::db::repositories::search_document::is_visible_search_resource_type;
 use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
@@ -72,14 +73,14 @@ pub struct SearchResultResponse {
     pub updated_at: String,
 }
 
-/// Search across all resources
+/// Search journal entries and task-management resources
 #[utoipa::path(
     get,
     path = "/v1/search",
     tag = "Search",
     params(
         ("q" = String, Query, description = "Search query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,goal,tag,bookmark"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,subtask,goal"),
         ("tags" = Option<String>, Query, description = "Comma-separated tag IDs to filter by"),
         ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
         ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
@@ -114,7 +115,7 @@ pub async fn search_resources(
         let type_vec: Vec<String> = types_str
             .split(',')
             .map(|s| s.trim().to_lowercase())
-            .filter(|s| matches!(s.as_str(), "entry" | "task" | "goal" | "tag" | "bookmark"))
+            .filter(|s| is_visible_search_resource_type(s))
             .collect();
         if type_vec.is_empty() {
             None
@@ -168,7 +169,7 @@ pub async fn search_resources(
     path = "/v1/search/related",
     tag = "Search",
     params(
-        ("resource_type" = String, Query, description = "Resource type: entry, task, goal, tag, or bookmark"),
+        ("resource_type" = String, Query, description = "Resource type: entry, task, subtask, or goal"),
         ("resource_id" = String, Query, description = "Resource ID"),
         ("limit" = Option<u32>, Query, description = "Maximum number of related resources")
     ),
@@ -307,12 +308,7 @@ fn parse_resource_types(types: Option<&str>) -> Option<Vec<String>> {
     let resource_types = types?
         .split(',')
         .map(|resource_type| resource_type.trim().to_lowercase())
-        .filter(|resource_type| {
-            matches!(
-                resource_type.as_str(),
-                "entry" | "task" | "goal" | "tag" | "bookmark"
-            )
-        })
+        .filter(|resource_type| is_visible_search_resource_type(resource_type))
         .collect::<Vec<_>>();
     if resource_types.is_empty() {
         None
