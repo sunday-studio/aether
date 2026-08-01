@@ -2,6 +2,7 @@
 	--editor-padding: 20px;
 	--editor-font-size: 14px;
 	--editor-input-padding: 20px;
+	--editor-line-height: 24px;
 }
 
 .editor-wrapper,
@@ -37,6 +38,19 @@
 	font-size: 14px;
 }
 
+.journal-editor-lines .editor-inner {
+	background-image: repeating-linear-gradient(
+		to bottom,
+		transparent 0,
+		transparent calc(var(--editor-line-height) - 1px),
+		color-mix(in srgb, var(--color-border) 52%, transparent)
+			calc(var(--editor-line-height) - 1px),
+		color-mix(in srgb, var(--color-border) 52%, transparent) var(--editor-line-height)
+	);
+	background-position-y: 0;
+	background-size: 100% var(--editor-line-height);
+}
+
 .editor-text-bold {
 	font-weight: 550;
 	color: var(--color-foreground);
@@ -55,7 +69,7 @@
 .editor-paragraph {
 	margin-top: 0;
 	margin-bottom: 0.125rem;
-	line-height: 24px;
+	line-height: var(--editor-line-height);
 	color: var(--color-foreground);
 }
 
