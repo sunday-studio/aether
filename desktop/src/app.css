@@ -30,13 +30,18 @@
 	background-image:
 		radial-gradient(
 			circle,
-			color-mix(in srgb, var(--color-foreground) 5%, transparent) 0 0.55px,
-			transparent 0.8px
+			color-mix(in srgb, var(--color-foreground) 9%, transparent) 0 0.7px,
+			transparent 1px
 		),
 		radial-gradient(
 			circle,
-			color-mix(in srgb, var(--green-12) 4%, transparent) 0 0.45px,
-			transparent 0.75px
+			color-mix(in srgb, var(--green-12) 7%, transparent) 0 0.6px,
+			transparent 0.95px
+		),
+		radial-gradient(
+			circle,
+			color-mix(in srgb, var(--green-8) 10%, transparent) 0 0.45px,
+			transparent 0.85px
 		),
 		linear-gradient(
 			135deg,
@@ -46,10 +51,12 @@
 	background-position:
 		0 0,
 		7px 11px,
+		13px 5px,
 		0 0;
 	background-size:
-		17px 19px,
-		29px 31px,
+		13px 15px,
+		23px 27px,
+		31px 35px,
 		100% 100%;
 }
 
