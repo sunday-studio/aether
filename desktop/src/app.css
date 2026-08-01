@@ -24,28 +24,29 @@
 	}
 }
 
-.journal-paper-page
+main
 	[class*="space-y-"]
 	> :has(> .journal-editor-lines) {
 	position: relative;
 }
 
-.journal-paper-page
+main
 	[class*="space-y-"]
 	> :has(> .journal-editor-lines)
 	~ :has(> .journal-editor-lines)::before {
 	content: "";
 	position: absolute;
-	top: -1.5rem;
+	top: -2rem;
 	left: 50%;
-	width: 1rem;
-	height: 1.5rem;
+	z-index: 2;
+	width: 1.25rem;
+	height: 2rem;
 	transform: translateX(-50%);
 	pointer-events: none;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='36' viewBox='0 0 16 36' fill='none'%3E%3Cpath d='M8 0C2 4 14 8 8 12C2 16 14 20 8 24C2 28 14 32 8 36' stroke='%23D6D6D6' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='48' viewBox='0 0 20 48' fill='none'%3E%3Cpath d='M10 0C2 5.3 18 10.7 10 16C2 21.3 18 26.7 10 32C2 37.3 18 42.7 10 48' stroke='%239CA3AF' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: center;
-	background-size: 1rem 1.5rem;
+	background-size: 1.25rem 2rem;
 }
 
 .journal-paper-page {
