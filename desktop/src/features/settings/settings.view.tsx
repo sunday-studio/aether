@@ -1,7 +1,8 @@
-import { Antenna, CloudIcon, Palette, WandSparkles } from 'lucide-react';
+import { Antenna, Bug, CloudIcon, Palette, WandSparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { AiSection } from './components/ai.section';
+import { DiagnosticsSection } from './components/diagnostics.section';
 import { PreferencesSection } from './components/preferences.section';
 import { SyncSection } from './components/sync.section';
 import { WhatsNewSection } from './components/whats-new.section';
@@ -9,10 +10,12 @@ import { cn } from '~/utils/cn';
 import { RadialAvatar } from '~/components/shared/radiant-avatar';
 import { useSettingsStore } from '~/store/settings-store';
 
-type AvailableSections = 'preferences' | 'ai' | 'whats-new' | 'sync';
+type AvailableSections = 'preferences' | 'ai' | 'diagnostics' | 'whats-new' | 'sync';
 
 function getAvailableSection(value: string | null): AvailableSections {
-	if (value === 'ai' || value === 'whats-new' || value === 'sync') return value;
+	if (value === 'ai' || value === 'diagnostics' || value === 'whats-new' || value === 'sync') {
+		return value;
+	}
 	return 'preferences';
 }
 
@@ -51,6 +54,11 @@ export const SettingsView = () => {
 			label: 'AI',
 			icon: <WandSparkles className='size-4' strokeWidth={2.5} />,
 			component: <AiSection />,
+		},
+		diagnostics: {
+			label: 'Diagnostics',
+			icon: <Bug className='size-4' strokeWidth={2.5} />,
+			component: <DiagnosticsSection />,
 		},
 		'whats-new': {
 			label: "What's new",

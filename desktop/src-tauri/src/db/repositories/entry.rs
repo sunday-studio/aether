@@ -1,10 +1,12 @@
 use crate::db::models::{Entry, Tag};
 use crate::error::{AppError, Result};
-use crate::utils::generate_id;
+use crate::utils::{generate_id, record_rust_timing};
 use chrono::Utc;
 use libsql::Database;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct EntryRepository {
     database: Arc<Database>,
@@ -23,10 +25,13 @@ impl EntryRepository {
         limit: Option<u32>,
         cursor: Option<String>,
     ) -> Result<(Vec<Entry>, Option<String>, bool)> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
+            let query_started = Instant::now();
             let mut rows = conn
                 .query(
                     "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -42,11 +47,27 @@ impl EntryRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 entries.push(self.row_to_entry(row)?);
             }
+            let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
+            let tags_started = Instant::now();
             let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
             let tag_map = self.get_tags_for_entries(&ids).await?;
             for entry in &mut entries {
                 entry.tags = Some(tag_map.get(&entry.id).cloned().unwrap_or_default());
             }
+            let tags_ms = tags_started.elapsed().as_secs_f64() * 1000.0;
+            record_rust_timing(
+                "rust-repository",
+                "EntryRepository.find_all",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "entry",
+                    "mode": "all",
+                    "result_count": entries.len(),
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                    "load_tags_ms": (tags_ms * 10.0).round() / 10.0,
+                }),
+            );
             return Ok((entries, None, false));
         }
 
@@ -54,6 +75,8 @@ impl EntryRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1; // Fetch one extra to determine has_more
 
+        let has_cursor = cursor.is_some();
+        let query_started = Instant::now();
         let mut rows = if let Some(cursor_val) = cursor {
             // Decode cursor to get last ID
             use crate::commands::common::cursor;
@@ -96,6 +119,7 @@ impl EntryRepository {
                 break;
             }
         }
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         // Set next_cursor from last entry if we have entries
         let next_cursor = if has_more && !entries.is_empty() {
@@ -105,19 +129,41 @@ impl EntryRepository {
             None
         };
 
+        let tags_started = Instant::now();
         let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
         let tag_map = self.get_tags_for_entries(&ids).await?;
         for entry in &mut entries {
             entry.tags = Some(tag_map.get(&entry.id).cloned().unwrap_or_default());
         }
+        let tags_ms = tags_started.elapsed().as_secs_f64() * 1000.0;
+
+        record_rust_timing(
+            "rust-repository",
+            "EntryRepository.find_all",
+            repository_started.elapsed(),
+            json!({
+                "resource_type": "entry",
+                "mode": "paginated",
+                "result_count": entries.len(),
+                "limit": limit_val,
+                "cursor_present": has_cursor,
+                "has_more": has_more,
+                "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                "load_tags_ms": (tags_ms * 10.0).round() / 10.0,
+            }),
+        );
 
         Ok((entries, next_cursor, has_more))
     }
 
     /// Get entry by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Entry>> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
+        let query_started = Instant::now();
         let mut rows = conn
             .query(
                 "SELECT id, document, created_at, is_pinned, is_archived, is_deleted, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -127,12 +173,40 @@ impl EntryRepository {
             )
             .await
             .map_err(|e| AppError::LibSQL(e))?;
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
             let mut entry = self.row_to_entry(row)?;
+            let tags_started = Instant::now();
             entry.tags = Some(self.get_tags_for_entry(&entry.id).await?);
+            let tags_ms = tags_started.elapsed().as_secs_f64() * 1000.0;
+            record_rust_timing(
+                "rust-repository",
+                "EntryRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "entry",
+                    "resource_id": id,
+                    "found": true,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                    "load_tags_ms": (tags_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(Some(entry))
         } else {
+            record_rust_timing(
+                "rust-repository",
+                "EntryRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "entry",
+                    "resource_id": id,
+                    "found": false,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(None)
         }
     }
