@@ -4,6 +4,7 @@ pub mod audio;
 pub mod bookmark;
 pub mod canvas;
 pub mod common;
+pub mod diagnostics;
 pub mod embeddings;
 pub mod entry;
 pub mod goal;

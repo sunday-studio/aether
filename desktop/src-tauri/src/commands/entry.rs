@@ -130,12 +130,33 @@ pub async fn get_entries(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<Entry>> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let params = query_params.unwrap_or_default();
+    let limit = params.normalize_limit();
+    let has_cursor = params.cursor.is_some();
     let repo = EntryRepository::new(connection::get_database(&*state));
-    let (entries, next_cursor, has_more) = repo
-        .find_all(params.normalize_limit(), params.cursor)
-        .await?;
+    let repo_started = Instant::now();
+    let (entries, next_cursor, has_more) = repo.find_all(limit, params.cursor).await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let item_count = entries.len();
+    record_rust_timing(
+        "rust-command",
+        "get_entries",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "entry",
+            "result_count": item_count,
+            "limit": limit,
+            "cursor_present": has_cursor,
+            "has_more": has_more,
+            "next_cursor_present": next_cursor.is_some(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+        }),
+    );
     Ok(PaginationResponse::new(entries, next_cursor, has_more))
 }
 
@@ -160,7 +181,10 @@ pub async fn get_entry_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<Entry> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -168,9 +192,26 @@ pub async fn get_entry_by_id(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
     let repo = EntryRepository::new(connection::get_database(&*state));
-    repo.find_by_id(&id)
+    let repo_started = Instant::now();
+    let entry = repo
+        .find_by_id(&id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Entry {} not found", id)))
+        .ok_or_else(|| AppError::NotFound(format!("Entry {} not found", id)))?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    record_rust_timing(
+        "rust-command",
+        "get_entry_by_id",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "entry",
+            "resource_id": id,
+            "document_bytes": entry.document.len(),
+            "tag_count": entry.tags.as_ref().map_or(0, Vec::len),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+        }),
+    );
+    Ok(entry)
 }
 
 /// Create a new entry

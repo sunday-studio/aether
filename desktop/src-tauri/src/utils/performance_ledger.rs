@@ -1,11 +1,21 @@
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
-const RUST_LEDGER_FILE: &str = "aether-rust-performance-ledger.jsonl";
+const RUST_LEDGER_FILE: &str = "aether-diagnostics-rust.jsonl";
+const MAX_RUST_LEDGER_ENTRIES: usize = 500;
 const SLOW_RUST_TIMING_THRESHOLD: Duration = Duration::from_millis(150);
+const REDACTED: &str = "[REDACTED]";
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugLogExportResult {
+    pub path: String,
+    pub rust_entries: usize,
+    pub frontend_entries: usize,
+}
 
 pub struct PerfTimer {
     event: &'static str,
@@ -39,7 +49,7 @@ pub fn record_rust_timing(
         "event": event,
         "name": name,
         "elapsed_ms": (elapsed_ms * 10.0).round() / 10.0,
-        "details": details,
+        "details": redact_json_value(&details),
     });
 
     if elapsed >= SLOW_RUST_TIMING_THRESHOLD {
@@ -60,14 +70,277 @@ pub fn record_rust_timing(
         );
     }
 
-    let path = std::env::temp_dir().join(RUST_LEDGER_FILE);
-    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) else {
-        return;
-    };
-
-    let _ = writeln!(file, "{}", entry);
+    let path = rust_ledger_path();
+    let _ = append_bounded_jsonl(&path, &entry, MAX_RUST_LEDGER_ENTRIES);
 }
 
 pub fn rust_ledger_path() -> std::path::PathBuf {
-    std::env::temp_dir().join(RUST_LEDGER_FILE)
+    diagnostics_dir().join(RUST_LEDGER_FILE)
+}
+
+pub fn export_debug_logs(frontend_entries: Vec<Value>) -> std::io::Result<DebugLogExportResult> {
+    let dir = diagnostics_dir();
+    std::fs::create_dir_all(&dir)?;
+
+    let rust_entries = read_jsonl_values(&rust_ledger_path())?
+        .into_iter()
+        .map(|entry| redact_json_value(&entry))
+        .collect::<Vec<_>>();
+    let frontend_entries = frontend_entries
+        .into_iter()
+        .map(|entry| redact_json_value(&entry))
+        .collect::<Vec<_>>();
+
+    let export = json!({
+        "schemaVersion": 1,
+        "exportedAt": chrono::Utc::now().to_rfc3339(),
+        "privacy": {
+            "mode": "local-redacted",
+            "notes": [
+                "Generated on device.",
+                "No journal or task body content is intentionally included.",
+                "Known secret fields and query values are redacted before export."
+            ]
+        },
+        "timings": {
+            "rust": rust_entries,
+            "frontend": frontend_entries
+        }
+    });
+
+    let filename = format!(
+        "aether-debug-log-{}.json",
+        chrono::Utc::now().format("%Y%m%d%H%M%S")
+    );
+    let path = dir.join(filename);
+    let contents = serde_json::to_string_pretty(&export).map_err(std::io::Error::other)?;
+    std::fs::write(&path, contents)?;
+
+    Ok(DebugLogExportResult {
+        path: path.display().to_string(),
+        rust_entries: export["timings"]["rust"].as_array().map_or(0, Vec::len),
+        frontend_entries: export["timings"]["frontend"].as_array().map_or(0, Vec::len),
+    })
+}
+
+pub fn redact_json_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut redacted = serde_json::Map::new();
+            for (key, value) in map {
+                if is_sensitive_key(key) {
+                    redacted.insert(key.clone(), Value::String(REDACTED.to_string()));
+                } else {
+                    redacted.insert(key.clone(), redact_json_value(value));
+                }
+            }
+            Value::Object(redacted)
+        }
+        Value::Array(values) => Value::Array(values.iter().map(redact_json_value).collect()),
+        Value::String(value) => Value::String(redact_string(value)),
+        _ => value.clone(),
+    }
+}
+
+fn diagnostics_dir() -> PathBuf {
+    if cfg!(debug_assertions) {
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("diagnostics");
+    }
+
+    directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
+        .map(|dirs| dirs.data_local_dir().join("diagnostics"))
+        .unwrap_or_else(|| std::env::temp_dir().join("aether-diagnostics"))
+}
+
+fn append_bounded_jsonl(path: &Path, entry: &Value, max_entries: usize) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let mut lines = std::fs::read_to_string(path)
+        .map(|contents| contents.lines().map(str::to_owned).collect::<Vec<_>>())
+        .unwrap_or_default();
+    lines.push(entry.to_string());
+    if lines.len() > max_entries {
+        lines.drain(0..lines.len() - max_entries);
+    }
+
+    std::fs::write(path, format!("{}\n", lines.join("\n")))
+}
+
+fn read_jsonl_values(path: &Path) -> std::io::Result<Vec<Value>> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let contents = std::fs::read_to_string(path)?;
+    Ok(contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .collect())
+}
+
+fn is_sensitive_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    [
+        "authorization",
+        "password",
+        "passphrase",
+        "token",
+        "secret",
+        "apikey",
+        "api_key",
+        "accesskey",
+        "access_key",
+        "credential",
+        "private_key",
+    ]
+    .iter()
+    .any(|part| key.contains(part))
+}
+
+fn redact_string(value: &str) -> String {
+    let mut redacted = redact_url_query_values(value);
+    redacted = redact_assignment_values(&redacted);
+    redact_known_token_shapes(&redacted)
+}
+
+fn redact_url_query_values(value: &str) -> String {
+    let Some((base, query)) = value.split_once('?') else {
+        return value.to_string();
+    };
+    let (query, suffix) = query
+        .split_once('#')
+        .map_or((query, ""), |(query, suffix)| (query, suffix));
+    let redacted_query = query
+        .split('&')
+        .map(|pair| {
+            pair.split_once('=').map_or_else(
+                || pair.to_string(),
+                |(key, value)| {
+                    if value.is_empty() {
+                        key.to_string()
+                    } else if is_safe_query_value(key, value) {
+                        format!("{}={}", key, value)
+                    } else {
+                        format!("{}={}", key, REDACTED)
+                    }
+                },
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("&");
+
+    if suffix.is_empty() {
+        format!("{}?{}", base, redacted_query)
+    } else {
+        format!("{}?{}#{}", base, redacted_query, suffix)
+    }
+}
+
+fn is_safe_query_value(key: &str, value: &str) -> bool {
+    if is_sensitive_key(key) {
+        return false;
+    }
+    matches!(key, "limit" | "offset" | "page" | "cursor") && value.len() <= 64
+}
+
+fn redact_assignment_values(value: &str) -> String {
+    let mut out = value.to_string();
+    for marker in [
+        "authorization=",
+        "password=",
+        "passphrase=",
+        "token=",
+        "secret=",
+        "api_key=",
+        "apikey=",
+        "access_key=",
+        "credential=",
+    ] {
+        out = redact_after_marker(&out, marker);
+    }
+    out
+}
+
+fn redact_after_marker(value: &str, marker: &str) -> String {
+    let lower = value.to_ascii_lowercase();
+    let mut search_start = 0;
+    let mut out = String::new();
+
+    while let Some(relative_index) = lower[search_start..].find(marker) {
+        let marker_start = search_start + relative_index;
+        let value_start = marker_start + marker.len();
+        out.push_str(&value[search_start..value_start]);
+
+        let value_end = value[value_start..]
+            .find(|c: char| c == '&' || c == ',' || c == '"' || c == '\'' || c == '\n' || c == '\r')
+            .map_or(value.len(), |end| value_start + end);
+        out.push_str(REDACTED);
+        search_start = value_end;
+    }
+
+    out.push_str(&value[search_start..]);
+    out
+}
+
+fn redact_known_token_shapes(value: &str) -> String {
+    value
+        .split_whitespace()
+        .map(|part| {
+            if part.starts_with("phx_") || part.starts_with("sk-") {
+                REDACTED.to_string()
+            } else {
+                part.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacts_sensitive_object_keys() {
+        let value = json!({
+            "apiKey": "sk-secret",
+            "syncPassphrase": "correct horse battery staple",
+            "elapsed_ms": 12.3,
+        });
+
+        let redacted = redact_json_value(&value);
+
+        assert_eq!(redacted["apiKey"], REDACTED);
+        assert_eq!(redacted["syncPassphrase"], REDACTED);
+        assert_eq!(redacted["elapsed_ms"], 12.3);
+    }
+
+    #[test]
+    fn redacts_query_values_but_keeps_safe_timing_context() {
+        let value = json!({
+            "url": "/v1/search?query=private%20journal&limit=50&token=abc123",
+        });
+
+        let redacted = redact_json_value(&value);
+
+        assert_eq!(
+            redacted["url"],
+            "/v1/search?query=[REDACTED]&limit=50&token=[REDACTED]"
+        );
+    }
+
+    #[test]
+    fn redacts_secret_assignments_inside_messages() {
+        let value = json!({
+            "error": "failed authorization=Bearer abc",
+        });
+
+        let redacted = redact_json_value(&value);
+
+        assert_eq!(redacted["error"], "failed authorization=[REDACTED]");
+    }
 }

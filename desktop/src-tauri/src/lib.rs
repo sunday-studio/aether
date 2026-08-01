@@ -383,6 +383,8 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::get_all_settings,
             commands::settings::set_setting,
+            // Diagnostics commands
+            commands::diagnostics::export_debug_logs,
             // Embedding model commands
             commands::embeddings::list_embedding_models,
             commands::embeddings::download_embedding_model,

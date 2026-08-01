@@ -1,10 +1,12 @@
 use crate::db::models::{Goal, SubTask, Tag, Task, TaskWithSubtasks};
 use crate::error::{AppError, Result};
-use crate::utils::generate_id;
+use crate::utils::{generate_id, record_rust_timing};
 use chrono::Utc;
 use libsql::Database;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct TaskRepository {
     database: Arc<Database>,
@@ -80,10 +82,13 @@ impl TaskRepository {
         limit: Option<u32>,
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
+            let query_started = Instant::now();
             let mut rows = conn
                 .query(
                     "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -99,6 +104,20 @@ impl TaskRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 tasks.push(self.row_to_task(row)?);
             }
+            let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
+
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_inbox",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "mode": "all",
+                    "result_count": tasks.len(),
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
 
             return Ok((tasks, None, false));
         }
@@ -107,6 +126,8 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
 
+        let has_cursor = cursor.is_some();
+        let query_started = Instant::now();
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
@@ -155,6 +176,7 @@ impl TaskRepository {
                 break;
             }
         }
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
@@ -168,6 +190,22 @@ impl TaskRepository {
             None
         };
 
+        record_rust_timing(
+            "rust-repository",
+            "TaskRepository.find_inbox",
+            repository_started.elapsed(),
+            json!({
+                "resource_type": "task",
+                "mode": "paginated",
+                "result_count": tasks.len(),
+                "limit": limit_val,
+                "cursor_present": has_cursor,
+                "has_more": has_more,
+                "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+            }),
+        );
+
         Ok((tasks, next_cursor, has_more))
     }
 
@@ -179,13 +217,16 @@ impl TaskRepository {
         limit: Option<u32>,
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
+            let query_started = Instant::now();
             let mut rows = conn
                 .query(
                     "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -201,6 +242,20 @@ impl TaskRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 tasks.push(self.row_to_task(row)?);
             }
+            let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
+
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_overdue",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "mode": "all",
+                    "result_count": tasks.len(),
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
 
             return Ok((tasks, None, false));
         }
@@ -209,6 +264,8 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
 
+        let has_cursor = cursor.is_some();
+        let query_started = Instant::now();
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
@@ -257,6 +314,7 @@ impl TaskRepository {
                 break;
             }
         }
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
@@ -270,13 +328,32 @@ impl TaskRepository {
             None
         };
 
+        record_rust_timing(
+            "rust-repository",
+            "TaskRepository.find_overdue",
+            repository_started.elapsed(),
+            json!({
+                "resource_type": "task",
+                "mode": "paginated",
+                "result_count": tasks.len(),
+                "limit": limit_val,
+                "cursor_present": has_cursor,
+                "has_more": has_more,
+                "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+            }),
+        );
+
         Ok((tasks, next_cursor, has_more))
     }
 
     /// Get task by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Task>> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
+        let query_started = Instant::now();
         let mut rows = conn
             .query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -286,10 +363,35 @@ impl TaskRepository {
             )
             .await
             .map_err(|e| AppError::LibSQL(e))?;
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "resource_id": id,
+                    "found": true,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(Some(self.row_to_task(row)?))
         } else {
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "resource_id": id,
+                    "found": false,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(None)
         }
     }

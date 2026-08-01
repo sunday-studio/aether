@@ -9,6 +9,6 @@ Reference docs describe the current project shape and durable system behavior.
 - [Flows](./flows.md): diagrams for the primary runtime and product flows.
 - [Features](./features.md): product and feature inventory.
 - [Sync](./sync.md): sync architecture and behavior notes.
+- [Diagnostics](./diagnostics.md): local debug log export behavior and telemetry recommendation.
 - [Desktop README](./desktop-readme.md): original desktop package README.
 - [Sync Server README](./sync-server-readme.md): original sync-server package README.
-

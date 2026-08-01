@@ -1,4 +1,4 @@
-type RestLedgerEntry = {
+export type RestLedgerEntry = {
 	id: number;
 	at: string;
 	method: string;
@@ -30,6 +30,7 @@ declare global {
 const REST_LEDGER_KEY = 'aether:rest-ledger:v1';
 const MAX_LEDGER_ENTRIES = 300;
 const SLOW_REQUEST_THRESHOLD_MS = 150;
+const REDACTED = '[REDACTED]';
 
 let nextRestLedgerId = 1;
 
@@ -91,6 +92,8 @@ export function recordRestLedgerEntry(entry: Omit<RestLedgerEntry, 'id' | 'at'>)
 		...entry,
 		id: nextRestLedgerId++,
 		at: new Date().toISOString(),
+		url: sanitizeUrlForLedger(entry.url),
+		errorMessage: entry.errorMessage ? redactText(entry.errorMessage) : undefined,
 		totalMs: Math.round(entry.totalMs * 10) / 10,
 		routeMs: Math.round(entry.routeMs * 10) / 10,
 		parseMs: Math.round(entry.parseMs * 10) / 10,
@@ -125,4 +128,56 @@ export function recordRestLedgerEntry(entry: Omit<RestLedgerEntry, 'id' | 'at'>)
 	} else if (import.meta.env.DEV) {
 		console.debug('[REST-TIMING]', logPayload);
 	}
+}
+
+export function getRestLedgerEntriesForExport(): RestLedgerEntry[] {
+	if (typeof window === 'undefined') return [];
+	installLedgerHelpers();
+	return loadLedger().map(entry => ({
+		...entry,
+		url: sanitizeUrlForLedger(entry.url),
+		errorMessage: entry.errorMessage ? redactText(entry.errorMessage) : undefined,
+	}));
+}
+
+function sanitizeUrlForLedger(url: string): string {
+	const [pathWithQuery = '', hash = ''] = url.split('#', 2);
+	const [path = '', query = ''] = pathWithQuery.split('?', 2);
+	if (!query) return path;
+
+	const redactedQuery = query
+		.split('&')
+		.map(pair => {
+			const [key = '', value = ''] = pair.split('=', 2);
+			if (!value) return key;
+			if (isSafeQueryValue(key, value)) return `${key}=${value}`;
+			return `${key}=${REDACTED}`;
+		})
+		.join('&');
+
+	return hash ? `${path}?${redactedQuery}#${hash}` : `${path}?${redactedQuery}`;
+}
+
+function isSafeQueryValue(key: string, value: string): boolean {
+	const normalizedKey = key.toLowerCase();
+	if (
+		normalizedKey.includes('token') ||
+		normalizedKey.includes('secret') ||
+		normalizedKey.includes('password') ||
+		normalizedKey.includes('passphrase') ||
+		normalizedKey.includes('api_key') ||
+		normalizedKey.includes('apikey')
+	) {
+		return false;
+	}
+	return ['limit', 'offset', 'page', 'cursor'].includes(normalizedKey) && value.length <= 64;
+}
+
+function redactText(value: string): string {
+	return value
+		.replace(
+			/(authorization|password|passphrase|token|secret|api_key|apikey)=([^&,"'\r\n]+)/gi,
+			`$1=${REDACTED}`,
+		)
+		.replace(/\b(phx_[a-z0-9_]+|sk-[a-z0-9_-]+)\b/gi, REDACTED);
 }

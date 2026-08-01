@@ -7,6 +7,7 @@ This directory is the home for human-facing project documentation.
 - [Project README](./reference/project-readme.md): repo overview and local development entrypoint.
 - [Architecture](./reference/architecture.md): system overview, directory map, and backend/frontend gaps.
 - [Flows](./reference/flows.md): Mermaid diagrams for app runtime, onboarding, CRUD, transcription, sync, updater, and v1 surface.
+- [Diagnostics](./reference/diagnostics.md): local debug log export behavior and telemetry recommendation.
 - [Completed Work](./milestones/completed-work.md): decisions and project-shaping work already done.
 - [V1 Release Checklist](./milestones/v1-release-checklist.md): the current release checklist.
 - [Release Testing Plan](./milestones/release-testing-plan.md): checks for release readiness, smoke testing, and updater validation.

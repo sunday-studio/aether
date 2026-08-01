@@ -270,13 +270,36 @@ pub async fn get_inbox_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let params = query_params.unwrap_or_default();
+    let limit = params.normalize_limit();
+    let has_cursor = params.cursor.is_some();
     let repo = TaskRepository::new(connection::get_database(&*state));
-    let (tasks, next_cursor, has_more) = repo
-        .find_inbox(params.normalize_limit(), params.cursor)
-        .await?;
+    let repo_started = Instant::now();
+    let (tasks, next_cursor, has_more) = repo.find_inbox(limit, params.cursor).await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    record_rust_timing(
+        "rust-command",
+        "get_inbox_tasks",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "result_count": tasks_with_subtasks.len(),
+            "limit": limit,
+            "cursor_present": has_cursor,
+            "has_more": has_more,
+            "next_cursor_present": next_cursor.is_some(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
     Ok(PaginationResponse::new(
         tasks_with_subtasks,
         next_cursor,
@@ -305,13 +328,36 @@ pub async fn get_overdue_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let params = query_params.unwrap_or_default();
+    let limit = params.normalize_limit();
+    let has_cursor = params.cursor.is_some();
     let repo = TaskRepository::new(connection::get_database(&*state));
-    let (tasks, next_cursor, has_more) = repo
-        .find_overdue(params.normalize_limit(), params.cursor)
-        .await?;
+    let repo_started = Instant::now();
+    let (tasks, next_cursor, has_more) = repo.find_overdue(limit, params.cursor).await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    record_rust_timing(
+        "rust-command",
+        "get_overdue_tasks",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "result_count": tasks_with_subtasks.len(),
+            "limit": limit,
+            "cursor_present": has_cursor,
+            "has_more": has_more,
+            "next_cursor_present": next_cursor.is_some(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
     Ok(PaginationResponse::new(
         tasks_with_subtasks,
         next_cursor,
@@ -340,7 +386,10 @@ pub async fn get_task_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -348,12 +397,30 @@ pub async fn get_task_by_id(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
     let repo = TaskRepository::new(connection::get_database(&*state));
+    let repo_started = Instant::now();
     let task = repo
         .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let out = repo.with_subtasks(vec![task]).await?;
-    Ok(out.into_iter().next().expect("one task"))
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    let task = out.into_iter().next().expect("one task");
+    record_rust_timing(
+        "rust-command",
+        "get_task_by_id",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "resource_id": id,
+            "subtask_count": task.subtasks.len(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
+    Ok(task)
 }
 
 /// Update a task
