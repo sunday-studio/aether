@@ -1,5 +1,6 @@
 export type RestLedgerEntry = {
 	id: number;
+	requestId: string;
 	at: string;
 	method: string;
 	url: string;
@@ -110,6 +111,7 @@ export function recordRestLedgerEntry(entry: Omit<RestLedgerEntry, 'id' | 'at'>)
 
 	const logPayload = {
 		id: normalizedEntry.id,
+		requestId: normalizedEntry.requestId,
 		method: normalizedEntry.method,
 		url: normalizedEntry.url,
 		command: normalizedEntry.command,

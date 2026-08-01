@@ -80,6 +80,13 @@ function getErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+let nextRequestId = 1;
+
+function createRequestId(): string {
+	const sequence = nextRequestId++;
+	return `tauri-${Math.round(performance.now() * 1000)}-${sequence}`;
+}
+
 // Route to command mapping
 const routeToCommand: Record<string, string> = {
 	// Tags
@@ -261,6 +268,7 @@ function findMatchingRoute(
  */
 export const customFetch = async <T>(url: string, options?: RequestInit): Promise<T> => {
 	const totalStarted = performance.now();
+	const requestId = createRequestId();
 	const method = (options?.method || 'GET').toUpperCase();
 
 	// Find the matching Tauri command for this route
@@ -307,6 +315,7 @@ export const customFetch = async <T>(url: string, options?: RequestInit): Promis
 	// Missing keys deserialize as None for Option<T>
 	const argsStarted = performance.now();
 	const args: Record<string, unknown> = {};
+	args.requestId = requestId;
 
 	if (requestData !== undefined && requestData !== null) {
 		const normalizer = requestDataNormalizers[match.command];
@@ -328,6 +337,7 @@ export const customFetch = async <T>(url: string, options?: RequestInit): Promis
 		const result = await invoke(match.command, args);
 		const invokeMs = performance.now() - invokeStarted;
 		recordRestLedgerEntry({
+			requestId,
 			method,
 			url,
 			command: match.command,
@@ -360,6 +370,7 @@ export const customFetch = async <T>(url: string, options?: RequestInit): Promis
 			status = 409;
 		}
 		recordRestLedgerEntry({
+			requestId,
 			method,
 			url,
 			command: match.command,

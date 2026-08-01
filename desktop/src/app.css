@@ -1,15 +1,12 @@
-@import "tailwindcss";
-@import "./styles/theme.css";
+@import 'tailwindcss';
+@import './styles/theme.css';
 
 :root {
 	/* Animations */
-	--animate-slideDownAndFade: slideDownAndFade 400ms
-		cubic-bezier(0.16, 1, 0.3, 1);
-	--animate-slideLeftAndFade: slideLeftAndFade 400ms
-		cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-slideDownAndFade: slideDownAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-slideLeftAndFade: slideLeftAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1);
 	--animate-slideUpAndFade: slideUpAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1);
-	--animate-slideRightAndFade: slideRightAndFade 400ms
-		cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-slideRightAndFade: slideRightAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #root {
@@ -25,16 +22,16 @@
 }
 
 main
-	[class*="space-y-"]
+	[class*='space-y-']
 	> :has(> .journal-editor-lines) {
 	position: relative;
 }
 
 main
-	[class*="space-y-"]
+	[class*='space-y-']
 	> :has(> .journal-editor-lines)
 	~ :has(> .journal-editor-lines)::before {
-	content: "";
+	content: '';
 	position: absolute;
 	top: -2rem;
 	left: 50%;
@@ -47,26 +44,6 @@ main
 	background-repeat: no-repeat;
 	background-position: center;
 	background-size: 1.25rem 2rem;
-}
-
-.journal-paper-page {
-	position: relative;
-	isolation: isolate;
-}
-
-.journal-paper-page::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	z-index: 0;
-	pointer-events: none;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='grain' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.18' numOctaves='2' stitchTiles='stitch' result='noise'/%3E%3CfeColorMatrix in='noise' type='matrix' values='0 0 0 0 0.32 0 0 0 0 0.27 0 0 0 0 0.18 0.035 0.035 0.035 0 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23grain)'/%3E%3C/svg%3E");
-	background-size: 140px 140px;
-}
-
-.journal-paper-page > * {
-	position: relative;
-	z-index: 1;
 }
 
 /* Keyframes */
@@ -115,36 +92,36 @@ main
 }
 
 @font-face {
-	font-family: "Berkely Mono";
-	src: url("/fonts/Berkely/BerkeleyMono-SemiLight.ttf") format("truetype");
+	font-family: 'Berkely Mono';
+	src: url('/fonts/Berkely/BerkeleyMono-SemiLight.ttf') format('truetype');
 	font-weight: 350;
 	font-style: normal;
 }
 
 @font-face {
-	font-family: "Berkely Mono";
-	src: url("/fonts/Berkely/BerkeleyMono-Regular.ttf") format("truetype");
+	font-family: 'Berkely Mono';
+	src: url('/fonts/Berkely/BerkeleyMono-Regular.ttf') format('truetype');
 	font-weight: 400;
 	font-style: normal;
 }
 
 .font-inter {
-	font-family: "Inter", sans-serif;
+	font-family: 'Inter', sans-serif;
 }
 
 body,
 html {
 	color: var(--color-foreground, var(--color-neutral-600));
-	font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
 	font-weight: 400;
 	font-feature-settings:
-		"zero" 1,
-		"tnum" 1,
-		"blwf" on,
-		"cv09" on,
-		"cv03" on,
-		"cv04" on,
-		"cv11" on;
+		'zero' 1,
+		'tnum' 1,
+		'blwf' on,
+		'cv09' on,
+		'cv03' on,
+		'cv04' on,
+		'cv11' on;
 	background-color: var(--blue-1);
 	line-height: 1.5;
 	transition:
@@ -163,14 +140,14 @@ html {
 }
 
 .newsreader-font {
-	font-family: "Newsreader", serif;
+	font-family: 'Newsreader', serif;
 	font-optical-sizing: auto;
 	font-style: normal;
 	font-weight: 200 800;
 }
 
 .inter-font {
-	font-family: "Inter", sans-serif;
+	font-family: 'Inter', sans-serif;
 	font-optical-sizing: auto;
 	font-weight: 100 900;
 	font-style: normal;
@@ -200,7 +177,7 @@ html {
 	animation: fade-in 200ms ease-out;
 }
 
-[cmdk-dialog][data-state="closed"] {
+[cmdk-dialog][data-state='closed'] {
 	animation: fade-out 200ms ease-in;
 }
 
@@ -227,13 +204,10 @@ html {
 		0 0 0 1px rgba(0, 0, 0, 0.05);
 	overflow: hidden;
 	animation: slideDownAndFade 300ms cubic-bezier(0.16, 1, 0.3, 1);
-	color: var(
-		--color-card-foreground,
-		var(--color-foreground, var(--color-neutral-900))
-	);
+	color: var(--color-card-foreground, var(--color-foreground, var(--color-neutral-900)));
 }
 
-[cmdk-dialog-content][data-state="closed"] {
+[cmdk-dialog-content][data-state='closed'] {
 	animation: slideUpAndFade 200ms ease-in;
 }
 
@@ -247,8 +221,7 @@ html {
 	background-color: transparent;
 	border: none;
 	outline: none;
-	border-bottom: 1px solid
-		var(--color-input, var(--color-border, var(--color-neutral-200)));
+	border-bottom: 1px solid var(--color-input, var(--color-border, var(--color-neutral-200)));
 	transition: border-color 0.2s ease;
 }
 
@@ -324,34 +297,28 @@ html {
 }
 
 [cmdk-item]:hover,
-[cmdk-item][data-selected="true"] {
+[cmdk-item][data-selected='true'] {
 	background-color: var(--color-accent, var(--color-neutral-100));
-	color: var(
-		--color-accent-foreground,
-		var(--color-foreground, var(--color-neutral-900))
-	);
+	color: var(--color-accent-foreground, var(--color-foreground, var(--color-neutral-900)));
 }
 
-[cmdk-item][aria-selected="true"] {
+[cmdk-item][aria-selected='true'] {
 	background-color: var(--color-secondary, var(--color-neutral-200));
-	color: var(
-		--color-secondary-foreground,
-		var(--color-foreground, var(--color-neutral-900))
-	);
+	color: var(--color-secondary-foreground, var(--color-foreground, var(--color-neutral-900)));
 }
 
 [cmdk-item]:active {
 	background-color: var(--color-secondary, var(--color-neutral-200));
 }
 
-[cmdk-item][data-disabled="true"] {
+[cmdk-item][data-disabled='true'] {
 	opacity: 0.5;
 	pointer-events: none;
 	cursor: not-allowed;
 }
 
 /* Loading state */
-[cmdk-list] + div[class*="py-6"] {
+[cmdk-list] + div[class*='py-6'] {
 	color: var(--color-neutral-500, var(--color-neutral-500));
 }
 
@@ -363,7 +330,7 @@ html {
 }
 
 [cmdk-item]:hover svg,
-[cmdk-item][data-selected="true"] svg {
+[cmdk-item][data-selected='true'] svg {
 	color: var(--color-neutral-700, var(--color-neutral-700));
 }
 
@@ -377,7 +344,7 @@ html {
 }
 
 [cmdk-item]:hover .command-palette-type-badge,
-[cmdk-item][data-selected="true"] .command-palette-type-badge {
+[cmdk-item][data-selected='true'] .command-palette-type-badge {
 	color: var(--color-neutral-600, var(--color-neutral-600));
 }
 
