@@ -7,14 +7,62 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      desktop_rust: ${{ steps.filter.outputs.desktop_rust }}
+      desktop_child_tasks: ${{ steps.filter.outputs.desktop_child_tasks }}
+      sync_server: ${{ steps.filter.outputs.sync_server }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed files
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/package.json'
+              - 'desktop/pnpm-lock.yaml'
+              - 'desktop/index.html'
+              - 'desktop/orval.config.ts'
+              - 'desktop/tsconfig*.json'
+              - 'desktop/vite.config.ts'
+              - 'desktop/.ox*.json'
+              - 'desktop/public/**'
+              - 'desktop/src/**'
+            desktop_rust:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/src-tauri/**'
+            desktop_child_tasks:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/src-tauri/Cargo.lock'
+              - 'desktop/src-tauri/Cargo.toml'
+              - 'desktop/src-tauri/migrations/**'
+              - 'desktop/src-tauri/src/commands/task.rs'
+              - 'desktop/src-tauri/src/db/models.rs'
+              - 'desktop/src-tauri/src/db/repositories/task.rs'
+              - 'desktop/src-tauri/src/db/schema.rs'
+            sync_server:
+              - '.github/workflows/pr-ci.yml'
+              - 'sync-server/**'
+
   frontend:
     name: Frontend lint and build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -51,6 +99,8 @@ jobs:
 
   desktop-child-task-tests:
     name: Desktop child task tests
+    needs: changes
+    if: needs.changes.outputs.desktop_child_tasks == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -81,6 +131,8 @@ jobs:
 
   desktop-rust-tests:
     name: Desktop Rust tests
+    needs: changes
+    if: needs.changes.outputs.desktop_rust == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -111,6 +163,8 @@ jobs:
 
   sync-server-tests:
     name: Sync server tests
+    needs: changes
+    if: needs.changes.outputs.sync_server == 'true'
     runs-on: ubuntu-latest
 
     steps:
