@@ -1,10 +1,12 @@
 use crate::db::models::{Goal, SubTask, Tag, Task, TaskWithSubtasks};
 use crate::error::{AppError, Result};
-use crate::utils::generate_id;
+use crate::utils::{generate_id, record_rust_timing};
 use chrono::Utc;
 use libsql::Database;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct TaskRepository {
     database: Arc<Database>,
@@ -80,15 +82,18 @@ impl TaskRepository {
         limit: Option<u32>,
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
+            let query_started = Instant::now();
             let mut rows = conn
                 .query(
                     "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
                      FROM tasks 
-                     WHERE deleted_at IS NULL 
+                     WHERE goal_id IS NULL AND deleted_at IS NULL
                      ORDER BY COALESCE(due_date, '') ASC, id ASC",
                     libsql::params![],
                 )
@@ -99,6 +104,20 @@ impl TaskRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 tasks.push(self.row_to_task(row)?);
             }
+            let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
+
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_inbox",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "mode": "all",
+                    "result_count": tasks.len(),
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
 
             return Ok((tasks, None, false));
         }
@@ -107,6 +126,8 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
 
+        let has_cursor = cursor.is_some();
+        let query_started = Instant::now();
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
@@ -155,6 +176,7 @@ impl TaskRepository {
                 break;
             }
         }
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
@@ -168,6 +190,22 @@ impl TaskRepository {
             None
         };
 
+        record_rust_timing(
+            "rust-repository",
+            "TaskRepository.find_inbox",
+            repository_started.elapsed(),
+            json!({
+                "resource_type": "task",
+                "mode": "paginated",
+                "result_count": tasks.len(),
+                "limit": limit_val,
+                "cursor_present": has_cursor,
+                "has_more": has_more,
+                "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+            }),
+        );
+
         Ok((tasks, next_cursor, has_more))
     }
 
@@ -179,13 +217,16 @@ impl TaskRepository {
         limit: Option<u32>,
         cursor: Option<String>,
     ) -> Result<(Vec<Task>, Option<String>, bool)> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
         // Bypass mode: return all results
         if limit.is_none() && cursor.is_none() {
+            let query_started = Instant::now();
             let mut rows = conn
                 .query(
                     "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -201,6 +242,20 @@ impl TaskRepository {
             while let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
                 tasks.push(self.row_to_task(row)?);
             }
+            let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
+
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_overdue",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "mode": "all",
+                    "result_count": tasks.len(),
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
 
             return Ok((tasks, None, false));
         }
@@ -209,6 +264,8 @@ impl TaskRepository {
         let limit_val = limit.unwrap_or(50).min(1000);
         let fetch_limit = limit_val + 1;
 
+        let has_cursor = cursor.is_some();
+        let query_started = Instant::now();
         let mut rows = if let Some(cursor_val) = cursor {
             use crate::commands::common::cursor;
             let keys = cursor::decode_composite(&cursor_val)?;
@@ -257,6 +314,7 @@ impl TaskRepository {
                 break;
             }
         }
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         let next_cursor = if has_more && !tasks.is_empty() {
             use crate::commands::common::cursor;
@@ -270,13 +328,32 @@ impl TaskRepository {
             None
         };
 
+        record_rust_timing(
+            "rust-repository",
+            "TaskRepository.find_overdue",
+            repository_started.elapsed(),
+            json!({
+                "resource_type": "task",
+                "mode": "paginated",
+                "result_count": tasks.len(),
+                "limit": limit_val,
+                "cursor_present": has_cursor,
+                "has_more": has_more,
+                "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                "query_rows_ms": (query_ms * 10.0).round() / 10.0,
+            }),
+        );
+
         Ok((tasks, next_cursor, has_more))
     }
 
     /// Get task by ID
     pub async fn find_by_id(&self, id: &str) -> Result<Option<Task>> {
+        let repository_started = Instant::now();
         let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+        let connect_ms = repository_started.elapsed().as_secs_f64() * 1000.0;
 
+        let query_started = Instant::now();
         let mut rows = conn
             .query(
                 "SELECT id, title, description, is_completed, due_date, goal_instance_id, goal_id, created_at, updated_at, deleted_at, _sync_id, _updated_at, _deleted, _extra 
@@ -286,10 +363,35 @@ impl TaskRepository {
             )
             .await
             .map_err(|e| AppError::LibSQL(e))?;
+        let query_ms = query_started.elapsed().as_secs_f64() * 1000.0;
 
         if let Some(row) = rows.next().await.map_err(|e| AppError::LibSQL(e))? {
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "resource_id": id,
+                    "found": true,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(Some(self.row_to_task(row)?))
         } else {
+            record_rust_timing(
+                "rust-repository",
+                "TaskRepository.find_by_id",
+                repository_started.elapsed(),
+                json!({
+                    "resource_type": "task",
+                    "resource_id": id,
+                    "found": false,
+                    "connect_ms": (connect_ms * 10.0).round() / 10.0,
+                    "query_ms": (query_ms * 10.0).round() / 10.0,
+                }),
+            );
             Ok(None)
         }
     }
@@ -409,6 +511,41 @@ impl TaskRepository {
         conn.execute(
             "UPDATE tasks SET deleted_at = ?1, updated_at = ?2, _updated_at = ?3, _deleted = 1 WHERE id = ?4",
             libsql::params![deleted_at_str, updated_at_str, now_ms, id],
+        )
+        .await
+        .map_err(|e| AppError::LibSQL(e))?;
+
+        Ok(())
+    }
+
+    /// Restore a soft-deleted task.
+    pub async fn restore(&self, id: &str) -> Result<()> {
+        let conn = self.database.connect().map_err(|e| AppError::LibSQL(e))?;
+
+        let mut rows = conn
+            .query(
+                "SELECT id FROM tasks WHERE id = ?1 AND deleted_at IS NOT NULL",
+                libsql::params![id],
+            )
+            .await
+            .map_err(|e| AppError::LibSQL(e))?;
+
+        if rows
+            .next()
+            .await
+            .map_err(|e| AppError::LibSQL(e))?
+            .is_none()
+        {
+            return Err(AppError::NotFound(format!("Deleted task {} not found", id)));
+        }
+
+        let now = Utc::now();
+        let updated_at_str = now.to_rfc3339();
+        let now_ms = now.timestamp_millis();
+
+        conn.execute(
+            "UPDATE tasks SET deleted_at = NULL, updated_at = ?1, _updated_at = ?2, _deleted = 0 WHERE id = ?3",
+            libsql::params![updated_at_str, now_ms, id],
         )
         .await
         .map_err(|e| AppError::LibSQL(e))?;
@@ -1067,5 +1204,427 @@ impl TaskRepository {
             _deleted: _deleted != 0,
             _extra,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+    use crate::db::repositories::{GoalRepository, TagRepository};
+    use chrono::{DateTime, Duration, Utc};
+    use libsql::Builder;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static DB_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    async fn test_repo() -> (Arc<Database>, TaskRepository, PathBuf) {
+        let id = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let db_path =
+            std::env::temp_dir().join(format!("aether-task-test-{}-{}.db", std::process::id(), id));
+        let database = Builder::new_local(&db_path)
+            .build()
+            .await
+            .expect("create test database");
+        migrations::run_migrations(&database)
+            .await
+            .expect("run migrations");
+        let database = Arc::new(database);
+        let repo = TaskRepository::new(database.clone());
+        (database, repo, db_path)
+    }
+
+    fn fixed_utc(value: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(value)
+            .expect("fixed datetime should parse")
+            .with_timezone(&Utc)
+    }
+
+    fn cleanup_db(path: PathBuf) {
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    }
+
+    async fn raw_task_deleted_state(database: &Database, task_id: &str) -> (Option<String>, i64) {
+        let conn = database.connect().expect("connect to test database");
+        let mut rows = conn
+            .query(
+                "SELECT deleted_at, _deleted FROM tasks WHERE id = ?1",
+                libsql::params![task_id],
+            )
+            .await
+            .expect("query raw task deletion state");
+        let row = rows
+            .next()
+            .await
+            .expect("read raw task deletion state")
+            .expect("task row should exist");
+        (
+            row.get(0).expect("deleted_at"),
+            row.get(1).expect("_deleted"),
+        )
+    }
+
+    #[tokio::test]
+    async fn task_lifecycle_creates_updates_deletes_and_restores() {
+        let (database, repo, db_path) = test_repo().await;
+        let due_date = fixed_utc("2026-02-03T04:05:06Z");
+
+        let created = repo
+            .create(
+                "Draft release checklist".to_string(),
+                Some("Initial checklist".to_string()),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("create task");
+
+        assert_eq!(created.title, "Draft release checklist");
+        assert_eq!(created.description.as_deref(), Some("Initial checklist"));
+        assert!(!created.is_completed);
+        assert_eq!(created.due_date, None);
+
+        let updated = repo
+            .update(
+                &created.id,
+                Some("Finalize release checklist".to_string()),
+                Some(Some("Ship blockers only".to_string())),
+                Some(Some(due_date)),
+                Some(true),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("update task");
+
+        assert_eq!(updated.title, "Finalize release checklist");
+        assert_eq!(updated.description.as_deref(), Some("Ship blockers only"));
+        assert_eq!(updated.due_date, Some(due_date));
+        assert!(updated.is_completed);
+
+        repo.delete(&created.id).await.expect("delete task");
+        assert!(repo
+            .find_by_id(&created.id)
+            .await
+            .expect("find deleted task")
+            .is_none());
+        let (deleted_at, deleted_flag) = raw_task_deleted_state(&database, &created.id).await;
+        assert!(deleted_at.is_some());
+        assert_eq!(deleted_flag, 1);
+
+        repo.restore(&created.id).await.expect("restore task");
+        let restored = repo
+            .find_by_id(&created.id)
+            .await
+            .expect("find restored task")
+            .expect("restored task should be visible");
+        assert_eq!(restored.title, "Finalize release checklist");
+        let (deleted_at, deleted_flag) = raw_task_deleted_state(&database, &created.id).await;
+        assert_eq!(deleted_at, None);
+        assert_eq!(deleted_flag, 0);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn task_child_resources_cover_subtasks_and_goal_relationships() {
+        let (database, repo, db_path) = test_repo().await;
+        let goal_repo = GoalRepository::new(database.clone());
+        let goal = goal_repo
+            .create(
+                "Release readiness".to_string(),
+                Some("Tasks required before tagging".to_string()),
+                true,
+                None,
+                None,
+                None,
+                None,
+                "UTC".to_string(),
+            )
+            .await
+            .expect("create goal");
+        let task = repo
+            .create("Prepare release".to_string(), None, None, None, None)
+            .await
+            .expect("create task");
+
+        let goal_instance_id = repo
+            .add_goal(&task.id, &goal.id)
+            .await
+            .expect("create current goal instance");
+        let assigned = repo
+            .update(
+                &task.id,
+                None,
+                None,
+                None,
+                None,
+                Some(Some(goal.id.clone())),
+                Some(goal_instance_id.clone()),
+                None,
+            )
+            .await
+            .expect("assign goal");
+        assert_eq!(assigned.goal_id.as_deref(), Some(goal.id.as_str()));
+        assert_eq!(assigned.goal_instance_id, goal_instance_id);
+
+        let first = repo
+            .create_subtask(&task.id, "Audit children".to_string())
+            .await
+            .expect("create first subtask");
+        let second = repo
+            .create_subtask(&task.id, "Run task tests".to_string())
+            .await
+            .expect("create second subtask");
+        let third = repo
+            .create_subtask(&task.id, "Check release gate".to_string())
+            .await
+            .expect("create third subtask");
+
+        assert_eq!(first.order_index, 0);
+        assert_eq!(second.order_index, 1);
+        assert_eq!(third.order_index, 2);
+
+        let updated_second = repo
+            .update_subtask(
+                &task.id,
+                &second.id,
+                Some("Run child task tests".to_string()),
+                Some(true),
+            )
+            .await
+            .expect("update subtask");
+        assert_eq!(updated_second.title, "Run child task tests");
+        assert!(updated_second.is_completed);
+
+        repo.reorder_subtasks(
+            &task.id,
+            vec![third.id.clone(), first.id.clone(), second.id.clone()],
+        )
+        .await
+        .expect("reorder subtasks");
+        let reordered = repo.find_subtasks(&task.id).await.expect("find subtasks");
+        assert_eq!(
+            reordered
+                .iter()
+                .map(|subtask| (subtask.title.as_str(), subtask.order_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("Check release gate", 0),
+                ("Audit children", 1),
+                ("Run child task tests", 2),
+            ]
+        );
+
+        repo.delete_subtask(&task.id, &first.id)
+            .await
+            .expect("delete subtask");
+        let remaining = repo.find_subtasks(&task.id).await.expect("find remaining");
+        assert_eq!(
+            remaining
+                .iter()
+                .map(|subtask| subtask.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![third.id.as_str(), second.id.as_str()]
+        );
+
+        let hydrated = repo
+            .with_subtasks(vec![repo.find_by_id(&task.id).await.unwrap().unwrap()])
+            .await
+            .expect("hydrate task")
+            .pop()
+            .expect("hydrated task");
+        assert_eq!(
+            hydrated.goal.as_ref().map(|g| g.name.as_str()),
+            Some("Release readiness")
+        );
+        assert_eq!(hydrated.subtasks.len(), 2);
+
+        repo.remove_goal(&task.id).await.expect("remove goal");
+        let unassigned = repo
+            .find_by_id(&task.id)
+            .await
+            .expect("find task")
+            .expect("task should exist");
+        assert_eq!(unassigned.goal_id, None);
+        assert_eq!(unassigned.goal_instance_id, None);
+
+        cleanup_db(db_path);
+    }
+
+    #[tokio::test]
+    async fn task_inbox_overdue_and_tags_stay_scoped_to_visible_tasks() {
+        let (database, repo, db_path) = test_repo().await;
+        let tag_repo = TagRepository::new(database.clone());
+        let goal_repo = GoalRepository::new(database.clone());
+        let past_due = Utc::now() - Duration::days(2);
+        let future_due = Utc::now() + Duration::days(2);
+
+        let inbox_overdue = repo
+            .create(
+                "Answer overdue inbox task".to_string(),
+                None,
+                Some(past_due),
+                None,
+                None,
+            )
+            .await
+            .expect("create overdue inbox task");
+        let inbox_future = repo
+            .create(
+                "Plan future inbox task".to_string(),
+                None,
+                Some(future_due),
+                None,
+                None,
+            )
+            .await
+            .expect("create future inbox task");
+        let completed_overdue = repo
+            .create(
+                "Completed overdue task".to_string(),
+                None,
+                Some(past_due),
+                None,
+                None,
+            )
+            .await
+            .expect("create completed overdue task");
+        repo.update(
+            &completed_overdue.id,
+            None,
+            None,
+            None,
+            Some(true),
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("complete overdue task");
+
+        let goal = goal_repo
+            .create(
+                "Scoped goal".to_string(),
+                None,
+                true,
+                None,
+                None,
+                None,
+                None,
+                "UTC".to_string(),
+            )
+            .await
+            .expect("create goal");
+        let goal_instance_id = repo
+            .add_goal(&inbox_future.id, &goal.id)
+            .await
+            .expect("create goal instance");
+        repo.update(
+            &inbox_future.id,
+            None,
+            None,
+            None,
+            None,
+            Some(Some(goal.id.clone())),
+            Some(goal_instance_id),
+            None,
+        )
+        .await
+        .expect("assign future task to goal");
+
+        let (all_inbox, _, _) = repo.find_inbox(None, None).await.expect("find all inbox");
+        let mut all_inbox_ids = all_inbox
+            .iter()
+            .map(|task| task.id.as_str())
+            .collect::<Vec<_>>();
+        all_inbox_ids.sort_unstable();
+        let mut expected_inbox_ids = vec![inbox_overdue.id.as_str(), completed_overdue.id.as_str()];
+        expected_inbox_ids.sort_unstable();
+        assert_eq!(all_inbox_ids, expected_inbox_ids);
+        let (paged_inbox, _, _) = repo
+            .find_inbox(Some(10), None)
+            .await
+            .expect("find inbox page");
+        let mut paged_inbox_ids = paged_inbox
+            .iter()
+            .map(|task| task.id.as_str())
+            .collect::<Vec<_>>();
+        paged_inbox_ids.sort_unstable();
+        assert_eq!(paged_inbox_ids, expected_inbox_ids);
+
+        let (overdue, _, _) = repo
+            .find_overdue(None, None)
+            .await
+            .expect("find overdue tasks");
+        assert_eq!(
+            overdue
+                .iter()
+                .map(|task| task.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![inbox_overdue.id.as_str()]
+        );
+
+        let urgent = tag_repo
+            .create("urgent".to_string())
+            .await
+            .expect("create urgent tag");
+        let release = tag_repo
+            .create("release".to_string())
+            .await
+            .expect("create release tag");
+        repo.add_tags(
+            &inbox_overdue.id,
+            vec![urgent.id.clone(), release.id.clone(), urgent.id.clone()],
+        )
+        .await
+        .expect("add tags");
+        let tagged = repo
+            .with_subtasks(vec![repo
+                .find_by_id(&inbox_overdue.id)
+                .await
+                .unwrap()
+                .unwrap()])
+            .await
+            .expect("hydrate tagged task")
+            .pop()
+            .expect("tagged task");
+        assert_eq!(
+            tagged
+                .tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["release", "urgent"]
+        );
+
+        repo.remove_tags(&inbox_overdue.id, vec![urgent.id.clone()])
+            .await
+            .expect("remove tag");
+        let retagged = repo
+            .with_subtasks(vec![repo
+                .find_by_id(&inbox_overdue.id)
+                .await
+                .unwrap()
+                .unwrap()])
+            .await
+            .expect("hydrate retagged task")
+            .pop()
+            .expect("retagged task");
+        assert_eq!(
+            retagged
+                .tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["release"]
+        );
+
+        cleanup_db(db_path);
     }
 }

@@ -845,7 +845,7 @@
         "tags": [
           "Search"
         ],
-        "summary": "Search across all resources",
+        "summary": "Search journal entries and task-management resources",
         "operationId": "search_resources",
         "parameters": [
           {
@@ -860,7 +860,7 @@
           {
             "name": "types",
             "in": "query",
-            "description": "Comma-separated resource types: entry,task",
+            "description": "Comma-separated resource types: entry,task,subtask,goal",
             "required": false,
             "schema": {
               "type": "string",
@@ -2948,10 +2948,20 @@
         "required": [
           "totalDocuments",
           "entries",
-          "tasks"
+          "tasks",
+          "subtasks",
+          "goals"
         ],
         "properties": {
           "entries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "goals": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "subtasks": {
             "type": "integer",
             "format": "int64"
           },

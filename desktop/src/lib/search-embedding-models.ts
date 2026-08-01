@@ -26,6 +26,8 @@ export interface SearchIndexStatus {
 	totalDocuments: number;
 	entries: number;
 	tasks: number;
+	subtasks: number;
+	goals: number;
 }
 
 interface ApiResponse<T> {

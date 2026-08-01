@@ -7,13 +7,7 @@ import {
 	CommandItem,
 	CommandList,
 } from 'cmdk';
-import {
-	BadgeCheck,
-	BookOpen,
-	FileText,
-	Search,
-	Settings,
-} from 'lucide-react';
+import { BadgeCheck, BookOpen, CheckSquare, FileText, Goal, Search, Settings } from 'lucide-react';
 import * as React from 'react';
 import { useNavigate } from 'react-router';
 import { customFetch } from '~/lib/api-client';
@@ -64,7 +58,7 @@ const actions = [
 	},
 ];
 
-const searchableResourceTypes = new Set(['entry', 'task']);
+const searchableResourceTypes = new Set(['entry', 'task', 'subtask', 'goal']);
 
 const resourceTypeIcon = (resourceType: string) => {
 	switch (resourceType) {
@@ -72,6 +66,10 @@ const resourceTypeIcon = (resourceType: string) => {
 			return <FileText className='size-4' />;
 		case 'task':
 			return <BadgeCheck className='size-4' />;
+		case 'subtask':
+			return <CheckSquare className='size-4' />;
+		case 'goal':
+			return <Goal className='size-4' />;
 		default:
 			return <Search className='size-4' />;
 	}
@@ -80,7 +78,10 @@ const resourceTypeIcon = (resourceType: string) => {
 const routeForResource = (result: SearchResult) => {
 	switch (result.resourceType) {
 		case 'task':
+		case 'subtask':
 			return '/tasks';
+		case 'goal':
+			return `/tasks/goal/${result.resourceId}`;
 		case 'entry':
 		default:
 			return '/';

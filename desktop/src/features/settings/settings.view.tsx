@@ -1,6 +1,7 @@
-import { Antenna, CloudIcon, HardDrive, Palette } from 'lucide-react';
+import { Antenna, Bug, CloudIcon, HardDrive, Palette } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { DiagnosticsSection } from './components/diagnostics.section';
 import { PreferencesSection } from './components/preferences.section';
 import { SearchSection } from './components/search.section';
 import { SyncSection } from './components/sync.section';
@@ -9,10 +10,12 @@ import { cn } from '~/utils/cn';
 import { RadialAvatar } from '~/components/shared/radiant-avatar';
 import { useSettingsStore } from '~/store/settings-store';
 
-type AvailableSections = 'preferences' | 'search' | 'whats-new' | 'sync';
+type AvailableSections = 'preferences' | 'search' | 'diagnostics' | 'whats-new' | 'sync';
 
 function getAvailableSection(value: string | null): AvailableSections {
-	if (value === 'search' || value === 'whats-new' || value === 'sync') return value;
+	if (value === 'search' || value === 'diagnostics' || value === 'whats-new' || value === 'sync') {
+		return value;
+	}
 	return 'preferences';
 }
 
@@ -51,6 +54,11 @@ export const SettingsView = () => {
 			label: 'Search',
 			icon: <HardDrive className='size-4' strokeWidth={2.5} />,
 			component: <SearchSection />,
+		},
+		diagnostics: {
+			label: 'Diagnostics',
+			icon: <Bug className='size-4' strokeWidth={2.5} />,
+			component: <DiagnosticsSection />,
 		},
 		'whats-new': {
 			label: "What's new",

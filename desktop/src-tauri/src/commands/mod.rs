@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod common;
+pub mod diagnostics;
 pub mod embeddings;
 pub mod entry;
 pub mod goal;

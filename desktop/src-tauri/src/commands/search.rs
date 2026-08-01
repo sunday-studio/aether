@@ -1,4 +1,5 @@
 use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
+use crate::db::repositories::search_document::is_visible_search_resource_type;
 use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
@@ -62,14 +63,14 @@ pub struct SearchResultResponse {
     pub updated_at: String,
 }
 
-/// Search across all resources
+/// Search journal entries and task-management resources
 #[utoipa::path(
     get,
     path = "/v1/search",
     tag = "Search",
     params(
         ("q" = String, Query, description = "Search query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,subtask,goal"),
         ("tags" = Option<String>, Query, description = "Comma-separated tag IDs to filter by"),
         ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
         ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
@@ -104,7 +105,7 @@ pub async fn search_resources(
         let type_vec: Vec<String> = types_str
             .split(',')
             .map(|s| s.trim().to_lowercase())
-            .filter(|s| matches!(s.as_str(), "entry" | "task"))
+            .filter(|s| is_visible_search_resource_type(s))
             .collect();
         if type_vec.is_empty() {
             None
@@ -112,7 +113,7 @@ pub async fn search_resources(
             Some(type_vec)
         }
     } else {
-        Some(vec!["entry".to_string(), "task".to_string()])
+        None
     };
 
     let tag_ids = parse_tag_ids(params.tags.as_deref());
@@ -236,11 +237,6 @@ pub async fn reindex_search_resource(
     if request.resource_type.trim().is_empty() || request.resource_id.trim().is_empty() {
         return Err(AppError::BadRequest(
             "resourceType and resourceId are required".to_string(),
-        ));
-    }
-    if !matches!(request.resource_type.as_str(), "entry" | "task") {
-        return Err(AppError::BadRequest(
-            "Only entry and task resources are searchable in v1".to_string(),
         ));
     }
 

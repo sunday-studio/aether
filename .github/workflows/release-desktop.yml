@@ -29,10 +29,78 @@ jobs:
       contents: read
       pull-requests: read
 
+  test-suite:
+    name: Release preflight tests
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate SDK
+        working-directory: desktop
+        run: pnpm run generate:sdk
+
+      - name: Frontend lint
+        working-directory: desktop
+        run: pnpm run lint
+
+      - name: Frontend build
+        working-directory: desktop
+        run: pnpm run build
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ./desktop/src-tauri -> target
+            ./sync-server -> target
+          key: release-preflight
+
+      - name: Desktop child task tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml task_child_resources --lib
+
+      - name: Desktop Rust tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --all-targets
+
+      - name: Sync server tests
+        run: cargo test --manifest-path sync-server/Cargo.toml --all-targets
+
   # Step 2: Create the version tag
   create-tag:
     name: Create Version Tag
-    needs: check-release
+    needs: [check-release, test-suite]
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     

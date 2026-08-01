@@ -20,17 +20,26 @@ use std::time::Instant;
 use tauri::State;
 use utoipa::ToSchema;
 
-async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+async fn reindex_search_resource(
+    db: std::sync::Arc<libsql::Database>,
+    resource_type: &str,
+    resource_id: &str,
+) {
     let timer = PerfTimer::start("rust-phase", "task.search_refresh");
     let document_started = Instant::now();
     if let Err(e) = SearchDocumentRepository::new(db.clone())
-        .reindex_resource("task", task_id)
+        .reindex_resource(resource_type, resource_id)
         .await
     {
-        tracing::warn!("Failed to reindex task {} for search: {}", task_id, e);
+        tracing::warn!(
+            "Failed to reindex {} {} for search: {}",
+            resource_type,
+            resource_id,
+            e
+        );
         timer.finish(json!({
-            "resource_type": "task",
-            "resource_id": task_id,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
             "status": "search_document_error",
             "error": e.to_string(),
         }));
@@ -40,17 +49,18 @@ async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str
 
     let embeddings_started = Instant::now();
     if let Err(e) = SearchEmbeddingRepository::new(db)
-        .refresh_existing_resource_embeddings("task", task_id)
+        .refresh_existing_resource_embeddings(resource_type, resource_id)
         .await
     {
         tracing::warn!(
-            "Failed to refresh task {} search embeddings: {}",
-            task_id,
+            "Failed to refresh {} {} search embeddings: {}",
+            resource_type,
+            resource_id,
             e
         );
         timer.finish(json!({
-            "resource_type": "task",
-            "resource_id": task_id,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
             "status": "search_embedding_error",
             "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
             "error": e.to_string(),
@@ -59,12 +69,47 @@ async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str
     }
     let search_embedding_ms = embeddings_started.elapsed().as_secs_f64() * 1000.0;
     timer.finish(json!({
-        "resource_type": "task",
-        "resource_id": task_id,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
         "status": "ok",
         "search_document_ms": (search_document_ms * 10.0).round() / 10.0,
         "search_embedding_ms": (search_embedding_ms * 10.0).round() / 10.0,
     }));
+}
+
+async fn reindex_task_search(db: std::sync::Arc<libsql::Database>, task_id: &str) {
+    reindex_search_resource(db.clone(), "task", task_id).await;
+
+    let document_repo = SearchDocumentRepository::new(db.clone());
+    let subtask_ids = match document_repo.reindex_subtasks_for_task(task_id).await {
+        Ok(subtask_ids) => subtask_ids,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to reindex subtasks for task {} search: {}",
+                task_id,
+                e
+            );
+            return;
+        }
+    };
+
+    let embedding_repo = SearchEmbeddingRepository::new(db);
+    for subtask_id in subtask_ids {
+        if let Err(e) = embedding_repo
+            .refresh_existing_resource_embeddings("subtask", &subtask_id)
+            .await
+        {
+            tracing::warn!(
+                "Failed to refresh subtask {} search embeddings after task update: {}",
+                subtask_id,
+                e
+            );
+        }
+    }
+}
+
+async fn reindex_subtask_search(db: std::sync::Arc<libsql::Database>, subtask_id: &str) {
+    reindex_search_resource(db, "subtask", subtask_id).await;
 }
 
 /// Deserialize optional datetime so that JSON `null` means "clear field" (Some(None)).
@@ -270,13 +315,36 @@ pub async fn get_inbox_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let params = query_params.unwrap_or_default();
+    let limit = params.normalize_limit();
+    let has_cursor = params.cursor.is_some();
     let repo = TaskRepository::new(connection::get_database(&*state));
-    let (tasks, next_cursor, has_more) = repo
-        .find_inbox(params.normalize_limit(), params.cursor)
-        .await?;
+    let repo_started = Instant::now();
+    let (tasks, next_cursor, has_more) = repo.find_inbox(limit, params.cursor).await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    record_rust_timing(
+        "rust-command",
+        "get_inbox_tasks",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "result_count": tasks_with_subtasks.len(),
+            "limit": limit,
+            "cursor_present": has_cursor,
+            "has_more": has_more,
+            "next_cursor_present": next_cursor.is_some(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
     Ok(PaginationResponse::new(
         tasks_with_subtasks,
         next_cursor,
@@ -305,13 +373,36 @@ pub async fn get_overdue_tasks(
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let params = query_params.unwrap_or_default();
+    let limit = params.normalize_limit();
+    let has_cursor = params.cursor.is_some();
     let repo = TaskRepository::new(connection::get_database(&*state));
-    let (tasks, next_cursor, has_more) = repo
-        .find_overdue(params.normalize_limit(), params.cursor)
-        .await?;
+    let repo_started = Instant::now();
+    let (tasks, next_cursor, has_more) = repo.find_overdue(limit, params.cursor).await?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let tasks_with_subtasks = repo.with_subtasks(tasks).await?;
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    record_rust_timing(
+        "rust-command",
+        "get_overdue_tasks",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "result_count": tasks_with_subtasks.len(),
+            "limit": limit,
+            "cursor_present": has_cursor,
+            "has_more": has_more,
+            "next_cursor_present": next_cursor.is_some(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
     Ok(PaginationResponse::new(
         tasks_with_subtasks,
         next_cursor,
@@ -340,7 +431,10 @@ pub async fn get_task_by_id(
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
 ) -> Result<TaskWithSubtasks> {
+    let command_started = Instant::now();
+    let db_gate_started = Instant::now();
     let _guard = connection::with_db_access(&*state).await;
+    let db_gate_ms = db_gate_started.elapsed().as_secs_f64() * 1000.0;
     let id = path_params
         .and_then(|p| Some(p.id))
         .ok_or_else(|| AppError::BadRequest("ID is required".to_string()))?;
@@ -348,12 +442,30 @@ pub async fn get_task_by_id(
         return Err(AppError::BadRequest("ID is required".to_string()));
     }
     let repo = TaskRepository::new(connection::get_database(&*state));
+    let repo_started = Instant::now();
     let task = repo
         .find_by_id(&id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", id)))?;
+    let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
+    let hydrate_started = Instant::now();
     let out = repo.with_subtasks(vec![task]).await?;
-    Ok(out.into_iter().next().expect("one task"))
+    let hydrate_ms = hydrate_started.elapsed().as_secs_f64() * 1000.0;
+    let task = out.into_iter().next().expect("one task");
+    record_rust_timing(
+        "rust-command",
+        "get_task_by_id",
+        command_started.elapsed(),
+        json!({
+            "resource_type": "task",
+            "resource_id": id,
+            "subtask_count": task.subtasks.len(),
+            "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
+            "repo_find_ms": (repo_ms * 10.0).round() / 10.0,
+            "hydrate_subtasks_ms": (hydrate_ms * 10.0).round() / 10.0,
+        }),
+    );
+    Ok(task)
 }
 
 /// Update a task
@@ -508,9 +620,18 @@ pub async fn delete_task(
     }
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
+    let subtask_ids = repo
+        .find_subtasks(&id)
+        .await?
+        .into_iter()
+        .map(|subtask| subtask.id)
+        .collect::<Vec<_>>();
     repo.delete(&id).await?;
 
-    reindex_task_search(db.clone(), &id).await;
+    reindex_search_resource(db.clone(), "task", &id).await;
+    for subtask_id in subtask_ids {
+        reindex_subtask_search(db.clone(), &subtask_id).await;
+    }
 
     // Log activity
     if let Err(e) = log_delete(db.clone(), "task".to_string(), id.clone()).await {
@@ -596,6 +717,8 @@ pub async fn create_subtask(
     let repo = TaskRepository::new(db.clone());
     let subtask = repo.create_subtask(&task_id, request.title).await?;
 
+    reindex_subtask_search(db.clone(), &subtask.id).await;
+
     // Log activity
     if let Err(e) = log_create(db, "subtask".to_string(), subtask.id.clone()).await {
         tracing::warn!("Failed to log subtask creation activity: {}", e);
@@ -657,6 +780,8 @@ pub async fn update_subtask(
     let subtask = repo
         .update_subtask(&task_id, &subtask_id, request.title, request.is_completed)
         .await?;
+
+    reindex_subtask_search(db.clone(), &subtask.id).await;
 
     // Log activity - check if completion changed
     if let Some(new_completed) = request.is_completed {
@@ -724,6 +849,8 @@ pub async fn delete_subtask(
     let db = connection::get_database(&*state);
     let repo = TaskRepository::new(db.clone());
     repo.delete_subtask(&task_id, &subtask_id).await?;
+
+    reindex_subtask_search(db.clone(), &subtask_id).await;
 
     // Log activity
     if let Err(e) = log_delete(db, "subtask".to_string(), subtask_id.clone()).await {

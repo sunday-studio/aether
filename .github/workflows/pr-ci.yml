@@ -1,0 +1,184 @@
+name: PR CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      desktop_rust: ${{ steps.filter.outputs.desktop_rust }}
+      desktop_child_tasks: ${{ steps.filter.outputs.desktop_child_tasks }}
+      sync_server: ${{ steps.filter.outputs.sync_server }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed files
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/package.json'
+              - 'desktop/pnpm-lock.yaml'
+              - 'desktop/index.html'
+              - 'desktop/orval.config.ts'
+              - 'desktop/tsconfig*.json'
+              - 'desktop/vite.config.ts'
+              - 'desktop/.ox*.json'
+              - 'desktop/public/**'
+              - 'desktop/src/**'
+            desktop_rust:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/src-tauri/**'
+            desktop_child_tasks:
+              - '.github/workflows/pr-ci.yml'
+              - 'desktop/src-tauri/Cargo.lock'
+              - 'desktop/src-tauri/Cargo.toml'
+              - 'desktop/src-tauri/migrations/**'
+              - 'desktop/src-tauri/src/commands/task.rs'
+              - 'desktop/src-tauri/src/db/models.rs'
+              - 'desktop/src-tauri/src/db/repositories/task.rs'
+              - 'desktop/src-tauri/src/db/schema.rs'
+            sync_server:
+              - '.github/workflows/pr-ci.yml'
+              - 'sync-server/**'
+
+  frontend:
+    name: Frontend lint and build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate SDK
+        working-directory: desktop
+        run: pnpm run generate:sdk
+
+      - name: Lint
+        working-directory: desktop
+        run: pnpm run lint
+
+      - name: Build
+        working-directory: desktop
+        run: pnpm run build
+
+  desktop-child-task-tests:
+    name: Desktop child task tests
+    needs: changes
+    if: needs.changes.outputs.desktop_child_tasks == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './desktop/src-tauri -> target'
+          key: desktop-child-task-tests
+
+      - name: Run targeted child task tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml task_child_resources --lib
+
+  desktop-rust-tests:
+    name: Desktop Rust tests
+    needs: changes
+    if: needs.changes.outputs.desktop_rust == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './desktop/src-tauri -> target'
+          key: desktop-rust-tests
+
+      - name: Run desktop Rust tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --all-targets
+
+  sync-server-tests:
+    name: Sync server tests
+    needs: changes
+    if: needs.changes.outputs.sync_server == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './sync-server -> target'
+          key: sync-server-tests
+
+      - name: Run sync server tests
+        run: cargo test --manifest-path sync-server/Cargo.toml --all-targets
