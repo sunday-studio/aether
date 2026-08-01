@@ -1,9 +1,9 @@
-import { Editor } from "~/components/editor/editor";
-import type { EntryWithTags } from "~/types/models";
-import { cn } from "~/utils/cn";
+import { Editor } from '~/components/editor/editor';
+import type { EntryWithTags } from '~/types/models';
+import { cn } from '~/utils/cn';
 
 interface JournalEditorProps {
-	document: EntryWithTags["document"];
+	document: EntryWithTags['document'];
 	id: string;
 	onChange: (document: string) => void;
 	isSelected?: boolean;
@@ -29,19 +29,20 @@ export const JournalEditor = ({
 	onChange,
 	isSelected = false,
 }: JournalEditorProps) => {
-	if (!document) return <div className="bg-red-100">No data</div>;
+	if (!document) return <div className='bg-red-100'>No data</div>;
 
 	return (
 		<div
 			className={cn(
-				"text-neutral-800 bg-transparent relative w-full flex gap-2 px-3 -mx-3 py-1 -my-2 transition-colors duration-150 rounded-md",
+				'relative -mx-3 -my-2 flex w-full gap-2 rounded-md bg-transparent px-3 py-1 text-neutral-800 transition-colors duration-150',
+				'journal-editor-lines',
 				isSelected &&
-					"bg-green-50/50 ring ring-green-100 text-green-700! &> .editor-root { color: var(--color-green-700) !important; }",
+					'bg-green-50/50 text-green-700! ring ring-green-100 [&_.editor-root]:text-green-700!',
 			)}
 		>
 			<Editor
 				id={id}
-				content={getEditorContent(document ?? "{}")}
+				content={getEditorContent(document ?? '{}')}
 				onChange={onChange}
 				onHistoryChange={() => {}}
 			/>

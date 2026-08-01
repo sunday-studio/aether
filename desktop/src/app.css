@@ -24,6 +24,51 @@
 	}
 }
 
+main
+	[class*="space-y-"]
+	> :has(> .journal-editor-lines) {
+	position: relative;
+}
+
+main
+	[class*="space-y-"]
+	> :has(> .journal-editor-lines)
+	~ :has(> .journal-editor-lines)::before {
+	content: "";
+	position: absolute;
+	top: -2rem;
+	left: 50%;
+	z-index: 2;
+	width: 1.25rem;
+	height: 2rem;
+	transform: translateX(-50%);
+	pointer-events: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='48' viewBox='0 0 20 48' fill='none'%3E%3Cpath d='M10 0C2 5.3 18 10.7 10 16C2 21.3 18 26.7 10 32C2 37.3 18 42.7 10 48' stroke='%239CA3AF' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 1.25rem 2rem;
+}
+
+.journal-paper-page {
+	position: relative;
+	isolation: isolate;
+}
+
+.journal-paper-page::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='grain' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.18' numOctaves='2' stitchTiles='stitch' result='noise'/%3E%3CfeColorMatrix in='noise' type='matrix' values='0 0 0 0 0.32 0 0 0 0 0.27 0 0 0 0 0.18 0.035 0.035 0.035 0 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23grain)'/%3E%3C/svg%3E");
+	background-size: 140px 140px;
+}
+
+.journal-paper-page > * {
+	position: relative;
+	z-index: 1;
+}
+
 /* Keyframes */
 @keyframes slideDownAndFade {
 	from {
