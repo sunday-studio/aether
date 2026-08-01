@@ -1,12 +1,9 @@
-import { Loader } from "lucide-react";
-import { Button } from "~/components/shared/button";
-import { Timeline } from "~/components/shared/timeline";
-import { useCreateJournalEntry } from "~/hooks/use-create-journal-entry.ts";
-import { useEntriesInfinite } from "~/hooks/use-entries-infinite";
-import { sortEntries } from "../journal.domain.ts";
-import { JournalTimelineItem } from "./journal-timeline-item.tsx";
-
-// TODO: show different message if user has no entries but has deleted entries
+import { Loader } from 'lucide-react';
+import { Button } from '~/components/shared/button';
+import { useCreateJournalEntry } from '~/hooks/use-create-journal-entry.ts';
+import { useEntriesInfinite } from '~/hooks/use-entries-infinite';
+import { sortEntries } from '../journal.domain.ts';
+import { JournalTimelineItem } from './journal-timeline-item.tsx';
 
 export const JournalTimeline = () => {
 	const { items, sentinelRef, isFetchingMore } = useEntriesInfinite();
@@ -18,18 +15,17 @@ export const JournalTimeline = () => {
 
 	if (hasNoEntries) {
 		return (
-			<div className="h-full relative flex justify-center items-center">
-				<div className="flex items-center flex-col text-sm text-neutral-500">
-					<p className="">
-						First day? Welcome to{" "}
-						<span className="text-neutral-800">Aether</span>.
+			<div className='relative flex h-full items-center justify-center'>
+				<div className='flex flex-col items-center text-sm text-neutral-500'>
+					<p className=''>
+						First day? Welcome to <span className='text-neutral-800'>Aether</span>.
 					</p>
-					<p className="mb-6">Let's start with a new journal entry.</p>
+					<p className='mb-6'>Let's start with a new journal entry.</p>
 					<Button
 						onClick={createEntry}
 						label="Let's start"
-						shortcuts={["⌘", "N"]}
-						tooltipContent="Create the first one"
+						shortcuts={['⌘', 'N']}
+						tooltipContent='Create the first one'
 					/>
 				</div>
 			</div>
@@ -37,33 +33,23 @@ export const JournalTimeline = () => {
 	}
 
 	return (
-		<div className="h-full overflow-y-scroll  relative flex justify-center mt-2 mb-200!">
-			<Timeline>
-				<Timeline.Item
-					className="max-w-5xl w-full bg-red-0 pt-6"
-					indicatorContainerClassName="w-10"
-					leftContainerClassName="w-50"
-					rightContent={
-						<Timeline.RightContent className="pb-10">
-							<div className="flex items-center gap-2">
-								<Button
-									onClick={createEntry}
-									label="Write"
-									shortcuts={["⌘", "N"]}
-									tooltipContent="Create a new entry"
-								/>
-							</div>
-						</Timeline.RightContent>
-					}
-				/>
-				{sortedEntries?.map((entry) => {
+		<div className='relative mt-2 mb-200! flex h-full justify-center overflow-y-scroll'>
+			<div className='bg-red-0 w-full max-w-5xl space-y-6 pt-6'>
+				<div className='mx-auto w-3xl'>
+					<Button
+						onClick={createEntry}
+						label='Write'
+						shortcuts={['⌘', 'N']}
+						tooltipContent='Create a new entry'
+					/>
+				</div>
+
+				{sortedEntries?.map(entry => {
 					return <JournalTimelineItem key={entry.id} entry={entry} />;
 				})}
-			</Timeline>
-			<div ref={sentinelRef} className="py-8 flex justify-center">
-				{isFetchingMore && (
-					<Loader className="w-4 h-4 animate-spin text-neutral-400" />
-				)}
+			</div>
+			<div ref={sentinelRef} className='flex justify-center py-8'>
+				{isFetchingMore && <Loader className='h-4 w-4 animate-spin text-neutral-400' />}
 			</div>
 		</div>
 	);

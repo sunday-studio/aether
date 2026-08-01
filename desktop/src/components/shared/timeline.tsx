@@ -41,7 +41,7 @@ function TimelineItem({
 			<div
 				className={cn("indicator h-full", indicatorContainerClassName)}
 			></div>
-			<div className={cn("right w-full border-b border-neutral-200/70 group-last:border-b-0", rightContainerClassName)}>
+			<div className={cn("right w-full", rightContainerClassName)}>
 				{rightContent}
 			</div>
 		</div>

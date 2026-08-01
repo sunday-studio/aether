@@ -9,6 +9,9 @@ import { invalidateEntryQueries } from '../invalidate-entry-queries';
 import { JournalActionsDropdown } from './journal-actions-dropdown';
 import { JournalEditor } from './journal-editor';
 import { EntryTags } from './journal-tags';
+import { TaskActionButton } from '~/features/tasks/components/task-item/task-shared-components';
+import { Trash } from 'lucide-react';
+import { Button } from 'react-aria-components';
 
 interface JournalTimelineItemProps {
 	entry: EntryWithTags;
@@ -56,31 +59,20 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 	};
 
 	return (
-		<Timeline.Item
-			key={entry.id}
-			className='bg-red-0 w-3xl'
-			indicatorContainerClassName='w-10'
-			leftContainerClassName='w-50'
-			indicator={
-				<JournalActionsDropdown
-					entry={entry}
-					onDeleteEntry={() => onDeleteEntry(entry.id ?? '')}
-					isOpen={isActionsDropdownOpen}
-					onOpenChange={setIsActionsDropdownOpen}
-				>
-					<Timeline.Indicator
-						className='cursor-pointer'
-						containerClassName='col-end-9 col-start-10'
-						onClick={() => setIsActionsDropdownOpen(true)}
-					/>
-				</JournalActionsDropdown>
-			}
-			leftContent={
-				<Timeline.LeftContent className='flex flex-col items-end gap-1'>
+		<div className='mx-auto w-3xl'>
+			<JournalEditor
+				isSelected={isActionsDropdownOpen}
+				document={entry.document ?? ''}
+				id={entry.id ?? ''}
+				onChange={(document: string) => onUpdateEntry(entry.id ?? '', document)}
+			/>
+			<div className='flex items-center justify-between gap-2'>
+				<EntryTags entry={entry} />
+				<div className='flex items-center gap-1.5'>
 					<div className='group relative ml-auto w-fit shrink-0'>
 						<Tooltip
 							trigger={
-								<p className='font-gt-ultra cursor-default rounded-md px-1 py-0.5 text-right text-xs text-neutral-500'>
+								<p className='font-gt-ultra cursor-default rounded-md px-1 py-0.5 text-right text-xs text-neutral-400 italic'>
 									{formatDistanceToNow(new Date(entry.createdAt ?? ''), {
 										addSuffix: true,
 									})}
@@ -89,20 +81,14 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 							content={`created at ${format(new Date(), 'MMMM d, yyyy')}`}
 						/>
 					</div>
-				</Timeline.LeftContent>
-			}
-			rightContent={
-				<Timeline.RightContent className='mb-5 flex flex-col gap-3'>
-					<JournalEditor
-						isSelected={isActionsDropdownOpen}
-						document={entry.document ?? ''}
-						id={entry.id ?? ''}
-						onChange={(document: string) => onUpdateEntry(entry.id ?? '', document)}
-					/>
 
-					<EntryTags entry={entry} />
-				</Timeline.RightContent>
-			}
-		></Timeline.Item>
+					<Button onPress={() => onDeleteEntry(entry.id ?? '')}>
+						<TaskActionButton>
+							<Trash size={12} strokeWidth={3} />
+						</TaskActionButton>
+					</Button>
+				</div>
+			</div>
+		</div>
 	);
 };

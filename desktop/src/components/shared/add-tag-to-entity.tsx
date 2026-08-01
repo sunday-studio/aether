@@ -17,8 +17,8 @@ const TagItem = ({ label }: { label: string }) => {
 	return (
 		<div
 			className={cn(
-				'h-6 rounded-lg px-1.5',
-				'bg-neutral-200/70 text-xs text-neutral-500',
+				'h-5.5 rounded-sm px-1',
+				'bg-neutral-200/50 text-xs text-neutral-500 transition-colors hover:bg-neutral-200/70',
 				'flex items-center justify-center',
 			)}
 		>
