@@ -37,7 +37,7 @@ export const JournalEditor = ({
 				'relative -mx-3 -my-2 flex w-full gap-2 rounded-md bg-transparent px-3 py-1 text-neutral-800 transition-colors duration-150',
 				'journal-editor-lines',
 				isSelected &&
-					'&> .editor-root { color: var(--color-green-700) !important; } bg-green-50/50 text-green-700! ring ring-green-100',
+					'bg-green-50/50 text-green-700! ring ring-green-100 [&_.editor-root]:text-green-700!',
 			)}
 		>
 			<Editor

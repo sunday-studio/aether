@@ -64,6 +64,10 @@
 	z-index: 1;
 }
 
+.journal-editor-lines .editor-paragraph {
+	margin-bottom: 0;
+}
+
 .editor-text-bold {
 	font-weight: 550;
 	color: var(--color-foreground);
