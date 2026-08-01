@@ -2,7 +2,7 @@
 	--editor-padding: 20px;
 	--editor-font-size: 14px;
 	--editor-input-padding: 20px;
-	--editor-line-height: 24px;
+	--editor-line-height: 30px;
 }
 
 .editor-wrapper,
@@ -40,16 +40,26 @@
 
 .journal-editor-lines .editor-inner {
 	--editor-line-block-inset: 12px;
-	--editor-rule-color: color-mix(in srgb, var(--color-border) 52%, transparent);
+	--editor-rule-color: color-mix(in srgb, var(--color-border) 100%, transparent);
 }
 
 .journal-editor-lines .editor-inner::before {
 	content: "";
 	position: absolute;
 	inset: var(--editor-line-block-inset) 0;
-	box-sizing: border-box;
 	pointer-events: none;
-	border-block: 1px solid var(--editor-rule-color);
+	background:
+		linear-gradient(var(--editor-rule-color), var(--editor-rule-color)) top / 100% 1px
+			no-repeat,
+		linear-gradient(var(--editor-rule-color), var(--editor-rule-color)) bottom / 100% 1px
+			no-repeat;
+}
+
+.journal-editor-lines .editor-inner::after {
+	content: "";
+	position: absolute;
+	inset: var(--editor-line-block-inset) 0 calc(var(--editor-line-block-inset) + 1px);
+	pointer-events: none;
 	background-image: repeating-linear-gradient(
 		to bottom,
 		transparent 0,
