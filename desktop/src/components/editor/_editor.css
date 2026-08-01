@@ -47,12 +47,14 @@
 	content: "";
 	position: absolute;
 	inset: var(--editor-line-block-inset) 0;
+	box-sizing: border-box;
 	pointer-events: none;
+	border-block: 1px solid var(--editor-rule-color);
 	background-image: repeating-linear-gradient(
 		to bottom,
-		var(--editor-rule-color) 0,
-		var(--editor-rule-color) 1px,
-		transparent 1px,
+		transparent 0,
+		transparent calc(var(--editor-line-height) - 1px),
+		var(--editor-rule-color) calc(var(--editor-line-height) - 1px),
 		transparent var(--editor-line-height)
 	);
 	background-repeat: repeat-y;
