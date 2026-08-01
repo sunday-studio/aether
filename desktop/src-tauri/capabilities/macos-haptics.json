@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/macOS-schema.json",
+  "identifier": "macos-haptics",
+  "description": "macOS-only haptics capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "macOS"
+  ],
+  "permissions": [
+    "macos-haptics:default"
+  ]
+}
