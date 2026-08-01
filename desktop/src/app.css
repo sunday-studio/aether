@@ -24,6 +24,35 @@
 	}
 }
 
+.journal-paper-page {
+	isolation: isolate;
+	background-color: var(--blue-1, var(--green-1));
+	background-image:
+		radial-gradient(
+			circle,
+			color-mix(in srgb, var(--color-foreground) 5%, transparent) 0 0.55px,
+			transparent 0.8px
+		),
+		radial-gradient(
+			circle,
+			color-mix(in srgb, var(--green-12) 4%, transparent) 0 0.45px,
+			transparent 0.75px
+		),
+		linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--green-2) 55%, transparent),
+			color-mix(in srgb, var(--blue-1, var(--green-1)) 70%, transparent)
+		);
+	background-position:
+		0 0,
+		7px 11px,
+		0 0;
+	background-size:
+		17px 19px,
+		29px 31px,
+		100% 100%;
+}
+
 /* Keyframes */
 @keyframes slideDownAndFade {
 	from {

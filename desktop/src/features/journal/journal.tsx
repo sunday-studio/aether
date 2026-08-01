@@ -23,7 +23,7 @@ export const Journal = () => {
 	// });
 
 	return (
-		<main className="w-screen h-screen relative">
+		<main className="journal-paper-page w-screen h-screen relative">
 			{/* <div className="absolute top-4 right-4 z-20 flex items-center gap-1  rounded-lg border border-neutral-200 p-1 shadow-sm">
 				<button
 					type="button"
