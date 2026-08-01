@@ -30,9 +30,9 @@ This plan defines the checks to run before cutting a v1 desktop release. It shou
 - Create a journal entry.
 - Create a task.
 - Create a goal.
-- Open Settings and verify Preferences, Sync, AI, and What's New.
-- Confirm Canvas, Bookmarks, Graph, and placeholder routes are not exposed in v1 navigation.
-- Confirm `[[...]]` resource-link autocomplete does not offer hidden resource types.
+- Open Settings and verify Preferences, Sync, Search, Diagnostics if present, and What's New.
+- Confirm Canvas, Bookmarks, Graph, audio/transcription, AI enrichment, and placeholder routes are not exposed in v1 navigation.
+- Confirm command palette search only returns journal entries and tasks.
 
 ## Sync Smoke Checks
 

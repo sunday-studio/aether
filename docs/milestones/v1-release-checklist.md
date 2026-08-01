@@ -4,45 +4,39 @@ This is the working list to run before cutting v1. The intent is to ship a small
 
 ## 1. Lock V1 Product Surface
 
-- Keep Journal.
-- Keep Tasks.
-- Keep Goals.
-- Keep Settings.
-- Keep self-hosted encrypted Sync.
-- Keep Updater.
-- Keep command palette search.
-- Keep local search model setup for semantic search.
-- Keep resource links if they stay scoped to v1-ready resources.
-- Hide journal audio recording and transcription for v1 until the flow is stable.
-- Hide Canvas for v1.
-- Hide Bookmarks for v1.
-- Hide Graph for v1 unless the visualization and route behavior are finished.
-- Hide backend-only diagnostic and transcription model-management features unless there is a complete user-facing flow.
+- Keep journal writing/editor.
+- Keep tasks, subtasks, goals, and goal instances.
+- Keep activity tracking and the activity heatmap.
+- Keep trash view, restore behavior, and repositories.
+- Keep image and video media blobs.
+- Keep local journal/task search.
+- Keep local search model setup.
+- Keep self-hosted encrypted sync and sync-server compatibility.
+- Keep updater.
+- Keep settings required for sync, search, updater, and diagnostics where present.
+- Keep all existing database migrations unchanged.
 
-## 2. First-Run Onboarding
+## 2. Exclude Non-V1 Surfaces
 
-- Add a first-launch onboarding gate before the main app.
-- Collect basic user profile data, starting with display name.
-- Offer optional AI setup during onboarding.
-- Store OpenAI and Groq keys through the existing encrypted settings path.
-- Let users choose a default AI provider.
-- Allow users to skip AI setup without blocking app use.
-- Persist onboarding completion in settings, for example `app.onboarding_completed`.
-- Route returning users directly to the main app.
+- Remove Canvas routes, commands, repositories, API exposure, and unused canvas dependencies.
+- Remove Bookmarks routes, commands, repositories, metadata extraction, API exposure, and bookmark-specific search indexing.
+- Remove Graph routes and graph-only backend/link API exposure.
+- Remove journal audio recording, audio commands/modules, transcription commands/modules, provider setup, transcription settings, and transcription copy.
+- Remove AI journal enrichment commands, repositories, modules, settings copy, and docs that imply it ships in v1.
+- Keep command palette search scoped to journal entries and tasks.
+- Keep goals available for task-management navigation without broadening search result types.
 
-## 3. AI And Transcription Readiness
+## 3. Onboarding And Settings
 
-- Make configured AI provider status visible.
-- Make local search model download/status visible.
-- Validate configured provider credentials from the UI.
-- Keep journal audio recording and transcription entry points hidden for v1.
-- Leave audio/transcription backend code available for a later stabilization pass.
-- Keep local embedding model setup scoped to search.
-- Leave local transcription model management backend-only for v1.
+- Collect basic user profile data.
+- Offer optional sync setup.
+- Offer optional local search model setup.
+- Persist onboarding completion in settings.
+- Reduce the old AI settings section to local search model setup.
+- Remove provider-key and transcription model-management settings.
 
 ## 4. Updater
 
-- Keep updater in v1.
 - Keep Settings > What's New.
 - Keep the global update indicator wired to updater state.
 - Verify manual update checks.
@@ -55,57 +49,34 @@ This is the working list to run before cutting v1. The intent is to ship a small
 
 ## 5. Sync
 
-- Keep self-hosted encrypted sync in v1.
 - Verify setup with server URL, server seed phrase, and sync passphrase.
 - Verify reconnect with sync passphrase.
 - Verify manual sync.
 - Verify periodic or websocket-triggered sync if enabled.
-- Verify media sync policy: auto and on-demand.
-- Hide sync diagnostics from user-facing settings.
+- Verify image/video media sync policy: auto and on-demand.
 - Keep sync failure messages understandable and non-debuggy.
+- Preserve compatibility with the sync server and historical encrypted changes.
 
 ## 6. Navigation And App Shell Cleanup
 
-- Remove or disable the `/canvas` route for v1.
-- Remove the Canvas keyboard shortcut.
-- Remove Canvas destinations from command palette and resource navigation.
-- Remove Bookmarks and Graph destinations from command palette and resource navigation.
-- Hide placeholder routes.
 - Ensure bottom navigation exposes only v1 features.
-- Ensure command palette search only opens v1-ready destinations.
-- Ensure app startup has a clear path through onboarding or the main app.
+- Ensure command palette search only opens journal entries and tasks.
+- Remove routes that land on placeholder or stripped screens.
+- Remove keyboard shortcuts for stripped features.
+- Remove stale generated SDK hooks for stripped commands.
 
-## 7. Backend-Frontend Gap Cleanup
+## 7. Verification
 
-- Decide for each backend capability whether it is exposed, hidden, or deferred.
-- Bookmarks: backend exists, frontend is currently placeholder-level, so keep hidden for v1.
-- Search: command palette search is exposed for v1; full search-results pages remain later work.
-- Embeddings: local search model setup is exposed for search; transcription model management remains deferred.
-- Transcription provider/model management: backend exists, frontend exposure is partial, so keep model management hidden and keep journal audio/transcription UI disabled for v1 while AI key setup stays visible.
-- Sync diagnostics: backend exists, keep hidden for v1.
-
-## 8. Release Polish
-
-- Add useful empty states for visible routes.
-- Check loading states.
-- Check error states.
-- Remove visible TODO-like UX.
-- Remove dead buttons.
-- Remove routes that land on placeholder screens.
-- Confirm settings copy distinguishes sync passphrase from server seed phrase.
-- Confirm AI key copy explains what is optional.
-
-## 9. Verification
-
-- Run `cargo check` in `desktop/src-tauri`.
-- Run `cargo check` in `sync-server`.
-- Run the frontend typecheck or build for `desktop`.
+- Run `git diff --check`.
+- Run `pnpm run lint` from `desktop/`.
+- Run `pnpm run build` from `desktop/`.
+- Run `cargo fmt --check` from `desktop/src-tauri/`.
+- Run `cargo check` from `desktop/src-tauri/`.
+- Run `cargo test` from `desktop/src-tauri/`.
+- Run targeted stale-reference searches for stripped routes, commands, dependencies, and generated OpenAPI output.
 - Smoke first-launch onboarding.
 - Smoke journal entry creation.
 - Smoke task and goal creation.
+- Smoke local search model setup and journal/task search.
 - Smoke sync configure, sync now, reconnect, and media policy.
 - Smoke updater settings and manual check.
-- Smoke updater discovery, global update button, signed download, install, and restart.
-- Smoke local search model download and embedding rebuild.
-- Smoke command palette hybrid search.
-- Restart the app and confirm persisted onboarding/settings state.

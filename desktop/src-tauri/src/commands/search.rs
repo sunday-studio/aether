@@ -1,7 +1,4 @@
-use crate::commands::params::{
-    EmptyPathParams, EmptyRequest, RelatedSearchQueryParams, SearchQueryParams,
-    WeekContextQueryParams,
-};
+use crate::commands::params::{EmptyPathParams, EmptyRequest, SearchQueryParams};
 use crate::db::repositories::{SearchDocumentQuery, SearchDocumentRepository, SearchIndexStatus};
 use crate::db::{connection, DbState};
 use crate::error::{AppError, Result};
@@ -51,13 +48,6 @@ pub struct SearchResponse {
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchContextResponse {
-    pub results: Vec<SearchResultResponse>,
-    pub total: usize,
-}
-
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct SearchResultResponse {
     pub id: String,
     pub resource_type: String,
@@ -79,7 +69,7 @@ pub struct SearchResultResponse {
     tag = "Search",
     params(
         ("q" = String, Query, description = "Search query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task,goal,tag,bookmark"),
+        ("types" = Option<String>, Query, description = "Comma-separated resource types: entry,task"),
         ("tags" = Option<String>, Query, description = "Comma-separated tag IDs to filter by"),
         ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
         ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
@@ -114,7 +104,7 @@ pub async fn search_resources(
         let type_vec: Vec<String> = types_str
             .split(',')
             .map(|s| s.trim().to_lowercase())
-            .filter(|s| matches!(s.as_str(), "entry" | "task" | "goal" | "tag" | "bookmark"))
+            .filter(|s| matches!(s.as_str(), "entry" | "task"))
             .collect();
         if type_vec.is_empty() {
             None
@@ -122,7 +112,7 @@ pub async fn search_resources(
             Some(type_vec)
         }
     } else {
-        None
+        Some(vec!["entry".to_string(), "task".to_string()])
     };
 
     let tag_ids = parse_tag_ids(params.tags.as_deref());
@@ -162,137 +152,6 @@ pub async fn search_resources(
     Ok(response)
 }
 
-/// Find resources related to an indexed resource
-#[utoipa::path(
-    get,
-    path = "/v1/search/related",
-    tag = "Search",
-    params(
-        ("resource_type" = String, Query, description = "Resource type: entry, task, goal, tag, or bookmark"),
-        ("resource_id" = String, Query, description = "Resource ID"),
-        ("limit" = Option<u32>, Query, description = "Maximum number of related resources")
-    ),
-    responses(
-        (status = 200, description = "Related resources", body = SearchContextResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-#[tauri::command]
-pub async fn find_related_resources(
-    state: State<'_, DbState>,
-    _request_data: Option<EmptyRequest>,
-    query_params: Option<RelatedSearchQueryParams>,
-    _path_params: Option<EmptyPathParams>,
-) -> Result<SearchContextResponse> {
-    let _guard = connection::with_db_access(&*state).await;
-    let params = query_params
-        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
-    if params.resource_type.trim().is_empty() || params.resource_id.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "resourceType and resourceId are required".to_string(),
-        ));
-    }
-
-    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
-    let results = repo
-        .find_related(&params.resource_type, &params.resource_id, params.limit)
-        .await?;
-    Ok(search_context_response(results))
-}
-
-/// Retrieve clean context for a query
-#[utoipa::path(
-    get,
-    path = "/v1/search/context",
-    tag = "Search",
-    params(
-        ("q" = String, Query, description = "Context query"),
-        ("types" = Option<String>, Query, description = "Comma-separated resource types"),
-        ("tags" = Option<String>, Query, description = "Comma-separated tag IDs to filter by"),
-        ("date_from" = Option<String>, Query, description = "Filter source_updated_at at or after this ISO 8601 value"),
-        ("date_to" = Option<String>, Query, description = "Filter source_updated_at at or before this ISO 8601 value"),
-        ("limit" = Option<u32>, Query, description = "Maximum number of context resources")
-    ),
-    responses(
-        (status = 200, description = "Retrieved context", body = SearchContextResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-#[tauri::command]
-pub async fn retrieve_context(
-    state: State<'_, DbState>,
-    _request_data: Option<EmptyRequest>,
-    query_params: Option<SearchQueryParams>,
-    _path_params: Option<EmptyPathParams>,
-) -> Result<SearchContextResponse> {
-    let _guard = connection::with_db_access(&*state).await;
-    let params = query_params
-        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
-    if params.q.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "Query parameter 'q' is required and cannot be empty".to_string(),
-        ));
-    }
-
-    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
-    let page = repo
-        .search_keyword(
-            &params.q,
-            SearchDocumentQuery {
-                resource_types: parse_resource_types(params.types.as_deref()),
-                tag_ids: parse_tag_ids(params.tags.as_deref()),
-                date_from: params.date_from,
-                date_to: params.date_to,
-                limit: params.limit,
-                offset: None,
-                cursor: None,
-            },
-        )
-        .await?;
-    Ok(search_context_response(page.results))
-}
-
-/// Retrieve clean context for a date range
-#[utoipa::path(
-    get,
-    path = "/v1/search/week-context",
-    tag = "Search",
-    params(
-        ("start_date" = String, Query, description = "Inclusive start ISO 8601 value"),
-        ("end_date" = String, Query, description = "Inclusive end ISO 8601 value"),
-        ("limit" = Option<u32>, Query, description = "Maximum number of context resources")
-    ),
-    responses(
-        (status = 200, description = "Retrieved week context", body = SearchContextResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-#[tauri::command]
-pub async fn retrieve_week_context(
-    state: State<'_, DbState>,
-    _request_data: Option<EmptyRequest>,
-    query_params: Option<WeekContextQueryParams>,
-    _path_params: Option<EmptyPathParams>,
-) -> Result<SearchContextResponse> {
-    let _guard = connection::with_db_access(&*state).await;
-    let params = query_params
-        .ok_or_else(|| AppError::BadRequest("Query parameters are required".to_string()))?;
-    if params.start_date.trim().is_empty() || params.end_date.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "startDate and endDate are required".to_string(),
-        ));
-    }
-
-    let repo = SearchDocumentRepository::new(connection::get_database(&*state));
-    let results = repo
-        .list_context_by_date_range(&params.start_date, &params.end_date, params.limit)
-        .await?;
-    Ok(search_context_response(results))
-}
-
 fn parse_tag_ids(tags: Option<&str>) -> Option<Vec<String>> {
     tags.map(|tags| {
         tags.split(',')
@@ -301,34 +160,6 @@ fn parse_tag_ids(tags: Option<&str>) -> Option<Vec<String>> {
             .collect::<Vec<_>>()
     })
     .filter(|tags| !tags.is_empty())
-}
-
-fn parse_resource_types(types: Option<&str>) -> Option<Vec<String>> {
-    let resource_types = types?
-        .split(',')
-        .map(|resource_type| resource_type.trim().to_lowercase())
-        .filter(|resource_type| {
-            matches!(
-                resource_type.as_str(),
-                "entry" | "task" | "goal" | "tag" | "bookmark"
-            )
-        })
-        .collect::<Vec<_>>();
-    if resource_types.is_empty() {
-        None
-    } else {
-        Some(resource_types)
-    }
-}
-
-fn search_context_response(
-    results: Vec<crate::db::repositories::search_document::SearchDocumentResult>,
-) -> SearchContextResponse {
-    let total = results.len();
-    SearchContextResponse {
-        results: results.into_iter().map(search_result_response).collect(),
-        total,
-    }
 }
 
 fn search_result_response(
@@ -405,6 +236,11 @@ pub async fn reindex_search_resource(
     if request.resource_type.trim().is_empty() || request.resource_id.trim().is_empty() {
         return Err(AppError::BadRequest(
             "resourceType and resourceId are required".to_string(),
+        ));
+    }
+    if !matches!(request.resource_type.as_str(), "entry" | "task") {
+        return Err(AppError::BadRequest(
+            "Only entry and task resources are searchable in v1".to_string(),
         ));
     }
 

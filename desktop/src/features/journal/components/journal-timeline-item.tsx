@@ -6,11 +6,9 @@ import { Timeline } from '~/components/shared/timeline';
 import { Tooltip } from '~/components/shared/tooltip';
 import type { EntryWithTags } from '~/types/models';
 import { invalidateEntryQueries } from '../invalidate-entry-queries';
-// import { EntryAudio } from './entry-audio';
 import { JournalActionsDropdown } from './journal-actions-dropdown';
 import { JournalEditor } from './journal-editor';
 import { EntryTags } from './journal-tags';
-// import { JournalAiInsights } from './journal-ai-insights';
 
 interface JournalTimelineItemProps {
 	entry: EntryWithTags;
@@ -95,8 +93,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 			}
 			rightContent={
 				<Timeline.RightContent className='mb-5 flex flex-col gap-3'>
-					{/* Audio is intentionally hidden for v1 until the flow is ready to ship. */}
-					{/* <EntryAudio entryId={entry.id ?? ''} /> */}
 					<JournalEditor
 						isSelected={isActionsDropdownOpen}
 						document={entry.document ?? ''}
@@ -105,8 +101,6 @@ export const JournalTimelineItem = ({ entry }: JournalTimelineItemProps) => {
 					/>
 
 					<EntryTags entry={entry} />
-					{/* AI journal insights are hidden for now. */}
-					{/* <JournalAiInsights entryId={entry.id ?? ''} /> */}
 				</Timeline.RightContent>
 			}
 		></Timeline.Item>

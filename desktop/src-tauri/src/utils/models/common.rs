@@ -45,7 +45,6 @@ pub fn get_models_base_dir() -> Result<PathBuf> {
 pub fn get_category_dir(category: ModelCategory) -> Result<PathBuf> {
     let base_dir = get_models_base_dir()?;
     let category_name = match category {
-        ModelCategory::Transcription => "transcription",
         ModelCategory::Embedding => "embeddings",
     };
     Ok(base_dir.join(category_name))

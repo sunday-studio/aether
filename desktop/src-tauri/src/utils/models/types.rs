@@ -1,7 +1,6 @@
 /// Model category for organizing models
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModelCategory {
-    Transcription,
     Embedding,
 }
 

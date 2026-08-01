@@ -59,18 +59,10 @@ pub struct SearchIndexStatus {
     pub total_documents: i64,
     pub entries: i64,
     pub tasks: i64,
-    pub goals: i64,
-    pub tags: i64,
-    pub bookmarks: i64,
 }
 
 pub struct SearchDocumentRepository {
     database: Arc<Database>,
-}
-
-#[derive(Debug, Clone)]
-struct SearchDocumentSource {
-    text: String,
 }
 
 impl SearchDocumentRepository {
@@ -87,9 +79,6 @@ impl SearchDocumentRepository {
 
         self.reindex_entries().await?;
         self.reindex_tasks().await?;
-        self.reindex_goals().await?;
-        self.reindex_tags().await?;
-        self.reindex_bookmarks().await?;
         self.status().await
     }
 
@@ -97,9 +86,6 @@ impl SearchDocumentRepository {
         match resource_type {
             "entry" => self.reindex_entry(resource_id).await,
             "task" => self.reindex_task(resource_id).await,
-            "goal" => self.reindex_goal(resource_id).await,
-            "tag" => self.reindex_tag(resource_id).await,
-            "bookmark" => self.reindex_bookmark(resource_id).await,
             _ => Err(AppError::BadRequest(format!(
                 "Unsupported search resource type: {}",
                 resource_type
@@ -108,13 +94,12 @@ impl SearchDocumentRepository {
     }
 
     pub async fn status(&self) -> Result<SearchIndexStatus> {
+        let entries = self.count_for_type(Some("entry")).await?;
+        let tasks = self.count_for_type(Some("task")).await?;
         Ok(SearchIndexStatus {
-            total_documents: self.count_for_type(None).await?,
-            entries: self.count_for_type(Some("entry")).await?,
-            tasks: self.count_for_type(Some("task")).await?,
-            goals: self.count_for_type(Some("goal")).await?,
-            tags: self.count_for_type(Some("tag")).await?,
-            bookmarks: self.count_for_type(Some("bookmark")).await?,
+            total_documents: entries + tasks,
+            entries,
+            tasks,
         })
     }
 
@@ -370,111 +355,6 @@ impl SearchDocumentRepository {
         paged_results(results, offset, limit)
     }
 
-    pub async fn find_related(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-        limit: Option<u32>,
-    ) -> Result<Vec<SearchDocumentResult>> {
-        let Some(source) = self
-            .load_resource_document(resource_type, resource_id)
-            .await?
-        else {
-            return Ok(Vec::new());
-        };
-        let query = related_query_terms(&source.text);
-        if query.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let page = self
-            .search_keyword(
-                &query,
-                SearchDocumentQuery {
-                    limit: Some(limit.unwrap_or(10).min(50) + 1),
-                    ..SearchDocumentQuery::default()
-                },
-            )
-            .await?;
-
-        Ok(page
-            .results
-            .into_iter()
-            .filter(|result| {
-                result.resource_type != resource_type || result.resource_id != resource_id
-            })
-            .take(limit.unwrap_or(10).min(50) as usize)
-            .collect())
-    }
-
-    pub async fn list_context_by_date_range(
-        &self,
-        date_from: &str,
-        date_to: &str,
-        limit: Option<u32>,
-    ) -> Result<Vec<SearchDocumentResult>> {
-        let limit = limit.unwrap_or(50).min(100);
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, resource_type, resource_id, title, text, source_updated_at, created_at, updated_at
-                 FROM search_documents
-                 WHERE source_updated_at >= ?1 AND source_updated_at <= ?2
-                 ORDER BY source_updated_at DESC, id DESC
-                 LIMIT ?3",
-                libsql::params![date_from, date_to, limit],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            let text: String = row.get(4).map_err(AppError::LibSQL)?;
-            results.push(SearchDocumentResult {
-                id: row.get(0).map_err(AppError::LibSQL)?,
-                resource_type: row.get(1).map_err(AppError::LibSQL)?,
-                resource_id: row.get(2).map_err(AppError::LibSQL)?,
-                title: row.get(3).map_err(AppError::LibSQL)?,
-                preview: truncate_preview(&text, 220),
-                score: 1.0,
-                match_kind: "date".to_string(),
-                highlights: Vec::new(),
-                source_updated_at: row.get(5).map_err(AppError::LibSQL)?,
-                created_at: row.get(6).map_err(AppError::LibSQL)?,
-                updated_at: row.get(7).map_err(AppError::LibSQL)?,
-            });
-        }
-
-        Ok(results)
-    }
-
-    async fn load_resource_document(
-        &self,
-        resource_type: &str,
-        resource_id: &str,
-    ) -> Result<Option<SearchDocumentSource>> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT text
-                 FROM search_documents
-                 WHERE resource_type = ?1 AND resource_id = ?2
-                 ORDER BY chunk_index
-                 LIMIT 1",
-                libsql::params![resource_type, resource_id],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let Some(row) = rows.next().await.map_err(AppError::LibSQL)? else {
-            return Ok(None);
-        };
-
-        Ok(Some(SearchDocumentSource {
-            text: row.get(0).map_err(AppError::LibSQL)?,
-        }))
-    }
-
     async fn matches_tags(
         &self,
         conn: &libsql::Connection,
@@ -488,22 +368,14 @@ impl SearchDocumentRepository {
         if tag_ids.is_empty() {
             return Ok(true);
         }
-        if resource_type == "tag" {
-            return Ok(tag_ids.iter().any(|tag_id| tag_id == resource_id));
-        }
-
         let table = match resource_type {
             "entry" => "entry_tags",
             "task" => "task_tags",
-            "goal" => "goal_tags",
-            "bookmark" => "bookmark_tags",
             _ => return Ok(false),
         };
         let id_column = match resource_type {
             "entry" => "entry_id",
             "task" => "task_id",
-            "goal" => "goal_id",
-            "bookmark" => "bookmark_id",
             _ => return Ok(false),
         };
 
@@ -558,13 +430,6 @@ impl SearchDocumentRepository {
             "task" if self.task_is_incomplete(conn, &result.resource_id).await? => {
                 result.score += 0.05;
             }
-            "goal"
-                if self
-                    .goal_has_current_instance(conn, &result.resource_id)
-                    .await? =>
-            {
-                result.score += 0.05;
-            }
             _ => {}
         }
 
@@ -586,9 +451,6 @@ impl SearchDocumentRepository {
         let (table, id_column) = match resource_type {
             "entry" => ("entry_tags", "entry_id"),
             "task" => ("task_tags", "task_id"),
-            "goal" => ("goal_tags", "goal_id"),
-            "bookmark" => ("bookmark_tags", "bookmark_id"),
-            "tag" => return Ok(false),
             _ => return Ok(false),
         };
         let query = format!(
@@ -650,30 +512,6 @@ impl SearchDocumentRepository {
             .map_err(AppError::LibSQL)?
             .map(|row| row.get::<i64>(0).unwrap_or(1) == 0)
             .unwrap_or(false))
-    }
-
-    async fn goal_has_current_instance(
-        &self,
-        conn: &libsql::Connection,
-        resource_id: &str,
-    ) -> Result<bool> {
-        let now = Utc::now().to_rfc3339();
-        let mut rows = conn
-            .query(
-                "SELECT 1
-                 FROM goal_instances
-                 WHERE goal_id = ?1
-                   AND deleted_at IS NULL
-                   AND status = 'active'
-                   AND period_start <= ?2
-                   AND (period_end IS NULL OR period_end >= ?2)
-                 LIMIT 1",
-                libsql::params![resource_id, now],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        Ok(rows.next().await.map_err(AppError::LibSQL)?.is_some())
     }
 
     pub async fn upsert_document(&self, input: SearchDocumentInput) -> Result<()> {
@@ -877,225 +715,6 @@ impl SearchDocumentRepository {
         })
     }
 
-    async fn reindex_goal(&self, resource_id: &str) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, description, updated_at
-                 FROM goals
-                 WHERE id = ?1 AND deleted_at IS NULL",
-                libsql::params![resource_id],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            Some(Self::goal_input_from_row(row)?)
-        } else {
-            None
-        };
-        drop(rows);
-        drop(conn);
-
-        let Some(input) = input else {
-            return self.delete_resource("goal", resource_id).await;
-        };
-
-        self.upsert_document(input).await
-    }
-
-    async fn reindex_goals(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, description, updated_at
-                 FROM goals
-                 WHERE deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::goal_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
-    }
-
-    fn goal_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
-        let id: String = row.get(0).map_err(AppError::LibSQL)?;
-        let name: String = row.get(1).map_err(AppError::LibSQL)?;
-        let description: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
-        let updated_at: String = row.get(3).map_err(AppError::LibSQL)?;
-        let text = [name.as_str(), description.as_deref().unwrap_or("")].join(" ");
-
-        Ok(SearchDocumentInput {
-            resource_type: "goal".to_string(),
-            resource_id: id,
-            chunk_index: 0,
-            title: name,
-            text,
-            source_updated_at: updated_at,
-        })
-    }
-
-    async fn reindex_tag(&self, resource_id: &str) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, updated_at
-                 FROM tags
-                 WHERE id = ?1 AND deleted_at IS NULL",
-                libsql::params![resource_id],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            Some(Self::tag_input_from_row(row)?)
-        } else {
-            None
-        };
-        drop(rows);
-        drop(conn);
-
-        let Some(input) = input else {
-            return self.delete_resource("tag", resource_id).await;
-        };
-
-        self.upsert_document(input).await
-    }
-
-    async fn reindex_tags(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, name, updated_at
-                 FROM tags
-                 WHERE deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::tag_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
-    }
-
-    fn tag_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
-        let id: String = row.get(0).map_err(AppError::LibSQL)?;
-        let name: String = row.get(1).map_err(AppError::LibSQL)?;
-        let updated_at: String = row.get(2).map_err(AppError::LibSQL)?;
-
-        Ok(SearchDocumentInput {
-            resource_type: "tag".to_string(),
-            resource_id: id,
-            chunk_index: 0,
-            title: name.clone(),
-            text: name,
-            source_updated_at: updated_at,
-        })
-    }
-
-    async fn reindex_bookmark(&self, resource_id: &str) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, url, title, description, site_name, author, updated_at
-                 FROM bookmarks
-                 WHERE id = ?1 AND is_deleted = 0 AND deleted_at IS NULL",
-                libsql::params![resource_id],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let input = if let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            Some(Self::bookmark_input_from_row(row)?)
-        } else {
-            None
-        };
-        drop(rows);
-        drop(conn);
-
-        let Some(input) = input else {
-            return self.delete_resource("bookmark", resource_id).await;
-        };
-
-        self.upsert_document(input).await
-    }
-
-    async fn reindex_bookmarks(&self) -> Result<()> {
-        let conn = self.database.connect().map_err(AppError::LibSQL)?;
-        let mut rows = conn
-            .query(
-                "SELECT id, url, title, description, site_name, author, updated_at
-                 FROM bookmarks
-                 WHERE is_deleted = 0 AND deleted_at IS NULL",
-                libsql::params![],
-            )
-            .await
-            .map_err(AppError::LibSQL)?;
-
-        let mut inputs = Vec::new();
-        while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-            inputs.push(Self::bookmark_input_from_row(row)?);
-        }
-        drop(rows);
-        drop(conn);
-
-        for input in inputs {
-            self.upsert_document(input).await?;
-        }
-
-        Ok(())
-    }
-
-    fn bookmark_input_from_row(row: libsql::Row) -> Result<SearchDocumentInput> {
-        let id: String = row.get(0).map_err(AppError::LibSQL)?;
-        let url: String = row.get(1).map_err(AppError::LibSQL)?;
-        let title: Option<String> = row.get(2).map_err(AppError::LibSQL)?;
-        let description: Option<String> = row.get(3).map_err(AppError::LibSQL)?;
-        let site_name: Option<String> = row.get(4).map_err(AppError::LibSQL)?;
-        let author: Option<String> = row.get(5).map_err(AppError::LibSQL)?;
-        let updated_at: String = row.get(6).map_err(AppError::LibSQL)?;
-        let title = title.unwrap_or_else(|| url.clone());
-        let text = [
-            title.as_str(),
-            description.as_deref().unwrap_or(""),
-            site_name.as_deref().unwrap_or(""),
-            author.as_deref().unwrap_or(""),
-            url.as_str(),
-        ]
-        .join(" ");
-
-        Ok(SearchDocumentInput {
-            resource_type: "bookmark".to_string(),
-            resource_id: id,
-            chunk_index: 0,
-            title,
-            text,
-            source_updated_at: updated_at,
-        })
-    }
-
     async fn count_for_type(&self, resource_type: Option<&str>) -> Result<i64> {
         let conn = self.database.connect().map_err(AppError::LibSQL)?;
         let mut rows = if let Some(resource_type) = resource_type {
@@ -1234,18 +853,6 @@ fn cosine_similarity(left: &[f32], right: &[f32]) -> f64 {
     ((dot / (left_norm.sqrt() * right_norm.sqrt())) + 1.0) / 2.0
 }
 
-fn related_query_terms(text: &str) -> String {
-    text.split_whitespace()
-        .map(|term| {
-            term.trim_matches(|ch: char| !ch.is_alphanumeric())
-                .to_lowercase()
-        })
-        .filter(|term| term.len() >= 4)
-        .take(6)
-        .collect::<Vec<_>>()
-        .join(" OR ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1278,7 +885,7 @@ mod tests {
 
     async fn seed_search_resources(database: &Database) {
         let conn = database.connect().expect("connect to test database");
-        let entry_document = r#"{"root":{"children":[{"children":[{"text":"Morning clarity journal entry","type":"text"}],"type":"paragraph"}],"type":"root"}}"#;
+        let entry_document = r#"{"root":{"children":[{"children":[{"text":"Morning clarity search journal entry","type":"text"}],"type":"paragraph"}],"type":"root"}}"#;
 
         conn.execute(
             "INSERT INTO entries (id, document, created_at, updated_at)
@@ -1308,20 +915,6 @@ mod tests {
         .expect("seed task");
 
         conn.execute(
-            "INSERT INTO goals (id, name, description, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            libsql::params![
-                "goal-1",
-                "Improve recall",
-                "Search across local notes",
-                "2026-05-13T09:00:00Z",
-                "2026-05-13T09:00:00Z"
-            ],
-        )
-        .await
-        .expect("seed goal");
-
-        conn.execute(
             "INSERT INTO tags (id, name, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)",
             libsql::params![
@@ -1335,28 +928,11 @@ mod tests {
         .expect("seed tag");
 
         conn.execute(
-            "INSERT INTO bookmarks (id, url, title, description, site_name, author, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            libsql::params![
-                "bookmark-1",
-                "https://example.com/search",
-                "Search reference",
-                "Useful retrieval notes",
-                "Example",
-                "Aether",
-                "2026-05-15T09:00:00Z",
-                "2026-05-15T09:00:00Z"
-            ],
+            "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+            libsql::params!["task-1", "tag-1"],
         )
         .await
-        .expect("seed bookmark");
-
-        conn.execute(
-            "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2)",
-            libsql::params!["bookmark-1", "tag-1"],
-        )
-        .await
-        .expect("seed bookmark tag");
+        .expect("seed task tag");
     }
 
     fn cleanup_db(path: PathBuf) {
@@ -1372,12 +948,9 @@ mod tests {
 
         let status = repo.reindex_all().await.expect("reindex all resources");
 
-        assert_eq!(status.total_documents, 5);
+        assert_eq!(status.total_documents, 2);
         assert_eq!(status.entries, 1);
         assert_eq!(status.tasks, 1);
-        assert_eq!(status.goals, 1);
-        assert_eq!(status.tags, 1);
-        assert_eq!(status.bookmarks, 1);
 
         cleanup_db(db_path);
     }
@@ -1401,7 +974,7 @@ mod tests {
             .expect("reindex deleted entry");
         let status = repo.status().await.expect("read entry status");
 
-        assert_eq!(status.total_documents, 4);
+        assert_eq!(status.total_documents, 1);
         assert_eq!(status.entries, 0);
 
         conn.execute(
@@ -1416,38 +989,8 @@ mod tests {
             .expect("reindex deleted task");
         let status = repo.status().await.expect("read task status");
 
-        assert_eq!(status.total_documents, 3);
+        assert_eq!(status.total_documents, 0);
         assert_eq!(status.tasks, 0);
-
-        conn.execute(
-            "UPDATE goals SET deleted_at = ?1 WHERE id = ?2",
-            libsql::params!["2026-05-16T09:00:00Z", "goal-1"],
-        )
-        .await
-        .expect("soft delete goal");
-
-        repo.reindex_resource("goal", "goal-1")
-            .await
-            .expect("reindex deleted goal");
-        let status = repo.status().await.expect("read goal status");
-
-        assert_eq!(status.total_documents, 2);
-        assert_eq!(status.goals, 0);
-
-        conn.execute(
-            "UPDATE bookmarks SET is_deleted = 1, deleted_at = ?1 WHERE id = ?2",
-            libsql::params!["2026-05-16T09:00:00Z", "bookmark-1"],
-        )
-        .await
-        .expect("soft delete bookmark");
-
-        repo.reindex_resource("bookmark", "bookmark-1")
-            .await
-            .expect("reindex deleted bookmark");
-        let status = repo.status().await.expect("read bookmark status");
-
-        assert_eq!(status.total_documents, 1);
-        assert_eq!(status.bookmarks, 0);
 
         cleanup_db(db_path);
     }
@@ -1458,21 +1001,21 @@ mod tests {
         seed_search_resources(&database).await;
         repo.reindex_all().await.expect("reindex all resources");
 
-        repo.delete_resource("bookmark", "bookmark-1")
+        repo.delete_resource("task", "task-1")
             .await
-            .expect("delete bookmark search document");
+            .expect("delete task search document");
         let status = repo.status().await.expect("read status");
         let results = repo
-            .search_keyword("reference", SearchDocumentQuery::default())
+            .search_keyword("testing", SearchDocumentQuery::default())
             .await
             .expect("search after delete");
 
-        assert_eq!(status.total_documents, 4);
-        assert_eq!(status.bookmarks, 0);
+        assert_eq!(status.total_documents, 1);
+        assert_eq!(status.tasks, 0);
         assert!(results
             .results
             .iter()
-            .all(|result| result.resource_id != "bookmark-1"));
+            .all(|result| result.resource_id != "task-1"));
 
         cleanup_db(db_path);
     }
@@ -1487,7 +1030,7 @@ mod tests {
             .search_keyword(
                 "search",
                 SearchDocumentQuery {
-                    resource_types: Some(vec!["task".to_string(), "bookmark".to_string()]),
+                    resource_types: Some(vec!["task".to_string()]),
                     tag_ids: None,
                     date_from: Some("2026-05-12T00:00:00Z".to_string()),
                     date_to: Some("2026-05-15T23:59:59Z".to_string()),
@@ -1500,10 +1043,7 @@ mod tests {
             .expect("search keyword");
 
         assert_eq!(results.results.len(), 1);
-        assert!(matches!(
-            results.results[0].resource_type.as_str(),
-            "task" | "bookmark"
-        ));
+        assert_eq!(results.results[0].resource_type, "task");
         assert_eq!(results.results[0].match_kind, "keyword");
         assert!(!results.results[0].resource_id.is_empty());
         assert!(!results.results[0].title.is_empty());
@@ -1530,8 +1070,8 @@ mod tests {
             .expect("search keyword by tag");
 
         assert_eq!(results.results.len(), 1);
-        assert_eq!(results.results[0].resource_type, "bookmark");
-        assert_eq!(results.results[0].resource_id, "bookmark-1");
+        assert_eq!(results.results[0].resource_type, "task");
+        assert_eq!(results.results[0].resource_id, "task-1");
 
         cleanup_db(db_path);
     }
@@ -1644,33 +1184,11 @@ mod tests {
         )
         .await
         .expect("pin entry");
-        conn.execute(
-            "INSERT INTO goal_instances (id, goal_id, period_start, period_end, status, created_at, updated_at)
-             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
-            libsql::params![
-                "goal-instance-1",
-                "goal-1",
-                "2026-01-01T00:00:00Z",
-                "active",
-                "2026-01-01T00:00:00Z",
-                "2026-01-01T00:00:00Z"
-            ],
-        )
-        .await
-        .expect("seed current goal instance");
-
         let mut task_result = test_search_result("task", "task-1", "Plan search testing", 0.1);
         repo.apply_ranking_boosts(&conn, "Plan search testing", &mut task_result)
             .await
             .expect("boost task");
         assert!(task_result.score > 0.39);
-
-        let mut bookmark_result =
-            test_search_result("bookmark", "bookmark-1", "Search reference", 0.1);
-        repo.apply_ranking_boosts(&conn, "reflection", &mut bookmark_result)
-            .await
-            .expect("boost bookmark tag");
-        assert!(bookmark_result.score >= 0.18);
 
         let mut entry_result = test_search_result("entry", "entry-1", "Morning clarity", 0.1);
         repo.apply_ranking_boosts(&conn, "clarity", &mut entry_result)
@@ -1678,30 +1196,18 @@ mod tests {
             .expect("boost pinned entry");
         assert!(entry_result.score >= 0.15);
 
-        let mut goal_result = test_search_result("goal", "goal-1", "Improve recall", 0.1);
-        repo.apply_ranking_boosts(&conn, "recall", &mut goal_result)
-            .await
-            .expect("boost current goal");
-        assert!(goal_result.score >= 0.15);
-
         cleanup_db(db_path);
     }
 
     #[tokio::test]
-    async fn find_related_returns_results_without_source_resource() {
+    async fn rejects_non_v1_reindex_resource_types() {
         let (database, repo, db_path) = test_repo().await;
         seed_search_resources(&database).await;
         repo.reindex_all().await.expect("reindex all resources");
 
-        let results = repo
-            .find_related("task", "task-1", Some(5))
-            .await
-            .expect("find related resources");
+        let result = repo.reindex_resource("bookmark", "bookmark-1").await;
 
-        assert!(!results.is_empty());
-        assert!(results
-            .iter()
-            .all(|result| result.resource_type != "task" || result.resource_id != "task-1"));
+        assert!(matches!(result, Err(AppError::BadRequest(_))));
 
         cleanup_db(db_path);
     }
@@ -1725,24 +1231,6 @@ mod tests {
             created_at: "2026-05-18T00:00:00Z".to_string(),
             updated_at: "2026-05-18T00:00:00Z".to_string(),
         }
-    }
-
-    #[tokio::test]
-    async fn list_context_by_date_range_returns_clean_context() {
-        let (database, repo, db_path) = test_repo().await;
-        seed_search_resources(&database).await;
-        repo.reindex_all().await.expect("reindex all resources");
-
-        let results = repo
-            .list_context_by_date_range("2026-05-12T00:00:00Z", "2026-05-15T23:59:59Z", Some(10))
-            .await
-            .expect("list context by date");
-
-        assert_eq!(results.len(), 4);
-        assert!(results.iter().all(|result| result.match_kind == "date"));
-        assert!(results.iter().all(|result| !result.preview.is_empty()));
-
-        cleanup_db(db_path);
     }
 
     #[tokio::test]

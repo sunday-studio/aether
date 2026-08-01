@@ -1,65 +1,44 @@
 # Features Planned But Not Implemented
 
-This document tracks planned, deferred, or backend-backed work that should not be treated as shipped product behavior yet.
+This document tracks planned or deferred work that should not be treated as shipped product behavior.
 
-## V1 Deferred Or Hidden
+## Removed From V1 Surface
 
 ### Canvas
 
-Canvas has real frontend and backend implementation, including route code, React components, state, and canvas persistence. It is out for v1. Hide the route, keyboard shortcut, navigation paths, and resource-link destinations while leaving the implementation available for a later milestone.
+Canvas is not part of v1. Do not expose canvas routes, commands, repositories, API paths, generated SDK hooks, dependencies, navigation destinations, or keyboard shortcuts in the v1 branch.
 
 ### Bookmarks
 
-The backend supports bookmark CRUD, metadata extraction, tagging, archive state, repository logic, and generated API hooks. The current frontend route is placeholder-level, so it is hidden for v1.
+Bookmarks are not part of v1. Do not expose bookmark routes, commands, repositories, metadata extraction, bookmark-specific tags/search indexing, API paths, generated SDK hooks, or navigation destinations in the v1 branch.
 
 ### Knowledge Graph
 
-The backend supports graph/link retrieval and the frontend has a graph visualization route. The current experience is not polished enough for v1, so the route is hidden until labels, empty states, navigation, and resource-opening behavior are designed and implemented.
+Graph is not part of v1. Do not expose graph routes or graph-only link APIs in the v1 branch.
 
-### Transcription Provider And Model Management
+### Journal Audio And Transcription
 
-The backend can list providers, validate provider configuration, manage local Whisper models, save journal audio, and run transcription jobs. AI key setup stays visible for v1, but the visible journal audio/transcription UI is hidden and full provider/model management is not a complete settings surface.
-
-### Sync Diagnostics
-
-The backend exposes sync trigger check/test commands. These are development diagnostics, not user-facing v1 features. Keep them hidden unless a later support/debug mode is intentionally designed.
-
-## Planned V1 Work Not Yet Implemented
-
-### First-Run Onboarding
-
-Add a first-launch onboarding gate before the main app. It should collect a display name, explain optional sync, validate sync setup when requested, offer optional AI key setup, and persist completion in settings.
-
-### Navigation Cleanup
-
-The v1 navigation should expose only finished surfaces. Canvas, Bookmarks, and Graph routes are hidden, placeholder destinations are not advertised, and command palette search should stay scoped to indexed, v1-ready resources.
-
-### Backend-Frontend Gap Cleanup
-
-For each backend capability, decide whether it is shipped, hidden, or deferred. The v1 app should not expose routes, settings, or controls that land on placeholder or debug-only behavior.
+Journal audio recording and transcription are not part of v1. Do not expose audio commands, journal audio UI, transcription commands, transcription providers, transcription model management, provider validation, or transcription settings in the v1 branch.
 
 ### AI Journal Enrichment
 
-AI journal enrichment is planned as a local-first, editable suggestion layer for daily entry insights, weekly summaries, and relationship suggestions. See [AI Journal Enrichment](./ai-journal-enrichment.md) for the implementation direction. This should not be exposed as shipped behavior until the review/edit/dismiss flows, provider settings, sync behavior, and privacy copy are complete.
+AI journal enrichment is not part of v1. Do not expose entry insights, suggestions, weekly summaries, AI provider setup, provider-key copy, or AI enrichment APIs in the v1 branch.
+
+### Broad Search And Relationship APIs
+
+V1 search is scoped to journal entries and tasks. Related-resource retrieval, week context retrieval, bookmark search indexing, graph/link search, and non-v1 command palette result types are deferred.
 
 ## Later Candidate Features
 
-### Local Model Downloads
+These features can return after v1 only as complete product surfaces with deliberate routes, settings, commands, API exposure, tests, and docs:
 
-Local search model download is now part of onboarding and Settings. Local Whisper model download and verification exists at the backend level; a later product surface could let users manage local transcription models, but that should be designed as a full settings flow.
+- Canvas.
+- Saved bookmarks.
+- Knowledge graph.
+- Journal audio recording.
+- Transcription.
+- AI journal enrichment.
+- Full search results and semantic recall workflows.
+- Relationship/resource-link APIs.
 
-### Rich Bookmark Experience
-
-A later milestone can make bookmarks a real saved-resource feature with list, filtering, metadata refresh, archive state, tags, and search integration.
-
-### Search And Semantic Recall
-
-Search now includes command palette results, local embeddings, and hybrid ranking. A later milestone can add a full search results view and deeper semantic recall workflows.
-
-### Canvas Return
-
-Canvas can return after v1 as a focused spatial-thinking surface, but it should come back as a complete user flow rather than a partially exposed route.
-
-### Knowledge Graph Return
-
-Graph can return after v1 as a discovery and relationship surface once it has a clear entry point, meaningful node labels, useful empty states, and resource navigation.
+Existing database migrations and sync compatibility handlers may keep historical entity names so older installs and encrypted changes remain compatible. That compatibility does not make those entities v1 features.

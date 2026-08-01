@@ -3,12 +3,10 @@ use crate::commands::params::{
     EmptyPathParams, EmptyQueryParams, EmptyRequest, IdPathParams, PaginationQueryParams,
 };
 use crate::db::models::Entry;
-use crate::db::repositories::LinkRepository;
 use crate::db::{
     connection, DbState, EntryRepository, SearchDocumentRepository, SearchEmbeddingRepository,
 };
 use crate::error::{AppError, Result};
-use crate::utils::link_parser::extract_links_from_lexical_content;
 use crate::utils::performance_ledger::{record_rust_timing, PerfTimer};
 use crate::utils::{log_create, log_delete, log_tag_operation, log_update};
 use chrono::Utc;
@@ -224,24 +222,6 @@ pub async fn create_entry(
         .await?;
     let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
-    // Sync links from content
-    let links_started = Instant::now();
-    let link_repo = LinkRepository::new(db.clone());
-    if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
-        for link in extracted_links {
-            let _ = link_repo
-                .create(
-                    "entry".to_string(),
-                    entry.id.clone(),
-                    link.target_type,
-                    link.target_id,
-                    link.link_text,
-                )
-                .await;
-        }
-    }
-    let links_ms = links_started.elapsed().as_secs_f64() * 1000.0;
-
     let search_started = Instant::now();
     reindex_entry_search(db.clone(), &entry.id).await;
     let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
@@ -263,7 +243,6 @@ pub async fn create_entry(
             "document_bytes": request.document.len(),
             "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
             "repo_create_ms": (repo_ms * 10.0).round() / 10.0,
-            "links_ms": (links_ms * 10.0).round() / 10.0,
             "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
             "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
         }),
@@ -379,62 +358,6 @@ pub async fn update_entry(
         .await?;
     let repo_ms = repo_started.elapsed().as_secs_f64() * 1000.0;
 
-    // Sync links from content
-    let links_started = Instant::now();
-    let link_repo = LinkRepository::new(db.clone());
-    if let Ok(extracted_links) = extract_links_from_lexical_content(&request.document) {
-        // Get existing links
-        let existing_links = link_repo
-            .find_by_source("entry", &id)
-            .await
-            .unwrap_or_default();
-        let existing_targets: std::collections::HashSet<(String, String)> = existing_links
-            .iter()
-            .map(|l| (l.target_type.clone(), l.target_id.clone()))
-            .collect();
-
-        // Create new links
-        let new_targets: std::collections::HashSet<(String, String)> = extracted_links
-            .iter()
-            .map(|l| (l.target_type.clone(), l.target_id.clone()))
-            .collect();
-
-        // Delete removed links
-        for existing_link in &existing_links {
-            let target_key = (
-                existing_link.target_type.clone(),
-                existing_link.target_id.clone(),
-            );
-            if !new_targets.contains(&target_key) {
-                let _ = link_repo
-                    .delete(
-                        &existing_link.source_type,
-                        &existing_link.source_id,
-                        &existing_link.target_type,
-                        &existing_link.target_id,
-                    )
-                    .await;
-            }
-        }
-
-        // Create new links
-        for link in extracted_links {
-            let target_key = (link.target_type.clone(), link.target_id.clone());
-            if !existing_targets.contains(&target_key) {
-                let _ = link_repo
-                    .create(
-                        "entry".to_string(),
-                        id.clone(),
-                        link.target_type,
-                        link.target_id,
-                        link.link_text,
-                    )
-                    .await;
-            }
-        }
-    }
-    let links_ms = links_started.elapsed().as_secs_f64() * 1000.0;
-
     let search_started = Instant::now();
     reindex_entry_search(db.clone(), &entry.id).await;
     let search_ms = search_started.elapsed().as_secs_f64() * 1000.0;
@@ -456,7 +379,6 @@ pub async fn update_entry(
             "document_bytes": request.document.len(),
             "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
             "repo_update_ms": (repo_ms * 10.0).round() / 10.0,
-            "links_ms": (links_ms * 10.0).round() / 10.0,
             "search_refresh_ms": (search_ms * 10.0).round() / 10.0,
             "activity_log_ms": (activity_ms * 10.0).round() / 10.0,
         }),
@@ -496,10 +418,6 @@ pub async fn delete_entry(
     let db = connection::get_database(&*state);
     let repo = EntryRepository::new(db.clone());
     repo.delete(&id).await?;
-
-    // Delete all links from this entry
-    let link_repo = LinkRepository::new(db.clone());
-    let _ = link_repo.delete_by_source("entry", &id).await;
 
     reindex_entry_search(db.clone(), &id).await;
 

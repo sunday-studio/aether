@@ -21,9 +21,6 @@ pub enum AppError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Transcription error: {0}")]
-    TranscriptionError(String),
-
     #[error("Model error: {0}")]
     ModelError(String),
 

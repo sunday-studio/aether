@@ -33,16 +33,16 @@ Offline-first, end-to-end encrypted sync. Your data is encrypted on the client; 
 
 ## Media sync
 
-Media blobs (audio, images, etc.) are synced via `PUT/GET /media/{hash}`. The `content_hash` (`sha256:{hex}` of plaintext) is stored in `media_items.metadata.content_hash`.
+Image and video media blobs are synced via `PUT/GET /media/{hash}`. The `content_hash` (`sha256:{hex}` of plaintext) is stored in `media_items.metadata.content_hash`.
 
 **Setting: `sync.media_sync_policy`**
 
 - **`auto`**: Blobs are uploaded when pushing `media_items` and downloaded when applying them. Full media is transferred during sync.
-- **`on_demand`** (default): Only metadata is synced. Blobs are downloaded when the app needs them (e.g. playing audio). Use `ensure_media_blob(mediaId)` before loading media, or rely on `get_audio_data` which does it automatically.
+- **`on_demand`** (default): Only metadata is synced. Blobs are downloaded when the app needs them. Use `ensure_media_blob(mediaId)` before loading image or video media.
 
 Configure via Settings → Sync (Auto sync media / Download as needed) or `set_setting("sync.media_sync_policy", "auto"|"on_demand")`.
 
-**Image/video:** When adding UI that displays image or video from `media_items`, call `ensure_media_blob(mediaId)` (or the `useEnsureMediaBlob(mediaId)` hook) before resolving a `file://` or blob URL when `sync.media_sync_policy` is `on_demand`.
+When adding UI that displays image or video from `media_items`, call `ensure_media_blob(mediaId)` or the `useEnsureMediaBlob(mediaId)` hook before resolving a `file://` or blob URL when `sync.media_sync_policy` is `on_demand`.
 
 ## Development
 

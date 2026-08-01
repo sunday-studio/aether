@@ -1,7 +1,6 @@
-export type ProviderChoice = 'openai' | 'groq';
-export type StepId = 'intro' | 'profile' | 'sync' | 'ai';
+export type StepId = 'intro' | 'profile' | 'sync' | 'search';
 export type SyncChoice = 'yes' | 'no' | null;
-export type AiChoice = 'yes' | 'no' | null;
+export type SearchChoice = 'yes' | 'no' | null;
 
 export interface PreviewItem {
 	label: string;

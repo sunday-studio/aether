@@ -54,736 +54,6 @@
         }
       }
     },
-    "/v1/audio": {
-      "post": {
-        "tags": [
-          "Audio"
-        ],
-        "summary": "Save audio recording to filesystem and database",
-        "operationId": "save_audio_recording",
-        "parameters": [
-          {
-            "name": "entryId",
-            "in": "path",
-            "description": "Entry ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Audio recording data",
-          "content": {
-            "application/json": {
-              "schema": {}
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Media ID of saved audio",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/audio/{mediaId}": {
-      "get": {
-        "tags": [
-          "Audio"
-        ],
-        "summary": "Get audio file data",
-        "operationId": "get_audio_data",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Audio file data",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "404": {
-            "description": "Audio not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Audio"
-        ],
-        "summary": "Delete audio recording",
-        "operationId": "delete_audio_recording",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Audio deleted successfully"
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/audio/{mediaId}/metadata": {
-      "get": {
-        "tags": [
-          "Audio"
-        ],
-        "summary": "Get audio metadata without loading the full file",
-        "operationId": "get_audio_metadata",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Audio metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/MediaItem"
-                    }
-                  ],
-                  "nullable": true
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/bookmarks": {
-      "get": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Get all bookmarks",
-        "operationId": "get_bookmarks",
-        "parameters": [
-          {
-            "name": "is_archived",
-            "in": "query",
-            "description": "Filter by archived status",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "nullable": true
-            }
-          },
-          {
-            "name": "tag_ids",
-            "in": "query",
-            "description": "Filter by tag IDs",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "nullable": true
-            }
-          },
-          {
-            "name": "content_type",
-            "in": "query",
-            "description": "Filter by content type",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of bookmarks per page (max 1000)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "description": "Cursor for pagination",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of bookmarks",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedBookmarks"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Create a new bookmark",
-        "operationId": "create_bookmark",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateBookmarkRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Created bookmark",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Bookmark"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/bookmarks/extract-metadata": {
-      "get": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Extract metadata from a URL without saving",
-        "operationId": "extract_metadata",
-        "parameters": [
-          {
-            "name": "url",
-            "in": "query",
-            "description": "URL to extract metadata from",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Extracted metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtractedMetadata"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/bookmarks/{id}": {
-      "get": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Get bookmark by ID",
-        "operationId": "get_bookmark_by_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Bookmark ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Bookmark found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Bookmark"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Bookmark not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Update a bookmark",
-        "operationId": "update_bookmark",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Bookmark ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateBookmarkRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Updated bookmark",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Bookmark"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "404": {
-            "description": "Bookmark not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Delete a bookmark",
-        "operationId": "delete_bookmark",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Bookmark ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Bookmark deleted"
-          },
-          "404": {
-            "description": "Bookmark not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/bookmarks/{id}/tags": {
-      "post": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Add tags to a bookmark",
-        "operationId": "add_tags_to_bookmark",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Bookmark ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Tags added to bookmark",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Bookmark"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Bookmark or tag not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Bookmarks"
-        ],
-        "summary": "Remove tags from a bookmark",
-        "operationId": "remove_tags_from_bookmark",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Bookmark ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Tags removed from bookmark",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Bookmark"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Bookmark or tag not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/canvas": {
-      "get": {
-        "tags": [
-          "Canvases"
-        ],
-        "summary": "Get all canvases",
-        "operationId": "get_canvases",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of canvases per page (max 1000)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "description": "Cursor for pagination",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of canvases",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedCanvases"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Canvases"
-        ],
-        "summary": "Create a new canvas",
-        "operationId": "create_canvas",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCanvasRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Created canvas",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Canvas"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/canvas/{id}": {
-      "get": {
-        "tags": [
-          "Canvases"
-        ],
-        "summary": "Get canvas by ID",
-        "operationId": "get_canvas_by_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Canvas ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Canvas found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Canvas"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Canvas not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Canvases"
-        ],
-        "summary": "Update a canvas",
-        "operationId": "update_canvas",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Canvas ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateCanvasRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Updated canvas",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Canvas"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "404": {
-            "description": "Canvas not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Canvases"
-        ],
-        "summary": "Delete a canvas",
-        "operationId": "delete_canvas",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Canvas ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Canvas deleted"
-          },
-          "404": {
-            "description": "Canvas not found"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
     "/v1/entry": {
       "get": {
         "tags": [
@@ -913,9 +183,9 @@
     "/v1/entry/{entryId}/media": {
       "get": {
         "tags": [
-          "Audio"
+          "Media"
         ],
-        "summary": "Get all media items (audio, images, etc.) for an entry",
+        "summary": "Get image and video media items for an entry.",
         "operationId": "get_media_items_for_entry",
         "parameters": [
           {
@@ -1258,7 +528,7 @@
         "tags": [
           "GoalInstances"
         ],
-        "summary": "Get goal instances for a goal",
+        "summary": "Get goal instances for a goal (with tasks per instance for goal view)",
         "operationId": "get_goal_instances",
         "parameters": [
           {
@@ -1295,11 +565,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of goal instances",
+            "description": "Paginated list of goal instances with tasks",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedGoalInstances"
+                  "$ref": "#/components/schemas/PaginatedGoalInstancesWithTasks"
                 }
               }
             }
@@ -1570,338 +840,13 @@
         }
       }
     },
-    "/v1/links": {
-      "post": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Create a link between resources",
-        "operationId": "create_link",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLinkRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Created link",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResourceLink"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Delete a link",
-        "operationId": "delete_link",
-        "parameters": [
-          {
-            "name": "sourceType",
-            "in": "query",
-            "description": "Source resource type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sourceId",
-            "in": "query",
-            "description": "Source resource ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "targetType",
-            "in": "query",
-            "description": "Target resource type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "targetId",
-            "in": "query",
-            "description": "Target resource ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Link deleted"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/links/backlinks": {
-      "get": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Get all backlinks to a target resource",
-        "operationId": "get_backlinks",
-        "parameters": [
-          {
-            "name": "targetType",
-            "in": "query",
-            "description": "Target resource type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "targetId",
-            "in": "query",
-            "description": "Target resource ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of backlinks",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BacklinkResponse"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/links/graph": {
-      "get": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Get all links for graph visualization",
-        "operationId": "get_all_links_for_graph",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of links per page (max 1000)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "description": "Cursor for pagination",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of links for graph",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedLinks"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/links/outgoing": {
-      "get": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Get all outgoing links from a source resource",
-        "operationId": "get_outgoing_links",
-        "parameters": [
-          {
-            "name": "sourceType",
-            "in": "query",
-            "description": "Source resource type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sourceId",
-            "in": "query",
-            "description": "Source resource ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of outgoing links",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResourceLink"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/links/search": {
-      "get": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Search for resources to link (for autocomplete)",
-        "operationId": "search_linkable_resources",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "description": "Search query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "types",
-            "in": "query",
-            "description": "Comma-separated resource types to filter",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of results (default: 20)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true,
-              "minimum": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of linkable resources",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LinkableResource"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/links/sync": {
-      "post": {
-        "tags": [
-          "Links"
-        ],
-        "summary": "Sync links from content (extract and create/update links)",
-        "operationId": "sync_links_from_content",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SyncLinksRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Links synced"
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
     "/v1/search": {
       "get": {
         "tags": [
           "Search"
         ],
         "summary": "Search across all resources",
-        "operationId": "search",
+        "operationId": "search_resources",
         "parameters": [
           {
             "name": "q",
@@ -1915,7 +860,7 @@
           {
             "name": "types",
             "in": "query",
-            "description": "Comma-separated resource types: entry,task,subtask,goal,tag",
+            "description": "Comma-separated resource types: entry,task",
             "required": false,
             "schema": {
               "type": "string",
@@ -1926,6 +871,26 @@
             "name": "tags",
             "in": "query",
             "description": "Comma-separated tag IDs to filter by",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "Filter source_updated_at at or after this ISO 8601 value",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "Filter source_updated_at at or before this ISO 8601 value",
             "required": false,
             "schema": {
               "type": "string",
@@ -1947,7 +912,7 @@
           {
             "name": "offset",
             "in": "query",
-            "description": "Pagination offset",
+            "description": "Legacy pagination offset",
             "required": false,
             "schema": {
               "type": "integer",
@@ -1957,9 +922,19 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
             "name": "mode",
             "in": "query",
-            "description": "Search mode: fuzzy, similar, or hybrid (default: fuzzy)",
+            "description": "Search mode: keyword, semantic, or hybrid (default: keyword)",
             "required": false,
             "schema": {
               "type": "string",
@@ -1980,6 +955,179 @@
           },
           "400": {
             "description": "Bad request (empty query)"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/embeddings/index": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Index embeddings for all local search documents",
+        "operationId": "index_search_embeddings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSearchEmbeddingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Search embeddings indexed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/embeddings/resource": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Index embeddings for one local search resource",
+        "operationId": "index_search_resource_embeddings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSearchResourceEmbeddingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Search resource embeddings indexed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/embeddings/status": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Get local search embedding index status",
+        "operationId": "get_search_embedding_status",
+        "responses": {
+          "200": {
+            "description": "Search embedding status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchEmbeddingStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/index/reindex": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Rebuild the local search document index",
+        "operationId": "reindex_search",
+        "responses": {
+          "200": {
+            "description": "Search index rebuilt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchIndexStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/index/resource": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Rebuild one local search document resource",
+        "operationId": "reindex_search_resource",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReindexResourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Resource search index rebuilt"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/search/index/status": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Get local search document index status",
+        "operationId": "get_search_index_status",
+        "responses": {
+          "200": {
+            "description": "Search index status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchIndexStatus"
+                }
+              }
+            }
           },
           "500": {
             "description": "Internal server error"
@@ -2082,7 +1230,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Configure sync with server URL and passphrase",
+        "summary": "Configure sync with server URL, server seed phrase, and sync passphrase",
         "operationId": "configure_sync",
         "requestBody": {
           "content": {
@@ -2124,7 +1272,7 @@
         }
       }
     },
-    "/v1/sync/media/:mediaId/ensure": {
+    "/v1/sync/media/{mediaId}/ensure": {
       "post": {
         "tags": [
           "Sync"
@@ -2188,7 +1336,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Reconnect sync with passphrase",
+        "summary": "Reconnect sync with sync passphrase",
         "operationId": "reconnect_sync",
         "requestBody": {
           "content": {
@@ -3035,396 +2183,6 @@
         }
       }
     },
-    "/v1/transcription": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Start transcription for an audio file",
-        "operationId": "start_transcription",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "providerName",
-            "in": "query",
-            "description": "Provider name (optional)",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transcription ID",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/by-id/{transcriptionId}": {
-      "get": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Get a specific transcription by ID",
-        "operationId": "get_transcription_by_id",
-        "parameters": [
-          {
-            "name": "transcriptionId",
-            "in": "path",
-            "description": "Transcription ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transcription",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/AudioTranscription"
-                    }
-                  ],
-                  "nullable": true
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/models": {
-      "get": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "List available Whisper models",
-        "operationId": "list_available_models",
-        "responses": {
-          "200": {
-            "description": "List of models",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ModelInfo"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/models/download": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Download a Whisper model",
-        "operationId": "download_model",
-        "parameters": [
-          {
-            "name": "modelSize",
-            "in": "path",
-            "description": "Model size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Download status",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/models/verify": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Verify model integrity",
-        "operationId": "verify_model",
-        "parameters": [
-          {
-            "name": "modelSize",
-            "in": "path",
-            "description": "Model size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Verification result",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/models/{modelSize}": {
-      "delete": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Delete a downloaded model",
-        "operationId": "delete_model",
-        "parameters": [
-          {
-            "name": "modelSize",
-            "in": "path",
-            "description": "Model size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Model deleted successfully"
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/providers": {
-      "get": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "List available providers and their status",
-        "operationId": "list_providers",
-        "responses": {
-          "200": {
-            "description": "List of providers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ProviderInfo"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/set-active": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Set active transcription",
-        "operationId": "set_active_transcription",
-        "parameters": [
-          {
-            "name": "transcriptionId",
-            "in": "path",
-            "description": "Transcription ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transcription set as active"
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/validate-provider": {
-      "post": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Validate provider configuration",
-        "operationId": "validate_provider",
-        "parameters": [
-          {
-            "name": "providerName",
-            "in": "path",
-            "description": "Provider name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Validation result",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/v1/transcription/{mediaId}": {
-      "get": {
-        "tags": [
-          "Transcription"
-        ],
-        "summary": "Get all transcriptions for an audio file",
-        "operationId": "get_transcriptions",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "description": "Media ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of transcriptions per page (max 1000)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "description": "Cursor for pagination",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of transcriptions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedTranscriptions"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
     "/v1/trash/tasks": {
       "get": {
         "tags": [
@@ -3440,7 +2198,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/crate.db.models.Task"
+                    "$ref": "#/components/schemas/Task"
                   }
                 }
               }
@@ -3529,244 +2287,27 @@
           }
         }
       },
-      "AddTagsToBookmarkRequest": {
-        "type": "object",
-        "description": "Request to add tags to a bookmark",
-        "required": [
-          "tag_ids"
-        ],
-        "properties": {
-          "tag_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "AllSettingsResponse": {
         "type": "object",
         "additionalProperties": {
           "type": "string"
         }
       },
-      "AudioTranscription": {
-        "type": "object",
-        "description": "AudioTranscription model",
-        "required": [
-          "id",
-          "mediaId",
-          "transcriptionText",
-          "provider",
-          "status",
-          "isActive",
-          "createdAt"
-        ],
-        "properties": {
-          "confidenceScore": {
-            "type": "number",
-            "format": "float",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "errorMessage": {
-            "type": "string",
-            "nullable": true
-          },
-          "id": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "mediaId": {
-            "type": "string"
-          },
-          "provider": {
-            "type": "string"
-          },
-          "providerConfig": {
-            "nullable": true
-          },
-          "status": {
-            "type": "string"
-          },
-          "transcriptionText": {
-            "type": "string"
-          }
-        }
-      },
-      "BacklinkResponse": {
-        "type": "object",
-        "description": "Response for backlinks",
-        "required": [
-          "link"
-        ],
-        "properties": {
-          "link": {
-            "$ref": "#/components/schemas/ResourceLink"
-          },
-          "sourceTitle": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
-      "Bookmark": {
-        "type": "object",
-        "description": "Bookmark model",
-        "required": [
-          "id",
-          "url",
-          "isArchived",
-          "isDeleted",
-          "createdAt",
-          "updatedAt"
-        ],
-        "properties": {
-          "author": {
-            "type": "string",
-            "nullable": true
-          },
-          "contentType": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "deletedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "faviconUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "id": {
-            "type": "string"
-          },
-          "imageUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "isArchived": {
-            "type": "boolean"
-          },
-          "isDeleted": {
-            "type": "boolean"
-          },
-          "metadataJson": {
-            "nullable": true
-          },
-          "publishedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "siteName": {
-            "type": "string",
-            "nullable": true
-          },
-          "title": {
-            "type": "string",
-            "nullable": true
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "url": {
-            "type": "string"
-          }
-        }
-      },
-      "Canvas": {
-        "type": "object",
-        "description": "Canvas model for storing JSON Canvas-compliant canvas data",
-        "required": [
-          "id",
-          "name",
-          "canvasData",
-          "createdAt",
-          "updatedAt"
-        ],
-        "properties": {
-          "canvasData": {},
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "deletedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "ConfigureSyncRequest": {
         "type": "object",
         "required": [
           "server_url",
-          "passphrase"
+          "server_seed_phrase",
+          "sync_passphrase"
         ],
         "properties": {
-          "passphrase": {
+          "server_seed_phrase": {
             "type": "string"
           },
           "server_url": {
             "type": "string"
-          }
-        }
-      },
-      "CreateBookmarkRequest": {
-        "type": "object",
-        "required": [
-          "url"
-        ],
-        "properties": {
-          "tagIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
           },
-          "url": {
-            "type": "string"
-          }
-        }
-      },
-      "CreateCanvasRequest": {
-        "type": "object",
-        "description": "Request to create a canvas",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "canvasData": {
-            "nullable": true
-          },
-          "name": {
+          "sync_passphrase": {
             "type": "string"
           }
         }
@@ -3837,34 +2378,6 @@
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "CreateLinkRequest": {
-        "type": "object",
-        "description": "Request to create a link",
-        "required": [
-          "sourceType",
-          "sourceId",
-          "targetType",
-          "targetId"
-        ],
-        "properties": {
-          "linkText": {
-            "type": "string",
-            "nullable": true
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "sourceType": {
-            "type": "string"
-          },
-          "targetId": {
-            "type": "string"
-          },
-          "targetType": {
-            "type": "string"
           }
         }
       },
@@ -3970,48 +2483,6 @@
           }
         }
       },
-      "ExtractedMetadata": {
-        "type": "object",
-        "description": "Extracted metadata from a URL",
-        "properties": {
-          "author": {
-            "type": "string",
-            "nullable": true
-          },
-          "contentType": {
-            "type": "string",
-            "nullable": true
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "faviconUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "imageUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "metadataJson": {
-            "nullable": true
-          },
-          "publishedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "siteName": {
-            "type": "string",
-            "nullable": true
-          },
-          "title": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
       "Goal": {
         "type": "object",
         "description": "Goal model",
@@ -4107,26 +2578,72 @@
           }
         }
       },
-      "LinkableResource": {
+      "GoalInstanceWithTasks": {
         "type": "object",
-        "description": "Response for linkable resource search",
+        "description": "Goal instance with its tasks (for goal view)",
         "required": [
           "id",
-          "resourceType",
-          "title"
+          "goalId",
+          "periodStart",
+          "status",
+          "createdAt",
+          "tasks"
         ],
         "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "goalId": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
-          "preview": {
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskWithSubtasks"
+            }
+          }
+        }
+      },
+      "IndexSearchEmbeddingsRequest": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "IndexSearchResourceEmbeddingsRequest": {
+        "type": "object",
+        "required": [
+          "resourceType",
+          "resourceId"
+        ],
+        "properties": {
+          "modelName": {
             "type": "string",
             "nullable": true
           },
-          "resourceType": {
+          "resourceId": {
             "type": "string"
           },
-          "title": {
+          "resourceType": {
             "type": "string"
           }
         }
@@ -4168,85 +2685,6 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "ModelInfo": {
-        "type": "object",
-        "required": [
-          "name",
-          "size",
-          "file_size",
-          "download_url",
-          "is_downloaded"
-        ],
-        "properties": {
-          "download_url": {
-            "type": "string"
-          },
-          "file_size": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "is_downloaded": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "size": {
-            "type": "string"
-          }
-        }
-      },
-      "PaginatedBookmarks": {
-        "type": "object",
-        "description": "Pagination response wrapper optimized for infinite scroll",
-        "required": [
-          "items",
-          "hasMore"
-        ],
-        "properties": {
-          "hasMore": {
-            "type": "boolean",
-            "description": "Convenience flag for infinite scroll"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Bookmark"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Next page cursor (null when no more pages)",
-            "nullable": true
-          }
-        }
-      },
-      "PaginatedCanvases": {
-        "type": "object",
-        "description": "Pagination response wrapper optimized for infinite scroll",
-        "required": [
-          "items",
-          "hasMore"
-        ],
-        "properties": {
-          "hasMore": {
-            "type": "boolean",
-            "description": "Convenience flag for infinite scroll"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Canvas"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Next page cursor (null when no more pages)",
-            "nullable": true
           }
         }
       },
@@ -4350,31 +2788,6 @@
           }
         }
       },
-      "PaginatedLinks": {
-        "type": "object",
-        "description": "Pagination response wrapper optimized for infinite scroll",
-        "required": [
-          "items",
-          "hasMore"
-        ],
-        "properties": {
-          "hasMore": {
-            "type": "boolean",
-            "description": "Convenience flag for infinite scroll"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ResourceLink"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Next page cursor (null when no more pages)",
-            "nullable": true
-          }
-        }
-      },
       "PaginatedTags": {
         "type": "object",
         "description": "Pagination response wrapper optimized for infinite scroll",
@@ -4450,85 +2863,29 @@
           }
         }
       },
-      "PaginatedTranscriptions": {
-        "type": "object",
-        "description": "Pagination response wrapper optimized for infinite scroll",
-        "required": [
-          "items",
-          "hasMore"
-        ],
-        "properties": {
-          "hasMore": {
-            "type": "boolean",
-            "description": "Convenience flag for infinite scroll"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AudioTranscription"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Next page cursor (null when no more pages)",
-            "nullable": true
-          }
-        }
-      },
-      "ProviderInfo": {
-        "type": "object",
-        "required": [
-          "name",
-          "display_name",
-          "requires_api_key",
-          "requires_download",
-          "status"
-        ],
-        "properties": {
-          "display_name": {
-            "type": "string"
-          },
-          "error_message": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string"
-          },
-          "requires_api_key": {
-            "type": "boolean"
-          },
-          "requires_download": {
-            "type": "boolean"
-          },
-          "status": {
-            "type": "string"
-          }
-        }
-      },
       "ReconnectSyncRequest": {
         "type": "object",
         "required": [
-          "passphrase"
+          "sync_passphrase"
         ],
         "properties": {
-          "passphrase": {
+          "sync_passphrase": {
             "type": "string"
           }
         }
       },
-      "RemoveTagsFromBookmarkRequest": {
+      "ReindexResourceRequest": {
         "type": "object",
-        "description": "Request to remove tags from a bookmark",
         "required": [
-          "tag_ids"
+          "resourceType",
+          "resourceId"
         ],
         "properties": {
-          "tag_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
           }
         }
       },
@@ -4546,70 +2903,65 @@
           }
         }
       },
-      "ResourceLink": {
+      "SearchEmbeddingModelStatus": {
         "type": "object",
-        "description": "ResourceLink model for bidirectional linking between resources",
         "required": [
-          "id",
-          "sourceType",
-          "sourceId",
-          "targetType",
-          "targetId",
-          "createdAt"
+          "modelName",
+          "dimensions",
+          "totalEmbeddings"
         ],
         "properties": {
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
+          "dimensions": {
+            "type": "integer",
+            "format": "int64"
           },
-          "id": {
+          "modelName": {
             "type": "string"
           },
-          "linkText": {
-            "type": "string",
-            "nullable": true
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "sourceType": {
-            "type": "string"
-          },
-          "targetId": {
-            "type": "string"
-          },
-          "targetType": {
-            "type": "string"
+          "totalEmbeddings": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
-      "SaveAudioRecordingRequest": {
+      "SearchEmbeddingStatus": {
         "type": "object",
-        "description": "Request to save audio recording",
         "required": [
-          "entryId",
-          "audioData",
-          "duration",
-          "format"
+          "totalEmbeddings",
+          "models"
         ],
         "properties": {
-          "audioData": {
-            "type": "string",
-            "format": "binary"
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchEmbeddingModelStatus"
+            }
           },
-          "autoTranscribe": {
-            "type": "boolean",
-            "nullable": true
+          "totalEmbeddings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SearchIndexStatus": {
+        "type": "object",
+        "required": [
+          "totalDocuments",
+          "entries",
+          "tasks"
+        ],
+        "properties": {
+          "entries": {
+            "type": "integer",
+            "format": "int64"
           },
-          "duration": {
-            "type": "number",
-            "format": "float"
+          "tasks": {
+            "type": "integer",
+            "format": "int64"
           },
-          "entryId": {
-            "type": "string"
-          },
-          "format": {
-            "type": "string"
+          "totalDocuments": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -4619,6 +2971,18 @@
           "q"
         ],
         "properties": {
+          "cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateTo": {
+            "type": "string",
+            "nullable": true
+          },
           "limit": {
             "type": "integer",
             "format": "int32",
@@ -4653,12 +3017,20 @@
         "required": [
           "results",
           "total",
+          "hasMore",
           "query",
           "mode"
         ],
         "properties": {
+          "hasMore": {
+            "type": "boolean"
+          },
           "mode": {
             "type": "string"
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           },
           "query": {
             "type": "string"
@@ -4675,18 +3047,57 @@
           }
         }
       },
-      "SetActiveTranscriptionRequest": {
+      "SearchResultResponse": {
         "type": "object",
-        "description": "Request to set active transcription",
         "required": [
-          "transcriptionId",
-          "mediaId"
+          "id",
+          "resourceType",
+          "resourceId",
+          "title",
+          "preview",
+          "score",
+          "matchKind",
+          "highlights",
+          "sourceUpdatedAt",
+          "createdAt",
+          "updatedAt"
         ],
         "properties": {
-          "mediaId": {
+          "createdAt": {
             "type": "string"
           },
-          "transcriptionId": {
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "matchKind": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "sourceUpdatedAt": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
             "type": "string"
           }
         }
@@ -4765,26 +3176,6 @@
           }
         }
       },
-      "SyncLinksRequest": {
-        "type": "object",
-        "description": "Request to sync links from content",
-        "required": [
-          "sourceType",
-          "sourceId",
-          "content"
-        ],
-        "properties": {
-          "content": {
-            "type": "string"
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "sourceType": {
-            "type": "string"
-          }
-        }
-      },
       "SyncStatus": {
         "type": "object",
         "required": [
@@ -4802,13 +3193,16 @@
             "nullable": true
           },
           "needs_passphrase": {
-            "type": "boolean",
-            "description": "True when server_url is in memory but passphrase is not (e.g. after app restart)."
+            "type": "boolean"
           },
           "pending_changes": {
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "server_url": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -4911,7 +3305,8 @@
           "isCompleted",
           "createdAt",
           "updatedAt",
-          "subtasks"
+          "subtasks",
+          "tags"
         ],
         "properties": {
           "createdAt": {
@@ -4930,6 +3325,14 @@
           "dueDate": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Goal"
+              }
+            ],
             "nullable": true
           },
           "goalId": {
@@ -4952,70 +3355,18 @@
               "$ref": "#/components/schemas/SubTask"
             }
           },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
           "title": {
             "type": "string"
           },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "UpdateBookmarkRequest": {
-        "type": "object",
-        "properties": {
-          "author": {
-            "type": "string",
-            "nullable": true
-          },
-          "contentType": {
-            "type": "string",
-            "nullable": true
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "faviconUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "imageUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "isArchived": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "metadataJson": {
-            "nullable": true
-          },
-          "publishedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "siteName": {
-            "type": "string",
-            "nullable": true
-          },
-          "title": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
-      "UpdateCanvasRequest": {
-        "type": "object",
-        "description": "Request to update a canvas",
-        "properties": {
-          "canvasData": {
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
           }
         }
       },
@@ -5143,18 +3494,6 @@
             "nullable": true
           }
         }
-      },
-      "ValidateProviderRequest": {
-        "type": "object",
-        "description": "Request to validate provider",
-        "required": [
-          "providerName"
-        ],
-        "properties": {
-          "providerName": {
-            "type": "string"
-          }
-        }
       }
     }
   },
@@ -5192,32 +3531,16 @@
       "description": "Search endpoints"
     },
     {
-      "name": "Links",
-      "description": "Resource linking endpoints"
-    },
-    {
       "name": "Settings",
       "description": "Settings management endpoints"
     },
     {
-      "name": "Audio",
-      "description": "Audio recording and playback endpoints"
-    },
-    {
-      "name": "Transcription",
-      "description": "Audio transcription endpoints"
+      "name": "Media",
+      "description": "Image and video media endpoints"
     },
     {
       "name": "Sync",
       "description": "Sync management endpoints"
-    },
-    {
-      "name": "Bookmarks",
-      "description": "Bookmark management endpoints"
-    },
-    {
-      "name": "Canvases",
-      "description": "Canvas management endpoints"
     }
   ]
 }

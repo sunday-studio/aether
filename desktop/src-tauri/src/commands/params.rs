@@ -50,26 +50,12 @@ pub struct GoalIdPathParams {
     pub goal_id: String,
 }
 
-/// Path parameters for commands with transcription ID (e.g., /:transcriptionId)
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TranscriptionIdPathParams {
-    pub transcription_id: String,
-}
-
 /// Path parameters for commands with task ID and subtask ID (e.g., /:taskId/:subtaskId)
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSubtaskPathParams {
     pub task_id: String,
     pub subtask_id: String,
-}
-
-/// Path parameters for commands with model size (e.g., /:modelSize)
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelSizePathParams {
-    pub model_size: String,
 }
 
 /// Path parameters for commands with model name (e.g., /:modelName)
@@ -105,45 +91,6 @@ pub struct SearchQueryParams {
     pub mode: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RelatedSearchQueryParams {
-    pub resource_type: String,
-    pub resource_id: String,
-    #[serde(default)]
-    pub limit: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct WeekContextQueryParams {
-    pub start_date: String,
-    pub end_date: String,
-    #[serde(default)]
-    pub limit: Option<u32>,
-}
-
-/// Query parameters for bookmark listing
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct BookmarkQueryParams {
-    #[serde(default)]
-    pub is_archived: Option<bool>,
-    #[serde(default)]
-    pub tag_ids: Option<Vec<String>>,
-    #[serde(default)]
-    pub content_type: Option<String>,
-    #[serde(default)]
-    pub limit: Option<u32>,
-    #[serde(default)]
-    pub cursor: Option<String>,
-}
-
-/// Query parameters for backlinks/outgoing links
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkQueryParams {
-    pub resource_type: String,
-    pub resource_id: String,
-}
-
 /// Query parameters for activity listing
 #[derive(Debug, Clone, Deserialize)]
 pub struct ActivityQueryParams {
@@ -153,23 +100,10 @@ pub struct ActivityQueryParams {
     pub end_date: Option<String>,
 }
 
-/// Query parameters for metadata extraction
-#[derive(Debug, Clone, Deserialize)]
-pub struct ExtractMetadataQueryParams {
-    pub url: String,
-}
-
 /// Query parameters for settings
 #[derive(Debug, Clone, Deserialize)]
 pub struct SettingQueryParams {
     pub key: String,
-}
-
-/// Query parameters for transcription start
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranscriptionStartQueryParams {
-    #[serde(default)]
-    pub provider: Option<String>,
 }
 
 /// Query parameters for pagination (cursor-based)
