@@ -4,6 +4,8 @@ pub mod diagnostics;
 pub mod embeddings;
 pub mod entry;
 pub mod goal;
+#[path = "legacy-import.rs"]
+pub mod legacy_import;
 pub mod media;
 pub mod params;
 pub mod search;

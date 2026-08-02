@@ -12,8 +12,8 @@ pub use db::DbState;
 pub use error::{AppError, Result};
 
 use commands::{
-    activity, entry, goal, media as media_commands, search, sync as sync_commands, tag, task,
-    trash, updater as updater_commands,
+    activity, entry, goal, legacy_import, media as media_commands, search, sync as sync_commands,
+    tag, task, trash, updater as updater_commands,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -329,6 +329,9 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::get_all_settings,
             commands::settings::set_setting,
+            // Legacy data import commands
+            legacy_import::preview_legacy_database,
+            legacy_import::import_legacy_database,
             // Diagnostics commands
             commands::diagnostics::export_debug_logs,
             // Embedding model commands
