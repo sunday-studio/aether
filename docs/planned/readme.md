@@ -9,3 +9,4 @@ This directory holds planned features and product surfaces that are not yet impl
 - [Search And RAG Foundation](./search-and-rag-foundation.md)
 - [Search Testing Flow](./search-testing-flow.md)
 - [Sync Performance Plan](./sync-performance-plan.md)
+- [Sync Server V1 Readiness Plan](./sync-server-v1-readiness-plan.md)
