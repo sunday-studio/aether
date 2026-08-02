@@ -1,7 +1,8 @@
-import { Antenna, Bug, CloudIcon, HardDrive, Palette } from 'lucide-react';
+import { Antenna, ArchiveRestore, Bug, CloudIcon, HardDrive, Palette } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { DiagnosticsSection } from './components/diagnostics.section';
+import { LegacyImportSection } from './components/legacy-import.section';
 import { PreferencesSection } from './components/preferences.section';
 import { SearchSection } from './components/search.section';
 import { SyncSection } from './components/sync.section';
@@ -10,10 +11,22 @@ import { cn } from '~/utils/cn';
 import { RadialAvatar } from '~/components/shared/radiant-avatar';
 import { useSettingsStore } from '~/store/settings-store';
 
-type AvailableSections = 'preferences' | 'search' | 'diagnostics' | 'whats-new' | 'sync';
+type AvailableSections =
+	| 'preferences'
+	| 'sync'
+	| 'search'
+	| 'legacy-import'
+	| 'diagnostics'
+	| 'whats-new';
 
 function getAvailableSection(value: string | null): AvailableSections {
-	if (value === 'search' || value === 'diagnostics' || value === 'whats-new' || value === 'sync') {
+	if (
+		value === 'search' ||
+		value === 'legacy-import' ||
+		value === 'diagnostics' ||
+		value === 'whats-new' ||
+		value === 'sync'
+	) {
 		return value;
 	}
 	return 'preferences';
@@ -54,6 +67,11 @@ export const SettingsView = () => {
 			label: 'Search',
 			icon: <HardDrive className='size-4' strokeWidth={2.5} />,
 			component: <SearchSection />,
+		},
+		'legacy-import': {
+			label: 'Legacy import',
+			icon: <ArchiveRestore className='size-4' strokeWidth={2.5} />,
+			component: <LegacyImportSection />,
 		},
 		diagnostics: {
 			label: 'Diagnostics',
