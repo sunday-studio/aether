@@ -220,6 +220,7 @@ pub async fn create_task(
     request_data: Option<CreateTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
+    request_id: Option<String>,
 ) -> Result<TaskWithSubtasks> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -279,6 +280,7 @@ pub async fn create_task(
         "create_task",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "task",
             "resource_id": task.id,
             "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,
@@ -314,6 +316,7 @@ pub async fn get_inbox_tasks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
+    request_id: Option<String>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -334,6 +337,7 @@ pub async fn get_inbox_tasks(
         "get_inbox_tasks",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "task",
             "result_count": tasks_with_subtasks.len(),
             "limit": limit,
@@ -372,6 +376,7 @@ pub async fn get_overdue_tasks(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
+    request_id: Option<String>,
 ) -> Result<PaginationResponse<TaskWithSubtasks>> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -392,6 +397,7 @@ pub async fn get_overdue_tasks(
         "get_overdue_tasks",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "task",
             "result_count": tasks_with_subtasks.len(),
             "limit": limit,
@@ -430,6 +436,7 @@ pub async fn get_task_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
+    request_id: Option<String>,
 ) -> Result<TaskWithSubtasks> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -457,6 +464,7 @@ pub async fn get_task_by_id(
         "get_task_by_id",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "task",
             "resource_id": id,
             "subtask_count": task.subtasks.len(),
@@ -491,6 +499,7 @@ pub async fn update_task(
     request_data: Option<UpdateTaskRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
+    request_id: Option<String>,
 ) -> Result<TaskWithSubtasks> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -575,6 +584,7 @@ pub async fn update_task(
         "update_task",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "task",
             "resource_id": task.id,
             "db_gate_ms": (db_gate_ms * 10.0).round() / 10.0,

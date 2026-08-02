@@ -1,6 +1,7 @@
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { QueryClient } from "@tanstack/react-query";
 import { persistQueryClient } from "@tanstack/react-query-persist-client";
+import { recordQueryLedgerEntry } from "~/lib/performance-ledger";
 
 // Check if error is a transient/retryable error (like STREAM_EXPIRED from libSQL)
 const isRetryableError = (error: unknown): boolean => {
@@ -43,6 +44,20 @@ export const initQueryClient = () => {
 				retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
 			},
 		},
+	});
+
+	queryClient.getQueryCache().subscribe(event => {
+		if (event.type !== "updated") return;
+		const type = event.action.type;
+		if (type !== "fetch" && type !== "success" && type !== "error") return;
+
+		recordQueryLedgerEntry({
+			event: type,
+			queryNamespace: String(event.query.queryKey[0] ?? "unknown"),
+			status: event.query.state.status,
+			fetchStatus: event.query.state.fetchStatus,
+			hasData: event.query.state.data !== undefined,
+		});
 	});
 
 	const localStoragePersister = createSyncStoragePersister({

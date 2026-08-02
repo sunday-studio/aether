@@ -1,8 +1,11 @@
 use crate::error::{AppError, Result};
 use crate::utils::embeddings::model_manager;
+use crate::utils::performance_ledger::record_rust_timing;
 use fastembed::{EmbeddingModel as FastEmbeddingModel, InitOptions, TextEmbedding};
+use serde_json::json;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Instant;
 use tokio::sync::OnceCell;
 
 /// Global embedding model state (lazy-loaded)
@@ -39,11 +42,19 @@ impl EmbeddingModel {
 
 /// Initialize the embedding model (lazy loading)
 async fn init_model() -> Result<Arc<Mutex<EmbeddingModel>>> {
+    let started = Instant::now();
     if !model_manager::is_model_downloaded("all-MiniLM-L6-v2")? {
         tracing::warn!(
             "Local embedding model is not downloaded; using deterministic fallback embeddings"
         );
-        return Ok(Arc::new(Mutex::new(EmbeddingModel::LocalHashFallback)));
+        let model = Arc::new(Mutex::new(EmbeddingModel::LocalHashFallback));
+        record_rust_timing(
+            "embedding",
+            "initialize_model",
+            started.elapsed(),
+            json!({ "mode": "local_hash_fallback" }),
+        );
+        return Ok(model);
     }
 
     let model = tokio::task::spawn_blocking(load_fastembed_model)
@@ -51,7 +62,14 @@ async fn init_model() -> Result<Arc<Mutex<EmbeddingModel>>> {
         .map_err(|e| AppError::Internal(format!("Embedding model load task failed: {}", e)))?
         .map_err(|e| AppError::Internal(format!("Failed to load embedding model: {}", e)))?;
 
-    Ok(Arc::new(Mutex::new(EmbeddingModel::FastEmbed(model))))
+    let model = Arc::new(Mutex::new(EmbeddingModel::FastEmbed(model)));
+    record_rust_timing(
+        "embedding",
+        "initialize_model",
+        started.elapsed(),
+        json!({ "mode": "fastembed", "model": "all-MiniLM-L6-v2" }),
+    );
+    Ok(model)
 }
 
 fn load_fastembed_model() -> Result<TextEmbedding> {
@@ -70,21 +88,38 @@ pub async fn generate_embedding(text: &str) -> Result<Vec<f32>> {
         return Err(AppError::BadRequest("Text cannot be empty".to_string()));
     }
 
+    let started = Instant::now();
+    let cold_start = EMBEDDING_MODEL.get().is_none();
+
     // Get or initialize model
     let model = EMBEDDING_MODEL.get_or_try_init(|| init_model()).await?;
 
     // Generate embedding in a blocking task (model inference may be CPU-intensive)
     let text = text.to_string();
+    let input_bytes = text.len();
     let model = Arc::clone(model);
 
-    tokio::task::spawn_blocking(move || {
+    let vector = tokio::task::spawn_blocking(move || {
         let mut model = model
             .lock()
             .map_err(|_| AppError::Internal("Embedding model lock was poisoned".to_string()))?;
         model.generate(&text)
     })
     .await
-    .map_err(|e| AppError::Internal(format!("Embedding generation task failed: {}", e)))?
+    .map_err(|e| AppError::Internal(format!("Embedding generation task failed: {}", e)))??;
+
+    record_rust_timing(
+        "embedding",
+        "generate_embedding",
+        started.elapsed(),
+        json!({
+            "cold_start": cold_start,
+            "input_bytes": input_bytes,
+            "dimensions": vector.len(),
+        }),
+    );
+
+    Ok(vector)
 }
 
 fn generate_hash_embedding(text: &str) -> Vec<f32> {

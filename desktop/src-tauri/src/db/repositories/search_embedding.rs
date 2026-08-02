@@ -1,8 +1,10 @@
 use crate::error::{AppError, Result};
-use crate::utils::embeddings::generate_embedding;
+use crate::utils::{embeddings::generate_embedding, record_rust_timing};
 use chrono::Utc;
 use libsql::Database;
+use serde_json::json;
 use std::sync::Arc;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct SearchEmbeddingInput {
@@ -127,20 +129,49 @@ impl SearchEmbeddingRepository {
         resource_type: &str,
         resource_id: &str,
     ) -> Result<()> {
+        let started = Instant::now();
         let documents = self
             .load_documents(Some(resource_type), Some(resource_id))
             .await?;
         if documents.is_empty() {
             self.delete_for_resource(resource_type, resource_id).await?;
+            record_rust_timing(
+                "embedding",
+                "refresh_existing_resource_embeddings",
+                started.elapsed(),
+                json!({
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "document_count": 0,
+                    "model_count": 0,
+                    "action": "delete_stale",
+                }),
+            );
             return Ok(());
         }
 
         let model_names = self.load_indexed_model_names().await?;
+        let document_count = documents.len();
+        let model_count = model_names.len();
         for model_name in model_names {
             for document in documents.clone() {
                 self.index_document_embedding(document, &model_name).await?;
             }
         }
+
+        record_rust_timing(
+            "embedding",
+            "refresh_existing_resource_embeddings",
+            started.elapsed(),
+            json!({
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "document_count": document_count,
+                "model_count": model_count,
+                "embedding_count": document_count * model_count,
+                "action": "refresh",
+            }),
+        );
 
         Ok(())
     }

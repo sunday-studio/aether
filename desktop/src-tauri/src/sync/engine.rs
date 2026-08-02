@@ -407,6 +407,7 @@ mod tests {
         let state = crate::DbState {
             database: Arc::new(Mutex::new(Arc::new(db))),
             db_access: Arc::new(tokio::sync::Mutex::new(())),
+            db_access_waiters: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
         let engine = SyncEngine::new(state);
 

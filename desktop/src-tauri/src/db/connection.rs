@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -16,6 +17,8 @@ pub struct DbState {
     pub database: Arc<Mutex<Arc<Database>>>,
     /// Serializes all DB access (read and write) so only one operation runs at a time. Prevents "database is locked".
     pub db_access: Arc<AsyncMutex<()>>,
+    /// Number of commands waiting for the database mutex, excluding the current command.
+    pub db_access_waiters: Arc<AtomicUsize>,
 }
 
 /// Database path: local dev = target/libsql-replica-dev (avoids watcher rebuilds); build = app data dir.
@@ -72,6 +75,7 @@ pub async fn initialize(app_handle: Option<&AppHandle>) -> Result<DbState> {
     Ok(DbState {
         database: Arc::new(Mutex::new(Arc::new(database))),
         db_access: Arc::new(AsyncMutex::new(())),
+        db_access_waiters: Arc::new(AtomicUsize::new(0)),
     })
 }
 
@@ -83,7 +87,12 @@ pub fn with_db_access(
     let caller = std::panic::Location::caller();
     async move {
         let started = Instant::now();
+        let waiters_before_lock = state.db_access_waiters.fetch_add(1, Ordering::Relaxed);
         let guard = state.db_access.lock().await;
+        let waiters_after_lock = state
+            .db_access_waiters
+            .fetch_sub(1, Ordering::Relaxed)
+            .saturating_sub(1);
         let waited = started.elapsed();
         if waited >= DB_ACCESS_WAIT_LOG_THRESHOLD {
             tracing::info!(
@@ -99,6 +108,8 @@ pub fn with_db_access(
                 serde_json::json!({
                     "caller_file": caller.file(),
                     "caller_line": caller.line(),
+                    "waiters_before_lock": waiters_before_lock,
+                    "waiters_after_lock": waiters_after_lock,
                 }),
             );
         }

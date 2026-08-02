@@ -3,7 +3,7 @@ import { Download, FileJson } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '~/components/shared/button';
-import { getRestLedgerEntriesForExport } from '~/lib/performance-ledger';
+import { getFrontendLedgerEntriesForExport } from '~/lib/performance-ledger';
 
 type DebugLogExport = {
 	path: string;
@@ -18,7 +18,7 @@ export const DiagnosticsSection = () => {
 	const exportDebugLogs = async () => {
 		setIsExporting(true);
 		try {
-			const frontendEntries = getRestLedgerEntriesForExport();
+			const frontendEntries = getFrontendLedgerEntriesForExport();
 			const result = await invoke<DebugLogExport>('export_debug_logs', { frontendEntries });
 			setLastExport(result);
 			toast.success('Debug log exported', { description: result.path });

@@ -16,6 +16,16 @@ export type RestLedgerEntry = {
 	errorMessage?: string;
 };
 
+export type QueryLedgerEntry = {
+	id: number;
+	at: string;
+	event: 'fetch' | 'success' | 'error';
+	queryNamespace: string;
+	status: string;
+	fetchStatus: string;
+	hasData: boolean;
+};
+
 declare global {
 	interface Window {
 		aetherRestLedgerEntries?: RestLedgerEntry[];
@@ -29,11 +39,13 @@ declare global {
 }
 
 const REST_LEDGER_KEY = 'aether:rest-ledger:v1';
+const QUERY_LEDGER_KEY = 'aether:query-ledger:v1';
 const MAX_LEDGER_ENTRIES = 300;
 const SLOW_REQUEST_THRESHOLD_MS = 150;
 const REDACTED = '[REDACTED]';
 
 let nextRestLedgerId = 1;
+let nextQueryLedgerId = 1;
 
 function loadLedger() {
 	if (typeof window === 'undefined') return [];
@@ -140,6 +152,40 @@ export function getRestLedgerEntriesForExport(): RestLedgerEntry[] {
 		url: sanitizeUrlForLedger(entry.url),
 		errorMessage: entry.errorMessage ? redactText(entry.errorMessage) : undefined,
 	}));
+}
+
+export function recordQueryLedgerEntry(entry: Omit<QueryLedgerEntry, 'id' | 'at'>) {
+	if (typeof window === 'undefined') return;
+
+	const entries = loadQueryLedger();
+	entries.push({
+		...entry,
+		id: nextQueryLedgerId++,
+		at: new Date().toISOString(),
+	});
+	if (entries.length > MAX_LEDGER_ENTRIES) {
+		entries.splice(0, entries.length - MAX_LEDGER_ENTRIES);
+	}
+
+	try {
+		window.localStorage.setItem(QUERY_LEDGER_KEY, JSON.stringify(entries));
+	} catch {
+		// Timing diagnostics should never break app behavior.
+	}
+}
+
+export function getFrontendLedgerEntriesForExport(): Array<RestLedgerEntry | QueryLedgerEntry> {
+	return [...getRestLedgerEntriesForExport(), ...loadQueryLedger()];
+}
+
+function loadQueryLedger(): QueryLedgerEntry[] {
+	if (typeof window === 'undefined') return [];
+	try {
+		const value = window.localStorage.getItem(QUERY_LEDGER_KEY);
+		return value ? JSON.parse(value) : [];
+	} catch {
+		return [];
+	}
 }
 
 function sanitizeUrlForLedger(url: string): string {

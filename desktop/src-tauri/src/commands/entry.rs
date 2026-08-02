@@ -127,6 +127,7 @@ pub async fn get_entries(
     _request_data: Option<EmptyRequest>,
     query_params: Option<PaginationQueryParams>,
     _path_params: Option<EmptyPathParams>,
+    request_id: Option<String>,
 ) -> Result<PaginationResponse<Entry>> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -145,6 +146,7 @@ pub async fn get_entries(
         "get_entries",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "entry",
             "result_count": item_count,
             "limit": limit,
@@ -178,6 +180,7 @@ pub async fn get_entry_by_id(
     _request_data: Option<EmptyRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
+    request_id: Option<String>,
 ) -> Result<Entry> {
     let command_started = Instant::now();
     let db_gate_started = Instant::now();
@@ -201,6 +204,7 @@ pub async fn get_entry_by_id(
         "get_entry_by_id",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "entry",
             "resource_id": id,
             "document_bytes": entry.document.len(),
@@ -230,6 +234,7 @@ pub async fn create_entry(
     request_data: Option<CreateEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     _path_params: Option<EmptyPathParams>,
+    request_id: Option<String>,
 ) -> Result<Entry> {
     let command_started = Instant::now();
     if let Some(ref req) = request_data {
@@ -279,6 +284,7 @@ pub async fn create_entry(
         "create_entry",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "entry",
             "resource_id": entry.id,
             "document_bytes": request.document.len(),
@@ -369,6 +375,7 @@ pub async fn update_entry(
     request_data: Option<UpdateEntryRequest>,
     _query_params: Option<EmptyQueryParams>,
     path_params: Option<IdPathParams>,
+    request_id: Option<String>,
 ) -> Result<Entry> {
     let command_started = Instant::now();
     let id = path_params
@@ -415,6 +422,7 @@ pub async fn update_entry(
         "update_entry",
         command_started.elapsed(),
         json!({
+            "request_id": request_id,
             "resource_type": "entry",
             "resource_id": entry.id,
             "document_bytes": request.document.len(),
