@@ -2,7 +2,6 @@
 	--editor-padding: 20px;
 	--editor-font-size: 14px;
 	--editor-input-padding: 20px;
-	--editor-line-height: 26px;
 }
 
 .editor-wrapper,
@@ -11,10 +10,26 @@
 	width: 100%;
 }
 
+.editor-wrapper {
+	/* Keep every block on whole ruled-paper rows. */
+	--editor-line-height: 26px;
+	--editor-heading-line-height: calc(var(--editor-line-height) + var(--editor-line-height));
+	--editor-code-line-height: var(--editor-line-height);
+}
+
+.editor-wrapper.font-hypatia-sans-pro,
+.editor-wrapper.font-plus-jakarta-sans {
+	--editor-line-height: 28px;
+}
+
+.editor-wrapper.font-ojuju {
+	--editor-line-height: 30px;
+}
+
 .editor-placeholder {
 	z-index: 2;
 	position: absolute;
-	margin-top: -37px;
+	margin-top: calc(-1 * (var(--editor-line-height) + 11px));
 	padding-left: 2px;
 	font-size: 14px;
 	color: #6b7280;
@@ -22,7 +37,7 @@
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	pointer-events: none;
-	line-height: 24px;
+	line-height: var(--editor-line-height);
 }
 
 .editor-container {
@@ -36,6 +51,7 @@
 	outline: none;
 	color: var(--color-foreground) !important;
 	font-size: 14px;
+	line-height: var(--editor-line-height);
 }
 
 .journal-editor-lines .editor-inner {
@@ -85,7 +101,6 @@
 .editor-text-bold {
 	font-weight: 550;
 	color: var(--color-foreground);
-	font-family: 'Inter', sans-serif;
 }
 
 .editor-text-code {
@@ -99,7 +114,7 @@
 
 .editor-paragraph {
 	margin-top: 0;
-	margin-bottom: 0.125rem;
+	margin-bottom: 0;
 	line-height: var(--editor-line-height);
 	color: var(--color-foreground);
 }
@@ -164,45 +179,41 @@
 .editor-heading-h1 {
 	font-size: 30px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	font-family: 'Inter', sans-serif;
-	line-height: 1.2;
+	margin: 0 0 var(--editor-line-height);
+	line-height: var(--editor-heading-line-height);
 }
 .editor-heading-h2 {
 	font-size: 24px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	font-family: 'Inter', sans-serif;
-	line-height: 1.2;
+	margin: 0 0 var(--editor-line-height);
+	line-height: var(--editor-heading-line-height);
 }
 .editor-heading-h3 {
 	font-size: 20px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	font-family: 'Inter', sans-serif;
-	line-height: 1.2;
+	margin: 0 0 var(--editor-line-height);
+	line-height: var(--editor-line-height);
 }
 .editor-heading-h4 {
 	font-size: 16px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	font-family: 'Inter', sans-serif;
-	line-height: 1.2;
+	margin: 0 0 var(--editor-line-height);
+	line-height: var(--editor-line-height);
 }
 .editor-heading-h5 {
 	font-size: 14px;
 	font-weight: 400;
-	margin-bottom: 0.5rem;
-	font-family: 'Inter', sans-serif;
-	line-height: 1.2;
+	margin: 0 0 var(--editor-line-height);
+	line-height: var(--editor-line-height);
 }
 
 .editor-quote {
 	border-left-width: 2.5px;
 	border-left-color: #4b5563;
-	padding-top: 0.25rem;
-	padding-bottom: 0.25rem;
+	padding-top: 0;
+	padding-bottom: 0;
 	padding-left: 10px;
+	line-height: var(--editor-line-height);
 }
 
 .editor-link {
@@ -273,8 +284,9 @@
 
 .editor-list-item {
 	margin-left: 1rem;
-	margin-top: 0.24rem;
-	margin-bottom: 0.24rem;
+	margin-top: 0;
+	margin-bottom: 0;
+	line-height: var(--editor-line-height);
 }
 
 .editor-nested-list-item {
@@ -290,17 +302,17 @@
 	display: block;
 	padding-left: 1.5rem;
 	padding-right: 1.5rem;
-	padding-top: 0.75rem;
-	padding-bottom: 0.75rem;
+	padding-top: calc((var(--editor-line-height) - 2px) / 2);
+	padding-bottom: calc((var(--editor-line-height) - 2px) / 2);
 	overflow-x: auto;
 	font-size: 14px;
-	line-height: 1.6;
-	margin: 0.5rem 0;
+	line-height: var(--editor-code-line-height);
+	margin: var(--editor-line-height) 0;
 	tab-size: 2;
 	font-family: 'Berkely Mono', sans-serif;
 }
 
 .editor-page-break-hr {
 	color: var(--color-neutral-200);
-	margin: 15px 0;
+	margin: var(--editor-line-height) 0;
 }
