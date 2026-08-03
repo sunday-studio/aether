@@ -121,17 +121,7 @@ jobs:
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION"
 
-  # Step 3: Build for macOS only
-  build-macos-intel:
-    needs: [check-release, create-tag]
-    if: needs.check-release.outputs.should_release == 'true'
-    uses: ./.github/workflows/build-platform.yml
-    with:
-      platform: macos-latest
-      target: x86_64-apple-darwin
-      version: ${{ needs.check-release.outputs.version }}
-    secrets: inherit
-
+  # Step 3: Build for Apple Silicon only.
   build-macos-silicon:
     needs: [check-release, create-tag]
     if: needs.check-release.outputs.should_release == 'true'
@@ -148,7 +138,6 @@ jobs:
     name: Publish Release
     needs: 
       - check-release
-      - build-macos-intel
       - build-macos-silicon
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
@@ -195,7 +184,6 @@ jobs:
               platforms: {}
             };
             const platformPatterns = {
-              'darwin-x86_64': /(x86_64|x64)/i,
               'darwin-aarch64': /(aarch64|arm64)/i
             };
             for (const [platform, targetPattern] of Object.entries(platformPatterns)) {
@@ -220,8 +208,8 @@ jobs:
               };
               console.log(`Validated ${platform}: ${binary}`);
             }
-            if (Object.keys(manifest.platforms).length !== 2) {
-              throw new Error('Updater manifest is missing a required macOS platform');
+            if (Object.keys(manifest.platforms).length !== 1) {
+              throw new Error('Updater manifest is missing the required Apple Silicon archive');
             }
             const manifestJson = JSON.stringify(manifest, null, 2);
             fs.writeFileSync('release/latest.json', manifestJson);
@@ -241,7 +229,7 @@ jobs:
         run: |
           echo "## Release v${{ needs.check-release.outputs.version }} Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Platforms:** macOS (Intel + Apple Silicon)" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** macOS (Apple Silicon)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.check-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
 
@@ -271,7 +259,6 @@ jobs:
           const version = '${{ needs.check-release.outputs.version }}';
           const files = fs.readdirSync('release');
           const required = {
-            'darwin-x86_64': /(x86_64|x64)/i,
             'darwin-aarch64': /(aarch64|arm64)/i,
           };
           const platforms = {};
@@ -369,7 +356,7 @@ jobs:
           cp release/latest.json update-feed/updates/desktop/stable/latest.json
           touch update-feed/.nojekyll
           cd update-feed
-          node -e "const feed = require('./updates/desktop/stable/latest.json'); if (!feed.version || !feed.platforms?.['darwin-x86_64'] || !feed.platforms?.['darwin-aarch64']) process.exit(1)"
+          node -e "const feed = require('./updates/desktop/stable/latest.json'); if (!feed.version || !feed.platforms?.['darwin-aarch64'] || Object.keys(feed.platforms).length !== 1) process.exit(1)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .nojekyll updates/desktop/stable/latest.json
