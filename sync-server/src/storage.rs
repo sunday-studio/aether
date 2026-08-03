@@ -2,7 +2,7 @@
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
@@ -334,6 +334,19 @@ impl Storage {
 
     pub fn has_blob(&self, hash: &str) -> bool {
         self.blob_path(hash).is_ok_and(|path| path.exists())
+    }
+
+    /// Verify the persistent stores are reachable without changing their contents.
+    pub fn check_readiness(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let conn = Connection::open_with_flags(&self.db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        conn.query_row("SELECT 1", [], |_| Ok(()))?;
+        if !self.blob_dir.is_dir() {
+            return Err(
+                format!("blob path is not a directory: {}", self.blob_dir.display()).into(),
+            );
+        }
+        std::fs::read_dir(&self.blob_dir)?;
+        Ok(())
     }
 
     fn blob_path(&self, hash: &str) -> Result<PathBuf, std::io::Error> {

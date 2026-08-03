@@ -75,6 +75,7 @@ pub fn router(
     };
     Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/register", post(register))
         .route("/push", post(push))
         .route("/pull", get(pull))
@@ -93,6 +94,17 @@ pub fn router(
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn ready(State(s): State<AppState>) -> impl IntoResponse {
+    let storage = s.storage.clone();
+    match storage_blocking(move || storage.check_readiness()).await {
+        Ok(()) => (StatusCode::OK, "ok").into_response(),
+        Err(error) => {
+            tracing::error!("readiness check failed: {}", error);
+            (StatusCode::SERVICE_UNAVAILABLE, "not ready").into_response()
+        }
+    }
 }
 
 fn verify_passphrase(got: &str, expected: &str) -> bool {
