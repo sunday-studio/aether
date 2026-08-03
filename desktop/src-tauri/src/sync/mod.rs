@@ -5,6 +5,7 @@ pub mod encryption;
 pub mod engine;
 pub mod media;
 pub mod metadata;
+pub mod ordering;
 pub mod outbox;
 pub mod pull;
 pub mod push;

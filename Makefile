@@ -115,7 +115,7 @@ generate-sdk: generate-openapi
 
 .PHONY: sync-server-up sync-server-down sync-server-logs sync-server-docker-build
 sync-server-up:
-	cd $(SYNC_SERVER_DIR) && $(DOCKER_COMPOSE) up --build
+	cd $(SYNC_SERVER_DIR) && $(DOCKER_COMPOSE) up --build -d
 
 sync-server-down:
 	cd $(SYNC_SERVER_DIR) && $(DOCKER_COMPOSE) down

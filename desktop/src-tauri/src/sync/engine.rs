@@ -4,7 +4,7 @@ use crate::db::connection::{get_database, with_db_access};
 use crate::db::DbState;
 use crate::error::{AppError, Result};
 use crate::settings;
-use crate::sync::{apply, metadata, pull, push, register};
+use crate::sync::{apply, metadata, ordering, pull, push, register};
 use serde::Serialize;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -41,8 +41,10 @@ async fn apply_pulled_changes(
 ) -> Result<()> {
     let apply_started = Instant::now();
     let conn = db.connect().map_err(AppError::LibSQL)?;
+    let mut ordered_envelopes = envelopes.to_vec();
+    ordering::sort_for_dependencies(&mut ordered_envelopes);
     apply::with_suppress_triggers(db, async {
-        for envelope in envelopes {
+        for envelope in &ordered_envelopes {
             apply::apply_change_with_conn(&conn, envelope, Some(ctx))
                 .await
                 .map_err(|err| {
@@ -468,5 +470,62 @@ mod tests {
             Some(initial_cursor)
         );
         assert_eq!(metadata::get_last_sync(&db).await.unwrap(), Some(10));
+    }
+
+    #[tokio::test]
+    async fn applies_task_tags_after_their_task_and_tag() {
+        let db = test_db().await;
+        let ctx = apply::ApplyCtx {
+            base_url: "https://sync.example.com",
+            key: &[0; 32],
+            device_id: "device-a",
+            device_token: "token-a",
+            media_sync_policy: "on_demand",
+        };
+        let changes = vec![
+            ChangeEnvelope {
+                entity: "task_tags".into(),
+                id: "task-1|tag-1".into(),
+                op: ChangeOp::Upsert,
+                data: Some(serde_json::json!({ "task_id": "task-1", "tag_id": "tag-1" })),
+                updated_at: 300,
+                device_id: "device-a".into(),
+                device_hostname: "host-a".into(),
+            },
+            ChangeEnvelope {
+                entity: "tasks".into(),
+                id: "task-1".into(),
+                op: ChangeOp::Upsert,
+                data: Some(serde_json::json!({ "id": "task-1", "title": "Task" })),
+                updated_at: 200,
+                device_id: "device-a".into(),
+                device_hostname: "host-a".into(),
+            },
+            ChangeEnvelope {
+                entity: "tags".into(),
+                id: "tag-1".into(),
+                op: ChangeOp::Upsert,
+                data: Some(serde_json::json!({ "id": "tag-1", "name": "Tag" })),
+                updated_at: 100,
+                device_id: "device-a".into(),
+                device_hostname: "host-a".into(),
+            },
+        ];
+
+        apply_pulled_changes(&db, &changes, None, &ctx)
+            .await
+            .unwrap();
+
+        let conn = db.connect().unwrap();
+        let mut rows = conn
+            .query(
+                "SELECT task_id, tag_id FROM task_tags WHERE _sync_id = ?1",
+                libsql::params!["task-1|tag-1"],
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<String>(0).unwrap(), "task-1");
+        assert_eq!(row.get::<String>(1).unwrap(), "tag-1");
     }
 }

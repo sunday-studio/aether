@@ -8,6 +8,7 @@ use crate::sync;
 use crate::sync::encryption;
 use crate::sync::media;
 use crate::sync::metadata;
+use crate::sync::ordering;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
 use futures::{stream, StreamExt};
 use libsql::{Connection, Database};
@@ -318,6 +319,8 @@ async fn read_outbox_and_build(
             skipped_missing
         );
     }
+
+    ordering::sort_for_dependencies(&mut envelopes);
 
     Ok((envelopes, to_delete))
 }
