@@ -9,9 +9,10 @@ export const WhatsNewSection = () => {
 		checking,
 		available,
 		downloading,
-		progress,
-		info,
-		error,
+	progress,
+	info,
+	error,
+	lastSuccessfulCheck,
 		checkForUpdates,
 		downloadAndInstall,
 		skipVersion,
@@ -22,7 +23,6 @@ export const WhatsNewSection = () => {
 
 	const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 	const [prefs, setPrefs] = useState<UpdatePreferences | null>(null);
-	const [lastCheckMessage, setLastCheckMessage] = useState<string | null>(null);
 
 	useEffect(() => {
 		getAppVersion().then(setCurrentVersion);
@@ -30,11 +30,7 @@ export const WhatsNewSection = () => {
 	}, [getAppVersion, getPreferences]);
 
 	const handleCheck = async () => {
-		setLastCheckMessage(null);
-		const updateInfo = await checkForUpdates();
-		setLastCheckMessage(
-			updateInfo ? `Version ${updateInfo.latestVersion} is ready.` : 'You are up to date.',
-		);
+		await checkForUpdates();
 	};
 
 	const handlePreferenceChange = async (key: keyof UpdatePreferences, value: boolean) => {
@@ -56,7 +52,16 @@ export const WhatsNewSection = () => {
 		: currentVersion
 			? `v${currentVersion}`
 			: 'Loading version...';
-	const statusLabel = available && info ? 'Update available' : 'Up to date';
+	const statusLabel = checking
+		? 'Checking for updates'
+		: error
+			? 'Couldn’t check for updates'
+			: available && info
+				? 'Update available'
+				: lastSuccessfulCheck
+					? 'Up to date'
+					: 'Check for updates';
+	const statusIconClass = error ? 'text-red-600' : 'text-(--color-active-text)';
 
 	return (
 		<div className='w-full space-y-10'>
@@ -72,7 +77,7 @@ export const WhatsNewSection = () => {
 					<div className='relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between'>
 						<div className='min-w-0'>
 							<div className='mb-3 flex items-center gap-2 text-xs text-(--color-secondary-text)'>
-								<SparklesIcon className='size-3.5 text-(--color-active-text)' />
+								<SparklesIcon className={`size-3.5 ${statusIconClass}`} />
 								<span>{statusLabel}</span>
 							</div>
 							<h4 className='text-lg font-medium'>
@@ -84,15 +89,17 @@ export const WhatsNewSection = () => {
 									Published {formatPublishedAt(info.publishedAt)}
 								</p>
 							)}
-							{lastCheckMessage && !available && (
-								<p className='mt-1 text-xs text-(--color-secondary-text)'>{lastCheckMessage}</p>
+							{!available && lastSuccessfulCheck && (
+								<p className='mt-1 text-xs text-(--color-secondary-text)'>
+									Last verified {formatCheckedAt(lastSuccessfulCheck)}
+								</p>
 							)}
 						</div>
 
 						<div className='flex flex-wrap items-center gap-2'>
 							<Button
 								onClick={handleCheck}
-								label={checking ? 'Checking...' : 'Check'}
+								label={checking ? 'Checking...' : error ? 'Retry' : 'Check'}
 								tooltipContent='Check for new versions'
 								isDisabled={checking || downloading}
 								variant='secondary'
@@ -248,5 +255,16 @@ function formatPublishedAt(value: string) {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
+	});
+}
+
+function formatCheckedAt(value: string) {
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return value;
+	return date.toLocaleString(undefined, {
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
 	});
 }

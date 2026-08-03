@@ -1,7 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { UpdateInfo, UpdatePreferences, UpdateProgress, UpdateState } from '~/types/updater';
+import type {
+	UpdateCheckResult,
+	UpdateCheckStatus,
+	UpdateInfo,
+	UpdatePreferences,
+	UpdateProgress,
+	UpdateState,
+} from '~/types/updater';
 
 const initialState: UpdateState = {
 	checking: false,
@@ -10,10 +17,11 @@ const initialState: UpdateState = {
 	progress: 0,
 	info: null,
 	error: null,
+	lastSuccessfulCheck: null,
 };
 
 interface UpdaterContextValue extends UpdateState {
-	checkForUpdates: () => Promise<UpdateInfo | null>;
+	checkForUpdates: () => Promise<UpdateCheckResult>;
 	downloadAndInstall: () => Promise<void>;
 	skipVersion: (version: string) => Promise<void>;
 	dismissUpdate: () => void;
@@ -32,15 +40,17 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
 
 		try {
 			const info = await invoke<UpdateInfo | null>('check_for_updates');
+			const checkStatus = await invoke<UpdateCheckStatus>('get_update_check_status');
 
 			setState(prev => ({
 				...prev,
 				checking: false,
 				available: Boolean(info),
 				info,
+				lastSuccessfulCheck: checkStatus.lastSuccessfulCheck,
 			}));
 
-			return info;
+			return { succeeded: true, info };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Failed to check for updates';
 			setState(prev => ({
@@ -48,7 +58,7 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
 				checking: false,
 				error: message,
 			}));
-			return null;
+			return { succeeded: false, info: null };
 		}
 	}, []);
 
@@ -114,12 +124,25 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	useEffect(() => {
+		invoke<UpdateCheckStatus>('get_update_check_status')
+			.then(status => {
+				setState(prev => ({ ...prev, lastSuccessfulCheck: status.lastSuccessfulCheck }));
+			})
+			.catch(error => console.error('Failed to load update check status:', error));
+
 		const unlistenAvailable = listen<UpdateInfo>('update-available', event => {
 			setState(prev => ({
 				...prev,
 				available: true,
 				info: event.payload,
 				error: null,
+			}));
+		});
+		const unlistenCheckSucceeded = listen<UpdateCheckStatus>('update-check-succeeded', event => {
+			setState(prev => ({
+				...prev,
+				error: null,
+				lastSuccessfulCheck: event.payload.lastSuccessfulCheck,
 			}));
 		});
 		const unlistenProgress = listen<UpdateProgress>('update-download-progress', event => {
@@ -132,6 +155,7 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
 
 		return () => {
 			unlistenAvailable.then(fn => fn());
+			unlistenCheckSucceeded.then(fn => fn());
 			unlistenProgress.then(fn => fn());
 		};
 	}, []);

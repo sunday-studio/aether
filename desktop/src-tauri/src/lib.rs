@@ -196,6 +196,9 @@ pub fn run() {
                                         Err(e) => tracing::warn!("[UPDATER] Failed to check for updates (will back off): {}", e),
                                     }
                                     manager.record_check(failed).await;
+							if !failed {
+								let _ = app.emit("update-check-succeeded", manager.get_check_status().await);
+							}
                                 }
                             }
                         });
@@ -212,9 +215,7 @@ pub fn run() {
             let engine_clone = sync_engine.clone();
             let update_manager = app.state::<updater::UpdateManager>().inner().clone();
             let updater_app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                update_manager.hydrate(&updater_app_handle).await;
-            });
+            tauri::async_runtime::block_on(update_manager.hydrate(&updater_app_handle));
 
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = engine_clone.hydrate(&app_handle).await {
@@ -357,6 +358,7 @@ pub fn run() {
             updater_commands::skip_update_version,
             updater_commands::get_update_preferences,
             updater_commands::set_update_preferences,
+			updater_commands::get_update_check_status,
             updater_commands::get_app_version,
         ])
         .run(tauri::generate_context!())

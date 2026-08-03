@@ -56,12 +56,6 @@ export const LegacyImportSection = () => {
 	};
 
 	const importData = async () => {
-		if (!preview || preview.sourcePath !== sourcePath.trim()) return;
-		if (
-			!window.confirm('Import this legacy data? Existing records with the same IDs will be kept.')
-		) {
-			return;
-		}
 		setIsImporting(true);
 		try {
 			const result = await invoke<LegacyImportCounts>('import_legacy_database', {
@@ -139,6 +133,7 @@ export const LegacyImportSection = () => {
 						isDisabled={isImporting}
 						label={isImporting ? 'Importing' : 'Import legacy data'}
 						onClick={importData}
+						variant='primary'
 						tooltipContent='Add the previewed legacy data to this local Aether database'
 					/>
 				</div>

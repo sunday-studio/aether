@@ -22,6 +22,7 @@ jobs:
       desktop_rust: ${{ steps.filter.outputs.desktop_rust }}
       desktop_child_tasks: ${{ steps.filter.outputs.desktop_child_tasks }}
       sync_server: ${{ steps.filter.outputs.sync_server }}
+      desktop_release: ${{ steps.filter.outputs.desktop_release }}
 
     steps:
       - name: Checkout
@@ -34,6 +35,9 @@ jobs:
           filters: |
             frontend:
               - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/build-platform.yml'
+              - '.github/workflows/check-release.yml'
+              - '.github/workflows/release-desktop.yml'
               - 'desktop/package.json'
               - 'desktop/pnpm-lock.yaml'
               - 'desktop/index.html'
@@ -45,6 +49,8 @@ jobs:
               - 'desktop/src/**'
             desktop_rust:
               - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/build-platform.yml'
+              - '.github/workflows/release-desktop.yml'
               - 'desktop/src-tauri/**'
             desktop_child_tasks:
               - '.github/workflows/pr-ci.yml'
@@ -58,6 +64,15 @@ jobs:
             sync_server:
               - '.github/workflows/pr-ci.yml'
               - 'sync-server/**'
+            desktop_release:
+              - '.github/workflows/build-platform.yml'
+              - '.github/workflows/check-release.yml'
+              - '.github/workflows/release-desktop.yml'
+              - '.github/updater-feed-setup.md'
+              - 'desktop/package.json'
+              - 'desktop/scripts/check-version-parity.mjs'
+              - 'desktop/src-tauri/Cargo.toml'
+              - 'desktop/src-tauri/tauri.conf.json'
 
   frontend:
     name: Frontend lint and build
@@ -96,6 +111,24 @@ jobs:
       - name: Build
         working-directory: desktop
         run: pnpm run build
+
+  desktop-release-contract:
+    name: Desktop release contract
+    needs: changes
+    if: needs.changes.outputs.desktop_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify desktop version and updater contract
+        run: node desktop/scripts/check-version-parity.mjs
 
   desktop-child-task-tests:
     name: Desktop child task tests

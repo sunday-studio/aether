@@ -32,6 +32,13 @@ pub struct UpdatePreferences {
     pub skipped_versions: Vec<String>,
 }
 
+/// The user-visible timestamp of the most recent successful update-feed request.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckStatus {
+    pub last_successful_check: Option<String>,
+}
+
 impl Default for UpdatePreferences {
     fn default() -> Self {
         Self {
@@ -49,6 +56,8 @@ pub struct UpdateManager {
     last_failure: Arc<RwLock<Option<Instant>>>,
     preferences: Arc<RwLock<UpdatePreferences>>,
     preferences_path: Arc<RwLock<Option<PathBuf>>>,
+    check_status: Arc<RwLock<UpdateCheckStatus>>,
+    check_status_path: Arc<RwLock<Option<PathBuf>>>,
 }
 
 impl UpdateManager {
@@ -58,6 +67,8 @@ impl UpdateManager {
             last_failure: Arc::new(RwLock::new(None)),
             preferences: Arc::new(RwLock::new(UpdatePreferences::default())),
             preferences_path: Arc::new(RwLock::new(None)),
+            check_status: Arc::new(RwLock::new(UpdateCheckStatus::default())),
+            check_status_path: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -74,6 +85,24 @@ impl UpdateManager {
         {
             let mut path_guard = self.preferences_path.write().await;
             *path_guard = Some(path.clone());
+        }
+
+        let check_status_path = path.with_file_name("update-check-status.json");
+        {
+            let mut path_guard = self.check_status_path.write().await;
+            *path_guard = Some(check_status_path.clone());
+        }
+
+        match tokio::fs::read_to_string(&check_status_path).await {
+            Ok(contents) => match serde_json::from_str::<UpdateCheckStatus>(&contents) {
+                Ok(status) => {
+                    let mut check_status = self.check_status.write().await;
+                    *check_status = status;
+                }
+                Err(e) => tracing::warn!("[UPDATER] Failed to parse update check status: {}", e),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => tracing::warn!("[UPDATER] Failed to read update check status: {}", e),
         }
 
         match tokio::fs::read_to_string(&path).await {
@@ -124,6 +153,14 @@ impl UpdateManager {
         if failed {
             let mut last_fail = self.last_failure.write().await;
             *last_fail = Some(Instant::now());
+        } else {
+            let mut last_fail = self.last_failure.write().await;
+            *last_fail = None;
+            drop(last_fail);
+            let mut check_status = self.check_status.write().await;
+            check_status.last_successful_check = Some(chrono::Utc::now().to_rfc3339());
+            drop(check_status);
+            self.persist_check_status().await;
         }
     }
 
@@ -156,6 +193,11 @@ impl UpdateManager {
         self.persist_preferences().await;
     }
 
+    /// Get the timestamp displayed after an update-feed request succeeds.
+    pub async fn get_check_status(&self) -> UpdateCheckStatus {
+        self.check_status.read().await.clone()
+    }
+
     async fn persist_preferences(&self) {
         let Some(path) = self.preferences_path.read().await.clone() else {
             return;
@@ -173,6 +215,26 @@ impl UpdateManager {
         };
         if let Err(e) = tokio::fs::write(path, contents).await {
             tracing::warn!("[UPDATER] Failed to persist update preferences: {}", e);
+        }
+    }
+
+    async fn persist_check_status(&self) {
+        let Some(path) = self.check_status_path.read().await.clone() else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                tracing::warn!("[UPDATER] Failed to create check status directory: {}", e);
+                return;
+            }
+        }
+        let status = self.check_status.read().await.clone();
+        let Ok(contents) = serde_json::to_string_pretty(&status) else {
+            tracing::warn!("[UPDATER] Failed to serialize update check status");
+            return;
+        };
+        if let Err(e) = tokio::fs::write(path, contents).await {
+            tracing::warn!("[UPDATER] Failed to persist update check status: {}", e);
         }
     }
 }
@@ -207,5 +269,36 @@ pub async fn check_for_updates(app: &AppHandle) -> Result<Option<UpdateInfo>, St
             Ok(Some(info))
         }
         None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UpdateManager;
+
+    #[tokio::test]
+    async fn successful_check_records_a_displayable_timestamp() {
+        let manager = UpdateManager::new();
+
+        manager.record_check(false).await;
+
+        assert!(manager
+            .get_check_status()
+            .await
+            .last_successful_check
+            .is_some());
+    }
+
+    #[tokio::test]
+    async fn failed_check_does_not_claim_a_successful_timestamp() {
+        let manager = UpdateManager::new();
+
+        manager.record_check(true).await;
+
+        assert!(manager
+            .get_check_status()
+            .await
+            .last_successful_check
+            .is_none());
     }
 }

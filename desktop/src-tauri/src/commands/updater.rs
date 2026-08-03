@@ -1,6 +1,6 @@
 //! Tauri commands for the auto-updater functionality.
 
-use crate::updater::{self, UpdateInfo, UpdateManager, UpdatePreferences};
+use crate::updater::{self, UpdateCheckStatus, UpdateInfo, UpdateManager, UpdatePreferences};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_updater::UpdaterExt;
@@ -23,6 +23,7 @@ pub async fn check_for_updates(
     manager.record_check(result.is_err()).await;
 
     let info = result?;
+    let _ = app.emit("update-check-succeeded", manager.get_check_status().await);
 
     // Filter out skipped versions
     if let Some(ref update_info) = info {
@@ -125,6 +126,14 @@ pub async fn set_update_preferences(
 ) -> Result<(), String> {
     manager.set_preferences(preferences).await;
     Ok(())
+}
+
+/// Get the last successful update-feed check for the settings UI.
+#[tauri::command]
+pub async fn get_update_check_status(
+    manager: State<'_, UpdateManager>,
+) -> Result<UpdateCheckStatus, String> {
+    Ok(manager.get_check_status().await)
 }
 
 /// Get the current app version

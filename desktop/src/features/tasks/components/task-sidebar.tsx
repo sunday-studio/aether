@@ -36,38 +36,38 @@ const NavigationItem = ({ label, route }: { label: string; route: string }) => {
 	);
 };
 
-const GoalsList = () => {
-	const { data: goalsResponse } = useGetGoals();
+// const GoalsList = () => {
+// 	const { data: goalsResponse } = useGetGoals();
 
-	const goals: Goal[] = goalsResponse?.data?.items ?? [];
+// 	const goals: Goal[] = goalsResponse?.data?.items ?? [];
 
-	return (
-		<div className='w-full'>
-			<div className='flex items-center justify-between gap-2 py-2'>
-				<p className='text-sm font-medium text-(--color-primary-text)'>Goals</p>
-				<div className='h-px w-full bg-(--color-divider)'></div>
-				<GoalFormDialog
-					trigger={
-						<Tooltip
-							trigger={
-								<TaskActionButton className='cursor-pointer bg-transparent hover:bg-neutral-200'>
-									<Plus size={14} strokeWidth={3} />
-								</TaskActionButton>
-							}
-							content='Create a new goal'
-							shortcuts={['⌘', 'G']}
-						/>
-					}
-				/>
-			</div>
-			<ul className='flex flex-col items-start gap-1'>
-				{goals.map(goal => (
-					<NavigationItem key={goal.id} route={`/tasks/goal/${goal.id}`} label={goal.name ?? ''} />
-				))}
-			</ul>
-		</div>
-	);
-};
+// 	return (
+// 		<div className='w-full'>
+// 			<div className='flex items-center justify-between gap-2 py-2'>
+// 				<p className='text-sm font-medium text-(--color-primary-text)'>Goals</p>
+// 				<div className='h-px w-full bg-(--color-divider)'></div>
+// 				<GoalFormDialog
+// 					trigger={
+// 						<Tooltip
+// 							trigger={
+// 								<TaskActionButton className='cursor-pointer bg-transparent hover:bg-neutral-200'>
+// 									<Plus size={14} strokeWidth={3} />
+// 								</TaskActionButton>
+// 							}
+// 							content='Create a new goal'
+// 							shortcuts={['⌘', 'G']}
+// 						/>
+// 					}
+// 				/>
+// 			</div>
+// 			<ul className='flex flex-col items-start gap-1'>
+// 				{goals.map(goal => (
+// 					<NavigationItem key={goal.id} route={`/tasks/goal/${goal.id}`} label={goal.name ?? ''} />
+// 				))}
+// 			</ul>
+// 		</div>
+// 	);
+// };
 
 export const TaskSidebar = () => {
 	return (
@@ -75,9 +75,7 @@ export const TaskSidebar = () => {
 			<div className='flex items-start gap-1'>
 				<NavigationItem route='/tasks' label='Inbox' />
 				<NavigationItem route='/tasks/overdue' label='Overdue' />
-				<NavigationItem route='/tasks/overdue' label='Overdue' />
 			</div>
-			{/* <GoalsList /> */}
 		</div>
 	);
 };

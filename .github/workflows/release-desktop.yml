@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
   pull-requests: read
 
 jobs:
@@ -66,6 +67,10 @@ jobs:
       - name: Frontend build
         working-directory: desktop
         run: pnpm run build
+
+      - name: Verify committed desktop version
+        working-directory: desktop
+        run: pnpm run check:version -- ${{ needs.check-release.outputs.version }}
 
       - name: Install Linux dependencies
         run: |
@@ -137,14 +142,17 @@ jobs:
       version: ${{ needs.check-release.outputs.version }}
     secrets: inherit
 
-  # Step 4: Create GitHub Release with macOS artifacts
+  # Step 4: Create a draft release, validate its update manifest, then publish it.
+  # The mutable static feed is deliberately promoted by a later job, after this release is public.
   publish-release:
     name: Publish Release
     needs: 
       - check-release
       - build-macos-intel
       - build-macos-silicon
+    if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - name: Download all artifacts
@@ -158,81 +166,74 @@ jobs:
           find artifacts -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) -exec cp {} release/ \;
           ls -la release/
       
-      - name: Create GitHub Release
+      - name: Create draft GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.check-release.outputs.version }}
           name: Aether v${{ needs.check-release.outputs.version }}
           body: ${{ needs.check-release.outputs.release_notes }}
-          draft: false
+          draft: true
           prerelease: false
           files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Generate updater manifest
+      - name: Generate and validate updater manifest
         uses: actions/github-script@v7
+        env:
+          RELEASE_NOTES: ${{ needs.check-release.outputs.release_notes }}
         with:
           script: |
             const fs = require('fs');
-            
             const version = '${{ needs.check-release.outputs.version }}';
-            const notes = `${{ needs.check-release.outputs.release_notes }}`;
-            
-            const { data: release } = await github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag: `v${version}`
-            });
-            
+            const notes = process.env.RELEASE_NOTES;
+            const files = fs.readdirSync('release');
             const manifest = {
               version,
               pub_date: new Date().toISOString(),
               notes,
               platforms: {}
             };
-            
             const platformPatterns = {
-              'darwin-x86_64': { 
-                pattern: /x86_64.*darwin.*\.app\.tar\.gz$|darwin.*x86_64.*\.app\.tar\.gz$/i, 
-                sig: /x86_64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*x86_64.*\.app\.tar\.gz\.sig$/i 
-              },
-              'darwin-aarch64': { 
-                pattern: /aarch64.*darwin.*\.app\.tar\.gz$|darwin.*aarch64.*\.app\.tar\.gz$/i, 
-                sig: /aarch64.*darwin.*\.app\.tar\.gz\.sig$|darwin.*aarch64.*\.app\.tar\.gz\.sig$/i 
-              }
+              'darwin-x86_64': /(x86_64|x64)/i,
+              'darwin-aarch64': /(aarch64|arm64)/i
             };
-            
-            for (const [platform, patterns] of Object.entries(platformPatterns)) {
-              const binaryAsset = release.assets.find(a => patterns.pattern.test(a.name));
-              const sigAsset = release.assets.find(a => patterns.sig.test(a.name));
-              
-              if (binaryAsset && sigAsset) {
-                const sigResponse = await fetch(sigAsset.browser_download_url);
-                const signature = await sigResponse.text();
-                
-                manifest.platforms[platform] = {
-                  signature: signature.trim(),
-                  url: binaryAsset.browser_download_url
-                };
-                
-                console.log(`Added ${platform}: ${binaryAsset.name}`);
+            for (const [platform, targetPattern] of Object.entries(platformPatterns)) {
+              const binaries = files.filter(file =>
+                file.endsWith('.app.tar.gz') && targetPattern.test(file),
+              );
+              if (binaries.length !== 1) {
+                throw new Error(`Expected exactly one ${platform} updater archive, found: ${binaries.join(', ') || 'none'}`);
               }
+              const binary = binaries[0];
+              const signatureFile = `${binary}.sig`;
+              if (!files.includes(signatureFile)) {
+                throw new Error(`Missing signature for ${platform} updater archive: ${signatureFile}`);
+              }
+              const signature = fs.readFileSync(`release/${signatureFile}`, 'utf8').trim();
+              if (!signature) {
+                throw new Error(`Empty signature for ${platform} updater archive: ${signatureFile}`);
+              }
+              manifest.platforms[platform] = {
+                signature,
+                url: `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v${version}/${encodeURIComponent(binary)}`
+              };
+              console.log(`Validated ${platform}: ${binary}`);
             }
-            
-            if (Object.keys(manifest.platforms).length === 0) {
-              console.log('Warning: No platforms found in manifest');
+            if (Object.keys(manifest.platforms).length !== 2) {
+              throw new Error('Updater manifest is missing a required macOS platform');
             }
-            
             const manifestJson = JSON.stringify(manifest, null, 2);
-            fs.writeFileSync('latest.json', manifestJson);
+            fs.writeFileSync('release/latest.json', manifestJson);
             console.log('Generated manifest:', manifestJson);
       
-      - name: Upload manifest to release
+      - name: Publish GitHub Release and archive updater manifest
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.check-release.outputs.version }}
-          files: latest.json
+          files: release/latest.json
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -243,3 +244,139 @@ jobs:
           echo "**Platforms:** macOS (Intel + Apple Silicon)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.check-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+
+  promote-update-feed:
+    name: Promote desktop update feed
+    needs: [check-release, publish-release]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+
+      - name: Download updater manifest
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Rebuild and validate updater manifest
+        env:
+          RELEASE_NOTES: ${{ needs.check-release.outputs.release_notes }}
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \) -exec cp {} release/ \;
+          node <<'NODE'
+          const fs = require('fs');
+          const version = '${{ needs.check-release.outputs.version }}';
+          const files = fs.readdirSync('release');
+          const required = {
+            'darwin-x86_64': /(x86_64|x64)/i,
+            'darwin-aarch64': /(aarch64|arm64)/i,
+          };
+          const platforms = {};
+          for (const [platform, targetPattern] of Object.entries(required)) {
+            const binaries = files.filter(file => file.endsWith('.app.tar.gz') && targetPattern.test(file));
+            if (binaries.length !== 1 || !files.includes(`${binaries[0]}.sig`)) {
+              throw new Error(`Invalid ${platform} artifact set: ${binaries.join(', ') || 'none'}`);
+            }
+            const binary = binaries[0];
+            const signature = fs.readFileSync(`release/${binary}.sig`, 'utf8').trim();
+            if (!signature) throw new Error(`Empty signature for ${binary}`);
+            platforms[platform] = {
+              signature,
+              url: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/v${version}/${encodeURIComponent(binary)}`,
+            };
+          }
+          fs.writeFileSync('release/latest.json', JSON.stringify({
+            version,
+            pub_date: new Date().toISOString(),
+            notes: process.env.RELEASE_NOTES,
+            platforms,
+          }, null, 2));
+          NODE
+
+      - name: Ensure GitHub Pages branch exists
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/gh-pages',
+              });
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const { data: blob } = await github.rest.git.createBlob({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              content: '',
+              encoding: 'utf-8',
+            });
+            const { data: tree } = await github.rest.git.createTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tree: [{ path: '.nojekyll', mode: '100644', type: 'blob', sha: blob.sha }],
+            });
+            const { data: commit } = await github.rest.git.createCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              message: 'chore(updater): initialize static update feed',
+              tree: tree.sha,
+              parents: [],
+            });
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/heads/gh-pages',
+              sha: commit.sha,
+            });
+
+      - name: Ensure GitHub Pages serves the static feed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const { data: page } = await github.rest.repos.getPages({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              if (page.source?.branch !== 'gh-pages' || page.source?.path !== '/') {
+                throw new Error('GitHub Pages must use the gh-pages branch root for the desktop updater feed');
+              }
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            await github.rest.repos.createPagesSite({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              source: { branch: 'gh-pages', path: '/' },
+            });
+
+      - name: Checkout static feed branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: update-feed
+
+      - name: Promote validated stable manifest
+        run: |
+          mkdir -p update-feed/updates/desktop/stable
+          cp release/latest.json update-feed/updates/desktop/stable/latest.json
+          touch update-feed/.nojekyll
+          cd update-feed
+          node -e "const feed = require('./updates/desktop/stable/latest.json'); if (!feed.version || !feed.platforms?.['darwin-x86_64'] || !feed.platforms?.['darwin-aarch64']) process.exit(1)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .nojekyll updates/desktop/stable/latest.json
+          git diff --cached --quiet || git commit -m "chore(updater): promote v${{ needs.check-release.outputs.version }}"
+          git push origin HEAD:gh-pages
+
+      - name: Summary
+        run: |
+          echo "## Desktop update feed promoted" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://sunday-studio.github.io/aether/updates/desktop/stable/latest.json" >> "$GITHUB_STEP_SUMMARY"

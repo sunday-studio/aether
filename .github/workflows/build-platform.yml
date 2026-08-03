@@ -18,24 +18,25 @@ on:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
         required: true
       APPLE_CERTIFICATE:
-        required: false
+        required: true
       APPLE_CERTIFICATE_PASSWORD:
-        required: false
+        required: true
       APPLE_SIGNING_IDENTITY:
-        required: false
+        required: true
       APPLE_ID:
-        required: false
+        required: true
       APPLE_PASSWORD:
-        required: false
+        required: true
       APPLE_TEAM_ID:
-        required: false
+        required: true
       KEYCHAIN_PASSWORD:
-        required: false
+        required: true
 
 jobs:
   build:
     name: Build ${{ inputs.target }}
     runs-on: ${{ inputs.platform }}
+    environment: production
     
     steps:
       - name: Checkout code
@@ -87,27 +88,20 @@ jobs:
       
       - name: Verify Certificate and Set Identity
         if: inputs.platform == 'macos-latest'
+        env:
+          EXPECTED_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          security find-identity -v -p codesigning build.keychain
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" || security find-identity -v -p codesigning build.keychain | grep "Apple Development")
-          CERT_ID=$(echo "$CERT_INFO" | head -n1 | awk -F'"' '{print $2}')
-          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate ID: $CERT_ID"
+          security find-identity -v -p codesigning build.keychain | grep 'Developer ID Application'
+          security find-identity -v -p codesigning build.keychain | grep -F "$EXPECTED_IDENTITY"
+          echo "APPLE_SIGNING_IDENTITY=$EXPECTED_IDENTITY" >> "$GITHUB_ENV"
       
       - name: Install frontend dependencies
         working-directory: desktop
         run: pnpm install --frozen-lockfile
       
-      - name: Update version in Cargo.toml
-        working-directory: desktop/src-tauri
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-          else
-            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-          fi
-        shell: bash
+      - name: Verify committed desktop version
+        working-directory: desktop
+        run: pnpm run check:version -- ${{ inputs.version }}
       
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.5
@@ -142,4 +136,5 @@ jobs:
             desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.exe
             desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.nsis.zip
             desktop/src-tauri/target/${{ inputs.target }}/release/bundle/**/*.nsis.zip.sig
+          if-no-files-found: error
           retention-days: 1

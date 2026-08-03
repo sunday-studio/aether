@@ -28,4 +28,15 @@ export interface UpdateState {
 	progress: number;
 	info: UpdateInfo | null;
 	error: string | null;
+	lastSuccessfulCheck: string | null;
 }
+
+/** Persisted status of the last successful update-feed request. */
+export interface UpdateCheckStatus {
+	lastSuccessfulCheck: string | null;
+}
+
+/** The outcome of a manually requested update check. */
+export type UpdateCheckResult =
+	| { succeeded: true; info: UpdateInfo | null }
+	| { succeeded: false; info: null };
