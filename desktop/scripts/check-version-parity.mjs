@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 
 const desktopRoot = resolve(import.meta.dirname, '..');
-const expectedVersion = process.argv[2];
+const expectedVersion = process.argv.slice(2).find(argument => argument !== '--');
 
 const [packageJson, cargoToml, tauriConfig] = await Promise.all([
 	readFile(resolve(desktopRoot, 'package.json'), 'utf8'),
