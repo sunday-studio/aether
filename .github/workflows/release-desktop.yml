@@ -102,10 +102,54 @@ jobs:
       - name: Sync server tests
         run: cargo test --manifest-path sync-server/Cargo.toml --all-targets
 
-  # Step 2: Create the version tag
+  # Keep an unsuccessful credential configuration from creating an unreleasable tag.
+  release-credentials:
+    name: Verify release credentials
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+    steps:
+      - name: Require signing and notarization credentials
+        shell: bash
+        run: |
+          required_secrets=(
+            TAURI_SIGNING_PRIVATE_KEY
+            TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            APPLE_CERTIFICATE
+            APPLE_CERTIFICATE_PASSWORD
+            APPLE_SIGNING_IDENTITY
+            APPLE_ID
+            APPLE_PASSWORD
+            APPLE_TEAM_ID
+            KEYCHAIN_PASSWORD
+          )
+          missing_secrets=()
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              missing_secrets+=("$secret_name")
+            fi
+          done
+          if ((${#missing_secrets[@]})); then
+            printf 'Missing required release secrets: %s\\n' "${missing_secrets[*]}" >&2
+            exit 1
+          fi
+
+  # Step 2: Create the version tag only after tests and credentials pass.
   create-tag:
     name: Create Version Tag
-    needs: [check-release, test-suite]
+    needs: [check-release, test-suite, release-credentials]
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     
