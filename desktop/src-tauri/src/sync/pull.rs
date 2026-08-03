@@ -55,16 +55,7 @@ pub async fn pull(
         .map_err(|e| AppError::Sync(format!("pull json: {}", e)))?;
 
     let decode_started = Instant::now();
-    let mut out = Vec::with_capacity(body.changes.len());
-    for ec in &body.changes {
-        match encryption::decrypt(key, &ec.nonce, &ec.ciphertext) {
-            Ok(plain) => match serde_json::from_slice::<ChangeEnvelope>(&plain) {
-                Ok(envelope) => out.push(envelope),
-                Err(e) => tracing::warn!("[SYNC-PULL] Failed to deserialize envelope: {}", e),
-            },
-            Err(e) => tracing::warn!("[SYNC-PULL] Failed to decrypt change: {}", e),
-        }
-    }
+    let out = decode_changes(key, &body.changes)?;
     tracing::info!(
         "[SYNC-TIMING] pull_decode={}ms changes_in={} changes_out={}",
         decode_started.elapsed().as_millis(),
@@ -73,4 +64,39 @@ pub async fn pull(
     );
 
     Ok((out, body.next_cursor, body.has_more))
+}
+
+fn decode_changes(
+    key: &[u8; 32],
+    changes: &[crate::sync::types::EncryptedChange],
+) -> Result<Vec<ChangeEnvelope>> {
+    changes
+        .iter()
+        .map(|change| {
+            let plain = encryption::decrypt(key, &change.nonce, &change.ciphertext)
+                .map_err(|error| AppError::Sync(format!("pull decrypt: {}", error)))?;
+            serde_json::from_slice::<ChangeEnvelope>(&plain)
+                .map_err(|error| AppError::Sync(format!("pull envelope: {}", error)))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sync::types::EncryptedChange;
+
+    #[test]
+    fn refuses_a_pull_page_with_an_undecodable_change() {
+        let error = decode_changes(
+            &[0; 32],
+            &[EncryptedChange {
+                nonce: "not-base64".into(),
+                ciphertext: "not-base64".into(),
+            }],
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("pull decrypt"));
+    }
 }

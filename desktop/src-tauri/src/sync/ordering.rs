@@ -15,9 +15,10 @@ pub fn sort_for_dependencies(changes: &mut [ChangeEnvelope]) {
 
 fn dependency_rank(change: &ChangeEnvelope) -> u8 {
     if change.op == ChangeOp::Delete {
-        // Sync deletes are soft updates and do not remove the referenced row,
-        // so preserving the received order is both safe and least surprising.
-        return 0;
+        // Sync deletes are soft updates and do not need their parents. Apply
+        // them after upserts so an older deferred upsert cannot be resurrected
+        // by sorting ahead of its later delete.
+        return 100;
     }
 
     match change.entity.as_str() {

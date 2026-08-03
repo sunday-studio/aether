@@ -18,6 +18,13 @@ use std::time::Instant;
 
 const MEDIA_UPLOAD_CONCURRENCY: usize = 4;
 
+#[derive(Debug, Clone)]
+struct OutboxRow {
+    id: i64,
+    entity: String,
+    entity_id: String,
+}
+
 pub async fn push(
     db_state: &DbState,
     key: &[u8; 32],
@@ -235,27 +242,28 @@ async fn read_outbox_and_build(
     db: &Database,
     device_id: &str,
     device_hostname: &str,
-) -> Result<(Vec<ChangeEnvelope>, Vec<(String, String)>)> {
+) -> Result<(Vec<ChangeEnvelope>, Vec<OutboxRow>)> {
     tracing::debug!("[SYNC-PUSH] Reading outbox");
     let conn = db.connect().map_err(AppError::LibSQL)?;
     let mut rows = conn
         .query(
-            "SELECT entity, entity_id, op, queued_at FROM _sync_outbox ORDER BY queued_at",
+            "SELECT id, entity, entity_id, op, queued_at FROM _sync_outbox ORDER BY queued_at, id",
             libsql::params![],
         )
         .await
         .map_err(AppError::LibSQL)?;
 
     // Dedupe by (entity, entity_id): keep the latest (last) row.
-    let mut seen: std::collections::HashMap<(String, String), (String, i64)> =
+    let mut seen: std::collections::HashMap<(String, String), (i64, String, i64)> =
         std::collections::HashMap::new();
     let mut total_rows = 0;
     while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
-        let entity: String = row.get(0).map_err(AppError::LibSQL)?;
-        let entity_id: String = row.get(1).map_err(AppError::LibSQL)?;
-        let op: String = row.get(2).map_err(AppError::LibSQL)?;
-        let queued_at: i64 = row.get(3).map_err(AppError::LibSQL)?;
-        seen.insert((entity.clone(), entity_id.clone()), (op, queued_at));
+        let id: i64 = row.get(0).map_err(AppError::LibSQL)?;
+        let entity: String = row.get(1).map_err(AppError::LibSQL)?;
+        let entity_id: String = row.get(2).map_err(AppError::LibSQL)?;
+        let op: String = row.get(3).map_err(AppError::LibSQL)?;
+        let queued_at: i64 = row.get(4).map_err(AppError::LibSQL)?;
+        seen.insert((entity.clone(), entity_id.clone()), (id, op, queued_at));
         total_rows += 1;
     }
     tracing::debug!(
@@ -269,7 +277,7 @@ async fn read_outbox_and_build(
     let mut skipped_missing: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     let last_sync = metadata::get_last_sync(&db).await?.unwrap_or(0);
-    for ((entity, entity_id), (op, _queued_at)) in seen {
+    for ((entity, entity_id), (id, op, _queued_at)) in seen {
         let change_op = if op == "delete" {
             ChangeOp::Delete
         } else {
@@ -281,7 +289,11 @@ async fn read_outbox_and_build(
                 Some((d, ts)) => (Some(d), ts),
                 None => {
                     *skipped_missing.entry(entity.clone()).or_insert(0) += 1;
-                    to_delete.push((entity, entity_id));
+                    to_delete.push(OutboxRow {
+                        id,
+                        entity,
+                        entity_id,
+                    });
                     continue;
                 }
             }
@@ -310,7 +322,11 @@ async fn read_outbox_and_build(
             device_hostname: device_hostname.to_string(),
         };
         envelopes.push(envelope);
-        to_delete.push((entity, entity_id));
+        to_delete.push(OutboxRow {
+            id,
+            entity,
+            entity_id,
+        });
     }
 
     if !skipped_missing.is_empty() {
@@ -1090,7 +1106,7 @@ async fn fetch_updated_at(conn: &Connection, entity: &str, entity_id: &str) -> R
     }
 }
 
-async fn delete_outbox_rows(db: &Database, rows: &[(String, String)]) -> Result<()> {
+async fn delete_outbox_rows(db: &Database, rows: &[OutboxRow]) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
     }
@@ -1098,11 +1114,11 @@ async fn delete_outbox_rows(db: &Database, rows: &[(String, String)]) -> Result<
     conn.execute("BEGIN TRANSACTION", libsql::params![])
         .await
         .map_err(AppError::LibSQL)?;
-    for (entity, entity_id) in rows {
+    for row in rows {
         if let Err(err) = conn
             .execute(
-                "DELETE FROM _sync_outbox WHERE entity = ?1 AND entity_id = ?2",
-                libsql::params![entity.as_str(), entity_id.as_str()],
+                "DELETE FROM _sync_outbox WHERE id = ?1 AND entity = ?2 AND entity_id = ?3",
+                libsql::params![row.id, row.entity.clone(), row.entity_id.clone()],
             )
             .await
         {
@@ -1163,6 +1179,58 @@ mod tests {
         assert_eq!(data["source_type"], "entry");
         assert_eq!(data["target_type"], "task");
         assert_eq!(data["_sync_id"], "link-1");
+    }
+
+    #[tokio::test]
+    async fn keeps_an_outbox_row_replaced_while_a_push_was_in_flight() {
+        let db = test_db().await;
+        let conn = db.connect().unwrap();
+        conn.execute(
+            "INSERT INTO _sync_outbox (entity, entity_id, op, queued_at) VALUES ('tasks', 'task-1', 'upsert', 100)",
+            libsql::params![],
+        )
+        .await
+        .unwrap();
+        let old_id = {
+            let mut rows = conn
+                .query(
+                    "SELECT id FROM _sync_outbox WHERE entity = 'tasks' AND entity_id = 'task-1'",
+                    libsql::params![],
+                )
+                .await
+                .unwrap();
+            rows.next().await.unwrap().unwrap().get::<i64>(0).unwrap()
+        };
+
+        conn.execute(
+            "INSERT OR REPLACE INTO _sync_outbox (entity, entity_id, op, queued_at) VALUES ('tasks', 'task-1', 'upsert', 101)",
+            libsql::params![],
+        )
+        .await
+        .unwrap();
+
+        delete_outbox_rows(
+            &db,
+            &[OutboxRow {
+                id: old_id,
+                entity: "tasks".into(),
+                entity_id: "task-1".into(),
+            }],
+        )
+        .await
+        .unwrap();
+
+        let mut rows = conn
+            .query(
+                "SELECT queued_at FROM _sync_outbox WHERE entity = 'tasks' AND entity_id = 'task-1'",
+                libsql::params![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.next().await.unwrap().unwrap().get::<i64>(0).unwrap(),
+            101
+        );
     }
 
     #[tokio::test]

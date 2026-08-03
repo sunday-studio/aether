@@ -4,6 +4,7 @@
 
 use crate::error::{AppError, Result};
 use crate::sync::metadata;
+use crate::sync::ordering;
 use crate::sync::types::{ChangeEnvelope, ChangeOp};
 use libsql::{Connection, Database};
 
@@ -73,6 +74,131 @@ pub async fn apply_change_with_conn(
         }
     }
     Ok(())
+}
+
+/// Foreign keys can legitimately point at a change in a later pull page.
+/// Preserve those changes locally so the pull cursor can advance and retry them
+/// after their parents arrive.
+pub fn is_foreign_key_failure(error: &AppError) -> bool {
+    error.to_string().contains("FOREIGN KEY constraint failed")
+}
+
+async fn ensure_deferred_changes_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS _sync_deferred_changes (
+            entity TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            change_json TEXT NOT NULL,
+            updated_at INTEGER NOT NULL,
+            last_error TEXT NOT NULL,
+            PRIMARY KEY (entity, entity_id)
+        )",
+        libsql::params![],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sync_deferred_changes_updated_at
+         ON _sync_deferred_changes(updated_at)",
+        libsql::params![],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+pub async fn defer_foreign_key_change(
+    conn: &Connection,
+    change: &ChangeEnvelope,
+    error: &AppError,
+) -> Result<()> {
+    ensure_deferred_changes_table(conn).await?;
+    let change_json = serde_json::to_string(change).map_err(AppError::Serialization)?;
+    conn.execute(
+        "INSERT INTO _sync_deferred_changes (entity, entity_id, change_json, updated_at, last_error)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(entity, entity_id) DO UPDATE SET
+             change_json = excluded.change_json,
+             updated_at = excluded.updated_at,
+             last_error = excluded.last_error
+        WHERE excluded.updated_at >= _sync_deferred_changes.updated_at",
+        libsql::params![
+            change.entity.clone(),
+            change.id.clone(),
+            change_json,
+            change.updated_at,
+            error.to_string(),
+        ],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+/// A newer delete supersedes an older deferred upsert for the same sync row.
+pub async fn discard_deferred_change(
+    conn: &Connection,
+    entity: &str,
+    entity_id: &str,
+    updated_at: i64,
+) -> Result<()> {
+    ensure_deferred_changes_table(conn).await?;
+    conn.execute(
+        "DELETE FROM _sync_deferred_changes
+         WHERE entity = ?1 AND entity_id = ?2 AND updated_at <= ?3",
+        libsql::params![entity, entity_id, updated_at],
+    )
+    .await
+    .map_err(AppError::LibSQL)?;
+    Ok(())
+}
+
+/// Retry changes deferred for missing foreign-key parents. Returns the number
+/// of rows that were applied successfully during this attempt.
+pub async fn retry_deferred_foreign_key_changes(
+    conn: &Connection,
+    ctx: Option<&ApplyCtx<'_>>,
+) -> Result<usize> {
+    ensure_deferred_changes_table(conn).await?;
+    let mut rows = conn
+        .query(
+            "SELECT change_json FROM _sync_deferred_changes ORDER BY updated_at, entity, entity_id",
+            libsql::params![],
+        )
+        .await
+        .map_err(AppError::LibSQL)?;
+    let mut changes = Vec::new();
+    while let Some(row) = rows.next().await.map_err(AppError::LibSQL)? {
+        let change_json: String = row.get(0).map_err(AppError::LibSQL)?;
+        changes.push(serde_json::from_str(&change_json).map_err(AppError::Serialization)?);
+    }
+    ordering::sort_for_dependencies(&mut changes);
+
+    let mut applied = 0;
+    for change in changes {
+        match apply_change_with_conn(conn, &change, ctx).await {
+            Ok(()) => {
+                conn.execute(
+                    "DELETE FROM _sync_deferred_changes WHERE entity = ?1 AND entity_id = ?2",
+                    libsql::params![change.entity, change.id],
+                )
+                .await
+                .map_err(AppError::LibSQL)?;
+                applied += 1;
+            }
+            Err(error) if is_foreign_key_failure(&error) => {
+                tracing::debug!(
+                    "[SYNC-APPLY] Still waiting for parent of deferred {} {}: {}",
+                    change.entity,
+                    change.id,
+                    error
+                );
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    Ok(applied)
 }
 
 /// Set _suppress_triggers to avoid re-queuing applied changes. Clear to '0' when done.

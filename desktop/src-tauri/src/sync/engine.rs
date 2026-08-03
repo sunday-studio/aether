@@ -44,16 +44,43 @@ async fn apply_pulled_changes(
     let mut ordered_envelopes = envelopes.to_vec();
     ordering::sort_for_dependencies(&mut ordered_envelopes);
     apply::with_suppress_triggers(db, async {
+        let mut deferred = 0;
         for envelope in &ordered_envelopes {
-            apply::apply_change_with_conn(&conn, envelope, Some(ctx))
-                .await
-                .map_err(|err| {
-                    AppError::Sync(format!(
+            if envelope.op == crate::sync::types::ChangeOp::Delete {
+                apply::discard_deferred_change(
+                    &conn,
+                    &envelope.entity,
+                    &envelope.id,
+                    envelope.updated_at,
+                )
+                .await?;
+            }
+            match apply::apply_change_with_conn(&conn, envelope, Some(ctx)).await {
+                Ok(()) => {}
+                Err(error) if apply::is_foreign_key_failure(&error) => {
+                    apply::defer_foreign_key_change(&conn, envelope, &error).await?;
+                    deferred += 1;
+                    tracing::warn!(
+                        "[SYNC-APPLY] Deferring {} {} until its foreign-key parent arrives: {}",
+                        envelope.entity,
+                        envelope.id,
+                        error
+                    );
+                }
+                Err(error) => {
+                    return Err(AppError::Sync(format!(
                         "failed to apply change {} {}: {}",
-                        envelope.entity, envelope.id, err
-                    ))
-                })?;
+                        envelope.entity, envelope.id, error
+                    )));
+                }
+            }
         }
+        let recovered = apply::retry_deferred_foreign_key_changes(&conn, Some(ctx)).await?;
+        tracing::debug!(
+            "[SYNC-APPLY] deferred_foreign_key_changes={} recovered_deferred_changes={}",
+            deferred,
+            recovered
+        );
         Ok(())
     })
     .await?;
@@ -527,5 +554,91 @@ mod tests {
         let row = rows.next().await.unwrap().unwrap();
         assert_eq!(row.get::<String>(0).unwrap(), "task-1");
         assert_eq!(row.get::<String>(1).unwrap(), "tag-1");
+    }
+
+    #[tokio::test]
+    async fn defers_a_task_until_its_goal_arrives_in_a_later_pull_batch() {
+        let db = test_db().await;
+        let ctx = apply::ApplyCtx {
+            base_url: "https://sync.example.com",
+            key: &[0; 32],
+            device_id: "device-a",
+            device_token: "token-a",
+            media_sync_policy: "on_demand",
+        };
+        let task = ChangeEnvelope {
+            entity: "tasks".into(),
+            id: "task-1".into(),
+            op: ChangeOp::Upsert,
+            data: Some(serde_json::json!({
+                "id": "task-1",
+                "title": "Task",
+                "goal_id": "goal-1"
+            })),
+            updated_at: 100,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_pulled_changes(&db, &[task], None, &ctx)
+            .await
+            .unwrap();
+
+        let conn = db.connect().unwrap();
+        let mut rows = conn
+            .query(
+                "SELECT COUNT(*) FROM _sync_deferred_changes WHERE entity = 'tasks' AND entity_id = 'task-1'",
+                libsql::params![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.next().await.unwrap().unwrap().get::<i64>(0).unwrap(),
+            1
+        );
+        drop(rows);
+
+        let goal = ChangeEnvelope {
+            entity: "goals".into(),
+            id: "goal-1".into(),
+            op: ChangeOp::Upsert,
+            data: Some(serde_json::json!({ "id": "goal-1", "name": "Goal" })),
+            updated_at: 200,
+            device_id: "device-a".into(),
+            device_hostname: "host-a".into(),
+        };
+
+        apply_pulled_changes(&db, &[goal], None, &ctx)
+            .await
+            .unwrap();
+
+        let mut rows = conn
+            .query(
+                "SELECT goal_id FROM tasks WHERE id = 'task-1'",
+                libsql::params![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.next()
+                .await
+                .unwrap()
+                .unwrap()
+                .get::<String>(0)
+                .unwrap(),
+            "goal-1"
+        );
+        drop(rows);
+        let mut rows = conn
+            .query(
+                "SELECT COUNT(*) FROM _sync_deferred_changes",
+                libsql::params![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            rows.next().await.unwrap().unwrap().get::<i64>(0).unwrap(),
+            0
+        );
     }
 }
