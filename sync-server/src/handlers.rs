@@ -139,14 +139,33 @@ where
 
 async fn require_auth(headers: &HeaderMap, storage: Arc<Storage>) -> Result<String, StatusCode> {
     let started = Instant::now();
-    let device_id = authenticated_device_id(headers)
-        .filter(|id| valid_device_id(id))
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_string();
-    let token = bearer_token(headers)
-        .filter(|token| !token.is_empty())
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_string();
+    let raw_device_id = authenticated_device_id(headers);
+    let has_valid_device_id = raw_device_id.is_some_and(valid_device_id);
+    let raw_authorization = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    let token = bearer_token(headers).filter(|token| !token.is_empty());
+
+    let Some(device_id) = raw_device_id.filter(|_| has_valid_device_id) else {
+        tracing::warn!(
+            "[SYNC-SERVER-AUTH] rejected request: missing_or_invalid_device_id device_id_header_present={} authorization_header_present={} bearer_token_present={}",
+            raw_device_id.is_some(),
+            raw_authorization.is_some(),
+            token.is_some(),
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+    let Some(token) = token else {
+        tracing::warn!(
+            "[SYNC-SERVER-AUTH] rejected request: missing_or_invalid_bearer_token device_id={} authorization_header_present={}",
+            device_id,
+            raw_authorization.is_some(),
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+
+    let device_id = device_id.to_string();
+    let token = token.to_string();
     let device_id_for_auth = device_id.clone();
     match storage_blocking(move || storage.authenticate_device(&device_id_for_auth, &token)).await {
         Ok(true) => {
