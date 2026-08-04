@@ -1,1 +1,11 @@
-{"version":"0.1.3","pub_date":"2026-08-04T20:33:41.227Z","notes":"- Harden encrypted sync reconciliation and publish Apple Silicon desktop builds with signed updates.","platforms":{"darwin-aarch64":{"signature":"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdDhFYXFmdTY5V0FTMHRyNWxaN0hxTUFjdUlQZlcrdVhrczlxWS9hcDBQQmF4QzB1QlZxM08rQTZ0em5uajZUcngyVUtBclAxc3VNSFBNTDZXUGpMWHpFSnVieVBkaGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1ODc1NTEzCWZpbGU6QWV0aGVyLmFwcC50YXIuZ3oKalpmWnYzQ09PdE1ZZmxZaVVDUDQ5SGxwa1NrQkVNZVFpdDFPOWZQaEZCVHRCREFlSVFIbEFZWFNNMkw2K3VER2VYKzFHOWxxZEFIT0NGT09hWXVYQnc9PQo=","url":"https://github.com/sunday-studio/aether/releases/download/v0.1.3/Aether_aarch64-apple-darwin.app.tar.gz"}}}
+{
+  "version": "0.1.4",
+  "pub_date": "2026-08-04T20:49:46.147Z",
+  "notes": "- Fix production database migrations so the search index is created in installed builds.",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdDhFYXFmdTY5V0RFY3F6U0ZIYjhtMk15cFVlWVR1VkI5RTF3dFU1NlUrNTZKc3dxRU5JcUVDR0FOTnViNFQrbkZ6b3JVS0dJVmZYU25MMmdhRHcybEk1RHBHTFJadWcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1ODc2NTM4CWZpbGU6QWV0aGVyLmFwcC50YXIuZ3oKYTFWMmNndm5SN2FidVBFWS9MZk5hTC92VHhpYWpKbzFVN0g0dnZETHVIUWFTeWFVcUE0MHFKdENVUjdwVGoyRjVjUFU0RmU4d3o5eU9pL0J1ZDg4Q0E9PQo=",
+      "url": "https://github.com/sunday-studio/aether/releases/download/v0.1.4/Aether_aarch64-apple-darwin.app.tar.gz"
+    }
+  }
+}
