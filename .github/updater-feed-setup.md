@@ -15,16 +15,17 @@ The release workflow publishes immutable signed archives to the versioned GitHub
 Release first. It promotes `latest.json` to Pages only after the GitHub Release
 is public, so an incomplete release cannot become an offered app update.
 
-The production environment currently lacks these required release secrets:
+The production environment must contain these release secrets:
 
 - `TAURI_SIGNING_PRIVATE_KEY`;
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
 - `APPLE_SIGNING_IDENTITY`.
 
-The production environment must also contain these release-only secrets:
+It must also contain these release-only secrets:
 
 - `APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD`;
 - `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`, and `KEYCHAIN_PASSWORD`.
+
+Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` only when the private key is password-protected.
 
 Use a Developer ID Application certificate. The build workflow rejects an Apple
 Development fallback because it cannot support a public macOS auto-update.

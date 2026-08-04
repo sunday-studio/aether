@@ -44,7 +44,7 @@
 	"plugins": {
 		"updater": {
 			"endpoints": ["https://sunday-studio.github.io/aether/updates/desktop/stable/latest.json"],
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM3MUNBRUZEQzM2QTA1QTQKUldTa0JXckQvYTRjTi9ja0YvZHdFWmU2Z081cjJSQVhnZzNRdHBRUW1UVzdMRnFNZU9KdVNjbW4K"
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4QkRFRTdFQUE0NkYwQUQKUldTdDhFYXFmdTY5V0xVaHNjL3lpNUd1eFhiN3p4OEJVZ3dJU25HcEswTmxLYVJCTjFPMEhkVzIK"
 		}
 	}
 }
