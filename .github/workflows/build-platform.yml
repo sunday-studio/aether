@@ -123,6 +123,30 @@ jobs:
           projectPath: desktop
           tauriScript: pnpm tauri
           args: --target ${{ inputs.target }}
+
+      # Tauri names the macOS updater archive without its Rust target. Keep the
+      # release asset self-describing so the publisher can prove it contains
+      # only the requested architecture.
+      - name: Name macOS updater archive for target
+        if: inputs.platform == 'macos-latest'
+        shell: bash
+        run: |
+          bundle_dir="desktop/src-tauri/target/${{ inputs.target }}/release/bundle/macos"
+          archive_count="$(find "$bundle_dir" -maxdepth 1 -type f -name '*.app.tar.gz' -print | wc -l | tr -d ' ')"
+          if [[ "$archive_count" != "1" ]]; then
+            echo "Expected exactly one macOS updater archive, found $archive_count" >&2
+            exit 1
+          fi
+          archive="$(find "$bundle_dir" -maxdepth 1 -type f -name '*.app.tar.gz' -print)"
+          signature="${archive}.sig"
+          if [[ ! -s "$signature" ]]; then
+            echo "Missing or empty updater signature: $signature" >&2
+            exit 1
+          fi
+          renamed_archive="${archive%.app.tar.gz}_${{ inputs.target }}.app.tar.gz"
+          mv "$archive" "$renamed_archive"
+          mv "$signature" "${renamed_archive}.sig"
+          printf 'Renamed updater archive to %s\n' "$renamed_archive"
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
