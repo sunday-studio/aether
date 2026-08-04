@@ -1,53 +1,56 @@
 // Migration runner for database schema migrations
 use crate::error::{AppError, Result};
 use libsql::Database;
-use std::fs;
-use std::path::PathBuf;
 
-/// Find the migrations directory
-///
-/// The app is started from desktop/ directory, and when Tauri runs:
-/// - Working directory is typically desktop/src-tauri/
-/// - Migrations are at desktop/src-tauri/migrations/
-fn find_migrations_directory() -> PathBuf {
-    // Try 1: Relative to current working directory (most common in dev)
-    // When running from src-tauri/, this resolves to ./migrations
-    let relative_path = PathBuf::from("./migrations");
-    if relative_path.exists() {
-        return relative_path;
-    }
-
-    // Try 2: Relative to executable (for production builds)
-    // Executable might be in target/debug/ or target/release/
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            // Try: exe_dir/../migrations (if exe is in target/debug/)
-            let parent_migrations = exe_dir.parent().map(|p| p.join("migrations"));
-            if let Some(ref path) = parent_migrations {
-                if path.exists() {
-                    return path.clone();
-                }
-            }
-
-            // Try: exe_dir/migrations (if exe is in src-tauri/)
-            let exe_migrations = exe_dir.join("migrations");
-            if exe_migrations.exists() {
-                return exe_migrations;
-            }
-        }
-    }
-
-    // Try 3: Compile-time path (using CARGO_MANIFEST_DIR)
-    // This points to desktop/src-tauri/ at compile time
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let manifest_migrations = PathBuf::from(manifest_dir).join("migrations");
-    if manifest_migrations.exists() {
-        return manifest_migrations;
-    }
-
-    // Fallback: return the most likely path (will be checked for existence by caller)
-    PathBuf::from("./migrations")
-}
+// Migrations must be available in the installed app, where the source-tree
+// `migrations/` directory does not exist. Embedding them also makes migration
+// behavior independent of the process working directory.
+const EMBEDDED_MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "001_initial_schema",
+        include_str!("../../migrations/001_initial_schema.sql"),
+    ),
+    (
+        "002_search_and_fts",
+        include_str!("../../migrations/002_search_and_fts.sql"),
+    ),
+    (
+        "003_fts_triggers",
+        include_str!("../../migrations/003_fts_triggers.sql"),
+    ),
+    (
+        "004_media_and_transcription",
+        include_str!("../../migrations/004_media_and_transcription.sql"),
+    ),
+    (
+        "005_sync_infrastructure",
+        include_str!("../../migrations/005_sync_infrastructure.sql"),
+    ),
+    (
+        "006_vector_embeddings",
+        include_str!("../../migrations/006_vector_embeddings.sql"),
+    ),
+    (
+        "007_search_documents",
+        include_str!("../../migrations/007_search_documents.sql"),
+    ),
+    (
+        "008_search_documents_fts",
+        include_str!("../../migrations/008_search_documents_fts.sql"),
+    ),
+    (
+        "009_search_embeddings",
+        include_str!("../../migrations/009_search_embeddings.sql"),
+    ),
+    (
+        "010_ai_journal_enrichment",
+        include_str!("../../migrations/010_ai_journal_enrichment.sql"),
+    ),
+    (
+        "011_sync_deferred_changes",
+        include_str!("../../migrations/011_sync_deferred_changes.sql"),
+    ),
+];
 
 /// Run all pending migrations from SQL files
 pub async fn run_migrations(database: &Database) -> Result<()> {
@@ -78,46 +81,7 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         }
     }
 
-    // Find migrations directory
-    // Execution context: app is started from desktop/ directory via `pnpm tauri dev`
-    // When Tauri runs, the working directory is typically desktop/src-tauri/
-    // Migrations are located at: desktop/src-tauri/migrations/
-
-    use std::path::PathBuf;
-
-    // Strategy: Try paths in order of likelihood
-    // 1. ./migrations - when running from src-tauri/ (most common in dev)
-    // 2. Relative to executable - for production builds
-    // 3. Compile-time path - using CARGO_MANIFEST_DIR (fallback)
-
-    let migrations_dir = find_migrations_directory();
-
-    if !migrations_dir.exists() {
-        tracing::warn!(
-            "Migrations directory not found at {:?}. Current working directory: {:?}",
-            migrations_dir,
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("unknown"))
-        );
-        return Ok(());
-    }
-
-    tracing::info!("Using migrations directory: {:?}", migrations_dir);
-
-    let mut migration_files: Vec<_> = fs::read_dir(&migrations_dir)
-        .map_err(|e| AppError::Io(e))?
-        .filter_map(|entry| {
-            entry.ok().and_then(|e| {
-                let path = e.path();
-                if path.extension() == Some(std::ffi::OsStr::new("sql")) {
-                    path.file_name()?.to_str().map(|s| s.to_string())
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-
-    migration_files.sort();
+    tracing::info!("Using {} embedded migrations", EMBEDDED_MIGRATIONS.len());
 
     // Get applied migrations
     // Handle the case where the table might not exist yet
@@ -152,12 +116,8 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
     }
 
     // Run pending migrations from files
-    for migration_file in migration_files {
-        // Extract version from filename (e.g., "001_initial_schema.sql" -> "001_initial_schema")
-        let version = migration_file
-            .strip_suffix(".sql")
-            .unwrap_or(&migration_file)
-            .to_string();
+    for (migration_name, sql) in EMBEDDED_MIGRATIONS {
+        let version = (*migration_name).to_string();
 
         if applied_versions.contains(&version) {
             tracing::debug!("Migration {} already applied, skipping", version);
@@ -165,9 +125,6 @@ pub async fn run_migrations(database: &Database) -> Result<()> {
         }
 
         tracing::info!("Running migration: {}", version);
-
-        let migration_path = migrations_dir.join(&migration_file);
-        let sql = fs::read_to_string(&migration_path).map_err(|e| AppError::Io(e))?;
 
         // Skip empty migration files
         if sql.trim().is_empty() {
