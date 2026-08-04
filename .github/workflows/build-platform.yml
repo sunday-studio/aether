@@ -98,6 +98,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: desktop
         run: pnpm install --frozen-lockfile
+
+      - name: Generate SDK
+        working-directory: desktop
+        run: pnpm run generate:sdk
       
       - name: Verify committed desktop version
         working-directory: desktop
