@@ -130,15 +130,16 @@ jobs:
 
       - name: Set release outputs
         id: out
+        env:
+          MANUAL_VERSION: ${{ inputs.manual_version }}
+          MANUAL_RELEASE_NOTES: ${{ inputs.manual_release_notes }}
         run: |
-          if [ -n "${{ inputs.manual_version }}" ] && [ -n "${{ inputs.manual_release_notes }}" ]; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "version=${{ inputs.manual_version }}" >> $GITHUB_OUTPUT
-            echo "release_notes<<RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
-            cat << 'RELEASE_NOTES_INNER'
-          ${{ inputs.manual_release_notes }}
-          RELEASE_NOTES_INNER
-            echo "RELEASE_NOTES_EOF" >> $GITHUB_OUTPUT
+          if [ -n "$MANUAL_VERSION" ] && [ -n "$MANUAL_RELEASE_NOTES" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$MANUAL_VERSION" >> "$GITHUB_OUTPUT"
+            echo "release_notes<<RELEASE_NOTES_EOF" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$MANUAL_RELEASE_NOTES" >> "$GITHUB_OUTPUT"
+            echo "RELEASE_NOTES_EOF" >> "$GITHUB_OUTPUT"
           else
             echo "should_release=${{ steps.extract.outputs.should_release }}" >> $GITHUB_OUTPUT
             echo "version=${{ steps.extract.outputs.version }}" >> $GITHUB_OUTPUT
