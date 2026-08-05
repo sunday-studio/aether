@@ -3,7 +3,7 @@ members = ["tools"]
 
 [package]
 name = "Aether"
-version = "0.1.4"
+version = "0.1.5"
 description = "something something app"
 authors = ["casprine@thesunday.studio"]
 edition = "2021"
