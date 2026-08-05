@@ -119,6 +119,41 @@ impl DesktopPlatform {
         #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         Ok(PathBuf::from(".").join("media"))
     }
+
+    fn legacy_models_dir(&self) -> Result<PathBuf> {
+        #[cfg(target_os = "macos")]
+        {
+            let home = std::env::var("HOME")
+                .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
+            return Ok(PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+                .join(APP_IDENTIFIER)
+                .join("models"));
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let home = std::env::var("HOME")
+                .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
+            return Ok(PathBuf::from(home)
+                .join(".local")
+                .join("share")
+                .join(APP_IDENTIFIER)
+                .join("models"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let appdata = std::env::var("APPDATA").map_err(|_| {
+                AppError::Internal("APPDATA environment variable not set".to_string())
+            })?;
+            return Ok(PathBuf::from(appdata).join(APP_IDENTIFIER).join("models"));
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        Ok(PathBuf::from(".").join("models"))
+    }
 }
 
 impl PlatformCapabilities for DesktopPlatform {
@@ -135,7 +170,7 @@ impl PlatformCapabilities for DesktopPlatform {
 
         Ok(StoragePaths {
             media: self.legacy_media_dir()?,
-            models: app_data.join("models"),
+            models: self.legacy_models_dir()?,
             cache: dirs.cache_dir().to_path_buf(),
             app_data,
             logs,
@@ -220,7 +255,7 @@ mod tests {
         assert!(paths.app_data.is_absolute());
         assert!(paths.media.is_absolute());
         assert!(paths.cache.is_absolute());
-        assert!(paths.models.starts_with(&paths.app_data));
+        assert!(paths.models.is_absolute());
         assert_ne!(paths.logs, paths.media);
     }
 
@@ -239,5 +274,22 @@ mod tests {
 
         #[cfg(target_os = "windows")]
         assert!(media.ends_with("Aether\\media"));
+    }
+
+    #[test]
+    fn desktop_model_path_preserves_the_existing_storage_location() {
+        let models = desktop()
+            .storage_paths()
+            .expect("desktop paths resolve")
+            .models;
+
+        #[cfg(target_os = "macos")]
+        assert!(models.ends_with("Library/Application Support/com.cas.aether/models"));
+
+        #[cfg(target_os = "linux")]
+        assert!(models.ends_with(".local/share/com.cas.aether/models"));
+
+        #[cfg(target_os = "windows")]
+        assert!(models.ends_with("com.cas.aether\\models"));
     }
 }
