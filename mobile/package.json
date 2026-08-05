@@ -9,6 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "lint": "oxlint .",
     "check": "pnpm run lint && pnpm run build",
+    "e2e": "playwright test",
+    "e2e:ci": "CI=1 playwright test",
+    "e2e:install": "playwright install chromium",
     "check:version": "node scripts/check-version-parity.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
@@ -23,6 +26,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tauri-apps/cli": "2.9.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
