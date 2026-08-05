@@ -110,19 +110,14 @@ li::before {
   content: "✓";
 }
 
-.primary-action {
+.foundation-status {
   width: 100%;
-  min-height: 3.25rem;
-  margin-top: auto;
-  border: 0;
+  margin: auto 0 0;
+  padding: 1rem 1.25rem;
   border-radius: 1rem;
-  color: #211815;
-  background: #f0b58b;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.primary-action:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 3px;
+  color: #c8c0b6;
+  background: rgb(255 255 255 / 4%);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
 }

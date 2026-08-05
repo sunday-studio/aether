@@ -28,9 +28,9 @@ export function App() {
         </ul>
       </section>
 
-      <button className="primary-action" type="button">
-        Start with today
-      </button>
+      <p className="foundation-status" role="status">
+        Daily flows unlock after the shared core is connected.
+      </p>
     </main>
   );
 }

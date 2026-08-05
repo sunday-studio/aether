@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "lint": "oxlint .",
     "check": "pnpm run lint && pnpm run build",
+    "check:version": "node scripts/check-version-parity.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:ios:init": "tauri ios init",
