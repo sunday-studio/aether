@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -38,7 +38,7 @@ fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
         return Ok(dir.join("local.db"));
     } else {
         // Build without handle: resolve app data dir from identifier (com.cas.aether)
-        directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
+        directories::ProjectDirs::from("com", "cas", "aether")
             .ok_or_else(|| {
                 AppError::Io(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
@@ -49,7 +49,38 @@ fn get_db_path(app_handle: Option<&AppHandle>) -> Result<PathBuf> {
             .to_path_buf()
     };
 
+    if !cfg!(debug_assertions) {
+        migrate_legacy_database_dir(&app_data_dir)?;
+    }
+
     Ok(app_data_dir.join("libsql-replica").join("local.db"))
+}
+
+/// Preserve data written by release builds that resolved the app identifier twice.
+/// The migration is skipped if a database already exists at Tauri's canonical path.
+fn migrate_legacy_database_dir(app_data_dir: &Path) -> Result<()> {
+    let Some(legacy_app_data_dir) =
+        directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
+            .map(|dirs| dirs.data_local_dir().to_path_buf())
+    else {
+        return Ok(());
+    };
+
+    let legacy_database_dir = legacy_app_data_dir.join("libsql-replica");
+    let database_dir = app_data_dir.join("libsql-replica");
+    if database_dir.exists() || !legacy_database_dir.exists() {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(app_data_dir).map_err(AppError::Io)?;
+    std::fs::rename(&legacy_database_dir, &database_dir).map_err(AppError::Io)?;
+    tracing::info!(
+        from = %legacy_database_dir.display(),
+        to = %database_dir.display(),
+        "Migrated local database to the canonical app data directory"
+    );
+
+    Ok(())
 }
 
 /// Initialize the database connection in local-only mode.

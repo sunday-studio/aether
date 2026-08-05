@@ -42,8 +42,34 @@ impl Serialize for AppError {
     where
         S: serde::Serializer,
     {
+        crate::utils::performance_ledger::record_error(
+            "tauri.command",
+            "Tauri command returned an error",
+            serde_json::json!({
+                "kind": self.kind(),
+                "error": self.to_string(),
+            }),
+        );
         // Serialize as a simple string message for Tauri IPC
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl AppError {
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::LibSQL(_) => "libsql",
+            Self::Serialization(_) => "serialization",
+            Self::BadRequest(_) => "bad_request",
+            Self::NotFound(_) => "not_found",
+            Self::Internal(_) => "internal",
+            Self::Io(_) => "io",
+            Self::ModelError(_) => "model",
+            Self::EncryptionError(_) => "encryption",
+            Self::ProviderNotConfigured(_) => "provider_not_configured",
+            Self::Sync(_) => "sync",
+            Self::Http(_) => "http",
+        }
     }
 }
 

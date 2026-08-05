@@ -3,9 +3,15 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tracing::{Event, Level, Subscriber};
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::Layer;
 
 const RUST_LEDGER_FILE: &str = "aether-diagnostics-rust.jsonl";
+const ERROR_LEDGER_FILE: &str = "aether-errors.jsonl";
 const MAX_RUST_LEDGER_ENTRIES: usize = 500;
+const MAX_ERROR_LEDGER_ENTRIES: usize = 500;
 const SLOW_RUST_TIMING_THRESHOLD: Duration = Duration::from_millis(150);
 const REDACTED: &str = "[REDACTED]";
 
@@ -15,6 +21,7 @@ pub struct DebugLogExportResult {
     pub path: String,
     pub rust_entries: usize,
     pub frontend_entries: usize,
+    pub error_entries: usize,
 }
 
 pub struct PerfTimer {
@@ -78,6 +85,142 @@ pub fn rust_ledger_path() -> std::path::PathBuf {
     diagnostics_dir().join(RUST_LEDGER_FILE)
 }
 
+pub fn error_ledger_path() -> PathBuf {
+    diagnostics_dir().join(ERROR_LEDGER_FILE)
+}
+
+/// Record a redacted operational error in a bounded JSONL file that can be inspected live.
+pub fn record_error(component: &str, message: &str, details: Value) {
+    let entry = redact_json_value(&json!({
+        "at": chrono::Utc::now().to_rfc3339(),
+        "level": "error",
+        "component": component,
+        "message": message,
+        "details": details,
+    }));
+
+    tracing::error!(
+        "[ERROR-LEDGER] component={} message={} details={}",
+        component,
+        message,
+        entry["details"]
+    );
+
+    let _ = append_bounded_jsonl(&error_ledger_path(), &entry, MAX_ERROR_LEDGER_ENTRIES);
+}
+
+/// Preserve useful server error structure while redacting secret-shaped JSON fields.
+pub fn redact_http_response_body(body: &str) -> Value {
+    serde_json::from_str::<Value>(body)
+        .map(|value| redact_json_value(&value))
+        .unwrap_or_else(|_| Value::String(redact_string(body)))
+}
+
+/// Persists every `tracing::error!` event without changing the existing terminal logger.
+pub struct PersistentErrorLayer;
+
+impl<S> Layer<S> for PersistentErrorLayer
+where
+    S: Subscriber + for<'lookup> LookupSpan<'lookup>,
+{
+    fn on_event(&self, event: &Event<'_>, _context: Context<'_, S>) {
+        if *event.metadata().level() != Level::ERROR {
+            return;
+        }
+
+        let mut visitor = ErrorFieldVisitor::default();
+        event.record(&mut visitor);
+        let message = visitor
+            .fields
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("Unhandled tracing error")
+            .to_string();
+
+        // `record_error` emits its own error event for the terminal; do not record it twice.
+        if message.contains("[ERROR-LEDGER]") {
+            return;
+        }
+
+        visitor.fields.insert(
+            "target".to_string(),
+            Value::String(event.metadata().target().to_string()),
+        );
+        visitor.fields.insert(
+            "module".to_string(),
+            Value::String(
+                event
+                    .metadata()
+                    .module_path()
+                    .unwrap_or_default()
+                    .to_string(),
+            ),
+        );
+        if let Some(file) = event.metadata().file() {
+            visitor
+                .fields
+                .insert("file".to_string(), Value::String(file.to_string()));
+        }
+        if let Some(line) = event.metadata().line() {
+            visitor.fields.insert("line".to_string(), Value::from(line));
+        }
+
+        record_error("tracing", &message, Value::Object(visitor.fields));
+    }
+}
+
+#[derive(Default)]
+struct ErrorFieldVisitor {
+    fields: serde_json::Map<String, Value>,
+}
+
+impl tracing::field::Visit for ErrorFieldVisitor {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        self.fields.insert(
+            field.name().to_string(),
+            Value::String(format!("{value:?}")),
+        );
+    }
+
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        self.fields
+            .insert(field.name().to_string(), Value::String(value.to_string()));
+    }
+
+    fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
+        self.fields
+            .insert(field.name().to_string(), Value::Bool(value));
+    }
+
+    fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+        self.fields
+            .insert(field.name().to_string(), Value::from(value));
+    }
+
+    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+        self.fields
+            .insert(field.name().to_string(), Value::from(value));
+    }
+
+    fn record_f64(&mut self, field: &tracing::field::Field, value: f64) {
+        self.fields
+            .insert(field.name().to_string(), Value::from(value));
+    }
+}
+
+/// Ensure the live error ledger exists so it can be opened before the next failure.
+pub fn ensure_error_ledger_file() -> std::io::Result<PathBuf> {
+    let path = error_ledger_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)?;
+    Ok(path)
+}
+
 pub fn export_debug_logs(frontend_entries: Vec<Value>) -> std::io::Result<DebugLogExportResult> {
     let dir = diagnostics_dir();
     std::fs::create_dir_all(&dir)?;
@@ -87,6 +230,10 @@ pub fn export_debug_logs(frontend_entries: Vec<Value>) -> std::io::Result<DebugL
         .map(|entry| redact_json_value(&entry))
         .collect::<Vec<_>>();
     let frontend_entries = frontend_entries
+        .into_iter()
+        .map(|entry| redact_json_value(&entry))
+        .collect::<Vec<_>>();
+    let error_entries = read_jsonl_values(&error_ledger_path())?
         .into_iter()
         .map(|entry| redact_json_value(&entry))
         .collect::<Vec<_>>();
@@ -105,7 +252,8 @@ pub fn export_debug_logs(frontend_entries: Vec<Value>) -> std::io::Result<DebugL
         "timings": {
             "rust": rust_entries,
             "frontend": frontend_entries
-        }
+        },
+        "errors": error_entries,
     });
 
     let filename = format!(
@@ -120,6 +268,7 @@ pub fn export_debug_logs(frontend_entries: Vec<Value>) -> std::io::Result<DebugL
         path: path.display().to_string(),
         rust_entries: export["timings"]["rust"].as_array().map_or(0, Vec::len),
         frontend_entries: export["timings"]["frontend"].as_array().map_or(0, Vec::len),
+        error_entries: export["errors"].as_array().map_or(0, Vec::len),
     })
 }
 
@@ -149,9 +298,15 @@ fn diagnostics_dir() -> PathBuf {
             .join("diagnostics");
     }
 
-    directories::ProjectDirs::from("com.cas", "aether", "com.cas.aether")
+    production_diagnostics_dir().unwrap_or_else(|| std::env::temp_dir().join("aether-diagnostics"))
+}
+
+fn production_diagnostics_dir() -> Option<PathBuf> {
+    // `ProjectDirs` joins these three components on macOS. Supplying the full
+    // identifier for the application duplicates it as
+    // `com.cas.aether.com.cas.aether`, which differs from Tauri's app data dir.
+    directories::ProjectDirs::from("com", "cas", "aether")
         .map(|dirs| dirs.data_local_dir().join("diagnostics"))
-        .unwrap_or_else(|| std::env::temp_dir().join("aether-diagnostics"))
 }
 
 fn append_bounded_jsonl(path: &Path, entry: &Value, max_entries: usize) -> std::io::Result<()> {
@@ -342,5 +497,32 @@ mod tests {
         let redacted = redact_json_value(&value);
 
         assert_eq!(redacted["error"], "failed authorization=[REDACTED]");
+    }
+
+    #[test]
+    fn redacts_error_ledger_details_before_persistence() {
+        let entry = redact_json_value(&json!({
+            "component": "sync.pull",
+            "details": { "deviceToken": "secret-token" },
+        }));
+
+        assert_eq!(entry["details"]["deviceToken"], REDACTED);
+    }
+
+    #[test]
+    fn redacts_secret_fields_in_structured_http_error_responses() {
+        let response =
+            redact_http_response_body(r#"{"error":"unauthorized","token":"secret-token"}"#);
+
+        assert_eq!(response["error"], "unauthorized");
+        assert_eq!(response["token"], REDACTED);
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn production_diagnostics_use_tauris_app_data_directory() {
+        let dir = production_diagnostics_dir().expect("macOS app data directory should resolve");
+
+        assert!(dir.ends_with("com.cas.aether/diagnostics"));
     }
 }

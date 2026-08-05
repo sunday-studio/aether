@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager, WindowEvent};
 use tokio::sync::oneshot;
+use tracing_subscriber::prelude::*;
 
 /// Tracks whether the main window has focus. Used by periodic sync to run only when focused.
 pub struct WindowFocus(pub Arc<AtomicBool>);
@@ -38,19 +39,32 @@ pub struct StartPeriodicSyncTx(pub Arc<Mutex<Option<oneshot::Sender<()>>>>);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize tracing subscriber for logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                // Default: info level globally, debug for our crate (includes activity logging)
-                // You can override with RUST_LOG env var, e.g.:
-                // RUST_LOG=debug pnpm tauri dev
-                tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
-            }),
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        // Default: info level globally, debug for our crate (includes activity logging)
+        // You can override with RUST_LOG env var, e.g.:
+        // RUST_LOG=debug pnpm tauri dev
+        tracing_subscriber::EnvFilter::new("info,desktop_lib=debug")
+    });
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true) // Show target module path for better debugging
+                .with_thread_ids(false) // Don't show thread IDs
+                .with_line_number(true), // Show line numbers
         )
-        .with_target(true) // Show target module path for better debugging
-        .with_thread_ids(false) // Don't show thread IDs
-        .with_line_number(true) // Show line numbers
+        .with(utils::performance_ledger::PersistentErrorLayer)
         .init();
+
+    let default_panic_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        utils::performance_ledger::record_error(
+            "panic",
+            "Application panicked",
+            serde_json::json!({ "panic": panic_info.to_string() }),
+        );
+        default_panic_hook(panic_info);
+    }));
 
     tracing::info!("Tauri application starting...");
     tracing::info!(
@@ -335,6 +349,7 @@ pub fn run() {
             legacy_import::import_legacy_database,
             // Diagnostics commands
             commands::diagnostics::export_debug_logs,
+            commands::diagnostics::get_error_log_path,
             // Embedding model commands
             commands::embeddings::list_embedding_models,
             commands::embeddings::download_embedding_model,
