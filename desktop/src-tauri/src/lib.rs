@@ -373,8 +373,9 @@ pub fn run() {
             updater_commands::skip_update_version,
             updater_commands::get_update_preferences,
             updater_commands::set_update_preferences,
-			updater_commands::get_update_check_status,
+            updater_commands::get_update_check_status,
             updater_commands::get_app_version,
+            updater_commands::get_release_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
