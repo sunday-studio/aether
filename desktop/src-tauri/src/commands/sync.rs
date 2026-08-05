@@ -4,7 +4,9 @@ use crate::error::{AppError, Result};
 use crate::settings;
 use crate::sync::metadata;
 use crate::sync::{self, SyncEngine, SyncStatus};
+use crate::utils::performance_ledger::record_error;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use utoipa::ToSchema;
@@ -101,9 +103,13 @@ pub async fn sync_now(
     _path_params: Option<EmptyPathParams>,
 ) -> Result<SyncStatus> {
     tracing::info!("[SYNC-CMD] sync_now command invoked");
-    let status = engine.sync().await.map_err(|e| {
-        tracing::error!("[SYNC-CMD] sync_now failed: {}", e);
-        AppError::Sync(e.to_string())
+    let status = engine.sync().await.map_err(|error| {
+        record_error(
+            "sync.command",
+            "Manual sync command failed",
+            json!({ "error": error.to_string() }),
+        );
+        error
     })?;
     tracing::info!("[SYNC-CMD] sync_now completed, emitting status event");
     let _ = app.emit("sync-status", &status);

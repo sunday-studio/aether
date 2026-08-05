@@ -18,7 +18,11 @@ Known sensitive keys are redacted before persistence and again during export, in
 
 Users can export diagnostics from `Settings -> Diagnostics -> Export`. The command writes a JSON file under the local diagnostics directory and returns the path in the UI toast and section body.
 
-For local development, Rust timing ledgers live under `desktop/src-tauri/target/diagnostics/`. Production builds use the app data directory for `com.cas.aether`.
+For local development, Rust timing ledgers live under `desktop/src-tauri/target/diagnostics/`. On macOS, production exports are written to `~/Library/Application Support/com.cas.aether/diagnostics/`.
+
+## Live error log
+
+`aether-errors.jsonl` is a bounded, append-only local ledger of redacted operational failures. Each line is a JSON object with a timestamp, component, message, and safe diagnostic details. The Diagnostics settings section can create and open the file. It records all Tauri command failures, Rust panics, and every `tracing::error!` event. Sync pull and push failures additionally retain the HTTP status and redacted response body.
 
 ## In-house vs PostHog
 

@@ -5,7 +5,9 @@ use crate::db::DbState;
 use crate::error::{AppError, Result};
 use crate::settings;
 use crate::sync::{apply, metadata, ordering, pull, push, register};
+use crate::utils::performance_ledger::record_error;
 use serde::Serialize;
+use serde_json::json;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -241,9 +243,20 @@ impl SyncEngine {
 
         let sync_started = Instant::now();
         let result = self.sync_inner(&url, &pass).await;
+        let sync_elapsed_ms = sync_started.elapsed().as_millis();
+        if let Err(error) = &result {
+            record_error(
+                "sync.run",
+                "Sync operation failed",
+                json!({
+                    "error": error.to_string(),
+                    "elapsed_ms": sync_elapsed_ms,
+                }),
+            );
+        }
         tracing::info!(
             "[SYNC-TIMING] sync_total={}ms success={}",
-            sync_started.elapsed().as_millis(),
+            sync_elapsed_ms,
             result.is_ok()
         );
         *self.is_syncing.lock().unwrap() = false;

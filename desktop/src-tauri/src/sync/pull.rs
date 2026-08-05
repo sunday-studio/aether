@@ -3,6 +3,8 @@
 use crate::error::{AppError, Result};
 use crate::sync::encryption;
 use crate::sync::types::{ChangeEnvelope, PullCursor, PullResponse};
+use crate::utils::performance_ledger::{record_error, redact_http_response_body};
+use serde_json::json;
 use std::time::Instant;
 
 pub async fn pull(
@@ -36,7 +38,14 @@ pub async fn pull(
     )
     .send()
     .await
-    .map_err(|e| AppError::Sync(format!("pull request: {}", e)))?;
+    .map_err(|error| {
+        record_error(
+            "sync.pull",
+            "Pull request could not reach the sync server",
+            json!({ "error": error.to_string() }),
+        );
+        AppError::Sync(format!("pull request: {}", error))
+    })?;
     tracing::info!(
         "[SYNC-TIMING] pull_http={}ms status={}",
         http_started.elapsed().as_millis(),
@@ -46,6 +55,14 @@ pub async fn pull(
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
+        record_error(
+            "sync.pull",
+            "Sync server rejected a pull request",
+            json!({
+                "status": status.as_u16(),
+                "response": redact_http_response_body(&text),
+            }),
+        );
         return Err(AppError::Sync(format!("pull failed {}: {}", status, text)));
     }
 

@@ -10,8 +10,10 @@ use crate::sync::media;
 use crate::sync::metadata;
 use crate::sync::ordering;
 use crate::sync::types::{ChangeEnvelope, ChangeOp, EncryptedChange, PushRequest};
+use crate::utils::performance_ledger::{record_error, redact_http_response_body};
 use futures::{stream, StreamExt};
 use libsql::{Connection, Database};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -198,9 +200,13 @@ pub async fn push(
     .json(&body)
     .send()
     .await
-    .map_err(|e| {
-        tracing::error!("[SYNC-PUSH] Network error: {}", e);
-        AppError::Sync(format!("push request: {}", e))
+    .map_err(|error| {
+        record_error(
+            "sync.push",
+            "Push request could not reach the sync server",
+            json!({ "error": error.to_string() }),
+        );
+        AppError::Sync(format!("push request: {}", error))
     })?;
     tracing::info!(
         "[SYNC-TIMING] push_http={}ms status={}",
@@ -211,7 +217,14 @@ pub async fn push(
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        tracing::error!("[SYNC-PUSH] Server returned error {}: {}", status, text);
+        record_error(
+            "sync.push",
+            "Sync server rejected a push request",
+            json!({
+                "status": status.as_u16(),
+                "response": redact_http_response_body(&text),
+            }),
+        );
         return Err(AppError::Sync(format!("push failed {}: {}", status, text)));
     }
 
