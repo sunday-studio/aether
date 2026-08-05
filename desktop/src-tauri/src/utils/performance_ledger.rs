@@ -300,6 +300,14 @@ fn diagnostics_dir() -> PathBuf {
         .unwrap_or_else(|_| std::env::temp_dir().join("aether-diagnostics"))
 }
 
+#[cfg(test)]
+fn production_diagnostics_dir() -> Option<PathBuf> {
+    // Keep the existing production-location assertion independent of the
+    // debug-only diagnostics path used by the desktop platform adapter.
+    directories::ProjectDirs::from("com", "cas", "aether")
+        .map(|dirs| dirs.data_local_dir().join("diagnostics"))
+}
+
 fn append_bounded_jsonl(path: &Path, entry: &Value, max_entries: usize) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
