@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "lint": "oxlint .",
-    "check": "pnpm run lint && pnpm run build",
+    "check": "pnpm run lint && pnpm run build && pnpm run check:version",
     "e2e": "playwright test",
     "e2e:ci": "CI=1 playwright test",
     "e2e:install": "playwright install chromium",
