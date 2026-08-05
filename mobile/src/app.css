@@ -1,0 +1,123 @@
+:root {
+  color: #f7f3ed;
+  background: #121111;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+.mobile-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at top right, rgb(195 119 79 / 18%), transparent 42%),
+    #121111;
+}
+
+.app-header {
+  max-width: 30rem;
+  margin-top: clamp(2rem, 10vh, 7rem);
+}
+
+.eyebrow {
+  color: #f0b58b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  max-width: 12ch;
+  margin-top: 0.5rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.6rem, 12vw, 4.5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.96;
+}
+
+.app-header p {
+  max-width: 34rem;
+  margin-top: 1.25rem;
+  color: #c8c0b6;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.readiness-card {
+  margin-top: 2.5rem;
+  padding: 1.25rem;
+  border: 1px solid #393431;
+  border-radius: 1.25rem;
+  background: rgb(255 255 255 / 4%);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.status-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #8bc18f;
+  box-shadow: 0 0 0 0.25rem rgb(139 193 143 / 15%);
+}
+
+h2 {
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+
+ul {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 1.1rem 0 0;
+  color: #d8d0c6;
+  font-size: 0.94rem;
+  list-style: none;
+}
+
+li::before {
+  margin-right: 0.65rem;
+  color: #f0b58b;
+  content: "✓";
+}
+
+.foundation-status {
+  width: 100%;
+  margin: auto 0 0;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  color: #c8c0b6;
+  background: rgb(255 255 255 / 4%);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+}

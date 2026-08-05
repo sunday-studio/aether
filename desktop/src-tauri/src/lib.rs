@@ -3,6 +3,7 @@ pub mod commands;
 pub mod db;
 pub mod error;
 pub mod media;
+pub mod platform;
 pub mod settings;
 pub mod sync;
 pub mod updater;

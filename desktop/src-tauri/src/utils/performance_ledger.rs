@@ -8,6 +8,8 @@ use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
+use crate::platform::{desktop, PlatformCapabilities};
+
 const RUST_LEDGER_FILE: &str = "aether-diagnostics-rust.jsonl";
 const ERROR_LEDGER_FILE: &str = "aether-errors.jsonl";
 const MAX_RUST_LEDGER_ENTRIES: usize = 500;
@@ -292,19 +294,16 @@ pub fn redact_json_value(value: &Value) -> Value {
 }
 
 fn diagnostics_dir() -> PathBuf {
-    if cfg!(debug_assertions) {
-        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("target")
-            .join("diagnostics");
-    }
-
-    production_diagnostics_dir().unwrap_or_else(|| std::env::temp_dir().join("aether-diagnostics"))
+    desktop()
+        .storage_paths()
+        .map(|paths| paths.logs)
+        .unwrap_or_else(|_| std::env::temp_dir().join("aether-diagnostics"))
 }
 
+#[cfg(test)]
 fn production_diagnostics_dir() -> Option<PathBuf> {
-    // `ProjectDirs` joins these three components on macOS. Supplying the full
-    // identifier for the application duplicates it as
-    // `com.cas.aether.com.cas.aether`, which differs from Tauri's app data dir.
+    // Keep the existing production-location assertion independent of the
+    // debug-only diagnostics path used by the desktop platform adapter.
     directories::ProjectDirs::from("com", "cas", "aether")
         .map(|dirs| dirs.data_local_dir().join("diagnostics"))
 }

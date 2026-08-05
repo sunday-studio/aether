@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { desktopCommandClient } from './desktop-command-client';
 import { recordRestLedgerEntry } from './performance-ledger';
 
 // =============================================================================
@@ -334,7 +334,7 @@ export const customFetch = async <T>(url: string, options?: RequestInit): Promis
 
 	const invokeStarted = performance.now();
 	try {
-		const result = await invoke(match.command, args);
+		const result = await desktopCommandClient.invoke(match.command, args);
 		const invokeMs = performance.now() - invokeStarted;
 		recordRestLedgerEntry({
 			requestId,

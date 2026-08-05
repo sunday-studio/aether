@@ -1,0 +1,34 @@
+{
+  "name": "@aether/mobile",
+  "private": true,
+  "version": "0.1.4",
+  "packageManager": "pnpm@10.24.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "lint": "oxlint .",
+    "check": "pnpm run lint && pnpm run build",
+    "check:version": "node scripts/check-version-parity.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:ios:init": "tauri ios init",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:android:init": "tauri android init",
+    "tauri:android:dev": "tauri android dev"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.9.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.9.3",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "oxlint": "^1.65.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
