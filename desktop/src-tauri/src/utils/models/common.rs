@@ -1,44 +1,11 @@
 use super::types::ModelCategory;
 use crate::error::{AppError, Result};
+use crate::platform::{desktop, PlatformCapabilities};
 use std::path::PathBuf;
-
-const APP_IDENTIFIER: &str = "com.cas.aether";
 
 /// Get platform-specific base directory for models
 pub fn get_models_base_dir() -> Result<PathBuf> {
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME")
-            .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
-        Ok(PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join(APP_IDENTIFIER)
-            .join("models"))
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let home = std::env::var("HOME")
-            .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
-        Ok(PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join(APP_IDENTIFIER)
-            .join("models"))
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var("APPDATA")
-            .map_err(|_| AppError::Internal("APPDATA environment variable not set".to_string()))?;
-        Ok(PathBuf::from(appdata).join(APP_IDENTIFIER).join("models"))
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        Ok(PathBuf::from(".").join("models"))
-    }
+    desktop().storage_paths().map(|paths| paths.models)
 }
 
 /// Get directory path for a specific model category

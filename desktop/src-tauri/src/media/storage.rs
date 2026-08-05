@@ -1,5 +1,6 @@
 use crate::db::repositories::MediaRepository;
 use crate::error::{AppError, Result};
+use crate::platform::{desktop, PlatformCapabilities};
 use crate::utils::generate_id;
 use libsql::Database;
 use std::path::PathBuf;
@@ -7,40 +8,7 @@ use std::sync::Arc;
 
 /// Get platform-specific media directory path
 pub fn get_media_directory() -> Result<PathBuf> {
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME")
-            .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
-        Ok(PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join("Aether")
-            .join("media"))
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let home = std::env::var("HOME")
-            .map_err(|_| AppError::Internal("HOME environment variable not set".to_string()))?;
-        Ok(PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join("aether")
-            .join("media"))
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var("APPDATA")
-            .map_err(|_| AppError::Internal("APPDATA environment variable not set".to_string()))?;
-        Ok(PathBuf::from(appdata).join("Aether").join("media"))
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        // Fallback to current directory
-        Ok(PathBuf::from(".").join("media"))
-    }
+    desktop().storage_paths().map(|paths| paths.media)
 }
 
 /// Ensure media directory exists

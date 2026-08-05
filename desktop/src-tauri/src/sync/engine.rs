@@ -3,6 +3,7 @@
 use crate::db::connection::{get_database, with_db_access};
 use crate::db::DbState;
 use crate::error::{AppError, Result};
+use crate::platform::{secure_secrets, SecureSecretStore};
 use crate::settings;
 use crate::sync::{apply, metadata, ordering, pull, push, register};
 use crate::utils::performance_ledger::record_error;
@@ -115,9 +116,8 @@ impl SyncEngine {
     }
 
     fn store_passphrase(&self, app: &AppHandle, passphrase: &str) -> Result<()> {
-        use tauri_plugin_keyring::KeyringExt;
-        app.keyring()
-            .set_password(SERVICE_NAME, PASSPHRASE_KEY, passphrase)
+        secure_secrets()
+            .set(app, SERVICE_NAME, PASSPHRASE_KEY, passphrase)
             .map_err(|e| {
                 AppError::Sync(format!("failed to store passphrase in keychain: {}", e))
             })?;
@@ -125,8 +125,7 @@ impl SyncEngine {
     }
 
     fn get_passphrase(&self, app: &AppHandle) -> Result<Option<String>> {
-        use tauri_plugin_keyring::KeyringExt;
-        match app.keyring().get_password(SERVICE_NAME, PASSPHRASE_KEY) {
+        match secure_secrets().get(app, SERVICE_NAME, PASSPHRASE_KEY) {
             Ok(Some(pass)) => Ok(Some(pass)),
             Ok(None) => Ok(None),
             Err(e) => {
@@ -137,8 +136,7 @@ impl SyncEngine {
     }
 
     fn clear_passphrase(&self, app: &AppHandle) -> Result<()> {
-        use tauri_plugin_keyring::KeyringExt;
-        match app.keyring().delete_password(SERVICE_NAME, PASSPHRASE_KEY) {
+        match secure_secrets().delete(app, SERVICE_NAME, PASSPHRASE_KEY) {
             Ok(()) => Ok(()),
             Err(e) => {
                 let err_str = e.to_string();
