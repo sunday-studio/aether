@@ -1,0 +1,16 @@
+[package]
+name = "aether-mobile"
+version = "0.1.4"
+description = "Aether mobile shell"
+authors = ["casprine@thesunday.studio"]
+edition = "2021"
+
+[lib]
+name = "aether_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
