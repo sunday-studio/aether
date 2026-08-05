@@ -1,10 +1,10 @@
 {
   "version": "0.1.5",
-  "pub_date": "2026-08-05T05:08:40.087Z",
-  "notes": "- Improve sync authentication diagnostics without exposing credentials.\n- Store diagnostics in the canonical macOS app-data directory and preserve existing local database data during migration.",
+  "pub_date": "2026-08-05T05:17:40.017Z",
+  "notes": "- Keep a local, redacted error ledger that records command failures, panics, and error events for support debugging.\n- Improve sync authentication diagnostics without exposing credentials.\n- Store diagnostics in the canonical macOS app-data directory and preserve existing local database data during migration.",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdDhFYXFmdTY5V0d0dnVvNm1vMVQ0S2pHM1VXd016Mkp3MzNEZDVINndGVDAvOHhOWTNsZW9kWWJCL0FIdElJZUdrMGpCSyt5c2MxSUlIME05ZExKWHM2UlR0aVRUbHdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1OTA2NDgwCWZpbGU6QWV0aGVyLmFwcC50YXIuZ3oKbVNoaldDZENNQnZpQjBTaEliUzNiTU9HUzhtQjVHYk5wOTlVd21kbE4xLzRRbU5oc1c1WUkzRHFZbTQ4SWpEcE91SGg3WUpDNzdReHhxTUdOZmVPQ2c9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdDhFYXFmdTY5V0QzM0FFWnh1anN5YzJUd0krVnhmVFpKZGNvRndYMElTdStpS1Naa2J0ZTE5UE12eEJVNG5QSmE2TUV0Umc5R1VQSTk4b2RsR3VydUE5QjkzWUxlWFFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1OTA3MDM2CWZpbGU6QWV0aGVyLmFwcC50YXIuZ3oKS3VKeTlKWS9rRGlUMjFnRUk3eEdEV25aZnA1bUNiRlozaXBPVDBDNCtkbTdlWitMZWtRWFhsaFlOSVBRYnlTTjlIWHY4RGdKSFBKOXcxTXk4UnZPQUE9PQo=",
       "url": "https://github.com/sunday-studio/aether/releases/download/v0.1.5/Aether_aarch64-apple-darwin.app.tar.gz"
     }
   }
