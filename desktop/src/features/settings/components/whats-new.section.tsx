@@ -1,7 +1,16 @@
-import { DownloadIcon, RefreshCwIcon, RotateCcwIcon, SparklesIcon, XIcon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+	DownloadIcon,
+	ExternalLinkIcon,
+	RefreshCwIcon,
+	RotateCcwIcon,
+	SparklesIcon,
+	XIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '~/components/shared/button';
 import { useUpdater } from '~/hooks/use-updater';
+import { getReleaseHistory } from '~/lib/release-history';
 import type { UpdatePreferences } from '~/types/updater';
 
 export const WhatsNewSection = () => {
@@ -9,10 +18,10 @@ export const WhatsNewSection = () => {
 		checking,
 		available,
 		downloading,
-	progress,
-	info,
-	error,
-	lastSuccessfulCheck,
+		progress,
+		info,
+		error,
+		lastSuccessfulCheck,
 		checkForUpdates,
 		downloadAndInstall,
 		skipVersion,
@@ -23,6 +32,12 @@ export const WhatsNewSection = () => {
 
 	const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 	const [prefs, setPrefs] = useState<UpdatePreferences | null>(null);
+	const releaseHistoryQuery = useQuery({
+		queryKey: ['release-history'],
+		queryFn: getReleaseHistory,
+		staleTime: 1000 * 60 * 15,
+		meta: { persist: false },
+	});
 
 	useEffect(() => {
 		getAppVersion().then(setCurrentVersion);
@@ -143,6 +158,60 @@ export const WhatsNewSection = () => {
 					</div>
 					<ReleaseNotes content={info?.changelog ?? ''} />
 				</div>
+			</section>
+
+			<section className='space-y-4 border-t border-(--color-border) pt-6'>
+				<div>
+					<h4 className='text-md font-medium'>Release history</h4>
+					<p className='mt-1 text-sm text-(--color-secondary-text)'>
+						Previous versions and their release notes. The automatic updater only installs the
+						latest stable release.
+					</p>
+				</div>
+
+				{releaseHistoryQuery.isPending && (
+					<p className='rounded-lg border border-dashed border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
+						Loading release history...
+					</p>
+				)}
+
+				{releaseHistoryQuery.isError && (
+					<p className='rounded-lg border border-dashed border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
+						Release history is unavailable right now.
+					</p>
+				)}
+
+				{releaseHistoryQuery.data?.length === 0 && (
+					<p className='rounded-lg border border-dashed border-(--color-border) bg-(--color-background) p-4 text-sm text-(--color-secondary-text)'>
+						No releases are published yet.
+					</p>
+				)}
+
+				{releaseHistoryQuery.data?.map(release => (
+					<article
+						key={release.tagName}
+						className='rounded-lg border border-(--color-border) bg-(--color-background) p-4'
+					>
+						<div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
+							<div>
+								<p className='text-sm font-medium'>{release.name}</p>
+								<p className='mt-1 text-xs text-(--color-secondary-text)'>
+									{release.tagName}
+									{release.publishedAt && ` · Published ${formatPublishedAt(release.publishedAt)}`}
+								</p>
+							</div>
+							<a
+								href={release.url}
+								target='_blank'
+								rel='noopener noreferrer'
+								className='inline-flex items-center gap-1 text-xs text-(--color-link)'
+							>
+								View release <ExternalLinkIcon className='size-3.5' />
+							</a>
+						</div>
+						<ReleaseNotes content={release.notes} />
+					</article>
+				))}
 			</section>
 
 			{error && (
