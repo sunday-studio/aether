@@ -23,6 +23,7 @@ jobs:
       desktop_child_tasks: ${{ steps.filter.outputs.desktop_child_tasks }}
       sync_server: ${{ steps.filter.outputs.sync_server }}
       desktop_release: ${{ steps.filter.outputs.desktop_release }}
+      mobile: ${{ steps.filter.outputs.mobile }}
 
     steps:
       - name: Checkout
@@ -73,6 +74,53 @@ jobs:
               - 'desktop/scripts/check-version-parity.mjs'
               - 'desktop/src-tauri/Cargo.toml'
               - 'desktop/src-tauri/tauri.conf.json'
+            mobile:
+              - '.github/workflows/pr-ci.yml'
+              - 'mobile/package.json'
+              - 'mobile/pnpm-lock.yaml'
+              - 'mobile/index.html'
+              - 'mobile/playwright.config.ts'
+              - 'mobile/scripts/**'
+              - 'mobile/src-tauri/Cargo.toml'
+              - 'mobile/src-tauri/tauri.conf.json'
+              - 'mobile/tsconfig*.json'
+              - 'mobile/vite.config.ts'
+              - 'mobile/.ox*.json'
+              - 'mobile/src/**'
+              - 'mobile/tests/**'
+
+  mobile-browser-tests:
+    name: Mobile browser tests
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: mobile/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: pnpm install --frozen-lockfile
+
+      - name: Run browser checks
+        working-directory: mobile
+        run: |
+          pnpm check
+          pnpm exec playwright install --with-deps chromium
+          pnpm e2e:ci
 
   frontend:
     name: Frontend lint and build

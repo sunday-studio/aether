@@ -7,7 +7,11 @@ This is the isolated Tauri 2 mobile shell for Aether. It deliberately has no dep
 ```sh
 pnpm install
 pnpm check
+pnpm e2e:install
+pnpm e2e
 ```
+
+`pnpm e2e:ci` runs the same browser suite with CI-only retries and a single worker.
 
 ## Native mobile setup
 
